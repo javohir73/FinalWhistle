@@ -107,11 +107,11 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
 
 ## Tasks
 
-- [ ] 0.0 Initialize repository and feature branch
-  - [ ] 0.1 Run `git init` (this folder is not yet a git repo), then make an initial commit of the PRD + task files
-  - [ ] 0.2 Add a root `.gitignore` (node_modules, `__pycache__`, `.env`, build output, large `data/` files)
-  - [ ] 0.3 Create and checkout the feature branch: `git checkout -b feature/wc26-mvp`
-  - [ ] 0.4 **Test gate:** Add the testing toolchains — `pytest` to `backend/requirements.txt` and a `frontend/` Jest + React Testing Library config; add a root `test:all` script that runs both. Verify each runner executes (even with zero tests) and commit.
+- [x] 0.0 Initialize repository and feature branch
+  - [x] 0.1 Run `git init` (this folder is not yet a git repo), then make an initial commit of the PRD + task files
+  - [x] 0.2 Add a root `.gitignore` (node_modules, `__pycache__`, `.env`, build output, large `data/` files)
+  - [x] 0.3 Create and checkout the feature branch: `git checkout -b feature/wc26-mvp`
+  - [x] 0.4 **Test gate:** Add the testing toolchains — `pytest` to `backend/requirements.txt` and a `frontend/` Jest + React Testing Library config; add a root `test:all` script that runs both. Verify each runner executes (even with zero tests) and commit.
 
 - [ ] 1.0 Scaffold the monorepo and prove end-to-end deploy
   - [ ] 1.1 Create the folder structure from PRD §18 (`frontend/`, `backend/`, `ml/`, `pipeline/`, `data/`, `docs/`)

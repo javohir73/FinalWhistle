@@ -1,7 +1,11 @@
 /** Jest config for the Next.js/TypeScript frontend.
- *  Uses ts-jest now; task 1.5 (Next.js scaffold) may switch to next/jest. */
-module.exports = {
-  preset: "ts-jest",
+ *  Uses next/jest so tests handle TS, JSX, CSS imports, and the "@/..." alias. */
+const nextJest = require("next/jest");
+
+const createJestConfig = nextJest({ dir: "./" });
+
+/** @type {import('jest').Config} */
+const customConfig = {
   testEnvironment: "jsdom",
   testMatch: ["**/*.test.ts", "**/*.test.tsx"],
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
@@ -9,3 +13,5 @@ module.exports = {
     "^@/(.*)$": "<rootDir>/$1",
   },
 };
+
+module.exports = createJestConfig(customConfig);

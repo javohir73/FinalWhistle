@@ -1,0 +1,30 @@
+# Local development services. Run: docker compose up -d
+# Postgres is the source of truth (PRD §7). Redis is optional for the MVP
+# (the backend uses an in-memory cache by default) — left commented until needed.
+services:
+  db:
+    image: postgres:16
+    container_name: wc26-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wc26
+      POSTGRES_PASSWORD: wc26
+      POSTGRES_DB: wc26
+    ports:
+      - "5432:5432"
+    volumes:
+      - wc26_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wc26 -d wc26"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # redis:
+  #   image: redis:7
+  #   container_name: wc26-redis
+  #   ports:
+  #     - "6379:6379"
+
+volumes:
+  wc26_pgdata:
