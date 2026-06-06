@@ -1,0 +1,39 @@
+# ---- Python (backend / ml / pipeline) ----
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# ---- Node / Next.js (frontend) ----
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+.eslintcache
+
+# ---- Environment & secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Data (large / downloaded; keep small seed JSON in pipeline/data) ----
+data/raw/
+data/processed/
+*.csv
+!pipeline/data/*.csv
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
