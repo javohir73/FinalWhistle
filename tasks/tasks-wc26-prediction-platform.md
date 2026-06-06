@@ -114,16 +114,16 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 0.4 **Test gate:** Add the testing toolchains — `pytest` to `backend/requirements.txt` and a `frontend/` Jest + React Testing Library config; add a root `test:all` script that runs both. Verify each runner executes (even with zero tests) and commit.
 
 - [ ] 1.0 Scaffold the monorepo and prove end-to-end deploy
-  - [ ] 1.1 Create the folder structure from PRD §18 (`frontend/`, `backend/`, `ml/`, `pipeline/`, `data/`, `docs/`)
-  - [ ] 1.2 Initialize the FastAPI app (`backend/app/main.py`) with a `/api/health` endpoint returning `{status:"ok", app:"PitchProphet"}`
-  - [ ] 1.3 Add `backend/requirements.txt` (fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, pydantic-settings, pandas, numpy, scikit-learn, pytest)
-  - [ ] 1.4 Add `docker-compose.yml` with a local Postgres service and wire `backend/app/db.py` + `backend/app/config.py` to it
-  - [ ] 1.5 Initialize the Next.js app (TypeScript) in `frontend/`, add Tailwind, shadcn/ui, and Recharts
-  - [ ] 1.6 Create `frontend/lib/api.ts` and a homepage that calls `/api/health` and renders the status (proves frontend↔backend)
-  - [ ] 1.7 Add `.env.example` and document local setup in `README.md`
-  - [ ] 1.8 Deploy: frontend to Vercel, backend + Postgres to Railway/Render; confirm the deployed homepage reads the deployed health endpoint
-  - [ ] 1.9 Commit and verify the deployed URLs work end-to-end
-  - [ ] 1.10 **Test gate:** pytest test for `/api/health` (returns 200 + correct payload); Jest test that `frontend/lib/api.ts` calls the health endpoint and the homepage renders the status. Run `test:all`; all green before moving on.
+  - [x] 1.1 Create the folder structure from PRD §18 (`frontend/`, `backend/`, `ml/`, `pipeline/`, `data/`, `docs/`)
+  - [x] 1.2 Initialize the FastAPI app (`backend/app/main.py`) with a `/api/health` endpoint returning `{status:"ok", app:"PitchProphet"}`
+  - [x] 1.3 Add `backend/requirements.txt` (fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, pydantic-settings, pandas, numpy, scikit-learn, pytest)
+  - [x] 1.4 Add `docker-compose.yml` with a local Postgres service and wire `backend/app/db.py` + `backend/app/config.py` to it
+  - [x] 1.5 Initialize the Next.js app (TypeScript) in `frontend/`, add Tailwind, shadcn/ui, and Recharts
+  - [x] 1.6 Create `frontend/lib/api.ts` and a homepage that calls `/api/health` and renders the status (proves frontend↔backend)
+  - [x] 1.7 Add `.env.example` and document local setup in `README.md`
+  - [ ] 1.8 Deploy: frontend to Vercel, backend + Postgres to Railway/Render; confirm the deployed homepage reads the deployed health endpoint *(DEFERRED by user — revisit after the model is proven; build locally for now)*
+  - [ ] 1.9 Commit and verify the deployed URLs work end-to-end *(DEFERRED with 1.8)*
+  - [x] 1.10 **Test gate:** pytest test for `/api/health` (returns 200 + correct payload); Jest test that `frontend/lib/api.ts` calls the health endpoint and the homepage renders the status. Run `test:all`; all green before moving on.
 
 - [ ] 2.0 Build the database schema and data-ingestion pipeline
   - [ ] 2.1 Define SQLAlchemy models for MVP tables (`tournaments`, `teams`, `groups`, `group_teams`, `matches` incl. `venue_country`/`host_team_id`, `historical_matches`, `team_stats`, `predictions`, `standings`) per PRD §10
