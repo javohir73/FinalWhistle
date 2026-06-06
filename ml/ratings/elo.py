@@ -114,3 +114,41 @@ def run_elo(
         ratings[m.home_id] = new_h
         ratings[m.away_id] = new_a
     return ratings
+
+
+def replay_with_prematch(
+    matches: list[MatchInput],
+    base: float = BASE_RATING,
+    home_advantage: float = HOME_ADVANTAGE,
+) -> tuple[list[dict], dict[int, float]]:
+    """Replay matches, recording each team's PRE-match rating.
+
+    Returns (rows, final_ratings). Each row carries the ratings as they were
+    BEFORE the match was played — exactly what training and backtesting need to
+    avoid leaking the result into the features.
+    """
+    ratings: dict[int, float] = {}
+    rows: list[dict] = []
+    for m in matches:
+        rh = ratings.get(m.home_id, base)
+        ra = ratings.get(m.away_id, base)
+        rows.append(
+            {
+                "home_id": m.home_id,
+                "away_id": m.away_id,
+                "pre_home": rh,
+                "pre_away": ra,
+                "is_neutral": m.is_neutral,
+                "competition": m.competition,
+                "score_home": m.score_home,
+                "score_away": m.score_away,
+            }
+        )
+        new_h, new_a = update_ratings(
+            rh, ra, m.score_home, m.score_away,
+            competition=m.competition, is_neutral=m.is_neutral,
+            home_advantage=home_advantage,
+        )
+        ratings[m.home_id] = new_h
+        ratings[m.away_id] = new_a
+    return rows, ratings
