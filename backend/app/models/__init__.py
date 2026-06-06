@@ -101,6 +101,7 @@ class Match(Base):
     score_away: Mapped[int | None] = mapped_column(Integer)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
+    group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
     home_team: Mapped[Team | None] = relationship(foreign_keys=[team_home_id])
     away_team: Mapped[Team | None] = relationship(foreign_keys=[team_away_id])
     predictions: Mapped[list[Prediction]] = relationship(back_populates="match")

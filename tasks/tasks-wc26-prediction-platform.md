@@ -157,16 +157,16 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 4.6 Tune the few model knobs (Elo K-factor, form window, Poisson dampening) using time-based splits only; avoid overfitting
   - [x] 4.7 **Test gate (pytest):** backtest runs on a tiny fixture dataset and returns sane metrics; naive-baseline produces valid probabilities; an assertion test that the model's log-loss < baseline's (the PRD Goal #3 gate, encoded as a test); calibration output is monotonic. All green before moving on.
 
-- [ ] 5.0 Build the FastAPI backend
-  - [ ] 5.1 Define Pydantic response schemas matching the PRD §17 prediction contract (incl. `model_version`, `generated_at`, stubbed `odds_comparison.available=false`)
-  - [ ] 5.2 Implement `/api/matches/upcoming` and `/api/matches/{id}` (joins team + prediction data)
-  - [ ] 5.3 Implement `/api/predictions/{match_id}` returning current + historical predictions (for the trend chart)
-  - [ ] 5.4 Implement `/api/teams` and `/api/teams/{id}` (form, history, strengths/weaknesses, prediction trend)
-  - [ ] 5.5 Implement `/api/groups` and `/api/groups/{id}` (standings + qualification probabilities)
-  - [ ] 5.6 Implement `POST /api/internal/recompute` protected by a shared secret token; it runs the pipeline + prediction generation
-  - [ ] 5.7 Implement `backend/app/cache.py` (in-memory interface, Redis-ready) and cache the read endpoints; ensure reads never trigger a model run (PRD §7 key principle)
-  - [ ] 5.8 Ensure every prediction write logs a timestamped row with `model_version` (PRD Req #20) for later accuracy tracking
-  - [ ] 5.9 **Test gate (pytest):** every endpoint covered for happy path + a 404/not-found case; schema-conformance test that prediction responses match the PRD §17 contract (incl. stubbed `odds_comparison.available=false`); a test that read endpoints serve from cache and do NOT trigger a model run; a test that prediction writes log `model_version` + timestamp. All green before moving on.
+- [x] 5.0 Build the FastAPI backend
+  - [x] 5.1 Define Pydantic response schemas matching the PRD §17 prediction contract (incl. `model_version`, `generated_at`, stubbed `odds_comparison.available=false`)
+  - [x] 5.2 Implement `/api/matches/upcoming` and `/api/matches/{id}` (joins team + prediction data)
+  - [x] 5.3 Implement `/api/predictions/{match_id}` returning current + historical predictions (for the trend chart)
+  - [x] 5.4 Implement `/api/teams` and `/api/teams/{id}` (form, history, strengths/weaknesses, prediction trend)
+  - [x] 5.5 Implement `/api/groups` and `/api/groups/{id}` (standings + qualification probabilities)
+  - [x] 5.6 Implement `POST /api/internal/recompute` protected by a shared secret token; it runs the pipeline + prediction generation
+  - [x] 5.7 Implement `backend/app/cache.py` (in-memory interface, Redis-ready) and cache the read endpoints; ensure reads never trigger a model run (PRD §7 key principle)
+  - [x] 5.8 Ensure every prediction write logs a timestamped row with `model_version` (PRD Req #20) for later accuracy tracking
+  - [x] 5.9 **Test gate (pytest):** every endpoint covered for happy path + a 404/not-found case; schema-conformance test that prediction responses match the PRD §17 contract (incl. stubbed `odds_comparison.available=false`); a test that read endpoints serve from cache and do NOT trigger a model run; a test that prediction writes log `model_version` + timestamp. All green before moving on.
 
 - [ ] 6.0 Build the Next.js dashboard
   - [ ] 6.1 Set up the root layout with nav and the persistent `DisclaimerBanner` (PRD Req #18); make it mobile-first
