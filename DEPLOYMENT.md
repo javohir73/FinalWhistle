@@ -30,13 +30,22 @@ Vercel (Next.js)  ──HTTPS──►  Render Web Service (FastAPI, Docker)  �
 
 ---
 
-## 2. Database migration / deploy notes
+## 2. Database migration / deploy notes (free tier)
 
-- The schema is owned by **Alembic**. The Render web service runs `alembic upgrade head` automatically before every deploy (`preDeployCommand` in `render.yaml`).
-- After the **first** successful deploy the database is empty. Seed it once (either is fine):
-  - Trigger the cron manually: Render dashboard → `pitchprophet-refresh` → **Run now**, or
-  - Open a shell on the web service and run `python -m pipeline.run_pipeline`.
-- The daily cron re-runs the full pipeline (idempotent) at 06:00 UTC.
+Render's **free tier doesn't allow pre-deploy commands or cron jobs**, so migrations
+and the daily data refresh run from **GitHub Actions** (`.github/workflows/refresh.yml`),
+which connects to the Render Postgres over its external URL. This is free and runs
+the full pipeline (migrate → ingest → Elo → stats → predictions).
+
+One-time setup:
+1. In Render, open **pitchprophet-db** → **Info** → copy the **External Database URL**.
+2. In GitHub: repo → **Settings → Secrets and variables → Actions → New repository secret**
+   named `DATABASE_URL` = that external URL.
+3. Run the **refresh-data** workflow once (Actions tab → *refresh-data* → **Run workflow**)
+   to apply migrations and seed the database. It then runs daily at 06:00 UTC.
+
+The web service stays read-only and serves from cache (10-min TTL), so the
+Action's DB writes appear within ~10 minutes without restarting the API.
 
 ---
 
@@ -80,12 +89,15 @@ Click-by-click:
 
 1. Push this repo to GitHub.
 2. Go to **dashboard.render.com → New → Blueprint**.
-3. Connect the repo. Render detects `render.yaml` and shows: 1 web service, 1 cron, 1 Postgres.
-4. Click **Apply**. Render creates the database, builds the Docker image, and runs `alembic upgrade head` before the web service goes live.
+3. Connect the repo. Render detects `render.yaml` and shows: **1 web service + 1 Postgres**.
+4. Click **Apply**. Render creates the database and builds the Docker image.
 5. When the web service is live, copy its URL (e.g. `https://pitchprophet-api.onrender.com`).
-6. Open the **pitchprophet-api** service → **Environment** → set `CORS_ORIGINS` to your Vercel URL (you'll have it after step 5 of the Vercel section; you can set a placeholder now and update later).
-7. Seed data: **pitchprophet-refresh** cron → **Run now** (or run `python -m pipeline.run_pipeline` from the web service Shell).
-8. Verify: open `https://<api>/api/health` (should be `{"status":"ok",...}`) and `https://<api>/api/matches/upcoming`.
+6. **Migrate + seed the DB** (see §2): copy the database's External URL → add it as the
+   GitHub `DATABASE_URL` secret → run the **refresh-data** GitHub Action once.
+7. Set `CORS_ORIGINS` on the **pitchprophet-api** service → **Environment** to your Vercel
+   URL (you'll have it after the Vercel section; placeholder now, update later).
+8. Verify: open `https://<api>/api/health` → `{"status":"ok",...}`, then `/api/matches/upcoming`
+   (returns data after step 6 completes).
 
 Notes:
 - Free Postgres expires after ~90 days; upgrade the plan for anything long-lived.

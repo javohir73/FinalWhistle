@@ -1,35 +1,40 @@
-# Daily data refresh: triggers a recompute on the deployed backend (PRD §4.4, task 7.2).
-# Activates once the backend is deployed (task 1.8, deferred). Until then it can be
-# run manually via "Run workflow" for testing.
-name: daily-refresh
+# Migrate + refresh the production database (free alternative to a Render cron).
+# Runs the FULL pipeline: apply migrations -> ingest results -> Elo -> stats ->
+# predictions, directly against the Render Postgres.
+#
+# Setup (one time):
+#   1. In Render, open the pitchprophet-db database and copy the EXTERNAL
+#      connection string (Info tab → "External Database URL").
+#   2. In GitHub: repo → Settings → Secrets and variables → Actions → New secret
+#      named DATABASE_URL with that value.
+#   3. Run this workflow once via "Run workflow" to seed the database.
+# It then runs daily at 06:00 UTC.
+name: refresh-data
 
 on:
   schedule:
-    - cron: "0 6 * * *" # 06:00 UTC daily
+    - cron: "0 6 * * *"
   workflow_dispatch: {}
 
 jobs:
-  recompute:
+  refresh:
     runs-on: ubuntu-latest
     steps:
-      - name: Trigger backend recompute
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
         run: |
-          set -euo pipefail
-          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -X POST \
-            "${API_URL}/api/internal/recompute" \
-            -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}")
-          echo "HTTP $code"; cat /tmp/resp.json
-          test "$code" = "200"
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Apply migrations
+        working-directory: backend
         env:
-          API_URL: ${{ secrets.API_URL }}
-          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
-
-      # Failure alerting (task 7.3): notify on failure if a Slack webhook is set.
-      - name: Notify on failure
-        if: failure() && env.SLACK_WEBHOOK != ''
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: alembic upgrade head
+      - name: Run full pipeline (ingest → Elo → predictions)
         env:
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
-        run: |
-          curl -sS -X POST -H 'Content-type: application/json' \
-            --data '{"text":"⚠️ PitchProphet daily refresh FAILED. Check the Actions run."}' \
-            "$SLACK_WEBHOOK"
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.run_pipeline
