@@ -1,0 +1,48 @@
+# Render Blueprint — backend API + Postgres + daily refresh cron.
+# Create from the Render dashboard: New > Blueprint > pick this repo.
+# Frontend is deployed separately on Vercel (see DEPLOYMENT.md).
+databases:
+  - name: pitchprophet-db
+    plan: free # free Postgres (expires after ~90 days; upgrade for production)
+
+services:
+  # ---- Backend API (FastAPI in Docker) ----
+  - type: web
+    name: pitchprophet-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    # Run DB migrations before each deploy goes live.
+    preDeployCommand: "cd /app/backend && alembic upgrade head"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pitchprophet-db
+          property: connectionString
+      - key: RECOMPUTE_TOKEN
+        generateValue: true # Render generates a strong secret
+      - key: MODEL_VERSION
+        value: poisson-elo-v0.1
+      - key: CACHE_TTL_SECONDS
+        value: "600"
+      - key: CORS_ORIGINS
+        sync: false # set to your Vercel URL, e.g. https://pitchprophet.vercel.app
+
+  # ---- Daily full refresh (download results -> Elo -> stats -> predictions) ----
+  - type: cron
+    name: pitchprophet-refresh
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: free
+    schedule: "0 6 * * *" # 06:00 UTC daily
+    dockerCommand: "python -m pipeline.run_pipeline"
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: pitchprophet-db
+          property: connectionString
+      - key: MODEL_VERSION
+        value: poisson-elo-v0.1

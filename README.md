@@ -97,6 +97,28 @@ make test-py     # Python only
 make test-js     # frontend only
 ```
 
+## Deployment
+
+Full click-by-click instructions, env-var reference, and a local production-style
+test are in **[DEPLOYMENT.md](DEPLOYMENT.md)**. Summary:
+
+- **Frontend → Vercel** (root directory `frontend`, env `NEXT_PUBLIC_API_URL`).
+- **Backend + Postgres + daily cron → Render** via the `render.yaml` blueprint
+  (Docker image from `backend/Dockerfile`).
+
+Required environment variables:
+
+| Where | Variable | Purpose |
+|---|---|---|
+| Backend | `DATABASE_URL` | Postgres connection (auto-wired by Render) |
+| Backend | `RECOMPUTE_TOKEN` | Secret for `POST /api/internal/recompute` |
+| Backend | `CORS_ORIGINS` | Allowed frontend origin(s), e.g. the Vercel URL |
+| Backend | `MODEL_VERSION`, `CACHE_TTL_SECONDS` | Optional tuning |
+| Frontend | `NEXT_PUBLIC_API_URL` | Backend base URL |
+
+Migrations run automatically on deploy (`alembic upgrade head`); seed data once
+after the first deploy by running the refresh cron. See DEPLOYMENT.md for details.
+
 ## Status
 
 MVP in progress — see the task list for current state. Phases after MVP: live in-game updates, player-influence model, sentiment, Monte Carlo tournament simulator, user accounts.

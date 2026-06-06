@@ -22,9 +22,24 @@ class Settings(BaseSettings):
     # CORS: comma-separated list of allowed frontend origins.
     cors_origins: str = "http://localhost:3000"
 
+    # Read-cache lifetime. Lets a separate refresh process's DB writes appear in
+    # the web process without cross-process cache invalidation.
+    cache_ttl_seconds: int = 600
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def sqlalchemy_url(self) -> str:
+        """Normalize provider URLs (e.g. Render's 'postgres://') to a SQLAlchemy
+        driver URL so deploys work without manual editing."""
+        url = self.database_url
+        if url.startswith("postgres://"):
+            url = "postgresql+psycopg2://" + url[len("postgres://"):]
+        elif url.startswith("postgresql://") and "+" not in url.split("://", 1)[0]:
+            url = "postgresql+psycopg2://" + url[len("postgresql://"):]
+        return url
 
 
 settings = Settings()

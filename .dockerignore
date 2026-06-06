@@ -1,0 +1,21 @@
+# Keep the backend image small and clean.
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+node_modules
+frontend
+data/raw
+data/processed
+*.db
+*.sqlite
+.env
+.env.*
+tasks
+docs
+.github
+*.md

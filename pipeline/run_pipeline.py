@@ -70,7 +70,7 @@ def main() -> int:
     from app.db import Base
     import app.models  # noqa: F401
 
-    engine = create_engine(settings.database_url, future=True)
+    engine = create_engine(settings.sqlalchemy_url, future=True)
     Base.metadata.create_all(engine)  # safety for fresh DBs; Alembic owns prod schema
     db = sessionmaker(bind=engine, future=True)()
     try:
