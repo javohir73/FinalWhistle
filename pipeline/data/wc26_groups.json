@@ -1,0 +1,23 @@
+{
+  "_source": "2026 FIFA World Cup final draw, 5 Dec 2025. Teams listed in draw position order (1=seed/host, 2, 3, 4).",
+  "_note": "Hosts pre-allocated: Mexico A1, Canada B1, United States D1. Host nations play their group-stage matches in their own country (drives host_team_id / host advantage, PRD Decision #2).",
+  "host_country_by_team": {
+    "Mexico": "Mexico",
+    "Canada": "Canada",
+    "United States": "United States"
+  },
+  "groups": [
+    { "name": "Group A", "teams": ["Mexico", "South Africa", "South Korea", "Czechia"] },
+    { "name": "Group B", "teams": ["Canada", "Bosnia and Herzegovina", "Qatar", "Switzerland"] },
+    { "name": "Group C", "teams": ["Brazil", "Morocco", "Haiti", "Scotland"] },
+    { "name": "Group D", "teams": ["United States", "Paraguay", "Australia", "Turkey"] },
+    { "name": "Group E", "teams": ["Germany", "Curaçao", "Ivory Coast", "Ecuador"] },
+    { "name": "Group F", "teams": ["Netherlands", "Japan", "Sweden", "Tunisia"] },
+    { "name": "Group G", "teams": ["Belgium", "Egypt", "Iran", "New Zealand"] },
+    { "name": "Group H", "teams": ["Spain", "Cape Verde", "Saudi Arabia", "Uruguay"] },
+    { "name": "Group I", "teams": ["France", "Senegal", "Iraq", "Norway"] },
+    { "name": "Group J", "teams": ["Argentina", "Algeria", "Austria", "Jordan"] },
+    { "name": "Group K", "teams": ["Portugal", "DR Congo", "Uzbekistan", "Colombia"] },
+    { "name": "Group L", "teams": ["England", "Croatia", "Ghana", "Panama"] }
+  ]
+}

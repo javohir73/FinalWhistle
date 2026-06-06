@@ -1,0 +1,65 @@
+{
+  "_source": "2026 FIFA World Cup final draw, 5 Dec 2025 (Washington D.C.). Verified against en.wikipedia.org/wiki/2026_FIFA_World_Cup and en.wikipedia.org/wiki/2026_FIFA_World_Cup_draw, June 2026.",
+  "_note": "Names are canonical (match pipeline/team_mapping.py). 'code' is the FIFA tricode (best-effort, display only). Hosts: Mexico, Canada, United States (all CONCACAF).",
+  "teams": [
+    { "name": "Mexico", "code": "MEX", "confederation": "CONCACAF", "is_host": true },
+    { "name": "South Africa", "code": "RSA", "confederation": "CAF", "is_host": false },
+    { "name": "South Korea", "code": "KOR", "confederation": "AFC", "is_host": false },
+    { "name": "Czechia", "code": "CZE", "confederation": "UEFA", "is_host": false },
+
+    { "name": "Canada", "code": "CAN", "confederation": "CONCACAF", "is_host": true },
+    { "name": "Bosnia and Herzegovina", "code": "BIH", "confederation": "UEFA", "is_host": false },
+    { "name": "Qatar", "code": "QAT", "confederation": "AFC", "is_host": false },
+    { "name": "Switzerland", "code": "SUI", "confederation": "UEFA", "is_host": false },
+
+    { "name": "Brazil", "code": "BRA", "confederation": "CONMEBOL", "is_host": false },
+    { "name": "Morocco", "code": "MAR", "confederation": "CAF", "is_host": false },
+    { "name": "Haiti", "code": "HAI", "confederation": "CONCACAF", "is_host": false },
+    { "name": "Scotland", "code": "SCO", "confederation": "UEFA", "is_host": false },
+
+    { "name": "United States", "code": "USA", "confederation": "CONCACAF", "is_host": true },
+    { "name": "Paraguay", "code": "PAR", "confederation": "CONMEBOL", "is_host": false },
+    { "name": "Australia", "code": "AUS", "confederation": "AFC", "is_host": false },
+    { "name": "Turkey", "code": "TUR", "confederation": "UEFA", "is_host": false },
+
+    { "name": "Germany", "code": "GER", "confederation": "UEFA", "is_host": false },
+    { "name": "Curaçao", "code": "CUW", "confederation": "CONCACAF", "is_host": false },
+    { "name": "Ivory Coast", "code": "CIV", "confederation": "CAF", "is_host": false },
+    { "name": "Ecuador", "code": "ECU", "confederation": "CONMEBOL", "is_host": false },
+
+    { "name": "Netherlands", "code": "NED", "confederation": "UEFA", "is_host": false },
+    { "name": "Japan", "code": "JPN", "confederation": "AFC", "is_host": false },
+    { "name": "Sweden", "code": "SWE", "confederation": "UEFA", "is_host": false },
+    { "name": "Tunisia", "code": "TUN", "confederation": "CAF", "is_host": false },
+
+    { "name": "Belgium", "code": "BEL", "confederation": "UEFA", "is_host": false },
+    { "name": "Egypt", "code": "EGY", "confederation": "CAF", "is_host": false },
+    { "name": "Iran", "code": "IRN", "confederation": "AFC", "is_host": false },
+    { "name": "New Zealand", "code": "NZL", "confederation": "OFC", "is_host": false },
+
+    { "name": "Spain", "code": "ESP", "confederation": "UEFA", "is_host": false },
+    { "name": "Cape Verde", "code": "CPV", "confederation": "CAF", "is_host": false },
+    { "name": "Saudi Arabia", "code": "KSA", "confederation": "AFC", "is_host": false },
+    { "name": "Uruguay", "code": "URU", "confederation": "CONMEBOL", "is_host": false },
+
+    { "name": "France", "code": "FRA", "confederation": "UEFA", "is_host": false },
+    { "name": "Senegal", "code": "SEN", "confederation": "CAF", "is_host": false },
+    { "name": "Iraq", "code": "IRQ", "confederation": "AFC", "is_host": false },
+    { "name": "Norway", "code": "NOR", "confederation": "UEFA", "is_host": false },
+
+    { "name": "Argentina", "code": "ARG", "confederation": "CONMEBOL", "is_host": false },
+    { "name": "Algeria", "code": "ALG", "confederation": "CAF", "is_host": false },
+    { "name": "Austria", "code": "AUT", "confederation": "UEFA", "is_host": false },
+    { "name": "Jordan", "code": "JOR", "confederation": "AFC", "is_host": false },
+
+    { "name": "Portugal", "code": "POR", "confederation": "UEFA", "is_host": false },
+    { "name": "DR Congo", "code": "COD", "confederation": "CAF", "is_host": false },
+    { "name": "Uzbekistan", "code": "UZB", "confederation": "AFC", "is_host": false },
+    { "name": "Colombia", "code": "COL", "confederation": "CONMEBOL", "is_host": false },
+
+    { "name": "England", "code": "ENG", "confederation": "UEFA", "is_host": false },
+    { "name": "Croatia", "code": "CRO", "confederation": "UEFA", "is_host": false },
+    { "name": "Ghana", "code": "GHA", "confederation": "CAF", "is_host": false },
+    { "name": "Panama", "code": "PAN", "confederation": "CONCACAF", "is_host": false }
+  ]
+}

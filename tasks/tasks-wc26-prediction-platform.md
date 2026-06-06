@@ -126,9 +126,9 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 1.10 **Test gate:** pytest test for `/api/health` (returns 200 + correct payload); Jest test that `frontend/lib/api.ts` calls the health endpoint and the homepage renders the status. Run `test:all`; all green before moving on.
 
 - [ ] 2.0 Build the database schema and data-ingestion pipeline
-  - [ ] 2.1 Define SQLAlchemy models for MVP tables (`tournaments`, `teams`, `groups`, `group_teams`, `matches` incl. `venue_country`/`host_team_id`, `historical_matches`, `team_stats`, `predictions`, `standings`) per PRD §10
-  - [ ] 2.2 Configure Alembic and generate the initial migration; apply it to local Postgres
-  - [ ] 2.3 Build `pipeline/team_mapping.py` canonical name map + `normalize_team_name()`; write tests for known aliases (West Germany→Germany, Korea Republic→South Korea, etc.)
+  - [x] 2.1 Define SQLAlchemy models for MVP tables (`tournaments`, `teams`, `groups`, `group_teams`, `matches` incl. `venue_country`/`host_team_id`, `historical_matches`, `team_stats`, `predictions`, `standings`) per PRD §10
+  - [x] 2.2 Configure Alembic and generate the initial migration; apply it to local Postgres *(migration generated + applied/verified on SQLite; Postgres apply just needs `docker compose up` later)*
+  - [x] 2.3 Build `pipeline/team_mapping.py` canonical name map + `normalize_team_name()`; write tests for known aliases (West Germany→Germany, Korea Republic→South Korea, etc.)
   - [ ] 2.4 Create WC2026 seed data files (`wc26_teams.json`, `wc26_groups.json`, `wc26_fixtures.json`) — all 48 teams, 12 groups, 104 fixtures, with `host_team_id` set where a host plays at home
   - [ ] 2.5 Build `pipeline/ingest/wc26_structure.py` to load the seed data into the DB (idempotent upserts)
   - [ ] 2.6 Build `pipeline/ingest/historical_results.py` — download Kaggle international results CSV, normalize names, dedupe, load into `historical_matches`
