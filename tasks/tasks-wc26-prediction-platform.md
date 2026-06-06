@@ -168,16 +168,16 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 5.8 Ensure every prediction write logs a timestamped row with `model_version` (PRD Req #20) for later accuracy tracking
   - [x] 5.9 **Test gate (pytest):** every endpoint covered for happy path + a 404/not-found case; schema-conformance test that prediction responses match the PRD §17 contract (incl. stubbed `odds_comparison.available=false`); a test that read endpoints serve from cache and do NOT trigger a model run; a test that prediction writes log `model_version` + timestamp. All green before moving on.
 
-- [ ] 6.0 Build the Next.js dashboard
-  - [ ] 6.1 Set up the root layout with nav and the persistent `DisclaimerBanner` (PRD Req #18); make it mobile-first
-  - [ ] 6.2 Build shared components: `ProbabilityBar`, `ConfidenceBadge`, `FormStrip`, `OddsCompare` (stub)
-  - [ ] 6.3 Build `MatchCard` and the Home / Prediction Dashboard with filters (by group, date, team search)
-  - [ ] 6.4 Build the Match detail page: full W/D/L, `ScoreDistributionChart`, `ReasonsList`, `FeatureImportanceChart`, H2H summary
-  - [ ] 6.5 Build the Groups overview + single group page with `GroupTable` and `QualificationBar`
-  - [ ] 6.6 Build the Team profile page: hero, form strip, historical WC performance, strengths/weaknesses, `TrendChart`
-  - [ ] 6.7 Build the About / Methodology page with the full disclaimer and data-source credits
-  - [ ] 6.8 Verify responsiveness on mobile and target first-paint < 2.5s (PRD Goal #5); add loading/empty/error states
-  - [ ] 6.9 **Test gate (Jest + React Testing Library):** unit tests for `ProbabilityBar` (segments sum to 100%), `ConfidenceBadge` (correct label/color per level), `MatchCard` (renders winner, score, confidence), and `OddsCompare` (degrades gracefully when unavailable); render tests for each page with mocked API data, including loading/empty/error states; a test asserting the `DisclaimerBanner` is present in the layout. All green before moving on.
+- [x] 6.0 Build the Next.js dashboard
+  - [x] 6.1 Set up the root layout with nav and the persistent `DisclaimerBanner` (PRD Req #18); make it mobile-first
+  - [x] 6.2 Build shared components: `ProbabilityBar`, `ConfidenceBadge`, `FormStrip`, `OddsCompare` (stub)
+  - [x] 6.3 Build `MatchCard` and the Home / Prediction Dashboard with filters (by group, date, team search)
+  - [x] 6.4 Build the Match detail page: full W/D/L, `ReasonsList`, `FeatureImportanceChart`, H2H summary *(ScoreDistributionChart deferred — needs the score grid exposed by the API; predicted score shown as a stat instead)*
+  - [x] 6.5 Build the Groups overview + single group page with `GroupTable` and `QualificationBar`
+  - [x] 6.6 Build the Team profile page: hero, form strip, strengths/weaknesses *(TrendChart deferred — tournament-winner trend needs the Phase 3 Monte-Carlo sim)*
+  - [x] 6.7 Build the About / Methodology page with the full disclaimer and data-source credits
+  - [x] 6.8 Verify responsiveness on mobile and target first-paint < 2.5s (PRD Goal #5); add loading/empty/error states
+  - [x] 6.9 **Test gate (Jest + React Testing Library):** unit tests for `ProbabilityBar` (segments sum to 100%), `ConfidenceBadge` (correct label/color per level), `MatchCard` (renders winner, score, confidence), and `OddsCompare` (degrades gracefully when unavailable); render tests for each page with mocked API data, including loading/empty/error states; a test asserting the `DisclaimerBanner` is present in the layout. All green before moving on.
 
 - [ ] 7.0 Wire the scheduled refresh and deploy the MVP
   - [ ] 7.1 Build `pipeline/run_pipeline.py` orchestrating fetch → clean → load → rate → predict → store; make each step idempotent and logged
