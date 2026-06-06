@@ -1,0 +1,113 @@
+/** API response types mirroring the backend Pydantic schemas (PRD §17, §11). */
+
+export interface Teams {
+  home: string;
+  away: string;
+}
+
+export interface Probabilities {
+  home_win: number;
+  draw: number;
+  away_win: number;
+}
+
+export interface PredictedScore {
+  home: number | null;
+  away: number | null;
+  probability: number | null;
+}
+
+export interface FeatureWeight {
+  name: string;
+  weight: number;
+}
+
+export interface HeadToHead {
+  matches: number;
+  home_wins: number;
+  draws: number;
+  away_wins: number;
+}
+
+export interface Prediction {
+  match_id: number;
+  model_version: string;
+  generated_at: string | null;
+  teams: Teams;
+  is_neutral: boolean;
+  probabilities: Probabilities;
+  predicted_score: PredictedScore;
+  confidence: "High" | "Medium" | "Low" | null;
+  reasons: string[];
+  top_features: FeatureWeight[];
+  head_to_head: HeadToHead;
+  odds_comparison: { available: boolean };
+  disclaimer: string;
+}
+
+export interface MatchSummary {
+  match_id: number;
+  stage: string;
+  group: string | null;
+  kickoff_utc: string | null;
+  is_neutral: boolean;
+  teams: Teams;
+  predicted_winner: string | null;
+  probabilities: Probabilities | null;
+  predicted_score: PredictedScore | null;
+  confidence: "High" | "Medium" | "Low" | null;
+}
+
+export interface Team {
+  id: number;
+  name: string;
+  country_code: string | null;
+  confederation: string | null;
+  fifa_rank: number | null;
+  elo_rating: number | null;
+  is_host: boolean;
+}
+
+export interface StandingRow {
+  team_id: number;
+  team: string;
+  played: number;
+  points: number;
+  goals_for: number;
+  goal_diff: number;
+  qualification_prob: number | null;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  standings: StandingRow[];
+}
+
+export interface FormResult {
+  opponent: string;
+  score_for: number;
+  score_against: number;
+  result: "W" | "D" | "L";
+  date: string | null;
+}
+
+export interface TeamProfile {
+  team: Team;
+  recent_form: FormResult[];
+  strengths: string[];
+  weaknesses: string[];
+}
+
+export interface PredictionHistoryPoint {
+  generated_at: string | null;
+  model_version: string;
+  home_win: number;
+  draw: number;
+  away_win: number;
+}
+
+export interface PredictionWithHistory {
+  current: Prediction;
+  history: PredictionHistoryPoint[];
+}

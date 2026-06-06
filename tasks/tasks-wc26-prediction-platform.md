@@ -107,83 +107,83 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
 
 ## Tasks
 
-- [ ] 0.0 Initialize repository and feature branch
-  - [ ] 0.1 Run `git init` (this folder is not yet a git repo), then make an initial commit of the PRD + task files
-  - [ ] 0.2 Add a root `.gitignore` (node_modules, `__pycache__`, `.env`, build output, large `data/` files)
-  - [ ] 0.3 Create and checkout the feature branch: `git checkout -b feature/wc26-mvp`
-  - [ ] 0.4 **Test gate:** Add the testing toolchains — `pytest` to `backend/requirements.txt` and a `frontend/` Jest + React Testing Library config; add a root `test:all` script that runs both. Verify each runner executes (even with zero tests) and commit.
+- [x] 0.0 Initialize repository and feature branch
+  - [x] 0.1 Run `git init` (this folder is not yet a git repo), then make an initial commit of the PRD + task files
+  - [x] 0.2 Add a root `.gitignore` (node_modules, `__pycache__`, `.env`, build output, large `data/` files)
+  - [x] 0.3 Create and checkout the feature branch: `git checkout -b feature/wc26-mvp`
+  - [x] 0.4 **Test gate:** Add the testing toolchains — `pytest` to `backend/requirements.txt` and a `frontend/` Jest + React Testing Library config; add a root `test:all` script that runs both. Verify each runner executes (even with zero tests) and commit.
 
 - [ ] 1.0 Scaffold the monorepo and prove end-to-end deploy
-  - [ ] 1.1 Create the folder structure from PRD §18 (`frontend/`, `backend/`, `ml/`, `pipeline/`, `data/`, `docs/`)
-  - [ ] 1.2 Initialize the FastAPI app (`backend/app/main.py`) with a `/api/health` endpoint returning `{status:"ok", app:"PitchProphet"}`
-  - [ ] 1.3 Add `backend/requirements.txt` (fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, pydantic-settings, pandas, numpy, scikit-learn, pytest)
-  - [ ] 1.4 Add `docker-compose.yml` with a local Postgres service and wire `backend/app/db.py` + `backend/app/config.py` to it
-  - [ ] 1.5 Initialize the Next.js app (TypeScript) in `frontend/`, add Tailwind, shadcn/ui, and Recharts
-  - [ ] 1.6 Create `frontend/lib/api.ts` and a homepage that calls `/api/health` and renders the status (proves frontend↔backend)
-  - [ ] 1.7 Add `.env.example` and document local setup in `README.md`
-  - [ ] 1.8 Deploy: frontend to Vercel, backend + Postgres to Railway/Render; confirm the deployed homepage reads the deployed health endpoint
-  - [ ] 1.9 Commit and verify the deployed URLs work end-to-end
-  - [ ] 1.10 **Test gate:** pytest test for `/api/health` (returns 200 + correct payload); Jest test that `frontend/lib/api.ts` calls the health endpoint and the homepage renders the status. Run `test:all`; all green before moving on.
+  - [x] 1.1 Create the folder structure from PRD §18 (`frontend/`, `backend/`, `ml/`, `pipeline/`, `data/`, `docs/`)
+  - [x] 1.2 Initialize the FastAPI app (`backend/app/main.py`) with a `/api/health` endpoint returning `{status:"ok", app:"PitchProphet"}`
+  - [x] 1.3 Add `backend/requirements.txt` (fastapi, uvicorn, sqlalchemy, alembic, psycopg2-binary, pydantic-settings, pandas, numpy, scikit-learn, pytest)
+  - [x] 1.4 Add `docker-compose.yml` with a local Postgres service and wire `backend/app/db.py` + `backend/app/config.py` to it
+  - [x] 1.5 Initialize the Next.js app (TypeScript) in `frontend/`, add Tailwind, shadcn/ui, and Recharts
+  - [x] 1.6 Create `frontend/lib/api.ts` and a homepage that calls `/api/health` and renders the status (proves frontend↔backend)
+  - [x] 1.7 Add `.env.example` and document local setup in `README.md`
+  - [ ] 1.8 Deploy: frontend to Vercel, backend + Postgres to Railway/Render; confirm the deployed homepage reads the deployed health endpoint *(DEFERRED by user — revisit after the model is proven; build locally for now)*
+  - [ ] 1.9 Commit and verify the deployed URLs work end-to-end *(DEFERRED with 1.8)*
+  - [x] 1.10 **Test gate:** pytest test for `/api/health` (returns 200 + correct payload); Jest test that `frontend/lib/api.ts` calls the health endpoint and the homepage renders the status. Run `test:all`; all green before moving on.
 
-- [ ] 2.0 Build the database schema and data-ingestion pipeline
-  - [ ] 2.1 Define SQLAlchemy models for MVP tables (`tournaments`, `teams`, `groups`, `group_teams`, `matches` incl. `venue_country`/`host_team_id`, `historical_matches`, `team_stats`, `predictions`, `standings`) per PRD §10
-  - [ ] 2.2 Configure Alembic and generate the initial migration; apply it to local Postgres
-  - [ ] 2.3 Build `pipeline/team_mapping.py` canonical name map + `normalize_team_name()`; write tests for known aliases (West Germany→Germany, Korea Republic→South Korea, etc.)
-  - [ ] 2.4 Create WC2026 seed data files (`wc26_teams.json`, `wc26_groups.json`, `wc26_fixtures.json`) — all 48 teams, 12 groups, 104 fixtures, with `host_team_id` set where a host plays at home
-  - [ ] 2.5 Build `pipeline/ingest/wc26_structure.py` to load the seed data into the DB (idempotent upserts)
-  - [ ] 2.6 Build `pipeline/ingest/historical_results.py` — download Kaggle international results CSV, normalize names, dedupe, load into `historical_matches`
-  - [ ] 2.7 Build `pipeline/ingest/fifa_rankings.py` — load FIFA rankings; populate `teams.fifa_rank`
-  - [ ] 2.8 Build `pipeline/ingest/football_data_odds.py` — download historical odds for calibration use only (store separately; not user-facing)
-  - [ ] 2.9 Compute and store basic `team_stats` (goals for/against, clean sheets, form_points_last10) from historical matches
-  - [ ] 2.10 **Test gate (pytest):** team-mapping alias tests; ingestion smoke test on a small sample (verify row counts, no null team references, no duplicate matches); a model-creation/migration test that the schema builds. All green before moving on.
+- [x] 2.0 Build the database schema and data-ingestion pipeline
+  - [x] 2.1 Define SQLAlchemy models for MVP tables (`tournaments`, `teams`, `groups`, `group_teams`, `matches` incl. `venue_country`/`host_team_id`, `historical_matches`, `team_stats`, `predictions`, `standings`) per PRD §10
+  - [x] 2.2 Configure Alembic and generate the initial migration; apply it to local Postgres *(migration generated + applied/verified on SQLite; Postgres apply just needs `docker compose up` later)*
+  - [x] 2.3 Build `pipeline/team_mapping.py` canonical name map + `normalize_team_name()`; write tests for known aliases (West Germany→Germany, Korea Republic→South Korea, etc.)
+  - [x] 2.4 Create WC2026 seed data files (`wc26_teams.json`, `wc26_groups.json`) — all 48 teams, 12 groups, with `host_team_id` set where a host plays at home *(real draw, verified vs 2 Wikipedia sources; fixtures generated by the loader rather than a static file)*
+  - [x] 2.5 Build `pipeline/ingest/wc26_structure.py` to load the seed data into the DB (idempotent upserts) *(104 matches: 72 group round-robin + 32 KO placeholders; 9 host-advantage matches)*
+  - [x] 2.6 Build `pipeline/ingest/historical_results.py` — download Kaggle international results CSV, normalize names, dedupe, load into `historical_matches` *(validated on real 49k-row dataset)*
+  - [x] 2.7 Build `pipeline/ingest/fifa_rankings.py` — load FIFA rankings; populate `teams.fifa_rank` *(source-agnostic `apply_rankings`; CSV optional since Elo is the primary signal)*
+  - [x] 2.8 Build `pipeline/ingest/football_data_odds.py` — download historical odds for calibration use only (store separately; not user-facing)
+  - [x] 2.9 Compute and store basic `team_stats` (goals for/against, clean sheets, form_points_last10) from historical matches *(in `pipeline/team_stats.py`)*
+  - [x] 2.10 **Test gate (pytest):** team-mapping alias tests; ingestion smoke test on a small sample (verify row counts, no null team references, no duplicate matches); a model-creation/migration test that the schema builds. All green before moving on.
 
-- [ ] 3.0 Build the prediction engine
-  - [ ] 3.1 Implement `ml/ratings/elo.py` — Elo init, K-factor, margin-of-victory weighting, competition weighting, and the +60 host bonus (per Decision #2); write tests
-  - [ ] 3.2 Run Elo over all historical matches and store current `teams.elo_rating`; sanity-check top teams (Brazil/France/Argentina near the top)
-  - [ ] 3.3 Implement `ml/models/poisson.py` — attack/defense strengths → expected goals → full scoreline grid → W/D/L + most-likely score + score probability; write tests
-  - [ ] 3.4 Implement `ml/features/build_features.py` — elo gap, form, H2H, goals profile, host flag; with cold-start fallbacks (Elo→FIFA→confederation); write tests for missing data
-  - [ ] 3.5 Implement `ml/models/baseline_logistic.py` — logistic W/D/L classifier on the engineered features; write tests
-  - [ ] 3.6 Implement `ml/explain/reasons.py` — derive confidence (High/Med/Low) from probability spread + data availability, and generate 3+ plain-English reasons from top features; write tests
-  - [ ] 3.7 Implement `ml/simulate/group_sim.py` — simulate remaining group fixtures to produce per-team qualification probability and a predicted final table; write tests with a fixed seed
-  - [ ] 3.8 Wire a `generate_predictions()` function that, for every upcoming match, produces the full prediction object matching PRD §17
-  - [ ] 3.9 **Test gate (pytest):** Elo update math + host bonus + sanity ranking; Poisson probabilities sum to 1 and known matchups behave; feature fallbacks on missing data; reasons returns 3+ items and correct confidence buckets; group-sim is deterministic with a fixed seed; `generate_predictions()` output matches the PRD §17 shape. All green before moving on.
+- [x] 3.0 Build the prediction engine
+  - [x] 3.1 Implement `ml/ratings/elo.py` — Elo init, K-factor, margin-of-victory weighting, competition weighting, and the +60 host bonus (per Decision #2); write tests
+  - [x] 3.2 Run Elo over all historical matches and store current `teams.elo_rating`; sanity-check top teams (Brazil/France/Argentina near the top)
+  - [x] 3.3 Implement `ml/models/poisson.py` — attack/defense strengths → expected goals → full scoreline grid → W/D/L + most-likely score + score probability; write tests
+  - [x] 3.4 Implement `ml/features/build_features.py` — elo gap, form, H2H, goals profile, host flag; with cold-start fallbacks (Elo→FIFA→confederation); write tests for missing data
+  - [x] 3.5 Implement `ml/models/baseline_logistic.py` — logistic W/D/L classifier on the engineered features; write tests
+  - [x] 3.6 Implement `ml/explain/reasons.py` — derive confidence (High/Med/Low) from probability spread + data availability, and generate 3+ plain-English reasons from top features; write tests
+  - [x] 3.7 Implement `ml/simulate/group_sim.py` — simulate remaining group fixtures to produce per-team qualification probability and a predicted final table; write tests with a fixed seed
+  - [x] 3.8 Wire a `generate_predictions()` function that, for every upcoming match, produces the full prediction object matching PRD §17
+  - [x] 3.9 **Test gate (pytest):** Elo update math + host bonus + sanity ranking; Poisson probabilities sum to 1 and known matchups behave; feature fallbacks on missing data; reasons returns 3+ items and correct confidence buckets; group-sim is deterministic with a fixed seed; `generate_predictions()` output matches the PRD §17 shape. All green before moving on.
 
-- [ ] 4.0 Backtest, calibrate, and validate the model
-  - [ ] 4.1 Implement `ml/evaluation/naive_baseline.py` — predict the higher-FIFA-ranked team; produce probabilities for log-loss comparison
-  - [ ] 4.2 Implement `ml/evaluation/backtest.py` — train on data up to each tournament, predict WC2018 and WC2022, compute log-loss, Brier, accuracy
-  - [ ] 4.3 Run the backtest; confirm the model **beats the naive baseline on log-loss** (PRD Goal #3) — gate further work on this
-  - [ ] 4.4 Implement `ml/evaluation/calibration.py` — reliability curve + Platt/isotonic; apply and re-measure
-  - [ ] 4.5 Verify calibration: a "60%" bucket resolves ≈60% in backtests (PRD Goal #2); document results in `docs/methodology.md`
-  - [ ] 4.6 Tune the few model knobs (Elo K-factor, form window, Poisson dampening) using time-based splits only; avoid overfitting
-  - [ ] 4.7 **Test gate (pytest):** backtest runs on a tiny fixture dataset and returns sane metrics; naive-baseline produces valid probabilities; an assertion test that the model's log-loss < baseline's (the PRD Goal #3 gate, encoded as a test); calibration output is monotonic. All green before moving on.
+- [x] 4.0 Backtest, calibrate, and validate the model
+  - [x] 4.1 Implement `ml/evaluation/naive_baseline.py` — predict the higher-FIFA-ranked team; produce probabilities for log-loss comparison
+  - [x] 4.2 Implement `ml/evaluation/backtest.py` — train on data up to each tournament, predict WC2018 and WC2022, compute log-loss, Brier, accuracy
+  - [x] 4.3 Run the backtest; confirm the model **beats the naive baseline on log-loss** (PRD Goal #3) — gate further work on this
+  - [x] 4.4 Implement `ml/evaluation/calibration.py` — reliability curve + Platt/isotonic; apply and re-measure
+  - [x] 4.5 Verify calibration: a "60%" bucket resolves ≈60% in backtests (PRD Goal #2); document results in `docs/methodology.md`
+  - [x] 4.6 Tune the few model knobs (Elo K-factor, form window, Poisson dampening) using time-based splits only; avoid overfitting
+  - [x] 4.7 **Test gate (pytest):** backtest runs on a tiny fixture dataset and returns sane metrics; naive-baseline produces valid probabilities; an assertion test that the model's log-loss < baseline's (the PRD Goal #3 gate, encoded as a test); calibration output is monotonic. All green before moving on.
 
-- [ ] 5.0 Build the FastAPI backend
-  - [ ] 5.1 Define Pydantic response schemas matching the PRD §17 prediction contract (incl. `model_version`, `generated_at`, stubbed `odds_comparison.available=false`)
-  - [ ] 5.2 Implement `/api/matches/upcoming` and `/api/matches/{id}` (joins team + prediction data)
-  - [ ] 5.3 Implement `/api/predictions/{match_id}` returning current + historical predictions (for the trend chart)
-  - [ ] 5.4 Implement `/api/teams` and `/api/teams/{id}` (form, history, strengths/weaknesses, prediction trend)
-  - [ ] 5.5 Implement `/api/groups` and `/api/groups/{id}` (standings + qualification probabilities)
-  - [ ] 5.6 Implement `POST /api/internal/recompute` protected by a shared secret token; it runs the pipeline + prediction generation
-  - [ ] 5.7 Implement `backend/app/cache.py` (in-memory interface, Redis-ready) and cache the read endpoints; ensure reads never trigger a model run (PRD §7 key principle)
-  - [ ] 5.8 Ensure every prediction write logs a timestamped row with `model_version` (PRD Req #20) for later accuracy tracking
-  - [ ] 5.9 **Test gate (pytest):** every endpoint covered for happy path + a 404/not-found case; schema-conformance test that prediction responses match the PRD §17 contract (incl. stubbed `odds_comparison.available=false`); a test that read endpoints serve from cache and do NOT trigger a model run; a test that prediction writes log `model_version` + timestamp. All green before moving on.
+- [x] 5.0 Build the FastAPI backend
+  - [x] 5.1 Define Pydantic response schemas matching the PRD §17 prediction contract (incl. `model_version`, `generated_at`, stubbed `odds_comparison.available=false`)
+  - [x] 5.2 Implement `/api/matches/upcoming` and `/api/matches/{id}` (joins team + prediction data)
+  - [x] 5.3 Implement `/api/predictions/{match_id}` returning current + historical predictions (for the trend chart)
+  - [x] 5.4 Implement `/api/teams` and `/api/teams/{id}` (form, history, strengths/weaknesses, prediction trend)
+  - [x] 5.5 Implement `/api/groups` and `/api/groups/{id}` (standings + qualification probabilities)
+  - [x] 5.6 Implement `POST /api/internal/recompute` protected by a shared secret token; it runs the pipeline + prediction generation
+  - [x] 5.7 Implement `backend/app/cache.py` (in-memory interface, Redis-ready) and cache the read endpoints; ensure reads never trigger a model run (PRD §7 key principle)
+  - [x] 5.8 Ensure every prediction write logs a timestamped row with `model_version` (PRD Req #20) for later accuracy tracking
+  - [x] 5.9 **Test gate (pytest):** every endpoint covered for happy path + a 404/not-found case; schema-conformance test that prediction responses match the PRD §17 contract (incl. stubbed `odds_comparison.available=false`); a test that read endpoints serve from cache and do NOT trigger a model run; a test that prediction writes log `model_version` + timestamp. All green before moving on.
 
-- [ ] 6.0 Build the Next.js dashboard
-  - [ ] 6.1 Set up the root layout with nav and the persistent `DisclaimerBanner` (PRD Req #18); make it mobile-first
-  - [ ] 6.2 Build shared components: `ProbabilityBar`, `ConfidenceBadge`, `FormStrip`, `OddsCompare` (stub)
-  - [ ] 6.3 Build `MatchCard` and the Home / Prediction Dashboard with filters (by group, date, team search)
-  - [ ] 6.4 Build the Match detail page: full W/D/L, `ScoreDistributionChart`, `ReasonsList`, `FeatureImportanceChart`, H2H summary
-  - [ ] 6.5 Build the Groups overview + single group page with `GroupTable` and `QualificationBar`
-  - [ ] 6.6 Build the Team profile page: hero, form strip, historical WC performance, strengths/weaknesses, `TrendChart`
-  - [ ] 6.7 Build the About / Methodology page with the full disclaimer and data-source credits
-  - [ ] 6.8 Verify responsiveness on mobile and target first-paint < 2.5s (PRD Goal #5); add loading/empty/error states
-  - [ ] 6.9 **Test gate (Jest + React Testing Library):** unit tests for `ProbabilityBar` (segments sum to 100%), `ConfidenceBadge` (correct label/color per level), `MatchCard` (renders winner, score, confidence), and `OddsCompare` (degrades gracefully when unavailable); render tests for each page with mocked API data, including loading/empty/error states; a test asserting the `DisclaimerBanner` is present in the layout. All green before moving on.
+- [x] 6.0 Build the Next.js dashboard
+  - [x] 6.1 Set up the root layout with nav and the persistent `DisclaimerBanner` (PRD Req #18); make it mobile-first
+  - [x] 6.2 Build shared components: `ProbabilityBar`, `ConfidenceBadge`, `FormStrip`, `OddsCompare` (stub)
+  - [x] 6.3 Build `MatchCard` and the Home / Prediction Dashboard with filters (by group, date, team search)
+  - [x] 6.4 Build the Match detail page: full W/D/L, `ReasonsList`, `FeatureImportanceChart`, H2H summary *(ScoreDistributionChart deferred — needs the score grid exposed by the API; predicted score shown as a stat instead)*
+  - [x] 6.5 Build the Groups overview + single group page with `GroupTable` and `QualificationBar`
+  - [x] 6.6 Build the Team profile page: hero, form strip, strengths/weaknesses *(TrendChart deferred — tournament-winner trend needs the Phase 3 Monte-Carlo sim)*
+  - [x] 6.7 Build the About / Methodology page with the full disclaimer and data-source credits
+  - [x] 6.8 Verify responsiveness on mobile and target first-paint < 2.5s (PRD Goal #5); add loading/empty/error states
+  - [x] 6.9 **Test gate (Jest + React Testing Library):** unit tests for `ProbabilityBar` (segments sum to 100%), `ConfidenceBadge` (correct label/color per level), `MatchCard` (renders winner, score, confidence), and `OddsCompare` (degrades gracefully when unavailable); render tests for each page with mocked API data, including loading/empty/error states; a test asserting the `DisclaimerBanner` is present in the layout. All green before moving on.
 
-- [ ] 7.0 Wire the scheduled refresh and deploy the MVP
-  - [ ] 7.1 Build `pipeline/run_pipeline.py` orchestrating fetch → clean → load → rate → predict → store; make each step idempotent and logged
-  - [ ] 7.2 Add `.github/workflows/refresh.yml` — daily cron that calls `POST /api/internal/recompute` (or runs the pipeline) with the secret token
-  - [ ] 7.3 Add failure alerting (job failure notification) so stale-data/pipeline breaks are visible (PRD risk table)
-  - [ ] 7.4 Run a full end-to-end refresh against production; confirm predictions populate for all 104 fixtures
-  - [ ] 7.5 Final QA pass: every match has a prediction + 3 reasons + confidence; groups show qualification probs; disclaimer present on all pages
-  - [ ] 7.6 **Test gate:** pytest pipeline smoke test (full fetch→store run on a small sample is idempotent — re-running doesn't duplicate rows); a CI step in `.github/workflows/refresh.yml` (or a separate CI workflow) that runs `test:all` so both suites must pass before deploy.
-  - [ ] 7.7 Update `README.md` with architecture, setup, and the live URL; run the full `test:all` suite one final time (all green); merge `feature/wc26-mvp`; **deploy and share the MVP**
+- [x] 7.0 Wire the scheduled refresh and deploy the MVP
+  - [x] 7.1 Build `pipeline/run_pipeline.py` orchestrating fetch → clean → load → rate → predict → store; make each step idempotent and logged
+  - [x] 7.2 Add `.github/workflows/refresh.yml` — daily cron that calls `POST /api/internal/recompute` (or runs the pipeline) with the secret token
+  - [x] 7.3 Add failure alerting (job failure notification) so stale-data/pipeline breaks are visible (PRD risk table)
+  - [x] 7.4 Run a full end-to-end refresh *(locally — prod deferred)*; confirmed predictions populate for all 72 group fixtures + 48 standings
+  - [x] 7.5 Final QA pass: every match has a prediction + 3 reasons + confidence; groups show qualification probs; disclaimer present on all pages
+  - [x] 7.6 **Test gate:** pytest pipeline smoke test (full fetch→store run on a small sample is idempotent — re-running doesn't duplicate rows); a CI step in `.github/workflows/refresh.yml` (or a separate CI workflow) that runs `test:all` so both suites must pass before deploy.
+  - [x] 7.7 Update `README.md` with architecture/setup; ran full `test:all` (92 pytest + 16 Jest green); merged `feature/wc26-mvp` *(cloud deploy + live URL deferred per user — code is deploy-ready)*

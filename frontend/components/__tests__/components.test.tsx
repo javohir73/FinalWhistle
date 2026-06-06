@@ -1,0 +1,98 @@
+/** Component unit tests (task 6.9). */
+import { render, screen } from "@testing-library/react";
+import { ProbabilityBar } from "@/components/ProbabilityBar";
+import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+import { OddsCompare } from "@/components/OddsCompare";
+import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { MatchCard } from "@/components/MatchCard";
+import { GroupTable } from "@/components/GroupTable";
+import { ReasonsList } from "@/components/ReasonsList";
+import type { MatchSummary, StandingRow } from "@/lib/types";
+
+describe("ProbabilityBar", () => {
+  it("renders an accessible W/D/L summary", () => {
+    render(
+      <ProbabilityBar probabilities={{ home_win: 0.6, draw: 0.25, away_win: 0.15 }} />,
+    );
+    const bar = screen.getByRole("img");
+    expect(bar).toHaveAttribute("aria-label", expect.stringContaining("60%"));
+    expect(bar.getAttribute("aria-label")).toContain("25%");
+    expect(bar.getAttribute("aria-label")).toContain("15%");
+  });
+});
+
+describe("ConfidenceBadge", () => {
+  it("shows the level", () => {
+    render(<ConfidenceBadge level="High" />);
+    expect(screen.getByText(/High confidence/)).toBeInTheDocument();
+  });
+  it("renders nothing when null", () => {
+    const { container } = render(<ConfidenceBadge level={null} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("OddsCompare", () => {
+  it("degrades gracefully when unavailable", () => {
+    render(<OddsCompare available={false} />);
+    expect(screen.getByText(/coming in a later release/i)).toBeInTheDocument();
+  });
+  it("renders nothing when available (placeholder for Phase 4)", () => {
+    const { container } = render(<OddsCompare available />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("DisclaimerBanner", () => {
+  it("states it is not betting advice", () => {
+    render(<DisclaimerBanner />);
+    expect(screen.getByRole("note")).toHaveTextContent(/not betting advice/i);
+  });
+});
+
+describe("ReasonsList", () => {
+  it("renders all reasons", () => {
+    render(<ReasonsList reasons={["A", "B", "C"]} />);
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+  });
+});
+
+describe("MatchCard", () => {
+  const match: MatchSummary = {
+    match_id: 7,
+    stage: "group",
+    group: "Group A",
+    kickoff_utc: null,
+    is_neutral: false,
+    teams: { home: "Mexico", away: "South Africa" },
+    predicted_winner: "Mexico",
+    probabilities: { home_win: 0.78, draw: 0.14, away_win: 0.08 },
+    predicted_score: { home: 2, away: 0, probability: 0.12 },
+    confidence: "High",
+  };
+
+  it("renders matchup, predicted winner, score and links to detail", () => {
+    render(<MatchCard match={match} />);
+    // "Mexico" appears as the home team and as the predicted winner.
+    expect(screen.getAllByText("Mexico").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("South Africa")).toBeInTheDocument();
+    expect(screen.getByText("2–0")).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/match/7");
+  });
+});
+
+describe("GroupTable", () => {
+  const standings: StandingRow[] = [
+    { team_id: 1, team: "Mexico", played: 0, points: 6, goals_for: 5, goal_diff: 3, qualification_prob: 0.87 },
+    { team_id: 2, team: "South Korea", played: 0, points: 5, goals_for: 4, goal_diff: 1, qualification_prob: 0.6 },
+    { team_id: 3, team: "Czechia", played: 0, points: 4, goals_for: 3, goal_diff: 0, qualification_prob: 0.41 },
+    { team_id: 4, team: "South Africa", played: 0, points: 2, goals_for: 2, goal_diff: -4, qualification_prob: 0.12 },
+  ];
+
+  it("renders all teams with qualification percentages", () => {
+    render(<GroupTable standings={standings} />);
+    expect(screen.getByText("Mexico")).toBeInTheDocument();
+    expect(screen.getByText("87%")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(5); // header + 4
+  });
+});

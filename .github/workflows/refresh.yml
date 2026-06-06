@@ -1,0 +1,35 @@
+# Daily data refresh: triggers a recompute on the deployed backend (PRD §4.4, task 7.2).
+# Activates once the backend is deployed (task 1.8, deferred). Until then it can be
+# run manually via "Run workflow" for testing.
+name: daily-refresh
+
+on:
+  schedule:
+    - cron: "0 6 * * *" # 06:00 UTC daily
+  workflow_dispatch: {}
+
+jobs:
+  recompute:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger backend recompute
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -X POST \
+            "${API_URL}/api/internal/recompute" \
+            -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}")
+          echo "HTTP $code"; cat /tmp/resp.json
+          test "$code" = "200"
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+
+      # Failure alerting (task 7.3): notify on failure if a Slack webhook is set.
+      - name: Notify on failure
+        if: failure() && env.SLACK_WEBHOOK != ''
+        env:
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+        run: |
+          curl -sS -X POST -H 'Content-type: application/json' \
+            --data '{"text":"⚠️ PitchProphet daily refresh FAILED. Check the Actions run."}' \
+            "$SLACK_WEBHOOK"
