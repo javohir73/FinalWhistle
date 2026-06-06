@@ -16,7 +16,7 @@ import math
 from dataclasses import dataclass
 
 BASE_GOALS = 1.35          # average international goals per team per match
-ELO_TO_GOALS_BETA = 0.0017  # goals sensitivity per Elo point of difference
+ELO_TO_GOALS_BETA = 0.0019  # goals sensitivity per Elo pt (tuned on pre-2018 WCs, task 4.6)
 MAX_GOALS = 10              # scoreline grid cap (0..10 each side)
 
 

@@ -148,14 +148,14 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 3.8 Wire a `generate_predictions()` function that, for every upcoming match, produces the full prediction object matching PRD §17
   - [x] 3.9 **Test gate (pytest):** Elo update math + host bonus + sanity ranking; Poisson probabilities sum to 1 and known matchups behave; feature fallbacks on missing data; reasons returns 3+ items and correct confidence buckets; group-sim is deterministic with a fixed seed; `generate_predictions()` output matches the PRD §17 shape. All green before moving on.
 
-- [ ] 4.0 Backtest, calibrate, and validate the model
-  - [ ] 4.1 Implement `ml/evaluation/naive_baseline.py` — predict the higher-FIFA-ranked team; produce probabilities for log-loss comparison
-  - [ ] 4.2 Implement `ml/evaluation/backtest.py` — train on data up to each tournament, predict WC2018 and WC2022, compute log-loss, Brier, accuracy
-  - [ ] 4.3 Run the backtest; confirm the model **beats the naive baseline on log-loss** (PRD Goal #3) — gate further work on this
-  - [ ] 4.4 Implement `ml/evaluation/calibration.py` — reliability curve + Platt/isotonic; apply and re-measure
-  - [ ] 4.5 Verify calibration: a "60%" bucket resolves ≈60% in backtests (PRD Goal #2); document results in `docs/methodology.md`
-  - [ ] 4.6 Tune the few model knobs (Elo K-factor, form window, Poisson dampening) using time-based splits only; avoid overfitting
-  - [ ] 4.7 **Test gate (pytest):** backtest runs on a tiny fixture dataset and returns sane metrics; naive-baseline produces valid probabilities; an assertion test that the model's log-loss < baseline's (the PRD Goal #3 gate, encoded as a test); calibration output is monotonic. All green before moving on.
+- [x] 4.0 Backtest, calibrate, and validate the model
+  - [x] 4.1 Implement `ml/evaluation/naive_baseline.py` — predict the higher-FIFA-ranked team; produce probabilities for log-loss comparison
+  - [x] 4.2 Implement `ml/evaluation/backtest.py` — train on data up to each tournament, predict WC2018 and WC2022, compute log-loss, Brier, accuracy
+  - [x] 4.3 Run the backtest; confirm the model **beats the naive baseline on log-loss** (PRD Goal #3) — gate further work on this
+  - [x] 4.4 Implement `ml/evaluation/calibration.py` — reliability curve + Platt/isotonic; apply and re-measure
+  - [x] 4.5 Verify calibration: a "60%" bucket resolves ≈60% in backtests (PRD Goal #2); document results in `docs/methodology.md`
+  - [x] 4.6 Tune the few model knobs (Elo K-factor, form window, Poisson dampening) using time-based splits only; avoid overfitting
+  - [x] 4.7 **Test gate (pytest):** backtest runs on a tiny fixture dataset and returns sane metrics; naive-baseline produces valid probabilities; an assertion test that the model's log-loss < baseline's (the PRD Goal #3 gate, encoded as a test); calibration output is monotonic. All green before moving on.
 
 - [ ] 5.0 Build the FastAPI backend
   - [ ] 5.1 Define Pydantic response schemas matching the PRD §17 prediction contract (incl. `model_version`, `generated_at`, stubbed `odds_comparison.available=false`)
