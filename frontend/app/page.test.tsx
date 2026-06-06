@@ -1,38 +1,47 @@
-/** Tests the homepage renders backend connectivity status (task 1.10). */
-import { render, screen, waitFor } from "@testing-library/react";
+/** Home dashboard tests (task 6.9). */
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import HomePage from "./page";
-import { getHealth } from "@/lib/api";
+import { getUpcomingMatches } from "@/lib/api";
+import type { MatchSummary } from "@/lib/types";
 
 jest.mock("@/lib/api");
-const mockedGetHealth = getHealth as jest.MockedFunction<typeof getHealth>;
+const mockGet = getUpcomingMatches as jest.MockedFunction<typeof getUpcomingMatches>;
 
-describe("HomePage", () => {
-  afterEach(() => jest.resetAllMocks());
+function match(id: number, home: string, away: string, group: string): MatchSummary {
+  return {
+    match_id: id, stage: "group", group, kickoff_utc: null, is_neutral: true,
+    teams: { home, away },
+    predicted_winner: home,
+    probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },
+    predicted_score: { home: 2, away: 1, probability: 0.1 },
+    confidence: "Medium",
+  };
+}
 
-  it("shows connected status when the backend responds", async () => {
-    mockedGetHealth.mockResolvedValue({
-      status: "ok",
-      app: "PitchProphet",
-      model_version: "poisson-elo-v0.1",
-    });
+afterEach(() => jest.resetAllMocks());
 
-    render(<HomePage />);
+it("shows loading then the match cards", async () => {
+  mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
+  render(<HomePage />);
+  expect(screen.getByRole("status")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+});
 
-    await waitFor(() =>
-      expect(screen.getByText(/Connected/i)).toBeInTheDocument(),
-    );
-    expect(
-      screen.getByRole("heading", { name: "PitchProphet" }),
-    ).toBeInTheDocument();
-  });
+it("shows an error state when the API fails", async () => {
+  mockGet.mockRejectedValue(new Error("boom"));
+  render(<HomePage />);
+  await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+});
 
-  it("shows an error when the backend is unreachable", async () => {
-    mockedGetHealth.mockRejectedValue(new Error("boom"));
+it("filters matches by team search", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Scotland", "Group C"),
+    match(2, "Spain", "Uruguay", "Group H"),
+  ]);
+  render(<HomePage />);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
 
-    render(<HomePage />);
-
-    await waitFor(() =>
-      expect(screen.getByRole("alert")).toHaveTextContent(/Cannot reach backend/i),
-    );
-  });
+  fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "spain" } });
+  expect(screen.queryByText("Scotland")).not.toBeInTheDocument();
+  expect(screen.getByText("Uruguay")).toBeInTheDocument();
 });
