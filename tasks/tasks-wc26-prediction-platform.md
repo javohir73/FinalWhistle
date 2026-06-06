@@ -137,16 +137,16 @@ Scope: **MVP only** (PRD Sections 4 & 15 — the Week 1–9 deliverable). Phases
   - [x] 2.9 Compute and store basic `team_stats` (goals for/against, clean sheets, form_points_last10) from historical matches *(in `pipeline/team_stats.py`)*
   - [x] 2.10 **Test gate (pytest):** team-mapping alias tests; ingestion smoke test on a small sample (verify row counts, no null team references, no duplicate matches); a model-creation/migration test that the schema builds. All green before moving on.
 
-- [ ] 3.0 Build the prediction engine
-  - [ ] 3.1 Implement `ml/ratings/elo.py` — Elo init, K-factor, margin-of-victory weighting, competition weighting, and the +60 host bonus (per Decision #2); write tests
-  - [ ] 3.2 Run Elo over all historical matches and store current `teams.elo_rating`; sanity-check top teams (Brazil/France/Argentina near the top)
-  - [ ] 3.3 Implement `ml/models/poisson.py` — attack/defense strengths → expected goals → full scoreline grid → W/D/L + most-likely score + score probability; write tests
-  - [ ] 3.4 Implement `ml/features/build_features.py` — elo gap, form, H2H, goals profile, host flag; with cold-start fallbacks (Elo→FIFA→confederation); write tests for missing data
-  - [ ] 3.5 Implement `ml/models/baseline_logistic.py` — logistic W/D/L classifier on the engineered features; write tests
-  - [ ] 3.6 Implement `ml/explain/reasons.py` — derive confidence (High/Med/Low) from probability spread + data availability, and generate 3+ plain-English reasons from top features; write tests
-  - [ ] 3.7 Implement `ml/simulate/group_sim.py` — simulate remaining group fixtures to produce per-team qualification probability and a predicted final table; write tests with a fixed seed
-  - [ ] 3.8 Wire a `generate_predictions()` function that, for every upcoming match, produces the full prediction object matching PRD §17
-  - [ ] 3.9 **Test gate (pytest):** Elo update math + host bonus + sanity ranking; Poisson probabilities sum to 1 and known matchups behave; feature fallbacks on missing data; reasons returns 3+ items and correct confidence buckets; group-sim is deterministic with a fixed seed; `generate_predictions()` output matches the PRD §17 shape. All green before moving on.
+- [x] 3.0 Build the prediction engine
+  - [x] 3.1 Implement `ml/ratings/elo.py` — Elo init, K-factor, margin-of-victory weighting, competition weighting, and the +60 host bonus (per Decision #2); write tests
+  - [x] 3.2 Run Elo over all historical matches and store current `teams.elo_rating`; sanity-check top teams (Brazil/France/Argentina near the top)
+  - [x] 3.3 Implement `ml/models/poisson.py` — attack/defense strengths → expected goals → full scoreline grid → W/D/L + most-likely score + score probability; write tests
+  - [x] 3.4 Implement `ml/features/build_features.py` — elo gap, form, H2H, goals profile, host flag; with cold-start fallbacks (Elo→FIFA→confederation); write tests for missing data
+  - [x] 3.5 Implement `ml/models/baseline_logistic.py` — logistic W/D/L classifier on the engineered features; write tests
+  - [x] 3.6 Implement `ml/explain/reasons.py` — derive confidence (High/Med/Low) from probability spread + data availability, and generate 3+ plain-English reasons from top features; write tests
+  - [x] 3.7 Implement `ml/simulate/group_sim.py` — simulate remaining group fixtures to produce per-team qualification probability and a predicted final table; write tests with a fixed seed
+  - [x] 3.8 Wire a `generate_predictions()` function that, for every upcoming match, produces the full prediction object matching PRD §17
+  - [x] 3.9 **Test gate (pytest):** Elo update math + host bonus + sanity ranking; Poisson probabilities sum to 1 and known matchups behave; feature fallbacks on missing data; reasons returns 3+ items and correct confidence buckets; group-sim is deterministic with a fixed seed; `generate_predictions()` output matches the PRD §17 shape. All green before moving on.
 
 - [ ] 4.0 Backtest, calibrate, and validate the model
   - [ ] 4.1 Implement `ml/evaluation/naive_baseline.py` — predict the higher-FIFA-ranked team; produce probabilities for log-loss comparison
