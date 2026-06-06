@@ -56,14 +56,36 @@ make install
 # 3. Start Postgres
 docker compose up -d
 
-# 4. Run the backend (http://localhost:8000)
-.venv/bin/uvicorn app.main:app --reload --app-dir backend
+# 4. Apply migrations
+cd backend && PYTHONPATH=. ../.venv/bin/alembic upgrade head && cd ..
 
-# 5. Run the frontend (http://localhost:3000)
+# 5. Populate data + predictions (downloads free historical results, ~50k rows)
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_pipeline
+
+# 6. Run the backend (http://localhost:8000). PYTHONPATH includes the repo root
+#    so the recompute endpoint can import the ml/ and pipeline/ packages.
+PYTHONPATH=backend:. .venv/bin/uvicorn app.main:app --reload
+
+# 7. Run the frontend (http://localhost:3000)
 cd frontend && npm run dev
 ```
 
-Open http://localhost:3000 — the homepage shows a green "Connected" status if it can reach the backend's `/api/health`.
+Open http://localhost:3000 to see match predictions, group tables, and team pages.
+
+## Data pipeline
+
+```bash
+# Full daily refresh: load structure -> ingest results -> Elo -> stats -> predict
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_pipeline
+
+# Backtest the model against WC2018 & WC2022 (prints log-loss/Brier/accuracy)
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_backtest
+```
+
+In production the daily refresh runs via `.github/workflows/refresh.yml`, which
+POSTs to `/api/internal/recompute` on the deployed backend (set the `API_URL` and
+`RECOMPUTE_TOKEN` repo secrets). See [docs/methodology.md](docs/methodology.md)
+for how predictions are made and how accurate they are.
 
 ## Running tests
 
