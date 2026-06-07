@@ -1,4 +1,4 @@
-# PitchProphet — Prediction Methodology
+# FinalWhistle — Prediction Methodology
 
 > For analytics and entertainment only. Not betting advice. Predictions are probabilistic and never guaranteed.
 
@@ -31,7 +31,7 @@ Tested against the **2018** and **2022** World Cups (64 matches each), training 
 
 | Predictor | Log-loss | Brier | Accuracy |
 |---|---|---|---|
-| **PitchProphet model** | **1.018** | **0.599** | **0.547** |
+| **FinalWhistle model** | **1.018** | **0.599** | **0.547** |
 | favorite-rate baseline | 1.006 | 0.600 | 0.547 |
 | literal favorite (60/25/15) | 1.027 | 0.609 | 0.547 |
 | base-rate | 1.084 | 0.660 | 0.414 |

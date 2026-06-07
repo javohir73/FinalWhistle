@@ -7,7 +7,7 @@ describe("api client", () => {
   });
 
   it("getHealth calls /api/health and returns the parsed body", async () => {
-    const payload = { status: "ok", app: "PitchProphet", model_version: "x" };
+    const payload = { status: "ok", app: "FinalWhistle", model_version: "x" };
     const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       json: async () => payload,

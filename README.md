@@ -1,4 +1,4 @@
-# PitchProphet — FIFA World Cup 2026 Prediction Platform
+# FinalWhistle — FIFA World Cup 2026 Prediction Platform
 
 > ⚠️ For analytics, research, and entertainment only. **Not betting advice.** Predictions are probabilistic and never guaranteed.
 

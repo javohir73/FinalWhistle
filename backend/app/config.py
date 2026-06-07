@@ -1,7 +1,7 @@
 """Application settings, loaded from environment variables.
 
 Centralizes config so nothing is hard-coded. The app name lives here as a single
-constant (PRD Resolved Decision #5 — "PitchProphet" is a placeholder name).
+constant (PRD Resolved Decision #5 — name finalized as "FinalWhistle").
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     # Product
-    app_name: str = "PitchProphet"
+    app_name: str = "FinalWhistle"
     model_version: str = "poisson-elo-v0.1"
 
     # Database — defaults to the local docker-compose Postgres.

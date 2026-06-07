@@ -47,7 +47,7 @@ def client():
 def test_health(client):
     r = client.get("/api/health")
     assert r.status_code == 200
-    assert r.json()["app"] == "PitchProphet"
+    assert r.json()["app"] == "FinalWhistle"
 
 
 def test_upcoming_matches(client):

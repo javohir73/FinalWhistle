@@ -46,7 +46,7 @@ export default function IntroPage() {
             <span className="text-gradient">predicted &amp; explained.</span>
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted">
-            PitchProphet turns 49,000 historical results into calibrated AI forecasts
+            FinalWhistle turns 49,000 historical results into calibrated AI forecasts
             for all 104 fixtures — win probabilities, scorelines, and the reasoning
             behind every call.
           </p>

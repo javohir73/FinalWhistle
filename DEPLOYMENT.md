@@ -1,4 +1,4 @@
-# Deployment Guide — PitchProphet
+# Deployment Guide — FinalWhistle
 
 Architecture: **frontend on Vercel**, **backend + Postgres + daily cron on Render**.
 
