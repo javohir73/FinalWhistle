@@ -9,6 +9,7 @@ import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { ReasonsList } from "@/components/ReasonsList";
 import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { OddsCompare } from "@/components/OddsCompare";
+import { Flag } from "@/components/Flag";
 import { Loading, ErrorState } from "@/components/States";
 
 export default function MatchDetailPage({ params }: { params: { id: string } }) {
@@ -22,40 +23,52 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
   const { home, away } = p.teams;
 
   return (
-    <div className="space-y-6">
-      <Link href="/" className="text-sm text-foreground/60 hover:underline">
-        ← All matches
+    <div className="fade-up mx-auto max-w-3xl space-y-6">
+      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+        <span aria-hidden>←</span> All matches
       </Link>
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          {home} vs {away}
-        </h1>
-        <ConfidenceBadge level={p.confidence} />
-      </div>
-
-      <section className="rounded-xl border border-border p-5">
-        <div className="mb-4 grid grid-cols-3 text-center">
-          <Stat label={`${home} win`} value={pct(p.probabilities.home_win)} />
-          <Stat label="Draw" value={pct(p.probabilities.draw)} />
-          <Stat label={`${away} win`} value={pct(p.probabilities.away_win)} />
+      {/* Headline matchup */}
+      <section className="glass rounded-2xl p-6">
+        <div className="mb-5 flex items-center justify-between">
+          <span className="font-display text-xs font-semibold uppercase tracking-wider text-muted">
+            World Cup 2026
+          </span>
+          <ConfidenceBadge level={p.confidence} />
         </div>
-        <ProbabilityBar probabilities={p.probabilities} homeLabel={home} awayLabel={away} />
-        <p className="mt-4 text-sm text-foreground/60">
-          Predicted score:{" "}
+
+        <div className="grid grid-cols-3 items-center gap-2">
+          <TeamHead name={home} prob={p.probabilities.home_win} side="left" />
+          <div className="text-center">
+            <div className="font-display text-3xl font-extrabold tabular-nums">
+              {formatScore(p.predicted_score.home, p.predicted_score.away)}
+            </div>
+            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted">
+              predicted
+            </div>
+          </div>
+          <TeamHead name={away} prob={p.probabilities.away_win} side="right" />
+        </div>
+
+        <div className="mt-6">
+          <ProbabilityBar probabilities={p.probabilities} homeLabel={home} awayLabel={away} />
+        </div>
+        <p className="mt-4 text-center text-sm text-muted">
+          Most likely scoreline{" "}
           <strong className="text-foreground">
             {home} {formatScore(p.predicted_score.home, p.predicted_score.away)} {away}
           </strong>{" "}
-          ({pct(p.predicted_score.probability)} likely)
+          · {pct(p.predicted_score.probability)} likely
         </p>
       </section>
 
-      <section className="rounded-xl border border-border p-5">
-        <h2 className="mb-3 font-semibold">Why this prediction</h2>
+      {/* Why */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="mb-4 font-display text-lg font-bold">Why this prediction</h2>
         <ReasonsList reasons={p.reasons} />
         {p.top_features.length > 0 && (
           <>
-            <h3 className="mb-1 mt-5 text-sm font-medium text-foreground/70">
+            <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted">
               Most important factors
             </h3>
             <FeatureImportanceChart features={p.top_features} />
@@ -63,33 +76,50 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
         )}
       </section>
 
-      <section className="rounded-xl border border-border p-5">
-        <h2 className="mb-3 font-semibold">Head-to-head (recent)</h2>
+      {/* H2H */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="mb-3 font-display text-lg font-bold">Head-to-head</h2>
         {p.head_to_head.matches > 0 ? (
-          <p className="text-sm text-foreground/70">
-            Last {p.head_to_head.matches} meetings — {home}: {p.head_to_head.home_wins}W,{" "}
-            {p.head_to_head.draws}D, {away}: {p.head_to_head.away_wins}W.
+          <p className="text-sm text-foreground/90">
+            Last {p.head_to_head.matches} meetings — {home}:{" "}
+            <strong>{p.head_to_head.home_wins}W</strong>, {p.head_to_head.draws}D,{" "}
+            {away}: <strong>{p.head_to_head.away_wins}W</strong>.
           </p>
         ) : (
-          <p className="text-sm text-foreground/50">No recent meetings on record.</p>
+          <p className="text-sm text-muted">No recent meetings on record.</p>
         )}
       </section>
 
       <section>
-        <h2 className="mb-3 font-semibold">Odds comparison</h2>
+        <h2 className="mb-3 font-display text-lg font-bold">Odds comparison</h2>
         <OddsCompare available={p.odds_comparison.available} />
       </section>
 
-      <p className="text-xs text-foreground/40">{p.disclaimer}</p>
+      <p className="text-center text-xs text-muted/60">{p.disclaimer}</p>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function TeamHead({
+  name,
+  prob,
+  side,
+}: {
+  name: string;
+  prob: number;
+  side: "left" | "right";
+}) {
   return (
-    <div>
-      <div className="text-2xl font-bold tabular-nums">{value}</div>
-      <div className="text-xs text-foreground/60">{label}</div>
+    <div className={side === "right" ? "text-right" : "text-left"}>
+      <div className={`flex items-center gap-2.5 ${side === "right" ? "flex-row-reverse" : ""}`}>
+        <Flag team={name} size={40} />
+        <span className="font-display text-lg font-bold leading-tight tracking-tight">
+          {name}
+        </span>
+      </div>
+      <div className="mt-2 font-display text-2xl font-extrabold tabular-nums text-win">
+        {pct(prob)}
+      </div>
     </div>
   );
 }

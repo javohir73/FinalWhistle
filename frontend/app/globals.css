@@ -2,22 +2,161 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============ Premium "broadcast terminal" design system ============ */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222 47% 11%;
-  --border: 214 32% 91%;
+  /* Canvas — deep pitch-black green */
+  --background: 156 30% 5%;
+  --surface: 156 22% 9%;
+  --surface-2: 156 18% 12%;
+  --foreground: 150 20% 96%;
+  --muted: 150 8% 58%;
+  --border: 153 18% 18%;
 
-  /* Win / Draw / Loss outcome colors (green / amber / red). */
-  --win: 142 71% 45%;
-  --draw: 43 96% 56%;
-  --loss: 0 72% 51%;
+  /* Data accents */
+  --win: 84 78% 55%;   /* electric pitch lime */
+  --draw: 41 96% 60%;  /* amber */
+  --loss: 351 90% 65%; /* rose */
+  --gold: 43 74% 62%;  /* premium gold accent */
+  --accent: 84 78% 55%;
+}
+
+* {
+  border-color: hsl(var(--border));
 }
 
 html {
   -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
 }
 
 body {
-  background: hsl(var(--background));
   color: hsl(var(--foreground));
+  background-color: hsl(var(--background));
+  /* Layered atmosphere: top lime glow + side gold glow + base */
+  background-image:
+    radial-gradient(60rem 40rem at 80% -10%, hsl(84 78% 55% / 0.10), transparent 60%),
+    radial-gradient(50rem 40rem at -10% 10%, hsl(43 74% 62% / 0.06), transparent 55%),
+    radial-gradient(40rem 30rem at 50% 120%, hsl(156 40% 20% / 0.5), transparent 60%);
+  background-attachment: fixed;
+  font-feature-settings: "ss01", "cv01", "tnum";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Fine grain overlay for texture */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ============ Reusable utilities ============ */
+@layer components {
+  .glass {
+    background:
+      linear-gradient(160deg, hsl(var(--surface) / 0.9), hsl(var(--surface-2) / 0.75));
+    border: 1px solid hsl(var(--border) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  .card-hover {
+    transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .card-hover:hover {
+    transform: translateY(-3px);
+    border-color: hsl(var(--win) / 0.5);
+    box-shadow: 0 0 0 1px hsl(var(--win) / 0.2),
+      0 18px 50px -12px hsl(84 78% 30% / 0.45);
+  }
+
+  .text-gradient {
+    background: linear-gradient(120deg, hsl(var(--foreground)), hsl(var(--win)));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .chip {
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--surface-2) / 0.6);
+  }
+}
+
+/* ============ Motion ============ */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.fade-up {
+  animation: fadeUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--surface-2));
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--foreground) / 0.06),
+    transparent
+  );
+  animation: shimmer 1.5s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fade-up,
+  .skeleton::after {
+    animation: none;
+  }
+  .card-hover {
+    transition: none;
+  }
+}
+
+/* Custom selection + scrollbar for the premium feel */
+::selection {
+  background: hsl(var(--win) / 0.25);
+  color: hsl(var(--foreground));
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted) / 0.5);
 }

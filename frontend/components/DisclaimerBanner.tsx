@@ -1,11 +1,12 @@
-/** Persistent disclaimer shown on every page (PRD §4.3 req 18, §16). */
+/** Persistent disclaimer shown on every page. */
 export function DisclaimerBanner() {
   return (
     <div
       role="note"
-      className="bg-foreground/5 px-4 py-2 text-center text-xs text-foreground/70"
+      className="border-b border-gold/15 bg-gold/[0.04] px-4 py-1.5 text-center text-[11px] text-muted"
     >
-      ⚠️ For analytics and entertainment only. <strong>Not betting advice.</strong>{" "}
+      <span aria-hidden>⚠️</span> For analytics and entertainment only.{" "}
+      <strong className="font-semibold text-foreground/80">Not betting advice.</strong>{" "}
       Predictions are probabilistic and never guaranteed.
     </div>
   );

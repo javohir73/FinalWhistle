@@ -4,8 +4,8 @@ import {
   Bar,
   BarChart,
   Cell,
+  LabelList,
   ResponsiveContainer,
-  Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
@@ -19,7 +19,7 @@ const LABELS: Record<string, string> = {
   goals_for_avg: "Scoring rate",
 };
 
-/** Horizontal bar chart of the top factors behind a prediction (PRD §12). */
+/** Horizontal bar chart of the top factors behind a prediction. */
 export function FeatureImportanceChart({ features }: { features: FeatureWeight[] }) {
   if (!features.length) return null;
   const data = features.map((f) => ({
@@ -28,23 +28,28 @@ export function FeatureImportanceChart({ features }: { features: FeatureWeight[]
   }));
 
   return (
-    <div style={{ width: "100%", height: Math.max(120, data.length * 44) }}>
+    <div style={{ width: "100%", height: Math.max(120, data.length * 46) }}>
       <ResponsiveContainer>
-        <BarChart data={data} layout="vertical" margin={{ left: 12, right: 24 }}>
+        <BarChart data={data} layout="vertical" margin={{ left: 8, right: 36 }}>
           <XAxis type="number" hide domain={[0, 100]} />
           <YAxis
             type="category"
             dataKey="name"
-            width={100}
-            tick={{ fontSize: 12 }}
+            width={104}
+            tick={{ fontSize: 12, fill: "hsl(150 8% 70%)" }}
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip formatter={(v) => `${v}%`} cursor={{ fill: "rgba(0,0,0,0.04)" }} />
-          <Bar dataKey="weight" radius={[0, 4, 4, 0]}>
+          <Bar dataKey="weight" radius={[0, 6, 6, 0]} barSize={18}>
             {data.map((_, i) => (
-              <Cell key={i} fill="hsl(142 71% 45%)" />
+              <Cell key={i} fill="hsl(84 78% 55%)" fillOpacity={1 - i * 0.16} />
             ))}
+            <LabelList
+              dataKey="weight"
+              position="right"
+              formatter={(v: number) => `${v}%`}
+              style={{ fill: "hsl(150 8% 70%)", fontSize: 11, fontWeight: 600 }}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>

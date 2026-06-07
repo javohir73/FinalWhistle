@@ -14,15 +14,17 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
   if (state.status === "error") return <ErrorState message={state.message} />;
 
   return (
-    <div>
-      <Link href="/groups" className="text-sm text-foreground/60 hover:underline">
-        ← All groups
+    <div className="fade-up mx-auto max-w-2xl">
+      <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+        <span aria-hidden>←</span> All groups
       </Link>
-      <h1 className="mb-4 mt-2 text-2xl font-bold">{state.data.name}</h1>
-      <div className="rounded-xl border border-border p-4">
+      <h1 className="mb-5 mt-3 font-display text-3xl font-extrabold tracking-tight">
+        {state.data.name}
+      </h1>
+      <div className="glass rounded-2xl p-6">
         <GroupTable standings={state.data.standings} />
       </div>
-      <p className="mt-4 text-xs text-foreground/50">
+      <p className="mt-4 text-xs leading-relaxed text-muted/70">
         Points and goal difference are simulated averages over thousands of runs.
         Top two advance directly; the eight best third-placed teams also progress
         (modeled in a later release).

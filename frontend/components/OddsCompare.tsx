@@ -1,12 +1,15 @@
-/** Odds comparison — stubbed in the MVP (PRD Resolved Decision #1).
- *  Degrades gracefully so the UI is ready when odds are wired in Phase 4. */
+/** Odds comparison — stubbed in the MVP. Degrades gracefully so the UI is
+ *  ready when odds are wired in a later phase. */
 export function OddsCompare({ available }: { available: boolean }) {
   if (!available) {
     return (
-      <div className="rounded-lg border border-dashed border-border p-4 text-sm text-foreground/50">
-        Bookmaker odds comparison is coming in a later release.
+      <div className="glass rounded-xl border-dashed p-5 text-sm text-muted">
+        <span className="font-display font-semibold text-foreground/80">
+          Bookmaker odds comparison
+        </span>{" "}
+        is coming in a later release — model-vs-market value detection.
       </div>
     );
   }
-  return null; // Real comparison rendered here once odds are available (Phase 4).
+  return null;
 }

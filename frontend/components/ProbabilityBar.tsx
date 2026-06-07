@@ -8,7 +8,7 @@ interface Props {
   showLabels?: boolean;
 }
 
-/** Horizontal W/D/L stacked bar — the core visual of a prediction (PRD §12). */
+/** Horizontal W/D/L stacked bar — the signature visual of a prediction. */
 export function ProbabilityBar({
   probabilities,
   homeLabel = "Home",
@@ -21,25 +21,25 @@ export function ProbabilityBar({
   return (
     <div>
       <div
-        className="flex h-6 w-full overflow-hidden rounded-md text-[10px] font-semibold text-white"
+        className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
         role="img"
         aria-label={`${homeLabel} win ${pct(home_win)}, draw ${pct(draw)}, ${awayLabel} win ${pct(away_win)}`}
       >
-        <div className="flex items-center justify-center bg-win" style={seg(home_win)}>
-          {home_win >= 0.12 && pct(home_win)}
-        </div>
-        <div className="flex items-center justify-center bg-draw text-foreground" style={seg(draw)}>
-          {draw >= 0.12 && pct(draw)}
-        </div>
-        <div className="flex items-center justify-center bg-loss" style={seg(away_win)}>
-          {away_win >= 0.12 && pct(away_win)}
-        </div>
+        <div
+          className="rounded-l-full bg-gradient-to-r from-win/70 to-win"
+          style={seg(home_win)}
+        />
+        <div className="bg-draw/80" style={seg(draw)} />
+        <div
+          className="rounded-r-full bg-gradient-to-r from-loss to-loss/70"
+          style={seg(away_win)}
+        />
       </div>
       {showLabels && (
-        <div className="mt-1 flex justify-between text-xs text-foreground/60">
-          <span>{homeLabel} win</span>
-          <span>Draw</span>
-          <span>{awayLabel} win</span>
+        <div className="mt-2 flex justify-between text-[11px] font-medium tabular-nums">
+          <span className="text-win">{pct(home_win)}</span>
+          <span className="text-draw">{pct(draw)} draw</span>
+          <span className="text-loss">{pct(away_win)}</span>
         </div>
       )}
     </div>

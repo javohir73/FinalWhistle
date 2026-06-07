@@ -35,7 +35,8 @@ it("renders probabilities, reasons and odds stub", async () => {
   mockGet.mockResolvedValue(prediction);
   render(<MatchDetailPage params={{ id: "1" }} />);
 
-  await waitFor(() => expect(screen.getByText("Brazil vs Serbia")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1));
+  expect(screen.getByText("Serbia")).toBeInTheDocument();
   expect(screen.getAllByText("62%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
   expect(screen.getByText(/coming in a later release/i)).toBeInTheDocument();
