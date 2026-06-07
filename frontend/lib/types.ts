@@ -35,6 +35,10 @@ export interface Prediction {
   generated_at: string | null;
   teams: Teams;
   is_neutral: boolean;
+  kickoff_utc: string | null;
+  venue: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
   probabilities: Probabilities;
   predicted_score: PredictedScore;
   confidence: "High" | "Medium" | "Low" | null;
@@ -50,6 +54,9 @@ export interface MatchSummary {
   stage: string;
   group: string | null;
   kickoff_utc: string | null;
+  venue: string | null;
+  venue_city: string | null;
+  venue_country: string | null;
   is_neutral: boolean;
   teams: Teams;
   predicted_winner: string | null;

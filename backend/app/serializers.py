@@ -5,12 +5,25 @@ a prediction can never accidentally run the model (PRD §7).
 """
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.models import HistoricalMatch, Match, Prediction, Standing, Team
 
 DISCLAIMER = "For analytics and entertainment only. Not betting advice."
+
+
+def _kickoff_iso(dt: datetime | None) -> str | None:
+    """Always emit kickoff as an explicit-UTC ISO string. SQLite drops tzinfo,
+    so a naive value is assumed UTC and tagged accordingly; the frontend then
+    converts the instant to the user's local time."""
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat()
 
 
 def team_to_out(team: Team) -> schemas.TeamOut:
@@ -58,6 +71,10 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         generated_at=pred.created_at.isoformat() if pred.created_at else None,
         teams=schemas.TeamsOut(home=home.name if home else "TBD", away=away.name if away else "TBD"),
         is_neutral=match.is_neutral,
+        kickoff_utc=_kickoff_iso(match.kickoff_utc),
+        venue=match.venue,
+        venue_city=match.venue_city,
+        venue_country=match.venue_country,
         probabilities=schemas.ProbabilitiesOut(
             home_win=pred.prob_home_win, draw=pred.prob_draw, away_win=pred.prob_away_win
         ),
@@ -116,7 +133,10 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         match_id=match.id,
         stage=match.stage,
         group=match.group.name if match.group else None,
-        kickoff_utc=match.kickoff_utc.isoformat() if match.kickoff_utc else None,
+        kickoff_utc=_kickoff_iso(match.kickoff_utc),
+        venue=match.venue,
+        venue_city=match.venue_city,
+        venue_country=match.venue_country,
         is_neutral=match.is_neutral,
         teams=schemas.TeamsOut(
             home=home.name if home else "TBD", away=away.name if away else "TBD"

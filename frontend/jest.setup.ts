@@ -9,3 +9,16 @@ class ResizeObserverStub {
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (global as any).ResizeObserver = (global as any).ResizeObserver || ResizeObserverStub;
+
+// jsdom lacks IntersectionObserver, used by the scroll-reveal component.
+class IntersectionObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+  takeRecords() {
+    return [];
+  }
+}
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).IntersectionObserver =
+  (global as any).IntersectionObserver || IntersectionObserverStub;

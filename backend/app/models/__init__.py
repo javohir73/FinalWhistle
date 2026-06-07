@@ -91,7 +91,8 @@ class Match(Base):
     team_home_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     team_away_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    venue: Mapped[str | None] = mapped_column(String(120))
+    venue: Mapped[str | None] = mapped_column(String(120))  # stadium name
+    venue_city: Mapped[str | None] = mapped_column(String(80))
     venue_country: Mapped[str | None] = mapped_column(String(40))
     is_neutral: Mapped[bool] = mapped_column(default=True)
     # Set when a host nation plays in its own country -> drives the +60 Elo bonus (Decision #2).

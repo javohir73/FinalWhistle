@@ -14,6 +14,7 @@ sets host_team_id / venue_country / is_neutral=False (PRD Decision #2).
 from __future__ import annotations
 
 import json
+from datetime import datetime
 from pathlib import Path
 
 from sqlalchemy.orm import Session
@@ -45,6 +46,22 @@ KNOCKOUT_STAGES = [
 
 def _load_json(name: str) -> dict:
     return json.loads((DATA_DIR / name).read_text(encoding="utf-8"))
+
+
+def _load_schedule() -> dict[tuple[str, frozenset[str]], dict]:
+    """Build a lookup of confirmed group-stage kickoff/venue data, keyed by
+    (group name, unordered pair of team names). Optional: returns {} if the
+    schedule file is absent so structure loading still works."""
+    path = DATA_DIR / "wc26_schedule.json"
+    if not path.exists():
+        return {}
+    data = json.loads(path.read_text(encoding="utf-8"))
+    lookup: dict[tuple[str, frozenset[str]], dict] = {}
+    for m in data.get("matches", []):
+        home = normalize_team_name(m["home"])
+        away = normalize_team_name(m["away"])
+        lookup[(m["group"], frozenset({home, away}))] = m
+    return lookup
 
 
 def _get_or_create_tournament(db: Session) -> Tournament:
@@ -79,6 +96,7 @@ def load_structure(db: Session) -> dict:
     teams_data = _load_json("wc26_teams.json")
     groups_data = _load_json("wc26_groups.json")
     host_country_by_team = groups_data.get("host_country_by_team", {})
+    schedule = _load_schedule()
 
     tournament = _get_or_create_tournament(db)
 
@@ -110,6 +128,28 @@ def load_structure(db: Session) -> dict:
         # round-robin fixtures
         for hi, ai in ROUND_ROBIN:
             home, away = members[hi], members[ai]
+
+            host_team_id = None
+            is_neutral = True
+            for team in (home, away):
+                if team.name in host_country_by_team:
+                    host_team_id = team.id
+                    is_neutral = False
+                    break
+
+            # Confirmed schedule (kickoff/venue), matched on the unordered pair.
+            sched = schedule.get((g["name"], frozenset({home.name, away.name})))
+            kickoff_utc = venue = venue_city = venue_country = None
+            if sched:
+                if sched.get("kickoff_utc"):
+                    kickoff_utc = datetime.fromisoformat(sched["kickoff_utc"])
+                venue = sched.get("stadium")
+                venue_city = sched.get("city")
+                venue_country = sched.get("country")
+            elif not is_neutral:
+                # Fallback for host matches when no schedule row is present.
+                venue_country = host_country_by_team[home.name if home.name in host_country_by_team else away.name]
+
             existing = db.query(Match).filter_by(
                 tournament_id=tournament.id,
                 group_id=group.id,
@@ -117,17 +157,14 @@ def load_structure(db: Session) -> dict:
                 team_away_id=away.id,
             ).one_or_none()
             if existing is not None:
+                # Backfill schedule data on idempotent re-runs.
+                existing.kickoff_utc = kickoff_utc
+                existing.venue = venue
+                existing.venue_city = venue_city
+                existing.venue_country = venue_country
+                existing.host_team_id = host_team_id
+                existing.is_neutral = is_neutral
                 continue
-
-            host_team_id = None
-            venue_country = None
-            is_neutral = True
-            for team in (home, away):
-                if team.name in host_country_by_team:
-                    host_team_id = team.id
-                    venue_country = host_country_by_team[team.name]
-                    is_neutral = False
-                    break
 
             db.add(
                 Match(
@@ -138,6 +175,9 @@ def load_structure(db: Session) -> dict:
                     team_away_id=away.id,
                     is_neutral=is_neutral,
                     host_team_id=host_team_id,
+                    kickoff_utc=kickoff_utc,
+                    venue=venue,
+                    venue_city=venue_city,
                     venue_country=venue_country,
                     status="scheduled",
                 )

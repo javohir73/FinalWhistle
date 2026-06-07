@@ -52,6 +52,10 @@ class PredictionOut(BaseModel):
     generated_at: str | None
     teams: TeamsOut
     is_neutral: bool
+    kickoff_utc: str | None = None
+    venue: str | None = None
+    venue_city: str | None = None
+    venue_country: str | None = None
     probabilities: ProbabilitiesOut
     predicted_score: PredictedScoreOut
     confidence: str | None
@@ -77,6 +81,9 @@ class MatchSummaryOut(BaseModel):
     stage: str
     group: str | None
     kickoff_utc: str | None
+    venue: str | None
+    venue_city: str | None
+    venue_country: str | None
     is_neutral: bool
     teams: TeamsOut
     predicted_winner: str | None

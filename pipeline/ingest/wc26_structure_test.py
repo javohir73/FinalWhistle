@@ -3,6 +3,26 @@ from app.models import Group, Match, Team
 from pipeline.ingest.wc26_structure import load_structure
 
 
+def test_group_matches_have_schedule(db_session):
+    """Every group match gets the confirmed kickoff + venue from the schedule."""
+    load_structure(db_session)
+    group_matches = db_session.query(Match).filter(Match.stage == "group").all()
+    assert len(group_matches) == 72
+    assert all(m.kickoff_utc is not None for m in group_matches)
+    assert all(m.venue and m.venue_city and m.venue_country for m in group_matches)
+
+    # Spot-check the opener: Mexico v South Africa at the Estadio Azteca.
+    azteca = [m for m in group_matches if m.venue == "Estadio Azteca"]
+    assert azteca, "expected at least one match at the Estadio Azteca"
+    opener = min(group_matches, key=lambda m: m.kickoff_utc)
+    assert opener.venue == "Estadio Azteca"
+    assert opener.venue_city == "Mexico City"
+
+    # Schedule kickoffs are seeded as UTC and span the group window.
+    kickoffs = sorted(m.kickoff_utc for m in group_matches)
+    assert kickoffs[0].year == 2026 and kickoffs[0].month == 6
+
+
 def test_loads_full_structure(db_session):
     summary = load_structure(db_session)
     assert summary["teams"] == 48

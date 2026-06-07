@@ -5,6 +5,7 @@ import { getTeam } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { FormStrip } from "@/components/FormStrip";
 import { Flag } from "@/components/Flag";
+import { FavoriteStar } from "@/components/FavoriteStar";
 import { Loading, ErrorState } from "@/components/States";
 
 export default function TeamPage({ params }: { params: { id: string } }) {
@@ -28,9 +29,12 @@ export default function TeamPage({ params }: { params: { id: string } }) {
           <div className="flex items-center gap-4">
             <Flag team={team.name} size={56} />
             <div>
-              <h1 className="font-display text-3xl font-extrabold tracking-tight">
-                {team.name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <h1 className="font-display text-3xl font-extrabold tracking-tight">
+                  {team.name}
+                </h1>
+                <FavoriteStar team={team.name} size={22} />
+              </div>
               {team.is_host && (
                 <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gold ring-1 ring-gold/30">
                   Tournament host

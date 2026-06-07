@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { getMatch } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
+import { useTimezone } from "@/lib/useTimezone";
+import { dayHeading, kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { pct, formatScore } from "@/lib/format";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
@@ -15,16 +17,18 @@ import { Loading, ErrorState } from "@/components/States";
 export default function MatchDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const state = useFetch(() => getMatch(id), [id]);
+  const { tz } = useTimezone();
 
   if (state.status === "loading") return <Loading label="Loading match…" />;
   if (state.status === "error") return <ErrorState message={state.message} />;
 
   const p = state.data;
   const { home, away } = p.teams;
+  const venue = [p.venue, p.venue_city, p.venue_country].filter(Boolean).join(", ");
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+      <Link href="/matches" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
         <span aria-hidden>←</span> All matches
       </Link>
 
@@ -36,6 +40,29 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
           </span>
           <ConfidenceBadge level={p.confidence} />
         </div>
+
+        {(p.kickoff_utc || venue) && (
+          <div className="mb-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1.5 text-sm text-muted">
+            {p.kickoff_utc && (
+              <span className="inline-flex items-center gap-1.5 font-semibold text-foreground">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-win" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
+                </svg>
+                {dayHeading(p.kickoff_utc, tz)} · {kickoffTime(p.kickoff_utc, tz)}{" "}
+                <span className="font-medium text-muted">{tzAbbrev(p.kickoff_utc, tz)}</span>
+              </span>
+            )}
+            {venue && (
+              <span className="inline-flex items-center gap-1.5">
+                <svg viewBox="0 0 24 24" className="h-4 w-4 text-win" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
+                  <circle cx="12" cy="10" r="2.5" />
+                </svg>
+                {venue}
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="grid grid-cols-3 items-center gap-2">
           <TeamHead name={home} prob={p.probabilities.home_win} side="left" />
