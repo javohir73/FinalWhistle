@@ -32,18 +32,26 @@ html {
 body {
   color: hsl(var(--foreground));
   background-color: hsl(var(--background));
-  /* Layered atmosphere: top lime glow + side gold glow + base */
-  background-image:
-    radial-gradient(60rem 40rem at 80% -10%, hsl(84 78% 55% / 0.10), transparent 60%),
-    radial-gradient(50rem 40rem at -10% 10%, hsl(43 74% 62% / 0.06), transparent 55%),
-    radial-gradient(40rem 30rem at 50% 120%, hsl(156 40% 20% / 0.5), transparent 60%);
-  background-attachment: fixed;
   font-feature-settings: "ss01", "cv01", "tnum";
   -webkit-font-smoothing: antialiased;
 }
 
-/* Fine grain overlay for texture */
+/* Layered atmosphere on a fixed layer (avoids the iOS `background-attachment:
+   fixed` bug that mis-scales the background when zooming). */
 body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    radial-gradient(60rem 40rem at 80% -10%, hsl(84 78% 55% / 0.10), transparent 60%),
+    radial-gradient(50rem 40rem at -10% 10%, hsl(43 74% 62% / 0.06), transparent 55%),
+    radial-gradient(40rem 30rem at 50% 120%, hsl(156 40% 20% / 0.5), transparent 60%);
+}
+
+/* Fine grain overlay for texture (also fixed, paints over the atmosphere). */
+body::after {
   content: "";
   position: fixed;
   inset: 0;

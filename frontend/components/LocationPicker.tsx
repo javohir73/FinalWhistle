@@ -69,7 +69,7 @@ function Select({
       aria-label="Choose your timezone"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="rounded-lg border border-border bg-surface-2/80 px-2.5 py-1.5 text-sm font-medium text-foreground outline-none transition focus:border-win/50"
+      className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2/80 px-2.5 py-1.5 text-sm font-medium text-foreground outline-none transition focus:border-win/50 sm:flex-none"
     >
       {extras.length > 0 && (
         <optgroup label="Detected">
@@ -119,11 +119,11 @@ export function LocationPicker() {
             <span className="font-semibold text-foreground">{tzCityLabel(tz)}</span>. Not right?
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full items-center gap-2 sm:w-auto">
           <Select value={tz} onChange={setTimezone} />
           <button
             onClick={confirm}
-            className="rounded-lg bg-win px-3.5 py-1.5 text-sm font-display font-bold text-background transition hover:brightness-110"
+            className="shrink-0 rounded-lg bg-win px-3.5 py-1.5 text-sm font-display font-bold text-background transition hover:brightness-110"
           >
             Use this
           </button>

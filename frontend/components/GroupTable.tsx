@@ -28,13 +28,15 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
             <td className="py-2.5 pr-2">
               <Link
                 href={`/team/${row.team_id}`}
-                className="flex items-center gap-2.5 hover:text-win"
+                className="flex items-center gap-2 hover:text-win sm:gap-2.5"
               >
-                <span className="w-4 text-center text-xs font-semibold text-muted">
+                <span className="w-4 shrink-0 text-center text-xs font-semibold text-muted">
                   {i + 1}
                 </span>
-                <Flag team={row.team} size={20} />
-                <span className="font-medium">{row.team}</span>
+                <span className="shrink-0">
+                  <Flag team={row.team} size={20} />
+                </span>
+                <span className="min-w-0 font-medium leading-tight">{row.team}</span>
               </Link>
             </td>
             <td className="px-1 text-center font-semibold tabular-nums">{row.points}</td>
