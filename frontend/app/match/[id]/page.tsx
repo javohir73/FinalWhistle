@@ -64,17 +64,17 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
           </div>
         )}
 
-        <div className="grid grid-cols-3 items-center gap-2">
-          <TeamHead name={home} prob={p.probabilities.home_win} side="left" />
-          <div className="text-center">
-            <div className="font-display text-3xl font-extrabold tabular-nums">
+        <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
+          <TeamHead name={home} prob={p.probabilities.home_win} />
+          <div className="px-1 pt-3 text-center sm:px-2">
+            <div className="font-display text-2xl font-extrabold tabular-nums sm:text-3xl">
               {formatScore(p.predicted_score.home, p.predicted_score.away)}
             </div>
-            <div className="mt-1 text-[11px] uppercase tracking-wide text-muted">
+            <div className="mt-1 text-[10px] uppercase tracking-wide text-muted sm:text-[11px]">
               predicted
             </div>
           </div>
-          <TeamHead name={away} prob={p.probabilities.away_win} side="right" />
+          <TeamHead name={away} prob={p.probabilities.away_win} />
         </div>
 
         <div className="mt-6">
@@ -127,26 +127,16 @@ export default function MatchDetailPage({ params }: { params: { id: string } }) 
   );
 }
 
-function TeamHead({
-  name,
-  prob,
-  side,
-}: {
-  name: string;
-  prob: number;
-  side: "left" | "right";
-}) {
+function TeamHead({ name, prob }: { name: string; prob: number }) {
   return (
-    <div className={side === "right" ? "text-right" : "text-left"}>
-      <div className={`flex items-center gap-2.5 ${side === "right" ? "flex-row-reverse" : ""}`}>
-        <Flag team={name} size={40} />
-        <span className="font-display text-lg font-bold leading-tight tracking-tight">
-          {name}
-        </span>
-      </div>
-      <div className="mt-2 font-display text-2xl font-extrabold tabular-nums text-win">
+    <div className="flex min-w-0 flex-col items-center text-center">
+      <Flag team={name} size={44} />
+      <span className="mt-2 font-display text-sm font-bold leading-tight tracking-tight sm:text-lg">
+        {name}
+      </span>
+      <span className="mt-1.5 font-display text-xl font-extrabold tabular-nums text-win sm:text-2xl">
         {pct(prob)}
-      </div>
+      </span>
     </div>
   );
 }
