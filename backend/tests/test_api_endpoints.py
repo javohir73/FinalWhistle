@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.cache import cache
+from app.config import settings
 from app.db import Base, get_db
 from app.main import app
 from app.models import Prediction, Team
@@ -125,7 +126,12 @@ def test_groups(client):
     assert len(groups) == 12
     gid = groups[0]["id"]
     detail = client.get(f"/api/groups/{gid}").json()
-    assert len(detail["standings"]) == 4
+    rows = detail["standings"]
+    assert len(rows) == 4
+    # Table is ranked like a real league table: projected points, then GD, then GF
+    # (descending). Qualification prob is a separate column, not the sort key.
+    keys = [(r["projected_points"], r["projected_goal_diff"], r["projected_goals_for"]) for r in rows]
+    assert keys == sorted(keys, reverse=True)
     assert client.get("/api/groups/999999").status_code == 404
 
 
@@ -145,9 +151,21 @@ def test_reads_do_not_trigger_model_run(client):
     assert after == before  # no new predictions written by reads
 
 
-def test_recompute_requires_token(client):
+def test_recompute_disabled_when_token_unset(client, monkeypatch):
+    """Fail closed: no configured token => endpoint disabled, never a default."""
+    monkeypatch.setattr(settings, "recompute_token", "")
+    assert client.post("/api/internal/recompute").status_code == 503
+    r = client.post("/api/internal/recompute", headers={"X-Recompute-Token": "anything"})
+    assert r.status_code == 503
+
+
+def test_recompute_requires_token(client, monkeypatch):
+    monkeypatch.setattr(settings, "recompute_token", "test-secret")
     assert client.post("/api/internal/recompute").status_code == 401
-    r = client.post("/api/internal/recompute", headers={"X-Recompute-Token": "dev-recompute-token"})
+    assert client.post(
+        "/api/internal/recompute", headers={"X-Recompute-Token": "wrong"}
+    ).status_code == 401
+    r = client.post("/api/internal/recompute", headers={"X-Recompute-Token": "test-secret"})
     assert r.status_code == 200
     assert r.json()["recomputed"]["matches_predicted"] == 72
 

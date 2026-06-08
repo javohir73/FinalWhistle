@@ -159,7 +159,14 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
 
 def group_to_out(db: Session, group) -> schemas.GroupOut:
     rows = db.query(Standing).filter_by(group_id=group.id).all()
-    rows.sort(key=lambda r: (r.qualification_prob or 0, r.points, r.goal_diff), reverse=True)
+    # Rank like a real league table: projected points, then goal difference, then
+    # goals for. Qualification probability is shown as its own column, not the sort
+    # key — otherwise the #1 row could have fewer points than #2, which misreads as
+    # a broken table. (Qual prob is highly correlated with points but not identical.)
+    rows.sort(
+        key=lambda r: (r.points or 0, r.goal_diff or 0, r.goals_for or 0),
+        reverse=True,
+    )
     standings = []
     for r in rows:
         team = db.get(Team, r.team_id)

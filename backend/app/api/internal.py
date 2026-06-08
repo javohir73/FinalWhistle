@@ -7,6 +7,8 @@ cron calls.
 """
 from __future__ import annotations
 
+import secrets
+
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
@@ -17,14 +19,28 @@ from app.db import get_db
 router = APIRouter(prefix="/api/internal", tags=["internal"])
 
 
+def _require_token(provided: str | None) -> None:
+    """Authorize an internal call. Fails closed: if no token is configured the
+    endpoint is disabled (503) instead of falling back to a guessable default.
+    Uses a constant-time compare to avoid leaking the secret via timing."""
+    expected = settings.recompute_token
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail={"code": "not_configured",
+                    "message": "Internal endpoints are disabled (RECOMPUTE_TOKEN unset)."},
+        )
+    if not provided or not secrets.compare_digest(provided, expected):
+        raise HTTPException(status_code=401, detail={"code": "unauthorized",
+                                                     "message": "Invalid recompute token"})
+
+
 @router.post("/recompute")
 def recompute(
     db: Session = Depends(get_db),
     x_recompute_token: str | None = Header(default=None),
 ):
-    if x_recompute_token != settings.recompute_token:
-        raise HTTPException(status_code=401, detail={"code": "unauthorized",
-                                                     "message": "Invalid recompute token"})
+    _require_token(x_recompute_token)
     # Lazy import: the model packages aren't needed for normal read traffic.
     from pipeline.generate_predictions import generate_predictions
 
@@ -40,9 +56,7 @@ def refresh_live(
 ):
     """Pull live in-game scores and update fixtures. Safe to call every minute
     (an external cron does this during match windows). No-op without an API key."""
-    if x_recompute_token != settings.recompute_token:
-        raise HTTPException(status_code=401, detail={"code": "unauthorized",
-                                                     "message": "Invalid recompute token"})
+    _require_token(x_recompute_token)
     from pipeline.ingest.live_scores import refresh_live as run_live
 
     summary = run_live(db)

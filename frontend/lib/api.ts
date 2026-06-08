@@ -10,7 +10,23 @@ import type {
   TournamentOdds,
 } from "./types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+/** Base URL for the backend. Required in production: a missing value used to
+ *  silently fall back to localhost, which builds fine but points deployed pages
+ *  at a host that doesn't exist. Fail the build instead so the misconfig is
+ *  caught before it ships. The localhost default stays for local dev/test. */
+function resolveApiUrl(): string {
+  const url = process.env.NEXT_PUBLIC_API_URL;
+  if (url) return url;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "NEXT_PUBLIC_API_URL is not set. Configure it in the deployment environment " +
+        "before building — refusing to fall back to http://localhost:8000 in production.",
+    );
+  }
+  return "http://localhost:8000";
+}
+
+const API_URL = resolveApiUrl();
 
 export interface HealthResponse {
   status: string;

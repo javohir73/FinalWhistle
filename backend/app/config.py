@@ -17,7 +17,9 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://wc26:wc26@localhost:5432/wc26"
 
     # Secret token guarding POST /api/internal/recompute and /refresh-live.
-    recompute_token: str = "dev-recompute-token"
+    # No production default on purpose: if RECOMPUTE_TOKEN is unset the endpoints
+    # refuse all calls (see api/internal.py) rather than accepting a known secret.
+    recompute_token: str = ""
 
     # Live in-game scores (football-data.org). Empty => live updates disabled.
     football_data_api_key: str = ""
