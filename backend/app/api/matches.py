@@ -17,9 +17,11 @@ def upcoming_matches(db: Session = Depends(get_db)):
     cached = cache.get("matches:upcoming")
     if cached is not None:
         return cached
+    # All fixtures with known teams (scheduled, in-play, or finished) so the
+    # board can show live and full-time scores, not just upcoming kickoffs.
     matches = (
         db.query(Match)
-        .filter(Match.status == "scheduled", Match.team_home_id.isnot(None))
+        .filter(Match.team_home_id.isnot(None))
         .order_by(Match.kickoff_utc.is_(None), Match.kickoff_utc.asc(), Match.id.asc())
         .all()
     )

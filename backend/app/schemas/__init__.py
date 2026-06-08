@@ -85,6 +85,10 @@ class MatchSummaryOut(BaseModel):
     venue_city: str | None
     venue_country: str | None
     is_neutral: bool
+    status: str
+    score_home: int | None
+    score_away: int | None
+    minute: int | None
     teams: TeamsOut
     predicted_winner: str | None
     probabilities: ProbabilitiesOut | None

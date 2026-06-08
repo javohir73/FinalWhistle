@@ -12,20 +12,36 @@ import { FavoriteStar } from "./FavoriteStar";
 export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
   const { teams, probabilities, predicted_score, confidence, predicted_winner } = match;
   const venue = [match.venue, match.venue_city].filter(Boolean).join(" · ");
+  const live = match.status === "in_play";
+  const finished = match.status === "finished";
+  const hasScore = match.score_home != null && match.score_away != null;
 
   return (
     <Link
       href={`/match/${match.match_id}`}
-      className="card-hover glass group block rounded-2xl p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+      className={`card-hover glass group block rounded-2xl p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 ${
+        live ? "ring-1 ring-loss/40" : ""
+      }`}
     >
       <div className="mb-3 flex items-center justify-between">
         <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
           {match.group ?? match.stage}
         </span>
-        {confidence && <ConfidenceBadge level={confidence} />}
+        {live ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
+            Live{match.minute != null ? ` ${match.minute}'` : ""}
+          </span>
+        ) : finished ? (
+          <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+            Full time
+          </span>
+        ) : (
+          confidence && <ConfidenceBadge level={confidence} />
+        )}
       </div>
 
-      {(match.kickoff_utc || venue) && (
+      {!live && !finished && (match.kickoff_utc || venue) && (
         <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
           {match.kickoff_utc && tz && (
             <span className="inline-flex items-center gap-1.5 font-semibold text-win">
@@ -49,8 +65,8 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
       )}
 
       <div className="mb-4 space-y-2.5">
-        <TeamRow name={teams.home} />
-        <TeamRow name={teams.away} />
+        <TeamRow name={teams.home} score={hasScore ? match.score_home : null} live={live || finished} />
+        <TeamRow name={teams.away} score={hasScore ? match.score_away : null} live={live || finished} />
       </div>
 
       {probabilities ? (
@@ -80,13 +96,24 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
   );
 }
 
-function TeamRow({ name }: { name: string }) {
+function TeamRow({
+  name,
+  score,
+  live,
+}: {
+  name: string;
+  score?: number | null;
+  live?: boolean;
+}) {
   return (
     <div className="flex items-center gap-2.5">
       <Flag team={name} size={24} />
-      <span className="flex-1 font-display text-[15px] font-semibold tracking-tight">
+      <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold tracking-tight">
         {name}
       </span>
+      {live && score != null && (
+        <span className="font-display text-lg font-extrabold tabular-nums">{score}</span>
+      )}
       <FavoriteStar team={name} />
     </div>
   );

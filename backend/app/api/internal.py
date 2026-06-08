@@ -31,3 +31,20 @@ def recompute(
     summary = generate_predictions(db, model_version=settings.model_version)
     cache.clear()
     return {"status": "ok", "recomputed": summary}
+
+
+@router.post("/refresh-live")
+def refresh_live(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Pull live in-game scores and update fixtures. Safe to call every minute
+    (an external cron does this during match windows). No-op without an API key."""
+    if x_recompute_token != settings.recompute_token:
+        raise HTTPException(status_code=401, detail={"code": "unauthorized",
+                                                     "message": "Invalid recompute token"})
+    from pipeline.ingest.live_scores import refresh_live as run_live
+
+    summary = run_live(db)
+    cache.clear()
+    return {"status": "ok", "live": summary}

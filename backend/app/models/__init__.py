@@ -97,9 +97,10 @@ class Match(Base):
     is_neutral: Mapped[bool] = mapped_column(default=True)
     # Set when a host nation plays in its own country -> drives the +60 Elo bonus (Decision #2).
     host_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
-    status: Mapped[str] = mapped_column(String(20), default="scheduled")
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled/in_play/finished
     score_home: Mapped[int | None] = mapped_column(Integer)
     score_away: Mapped[int | None] = mapped_column(Integer)
+    minute: Mapped[int | None] = mapped_column(Integer)  # live clock when in_play
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])

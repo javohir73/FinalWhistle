@@ -16,8 +16,12 @@ class Settings(BaseSettings):
     # Database — defaults to the local docker-compose Postgres.
     database_url: str = "postgresql+psycopg2://wc26:wc26@localhost:5432/wc26"
 
-    # Secret token guarding POST /api/internal/recompute.
+    # Secret token guarding POST /api/internal/recompute and /refresh-live.
     recompute_token: str = "dev-recompute-token"
+
+    # Live in-game scores (football-data.org). Empty => live updates disabled.
+    football_data_api_key: str = ""
+    football_data_competition: str = "WC"  # FIFA World Cup competition code
 
     # CORS: comma-separated list of allowed frontend origins.
     cors_origins: str = "http://localhost:3000"

@@ -15,7 +15,8 @@ import { cn } from "@/lib/utils";
 const TBC = "tbc";
 
 export default function MatchesPage() {
-  const state = useFetch(getUpcomingMatches, []);
+  // Poll every 30s so live in-game scores refresh automatically.
+  const state = useFetch(getUpcomingMatches, [], 30_000);
   const { favorites, isFavorite } = useFavorites();
   const { tz } = useTimezone();
   const [group, setGroup] = useState("all");

@@ -21,6 +21,17 @@ Vercel (Next.js)  ──HTTPS──►  Render Web Service (FastAPI, Docker)  �
 | `CORS_ORIGINS` | ✅ | `https://pitchprophet.vercel.app` | Comma-separated allowed frontend origins. **Set after the Vercel URL exists.** |
 | `MODEL_VERSION` | ➖ | `poisson-elo-v0.1` | Stamped on predictions. |
 | `CACHE_TTL_SECONDS` | ➖ | `600` | Read-cache lifetime; lets the cron's DB writes appear in the web process. |
+| `FOOTBALL_DATA_API_KEY` | ➖ | (from football-data.org) | Enables **live in-game scores**. Empty = feature off (no-op). Free key at football-data.org/client/register. |
+| `FOOTBALL_DATA_COMPETITION` | ➖ | `WC` | Competition code for the live feed (World Cup). |
+
+### Live in-game scores (optional, free)
+
+Live scores are pulled from [football-data.org](https://www.football-data.org) (free tier covers the World Cup) and applied by `POST /api/internal/refresh-live` (guarded by `RECOMPUTE_TOKEN`). To turn it on during the tournament:
+
+1. Create a free key at football-data.org and set `FOOTBALL_DATA_API_KEY` on the Render service.
+2. Schedule a free external cron (e.g. [cron-job.org](https://cron-job.org)) to `POST https://<api-host>/api/internal/refresh-live` every minute during match windows, with header `X-Recompute-Token: <RECOMPUTE_TOKEN>`.
+
+Without the key the endpoint is a safe no-op, so it's harmless to wire the cron early. The matches board auto-refreshes every 30s and shows a LIVE badge + running score.
 
 ### Frontend (Vercel)
 

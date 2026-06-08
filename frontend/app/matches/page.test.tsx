@@ -17,6 +17,7 @@ function match(
   return {
     match_id: id, stage: "group", group, kickoff_utc: null,
     venue: null, venue_city: null, venue_country: null, is_neutral: true,
+    status: "scheduled", score_home: null, score_away: null, minute: null,
     teams: { home, away },
     predicted_winner: home,
     probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },

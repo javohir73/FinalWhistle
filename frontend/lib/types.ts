@@ -58,6 +58,10 @@ export interface MatchSummary {
   venue_city: string | null;
   venue_country: string | null;
   is_neutral: boolean;
+  status: "scheduled" | "in_play" | "finished";
+  score_home: number | null;
+  score_away: number | null;
+  minute: number | null;
   teams: Teams;
   predicted_winner: string | null;
   probabilities: Probabilities | null;

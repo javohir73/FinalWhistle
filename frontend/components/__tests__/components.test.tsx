@@ -67,6 +67,10 @@ describe("MatchCard", () => {
     venue_city: "Mexico City",
     venue_country: "Mexico",
     is_neutral: false,
+    status: "scheduled",
+    score_home: null,
+    score_away: null,
+    minute: null,
     teams: { home: "Mexico", away: "South Africa" },
     predicted_winner: "Mexico",
     probabilities: { home_win: 0.78, draw: 0.14, away_win: 0.08 },
@@ -81,6 +85,19 @@ describe("MatchCard", () => {
     expect(screen.getByText("South Africa")).toBeInTheDocument();
     expect(screen.getByText("2–0")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/match/7");
+  });
+
+  it("shows a LIVE badge, minute and the running score when in play", () => {
+    const liveMatch = {
+      ...match,
+      status: "in_play" as const,
+      score_home: 1,
+      score_away: 0,
+      minute: 67,
+    };
+    render(<MatchCard match={liveMatch} />);
+    expect(screen.getByText(/Live 67'/i)).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument(); // home live score
   });
 });
 
