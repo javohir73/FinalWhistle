@@ -73,3 +73,7 @@ export const getTeamServer = (id: number | string) =>
   getServer<TeamProfile>(`/api/teams/${id}`, 600);
 export const getGroupServer = (id: number | string) =>
   getServer<Group>(`/api/groups/${id}`, 300);
+export const getUpcomingMatchesServer = () =>
+  getServer<MatchSummary[]>("/api/matches/upcoming", 300);
+export const getKnockoutOddsServer = () =>
+  getServer<TournamentOdds[]>("/api/knockout/odds", 600);
