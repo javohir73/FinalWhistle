@@ -103,10 +103,10 @@ describe("MatchCard", () => {
 
 describe("GroupTable", () => {
   const standings: StandingRow[] = [
-    { team_id: 1, team: "Mexico", played: 0, points: 6, goals_for: 5, goal_diff: 3, qualification_prob: 0.87 },
-    { team_id: 2, team: "South Korea", played: 0, points: 5, goals_for: 4, goal_diff: 1, qualification_prob: 0.6 },
-    { team_id: 3, team: "Czechia", played: 0, points: 4, goals_for: 3, goal_diff: 0, qualification_prob: 0.41 },
-    { team_id: 4, team: "South Africa", played: 0, points: 2, goals_for: 2, goal_diff: -4, qualification_prob: 0.12 },
+    { team_id: 1, team: "Mexico", projected_points: 6, projected_goals_for: 5, projected_goal_diff: 3, qualification_prob: 0.87 },
+    { team_id: 2, team: "South Korea", projected_points: 5, projected_goals_for: 4, projected_goal_diff: 1, qualification_prob: 0.6 },
+    { team_id: 3, team: "Czechia", projected_points: 4, projected_goals_for: 3, projected_goal_diff: 0, qualification_prob: 0.41 },
+    { team_id: 4, team: "South Africa", projected_points: 2, projected_goals_for: 2, projected_goal_diff: -4, qualification_prob: 0.12 },
   ];
 
   it("renders all teams with qualification percentages", () => {

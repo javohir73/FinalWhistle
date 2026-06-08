@@ -24,6 +24,25 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def cache_control(request: Request, call_next):
+    """Explicit cache headers on read endpoints. Predictions change only on the
+    daily refresh, so a short shared-cache TTL + SWR lets any CDN/proxy serve
+    repeats cheaply (and is harmless behind the app's no-store fetches)."""
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        request.method == "GET"
+        and path.startswith("/api/")
+        and path != "/api/health"
+        and not path.startswith("/api/internal")
+    ):
+        response.headers.setdefault(
+            "Cache-Control", "public, max-age=60, stale-while-revalidate=300"
+        )
+    return response
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """Normalize all errors to {"error": {"code", "message"}} (PRD §11)."""

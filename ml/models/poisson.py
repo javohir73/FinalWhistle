@@ -68,12 +68,24 @@ def outcome_probabilities(matrix: list[list[float]]) -> tuple[float, float, floa
     return p_home / total, p_draw / total, p_away / total
 
 
-def most_likely_score(matrix: list[list[float]]) -> tuple[int, int, float]:
-    """Return (home_goals, away_goals, probability) of the single likeliest score."""
+def most_likely_score(
+    matrix: list[list[float]], outcome: str | None = None
+) -> tuple[int, int, float]:
+    """Return (home_goals, away_goals, probability) of the single likeliest score.
+
+    With `outcome` ("home" | "draw" | "away") the search is restricted to
+    scorelines that produce that result, so the predicted score can be made
+    consistent with the predicted winner (avoids "winner X, score 1–1")."""
     best_h = best_a = 0
     best_p = -1.0
     for h, row in enumerate(matrix):
         for a, p in enumerate(row):
+            if outcome == "home" and not h > a:
+                continue
+            if outcome == "draw" and h != a:
+                continue
+            if outcome == "away" and not h < a:
+                continue
             if p > best_p:
                 best_p, best_h, best_a = p, h, a
     return best_h, best_a, best_p
@@ -102,7 +114,12 @@ def predict_match(
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
     matrix = score_matrix(lam_home, lam_away)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
-    sh, sa, sp = most_likely_score(matrix)
+    # Scoreline consistent with the predicted result (argmax W/D/L), so the
+    # displayed winner and scoreline never contradict each other.
+    outcome = max(
+        (("home", p_home), ("draw", p_draw), ("away", p_away)), key=lambda kv: kv[1]
+    )[0]
+    sh, sa, sp = most_likely_score(matrix, outcome)
     return MatchPrediction(
         prob_home_win=p_home,
         prob_draw=p_draw,

@@ -47,8 +47,8 @@ export default function IntroPage() {
           </h1>
           <p className="mx-auto mt-6 max-w-xl text-lg text-muted">
             FinalWhistle turns 49,000 historical results into calibrated AI forecasts
-            for all 104 fixtures — win probabilities, scorelines, and the reasoning
-            behind every call.
+            for every group fixture — win probabilities, scorelines, and the reasoning
+            behind each call — plus a full-tournament simulation to the final.
           </p>
           <div className="mt-9 flex flex-wrap justify-center gap-3">
             <Link

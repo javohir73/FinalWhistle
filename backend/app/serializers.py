@@ -162,10 +162,9 @@ def group_to_out(db: Session, group) -> schemas.GroupOut:
             schemas.StandingRowOut(
                 team_id=r.team_id,
                 team=team.name if team else "TBD",
-                played=r.played,
-                points=r.points,
-                goals_for=r.goals_for,
-                goal_diff=r.goal_diff,
+                projected_points=r.points,
+                projected_goals_for=r.goals_for,
+                projected_goal_diff=r.goal_diff,
                 qualification_prob=r.qualification_prob,
             )
         )

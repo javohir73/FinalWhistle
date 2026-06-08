@@ -82,10 +82,9 @@ export interface Team {
 export interface StandingRow {
   team_id: number;
   team: string;
-  played: number;
-  points: number;
-  goals_for: number;
-  goal_diff: number;
+  projected_points: number;
+  projected_goals_for: number;
+  projected_goal_diff: number;
   qualification_prob: number | null;
 }
 

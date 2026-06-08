@@ -23,7 +23,25 @@ def test_outcome_probabilities_sum_to_one():
 def test_equal_teams_symmetric():
     pred = predict_match(1800, 1800)
     assert abs(pred.prob_home_win - pred.prob_away_win) < 1e-9
-    assert pred.score_home == pred.score_away  # most likely score is a draw
+
+
+def _result(pred):
+    if pred.score_home > pred.score_away:
+        return "home"
+    if pred.score_home < pred.score_away:
+        return "away"
+    return "draw"
+
+
+def test_scoreline_consistent_with_predicted_winner():
+    # Strong home favorite: argmax W/D/L is a home win and the scoreline agrees.
+    pred = predict_match(2100, 1500)
+    assert pred.prob_home_win == max(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)
+    assert _result(pred) == "home"
+    # When a draw is the most likely outcome, the scoreline is a draw.
+    even = predict_match(1700, 1700, home_adv=0)
+    if even.prob_draw >= max(even.prob_home_win, even.prob_away_win):
+        assert _result(even) == "draw"
 
 
 def test_stronger_team_favored():

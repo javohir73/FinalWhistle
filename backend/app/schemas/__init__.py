@@ -97,12 +97,13 @@ class MatchSummaryOut(BaseModel):
 
 
 class StandingRowOut(BaseModel):
+    """A projected (not played) final-table row from the group Monte-Carlo."""
+
     team_id: int
     team: str
-    played: int
-    points: int
-    goals_for: int
-    goal_diff: int
+    projected_points: int
+    projected_goals_for: int
+    projected_goal_diff: int
     qualification_prob: float | None
 
 

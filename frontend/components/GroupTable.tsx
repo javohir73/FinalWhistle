@@ -39,9 +39,9 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
                 <span className="min-w-0 font-medium leading-tight">{row.team}</span>
               </Link>
             </td>
-            <td className="px-1 text-center font-semibold tabular-nums">{row.points}</td>
+            <td className="px-1 text-center font-semibold tabular-nums">{row.projected_points}</td>
             <td className="px-1 text-center tabular-nums text-muted">
-              {row.goal_diff > 0 ? `+${row.goal_diff}` : row.goal_diff}
+              {row.projected_goal_diff > 0 ? `+${row.projected_goal_diff}` : row.projected_goal_diff}
             </td>
             <td className="py-2.5 pl-2">
               <div className="flex justify-end">
