@@ -67,3 +67,24 @@ def test_most_likely_score_is_a_valid_cell():
     h, a, p = most_likely_score(matrix)
     assert 0 <= h and 0 <= a
     assert 0 < p <= 1
+
+
+def test_dixon_coles_increases_draw_probability():
+    """Negative rho lifts the low-score draw mass (1-0/0-1/1-1/0-0 region)."""
+    even_lams = (1.3, 1.3)
+    base_draw = outcome_probabilities(score_matrix(*even_lams, rho=0.0))[1]
+    dc_draw = outcome_probabilities(score_matrix(*even_lams, rho=-0.12))[1]
+    assert dc_draw > base_draw
+    # Still a valid normalized distribution.
+    p = outcome_probabilities(score_matrix(*even_lams, rho=-0.12))
+    assert abs(sum(p) - 1.0) < 1e-9
+
+
+def test_temperature_softens_confident_predictions():
+    """T > 1 pulls the dominant probability toward the others (less confident)."""
+    raw = predict_match(2100, 1500, temperature=1.0)
+    soft = predict_match(2100, 1500, temperature=1.4)
+    assert soft.prob_home_win < raw.prob_home_win
+    # Temperature is monotone, so the predicted winner/scoreline are unchanged.
+    assert (soft.score_home > soft.score_away) == (raw.score_home > raw.score_away)
+    assert abs(soft.prob_home_win + soft.prob_draw + soft.prob_away_win - 1.0) < 1e-9

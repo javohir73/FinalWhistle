@@ -22,9 +22,13 @@ _EPS = 1e-15
 def model_probs(
     pre_home: float, pre_away: float, is_neutral: bool,
     base: float = BASE_GOALS, beta: float = ELO_TO_GOALS_BETA,
+    home_adv: float = HOME_ADVANTAGE, rho: float = 0.0, temperature: float = 1.0,
 ) -> Probs:
-    adv = 0.0 if is_neutral else HOME_ADVANTAGE
-    p = predict_match(pre_home, pre_away, home_adv=adv, base=base, beta=beta)
+    adv = 0.0 if is_neutral else home_adv
+    p = predict_match(
+        pre_home, pre_away, home_adv=adv, base=base, beta=beta,
+        rho=rho, temperature=temperature,
+    )
     return (p.prob_home_win, p.prob_draw, p.prob_away_win)
 
 
@@ -85,4 +89,53 @@ def backtest(rows: list[dict], year: int, base=1.35, beta=0.0017) -> dict:
         "model": compute_metrics(model_p, labels),
         "favorite_baseline": compute_metrics(fav_p, labels),
         "base_rate_baseline": compute_metrics(base_p, labels),
+    }
+
+
+def walk_forward(rows: list[dict], year: int, val_days: int = 730) -> dict:
+    """Leak-free evaluation on World Cup `year`.
+
+    Tunes v0.2 params (base/beta/home_adv/rho/temperature) on the validation
+    window ending the day the tournament starts, then scores the tuned+calibrated
+    model on the held-out tournament. Also reports the raw v0.1 engine and the
+    naive baselines on the same matches for comparison.
+    """
+    from ml.evaluation.tune import tune_params, validation_window
+
+    target = [
+        r for r in rows if is_world_cup_final_match(r["competition"]) and r["date"].year == year
+    ]
+    if not target:
+        raise ValueError(f"no World Cup matches found for {year}")
+    first_date = min(r["date"] for r in target)
+
+    train = [r for r in rows if r["date"] < first_date]
+    val = validation_window(rows, first_date, days=val_days)
+    params = tune_params(val)
+
+    labels = [result_label(r["score_home"], r["score_away"]) for r in target]
+    v2_p = [
+        model_probs(r["pre_home"], r["pre_away"], r["is_neutral"],
+                    params.base, params.beta, params.home_adv, params.rho, params.temperature)
+        for r in target
+    ]
+    v1_p = [model_probs(r["pre_home"], r["pre_away"], r["is_neutral"]) for r in target]
+
+    favorite = FavoriteBaseline().fit(train)
+    base_rate = BaseRateBaseline().fit(train)
+    fav_p = [favorite.predict_proba(r["pre_home"], r["pre_away"], r["is_neutral"]) for r in target]
+    base_p = [base_rate.predict_proba(r["pre_home"], r["pre_away"], r["is_neutral"]) for r in target]
+
+    return {
+        "year": year,
+        "n_matches": len(target),
+        "val_matches": len(val),
+        "params": params.to_dict(),
+        "model_v2": compute_metrics(v2_p, labels),
+        "model_v1": compute_metrics(v1_p, labels),
+        "favorite_baseline": compute_metrics(fav_p, labels),
+        "base_rate_baseline": compute_metrics(base_p, labels),
+        # Raw calibrated probs + labels for an out-of-sample reliability curve.
+        "v2_probs": v2_p,
+        "labels": [_LABEL_INDEX[x] for x in labels],
     }

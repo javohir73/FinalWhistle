@@ -25,6 +25,14 @@ def poisson_pmf(k: int, lam: float) -> float:
     return math.exp(-lam) * lam**k / math.factorial(k)
 
 
+def _apply_temperature(probs: tuple[float, float, float], temperature: float):
+    """Temperature-scale a probability triple (see ml.evaluation.calibration)."""
+    eps = 1e-15
+    powered = [max(eps, p) ** (1.0 / temperature) for p in probs]
+    total = sum(powered)
+    return (powered[0] / total, powered[1] / total, powered[2] / total)
+
+
 def expected_goals_from_elo(
     elo_home: float,
     elo_away: float,
@@ -39,16 +47,38 @@ def expected_goals_from_elo(
     return lam_home, lam_away
 
 
+def _dixon_coles_tau(h: int, a: int, lam: float, mu: float, rho: float) -> float:
+    """Dixon–Coles low-score dependence adjustment for the four cells where
+    independent Poisson misprices football scores (it under-counts draws and
+    1–0/0–1 games). rho ≈ -0.1 in practice; rho = 0 recovers plain Poisson."""
+    if h == 0 and a == 0:
+        return 1.0 - lam * mu * rho
+    if h == 0 and a == 1:
+        return 1.0 + lam * rho
+    if h == 1 and a == 0:
+        return 1.0 + mu * rho
+    if h == 1 and a == 1:
+        return 1.0 - rho
+    return 1.0
+
+
 def score_matrix(
-    lam_home: float, lam_away: float, max_goals: int = MAX_GOALS
+    lam_home: float, lam_away: float, max_goals: int = MAX_GOALS, rho: float = 0.0
 ) -> list[list[float]]:
     """Grid where cell [h][a] = P(home scores h AND away scores a).
 
-    Goals are modeled as independent Poisson draws.
+    Goals are independent Poisson draws, optionally corrected for the well-known
+    low-score dependence via the Dixon–Coles tau factor (rho). Cells are clamped
+    non-negative; callers normalize.
     """
     home_pmf = [poisson_pmf(h, lam_home) for h in range(max_goals + 1)]
     away_pmf = [poisson_pmf(a, lam_away) for a in range(max_goals + 1)]
-    return [[home_pmf[h] * away_pmf[a] for a in range(max_goals + 1)] for h in range(max_goals + 1)]
+    matrix = [[home_pmf[h] * away_pmf[a] for a in range(max_goals + 1)] for h in range(max_goals + 1)]
+    if rho:
+        for h in range(min(2, max_goals + 1)):
+            for a in range(min(2, max_goals + 1)):
+                matrix[h][a] = max(0.0, matrix[h][a] * _dixon_coles_tau(h, a, lam_home, lam_away, rho))
+    return matrix
 
 
 def outcome_probabilities(matrix: list[list[float]]) -> tuple[float, float, float]:
@@ -109,11 +139,21 @@ def predict_match(
     home_adv: float = 0.0,
     base: float = BASE_GOALS,
     beta: float = ELO_TO_GOALS_BETA,
+    rho: float = 0.0,
+    temperature: float = 1.0,
 ) -> MatchPrediction:
-    """Full Poisson prediction for one match from the two Elo ratings."""
+    """Full Poisson prediction for one match from the two Elo ratings.
+
+    `rho` applies the Dixon–Coles low-score correction; `temperature` calibrates
+    the W/D/L triple (T>1 softens over-confident calls). Temperature is a
+    monotone reshaping, so the argmax outcome — and thus the chosen scoreline —
+    is unchanged: the displayed winner and score never contradict each other.
+    """
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
-    matrix = score_matrix(lam_home, lam_away)
+    matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
+    if temperature != 1.0:
+        p_home, p_draw, p_away = _apply_temperature((p_home, p_draw, p_away), temperature)
     # Scoreline consistent with the predicted result (argmax W/D/L), so the
     # displayed winner and scoreline never contradict each other.
     outcome = max(

@@ -112,6 +112,26 @@ export default function MethodologyPage() {
         </div>
       </section>
 
+      {/* What we tested — restraint as a feature */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-display text-lg font-bold">Why it isn&apos;t more complicated</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          We tested the obvious upgrades the honest way — fitting each only on data
+          available <em>before</em> a tournament, then scoring it on that tournament
+          (walk-forward, no hindsight):
+        </p>
+        <ul className="mt-3 list-inside list-disc space-y-1.5 text-sm text-muted">
+          <li><span className="text-foreground/80">Probability calibration</span> (temperature scaling) — the fitted setting came out at ≈1.0, i.e. the model is already well-calibrated.</li>
+          <li><span className="text-foreground/80">Dixon–Coles draw correction</span> and <span className="text-foreground/80">re-tuned goal parameters</span> — landed back on essentially today&apos;s values; out-of-sample gains were within noise.</li>
+          <li><span className="text-foreground/80">Time-decayed (recency-weighted) Elo</span> — helped one World Cup, hurt the others; no net improvement.</li>
+        </ul>
+        <p className="mt-3 text-sm leading-relaxed text-muted">
+          So we kept the simpler, explainable model rather than adding complexity that
+          didn&apos;t earn its keep. The real next gain is new <em>signal</em> — squad
+          strength, injuries, market priors — not re-tuning what&apos;s here.
+        </p>
+      </section>
+
       {/* Glossary */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">What these numbers mean</h2>

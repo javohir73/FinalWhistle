@@ -32,6 +32,29 @@ auth-bypass fix and later 14.2.x security patches.
 **Exit criteria:** completing the tracked Next 15/16 upgrade below clears the
 audit; re-run `npm audit --omit=dev` and confirm 0 high/critical.
 
+## Model precision — validated findings & next levers
+
+A walk-forward study (tune only on pre-tournament data, score on the held-out
+tournament; 2014/2018/2022) was run via `pipeline/tune_model.py`. Result: the
+served **poisson-elo-v0.1** model is already well-calibrated (fitted temperature
+≈ 1.0) and near the achievable ceiling for Elo-only features. None of the tested
+upgrades beat it out-of-sample:
+
+- Temperature calibration → T ≈ 1.0 (no real gain; already calibrated).
+- Dixon–Coles draw correction + re-tuned base/beta/home_adv → within noise.
+- Time-decayed (annual regression-to-mean) Elo → helped 2022, hurt 2014/2018.
+
+So v0.1 stays in production. The infrastructure added (Dixon–Coles + temperature
+in `ml/models/poisson.py`, the tuner in `ml/evaluation/tune.py`, `walk_forward`
+in `ml/evaluation/backtest.py`, report via `pipeline/tune_model.py`) is the gate
+for any future model change: ship a new version only if it beats v0.1 here.
+
+**Real next levers (need new signal, deferred):**
+- Squad strength / injuries / availability (the biggest expected gain; needs a
+  data source — do not fabricate).
+- Market-implied probabilities blended in when odds are available.
+- Re-examine recency weighting once squad data exists.
+
 ## Analytics event taxonomy
 
 Provider: **Vercel Web Analytics** (`@vercel/analytics`, `<Analytics/>` in the
