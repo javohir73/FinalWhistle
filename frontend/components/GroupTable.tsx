@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import type { StandingRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -28,6 +30,7 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
             <td className="py-2.5 pr-2">
               <Link
                 href={`/team/${row.team_id}`}
+                onClick={(e) => e.stopPropagation()}
                 className="flex items-center gap-2 hover:text-win sm:gap-2.5"
               >
                 <span className="w-4 shrink-0 text-center text-xs font-semibold text-muted">

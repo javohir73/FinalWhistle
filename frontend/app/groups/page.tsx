@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { getGroups } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
-import { GroupTable } from "@/components/GroupTable";
+import { GroupCard } from "@/components/GroupCard";
 import { ErrorState, Empty } from "@/components/States";
 
 export default function GroupsPage() {
@@ -40,19 +39,7 @@ export default function GroupsPage() {
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
             {state.data.map((g, i) => (
-              <div
-                key={g.id}
-                className="glass card-hover fade-up rounded-2xl p-4 sm:p-5"
-                style={{ animationDelay: `${Math.min(i * 40, 400)}ms` }}
-              >
-                <Link
-                  href={`/groups/${g.id}`}
-                  className="mb-3 inline-block font-display text-lg font-bold tracking-tight hover:text-win"
-                >
-                  {g.name}
-                </Link>
-                <GroupTable standings={g.standings} />
-              </div>
+              <GroupCard key={g.id} group={g} index={i} />
             ))}
           </div>
         ))}
