@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { getGroups, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct } from "@/lib/format";
@@ -7,15 +8,27 @@ import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { Reveal } from "@/components/Reveal";
 import { ErrorState } from "@/components/States";
+import { cn } from "@/lib/utils";
 import type { Group, TournamentOdds } from "@/lib/types";
 import Link from "next/link";
+
+type Tab = "title" | "stage" | "bracket" | "groups";
+const TABS: { id: Tab; label: string }[] = [
+  { id: "title", label: "Title Odds" },
+  { id: "stage", label: "Stage Odds" },
+  { id: "bracket", label: "Projected Bracket" },
+  { id: "groups", label: "Group Qualifiers" },
+];
 
 export default function BracketsPage() {
   const oddsState = useFetch(getKnockoutOdds, []);
   const groupsState = useFetch(getGroups, []);
+  const [tab, setTab] = useState<Tab>("title");
+
+  const hasOdds = oddsState.status === "success" && oddsState.data.length > 0;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-8">
       <header className="fade-up">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
           Road to the Final
@@ -27,44 +40,78 @@ export default function BracketsPage() {
         </p>
       </header>
 
+      {/* Tabs */}
+      <div role="tablist" aria-label="Bracket views" className="flex flex-wrap gap-2 border-b border-border/60">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            onClick={() => setTab(t.id)}
+            className={cn(
+              "-mb-px rounded-t-lg border-b-2 px-3 py-2 text-sm font-semibold transition",
+              tab === t.id
+                ? "border-win text-foreground"
+                : "border-transparent text-muted hover:text-foreground",
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
       {/* Title odds */}
-      <section>
-        <SectionTitle>Title contenders</SectionTitle>
-        {oddsState.status === "error" && <ErrorState message={oddsState.message} />}
-        {oddsState.status === "loading" && <SkeletonRow count={4} />}
-        {oddsState.status === "success" &&
-          (oddsState.data.length === 0 ? (
-            <p className="rounded-xl chip p-4 text-sm text-muted">
-              Tournament simulation hasn&apos;t run yet — check back shortly.
-            </p>
-          ) : (
-            <Contenders teams={oddsState.data.slice(0, 8)} />
-          ))}
-      </section>
+      {tab === "title" && (
+        <section role="tabpanel" id="panel-title" aria-labelledby="tab-title">
+          {oddsState.status === "error" && <ErrorState message={oddsState.message} />}
+          {oddsState.status === "loading" && <SkeletonRow count={4} />}
+          {oddsState.status === "success" &&
+            (oddsState.data.length === 0 ? (
+              <NotReady />
+            ) : (
+              <Contenders teams={oddsState.data.slice(0, 12)} />
+            ))}
+        </section>
+      )}
 
       {/* Round-by-round */}
-      {oddsState.status === "success" && oddsState.data.length > 0 && (
-        <section>
-          <SectionTitle>Run to the final</SectionTitle>
-          <RoundTable rows={oddsState.data.slice(0, 16)} />
+      {tab === "stage" && (
+        <section role="tabpanel" id="panel-stage" aria-labelledby="tab-stage">
+          {oddsState.status === "loading" && <SkeletonRow count={4} />}
+          {oddsState.status === "error" && <ErrorState message={oddsState.message} />}
+          {oddsState.status === "success" &&
+            (hasOdds ? <RoundTable rows={oddsState.data.slice(0, 16)} /> : <NotReady />)}
+        </section>
+      )}
+
+      {/* Projected bracket (official R32 seeded with projected qualifiers) */}
+      {tab === "bracket" && (
+        <section role="tabpanel" id="panel-bracket" aria-labelledby="tab-bracket">
+          {groupsState.status === "error" && <ErrorState message={groupsState.message} />}
+          {groupsState.status === "loading" && <SkeletonRow count={6} />}
+          {groupsState.status === "success" && <ProjectedBracket groups={groupsState.data} />}
         </section>
       )}
 
       {/* Projected qualifiers per group */}
-      <section>
-        <SectionTitle>Projected group qualifiers</SectionTitle>
-        {groupsState.status === "error" && <ErrorState message={groupsState.message} />}
-        {groupsState.status === "loading" && <SkeletonRow count={6} />}
-        {groupsState.status === "success" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {groupsState.data.map((g, i) => (
-              <Reveal key={g.id} delay={Math.min((i % 6) * 50, 250)}>
-                <GroupQualifiers group={g} />
-              </Reveal>
-            ))}
-          </div>
-        )}
-      </section>
+      {tab === "groups" && (
+        <section role="tabpanel" id="panel-groups" aria-labelledby="tab-groups">
+          {groupsState.status === "error" && <ErrorState message={groupsState.message} />}
+          {groupsState.status === "loading" && <SkeletonRow count={6} />}
+          {groupsState.status === "success" && (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {groupsState.data.map((g, i) => (
+                <Reveal key={g.id} delay={Math.min((i % 6) * 50, 250)}>
+                  <GroupQualifiers group={g} />
+                </Reveal>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <p className="rounded-xl chip p-4 text-xs leading-relaxed text-muted">
         Each run simulates all 72 group matches, ranks the qualifiers, seeds the
@@ -73,6 +120,14 @@ export default function BracketsPage() {
         that stage. Knockout matches are treated as neutral-venue.
       </p>
     </div>
+  );
+}
+
+function NotReady() {
+  return (
+    <p className="rounded-xl chip p-4 text-sm text-muted">
+      Tournament simulation hasn&apos;t run yet — check back shortly.
+    </p>
   );
 }
 
@@ -186,7 +241,7 @@ function RoundTable({ rows }: { rows: TournamentOdds[] }) {
 }
 
 function GroupQualifiers({ group }: { group: Group }) {
-  const [winner, runnerUp] = group.standings; // sorted by qualification prob desc
+  const [winner, runnerUp] = group.standings; // table order: top two advance
   return (
     <div className="glass rounded-2xl p-5">
       <div className="mb-3 font-display text-sm font-bold tracking-tight">
@@ -231,6 +286,122 @@ function QualRow({
         {pct(row.qualification_prob)}
       </span>
     </div>
+  );
+}
+
+// Official 2026 Round-of-32 pairings (FIFA knockout draw). Each side is either a
+// group placement (winner=1, runner-up=2) or a best-third-place slot.
+type Slot = { g: string; pos: 1 | 2 } | { third: true };
+const R32: { no: number; a: Slot; b: Slot }[] = [
+  { no: 73, a: { g: "A", pos: 2 }, b: { g: "B", pos: 2 } },
+  { no: 74, a: { g: "E", pos: 1 }, b: { third: true } },
+  { no: 75, a: { g: "F", pos: 1 }, b: { g: "C", pos: 2 } },
+  { no: 76, a: { g: "C", pos: 1 }, b: { g: "F", pos: 2 } },
+  { no: 77, a: { g: "I", pos: 1 }, b: { third: true } },
+  { no: 78, a: { g: "E", pos: 2 }, b: { g: "I", pos: 2 } },
+  { no: 79, a: { g: "A", pos: 1 }, b: { third: true } },
+  { no: 80, a: { g: "L", pos: 1 }, b: { third: true } },
+  { no: 81, a: { g: "D", pos: 1 }, b: { third: true } },
+  { no: 82, a: { g: "G", pos: 1 }, b: { third: true } },
+  { no: 83, a: { g: "K", pos: 2 }, b: { g: "L", pos: 2 } },
+  { no: 84, a: { g: "H", pos: 1 }, b: { g: "J", pos: 2 } },
+  { no: 85, a: { g: "B", pos: 1 }, b: { third: true } },
+  { no: 86, a: { g: "J", pos: 1 }, b: { g: "H", pos: 2 } },
+  { no: 87, a: { g: "K", pos: 1 }, b: { third: true } },
+  { no: 88, a: { g: "D", pos: 2 }, b: { g: "G", pos: 2 } },
+];
+
+function ProjectedBracket({ groups }: { groups: Group[] }) {
+  const byLetter = new Map<string, Group>();
+  for (const g of groups) {
+    const m = g.name.match(/([A-L])\s*$/i);
+    if (m) byLetter.set(m[1].toUpperCase(), g);
+  }
+  // Projected best-eight third-placed teams (each group's 3rd, ranked by table).
+  const thirds = groups
+    .map((g) => g.standings[2])
+    .filter(Boolean)
+    .sort(
+      (a, b) =>
+        b.projected_points - a.projected_points ||
+        b.projected_goal_diff - a.projected_goal_diff ||
+        b.projected_goals_for - a.projected_goals_for,
+    )
+    .slice(0, 8);
+
+  return (
+    <div className="space-y-5">
+      <div className="grid gap-3 sm:grid-cols-2">
+        {R32.map((tie) => (
+          <div key={tie.no} className="glass rounded-xl p-3">
+            <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+              Round of 32
+            </div>
+            <BracketSide slot={tie.a} byLetter={byLetter} />
+            <div className="my-1 pl-1 text-[10px] font-bold text-muted">vs</div>
+            <BracketSide slot={tie.b} byLetter={byLetter} />
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-xl chip p-4">
+        <div className="mb-2 text-xs font-bold uppercase tracking-wider text-muted">
+          Projected best third-placed teams
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {thirds.map((t) => (
+            <Link
+              key={t.team_id}
+              href={`/team/${t.team_id}`}
+              className="inline-flex items-center gap-1.5 rounded-full bg-surface-2/60 px-2.5 py-1 text-xs font-medium hover:text-win"
+            >
+              <Flag team={t.team} size={16} /> {t.team}
+            </Link>
+          ))}
+        </div>
+        <p className="mt-2.5 text-[11px] leading-relaxed text-muted">
+          Winners and runners-up are seeded into the official bracket above. The eight
+          best third-placed teams also advance, but which specific tie each one fills is
+          assigned at tournament time (per FIFA&apos;s pairing rules), so third-place
+          slots are shown generically.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function BracketSide({ slot, byLetter }: { slot: Slot; byLetter: Map<string, Group> }) {
+  if ("third" in slot) {
+    return (
+      <div className="flex items-center gap-2 rounded-lg bg-surface-2/30 px-2 py-1.5">
+        <span className="grid h-5 w-5 shrink-0 place-items-center rounded text-[10px] font-bold text-muted ring-1 ring-border">
+          3
+        </span>
+        <span className="text-sm text-muted">Best third-placed team</span>
+      </div>
+    );
+  }
+  const g = byLetter.get(slot.g);
+  const row = g?.standings[slot.pos - 1];
+  const badge = `${slot.g}${slot.pos}`;
+  if (!row) {
+    return (
+      <div className="flex items-center gap-2 px-2 py-1.5">
+        <span className="text-sm text-muted">{badge}</span>
+      </div>
+    );
+  }
+  return (
+    <Link
+      href={`/team/${row.team_id}`}
+      className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:text-win focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+    >
+      <span className="grid h-5 w-7 shrink-0 place-items-center rounded bg-win/10 text-[10px] font-bold text-win">
+        {badge}
+      </span>
+      <Flag team={row.team} size={18} />
+      <span className="min-w-0 flex-1 truncate text-sm font-medium">{row.team}</span>
+    </Link>
   );
 }
 
