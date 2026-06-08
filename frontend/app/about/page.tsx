@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
 
 export const metadata = { title: `How it works — ${APP_NAME}` };
@@ -45,11 +46,17 @@ export default function AboutPage() {
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">How accurate is it?</h2>
         <p className="mt-2 text-sm leading-relaxed text-foreground/90">
-          Back-tested against the 2018 and 2022 World Cups, the model beats naive
-          baselines on log-loss and is well-calibrated — a stated 60% chance happens
-          about 60% of the time. It is honest about uncertainty: 2022 was an
-          upset-heavy tournament, and no model foresees those reliably.
+          Back-tested against the 2018 and 2022 World Cups, the model is well-calibrated
+          — a stated 60% chance happens about 60% of the time — and beats naive baselines
+          on log-loss. It is honest about uncertainty: 2022 was an upset-heavy tournament,
+          and no model foresees those reliably.
         </p>
+        <Link
+          href="/methodology"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-win/10 px-3.5 py-2 text-sm font-display font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/20"
+        >
+          See the calibration curve &amp; full metrics →
+        </Link>
       </section>
 
       <section className="glass rounded-2xl p-6">

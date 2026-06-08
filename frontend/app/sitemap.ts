@@ -3,10 +3,18 @@ import type { MetadataRoute } from "next";
 const SITE = "https://fifa-wc26-prediction.vercel.app";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const routes = ["", "/matches", "/groups", "/brackets", "/about"];
-  return routes.map((path) => ({
-    url: `${SITE}${path}`,
-    changeFrequency: path === "/about" ? "monthly" : "daily",
-    priority: path === "" ? 1 : 0.7,
-  }));
+  const daily = ["", "/matches", "/groups", "/brackets"];
+  const evergreen = ["/about", "/methodology"];
+  return [
+    ...daily.map((path) => ({
+      url: `${SITE}${path}`,
+      changeFrequency: "daily" as const,
+      priority: path === "" ? 1 : 0.7,
+    })),
+    ...evergreen.map((path) => ({
+      url: `${SITE}${path}`,
+      changeFrequency: "monthly" as const,
+      priority: 0.5,
+    })),
+  ];
 }

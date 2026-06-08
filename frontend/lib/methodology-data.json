@@ -1,0 +1,100 @@
+{
+  "training_matches": 49363,
+  "backtest_years": [
+    2018,
+    2022
+  ],
+  "years": [
+    {
+      "year": 2018,
+      "n_matches": 64,
+      "model": {
+        "log_loss": 0.9678,
+        "brier": 0.5745,
+        "accuracy": 0.5625
+      },
+      "favorite": {
+        "log_loss": 0.9912,
+        "brier": 0.5891,
+        "accuracy": 0.5625
+      },
+      "base_rate": {
+        "log_loss": 1.0941,
+        "brier": 0.6678,
+        "accuracy": 0.3906
+      }
+    },
+    {
+      "year": 2022,
+      "n_matches": 64,
+      "model": {
+        "log_loss": 1.0579,
+        "brier": 0.6213,
+        "accuracy": 0.5312
+      },
+      "favorite": {
+        "log_loss": 1.0208,
+        "brier": 0.611,
+        "accuracy": 0.5312
+      },
+      "base_rate": {
+        "log_loss": 1.0743,
+        "brier": 0.6512,
+        "accuracy": 0.4375
+      }
+    }
+  ],
+  "reliability": [
+    {
+      "mean_predicted": 0.067,
+      "empirical_freq": 0.333,
+      "count": 9
+    },
+    {
+      "mean_predicted": 0.16,
+      "empirical_freq": 0.139,
+      "count": 72
+    },
+    {
+      "mean_predicted": 0.243,
+      "empirical_freq": 0.243,
+      "count": 144
+    },
+    {
+      "mean_predicted": 0.343,
+      "empirical_freq": 0.4,
+      "count": 40
+    },
+    {
+      "mean_predicted": 0.45,
+      "empirical_freq": 0.476,
+      "count": 42
+    },
+    {
+      "mean_predicted": 0.543,
+      "empirical_freq": 0.452,
+      "count": 31
+    },
+    {
+      "mean_predicted": 0.646,
+      "empirical_freq": 0.645,
+      "count": 31
+    },
+    {
+      "mean_predicted": 0.746,
+      "empirical_freq": 0.769,
+      "count": 13
+    },
+    {
+      "mean_predicted": 0.854,
+      "empirical_freq": 0.0,
+      "count": 1
+    },
+    {
+      "mean_predicted": 0.918,
+      "empirical_freq": 0.0,
+      "count": 1
+    }
+  ],
+  "reliability_n": 384
+}
