@@ -91,6 +91,17 @@ export interface Group {
   standings: StandingRow[];
 }
 
+export interface TournamentOdds {
+  team_id: number;
+  team: string;
+  make_knockout: number | null;
+  reach_r16: number | null;
+  reach_qf: number | null;
+  reach_sf: number | null;
+  reach_final: number | null;
+  win_title: number | null;
+}
+
 export interface FormResult {
   opponent: string;
   score_for: number;

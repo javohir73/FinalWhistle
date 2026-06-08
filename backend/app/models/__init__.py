@@ -189,6 +189,25 @@ class Standing(Base):
     team: Mapped[Team] = relationship()
 
 
+class TournamentOdds(Base):
+    """Per-team probabilities from the full-tournament Monte-Carlo (group stage
+    through the knockout bracket): chance of reaching each round and winning."""
+
+    __tablename__ = "tournament_odds"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), unique=True)
+    make_knockout: Mapped[float | None] = mapped_column(Float)
+    reach_r16: Mapped[float | None] = mapped_column(Float)
+    reach_qf: Mapped[float | None] = mapped_column(Float)
+    reach_sf: Mapped[float | None] = mapped_column(Float)
+    reach_final: Mapped[float | None] = mapped_column(Float)
+    win_title: Mapped[float | None] = mapped_column(Float)
+    as_of: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    team: Mapped[Team] = relationship()
+
+
 class Odds(Base):
     """Bookmaker odds. Historical odds are ingested for calibration only in MVP
     (Decision #1); user-facing odds comparison is Phase 4."""
@@ -217,5 +236,6 @@ __all__ = [
     "TeamStats",
     "Prediction",
     "Standing",
+    "TournamentOdds",
     "Odds",
 ]

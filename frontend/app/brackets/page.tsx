@@ -1,18 +1,18 @@
 "use client";
 
-import { getGroups, getTeams } from "@/lib/api";
+import { getGroups, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct } from "@/lib/format";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { Reveal } from "@/components/Reveal";
 import { ErrorState } from "@/components/States";
-import type { Group, Team } from "@/lib/types";
+import type { Group, TournamentOdds } from "@/lib/types";
 import Link from "next/link";
 
 export default function BracketsPage() {
+  const oddsState = useFetch(getKnockoutOdds, []);
   const groupsState = useFetch(getGroups, []);
-  const teamsState = useFetch(getTeams, []);
 
   return (
     <div className="space-y-12">
@@ -21,20 +21,34 @@ export default function BracketsPage() {
           Road to the Final
         </h1>
         <p className="mt-2 max-w-xl text-muted">
-          The model&apos;s projected knockout picture — title contenders by strength
-          and each group&apos;s likely qualifiers.
+          From a full-tournament Monte-Carlo — thousands of simulated runs through
+          the group stage and the real knockout bracket (top 2 + 8 best third-placed
+          teams), giving each nation&apos;s odds of going all the way.
         </p>
       </header>
 
-      {/* Title contenders */}
+      {/* Title odds */}
       <section>
         <SectionTitle>Title contenders</SectionTitle>
-        {teamsState.status === "error" && <ErrorState message={teamsState.message} />}
-        {teamsState.status === "loading" && <SkeletonRow count={4} />}
-        {teamsState.status === "success" && (
-          <Contenders teams={teamsState.data.slice(0, 8)} />
-        )}
+        {oddsState.status === "error" && <ErrorState message={oddsState.message} />}
+        {oddsState.status === "loading" && <SkeletonRow count={4} />}
+        {oddsState.status === "success" &&
+          (oddsState.data.length === 0 ? (
+            <p className="rounded-xl chip p-4 text-sm text-muted">
+              Tournament simulation hasn&apos;t run yet — check back shortly.
+            </p>
+          ) : (
+            <Contenders teams={oddsState.data.slice(0, 8)} />
+          ))}
       </section>
+
+      {/* Round-by-round */}
+      {oddsState.status === "success" && oddsState.data.length > 0 && (
+        <section>
+          <SectionTitle>Run to the final</SectionTitle>
+          <RoundTable rows={oddsState.data.slice(0, 16)} />
+        </section>
+      )}
 
       {/* Projected qualifiers per group */}
       <section>
@@ -52,12 +66,11 @@ export default function BracketsPage() {
         )}
       </section>
 
-      <p className="rounded-xl chip p-4 text-sm text-muted">
-        <span className="font-display font-semibold text-foreground/80">
-          Full knockout bracket simulation
-        </span>{" "}
-        — exact round-by-round matchups and tournament-winner odds — arrives with the
-        Monte-Carlo tournament engine in the next release.
+      <p className="rounded-xl chip p-4 text-xs leading-relaxed text-muted">
+        Each run simulates all 72 group matches, ranks the qualifiers, seeds the
+        official Round-of-32 bracket, and plays every knockout tie (draws decided by
+        a penalty model). Probabilities are the share of runs in which a team reaches
+        that stage. Knockout matches are treated as neutral-venue.
       </p>
     </div>
   );
@@ -71,12 +84,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Contenders({ teams }: { teams: Team[] }) {
-  const max = Math.max(...teams.map((t) => t.elo_rating ?? 0), 1);
+function Contenders({ teams }: { teams: TournamentOdds[] }) {
+  const max = Math.max(...teams.map((t) => t.win_title ?? 0), 0.01);
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {teams.map((t, i) => (
-        <Reveal key={t.id} delay={Math.min(i * 50, 300)}>
+        <Reveal key={t.team_id} delay={Math.min(i * 50, 300)}>
           <div className="glass card-hover flex items-center gap-4 rounded-xl p-4">
             <span
               className={`font-display text-2xl font-extrabold tabular-nums ${
@@ -85,28 +98,89 @@ function Contenders({ teams }: { teams: Team[] }) {
             >
               {String(i + 1).padStart(2, "0")}
             </span>
-            <Flag team={t.name} size={32} />
+            <Flag team={t.team} size={32} />
             <div className="min-w-0 flex-1">
               <Link
-                href={`/team/${t.id}`}
+                href={`/team/${t.team_id}`}
                 className="font-display font-bold tracking-tight hover:text-win"
               >
-                {t.name}
+                {t.team}
               </Link>
               <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-surface-2">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-win/60 to-win"
-                  style={{ width: `${((t.elo_rating ?? 0) / max) * 100}%` }}
+                  style={{ width: `${((t.win_title ?? 0) / max) * 100}%` }}
                 />
               </div>
             </div>
-            <span className="font-display text-sm font-bold tabular-nums text-foreground/80">
-              {t.elo_rating != null ? Math.round(t.elo_rating) : "—"}
-            </span>
-            <FavoriteStar team={t.name} />
+            <div className="text-right">
+              <div className="font-display text-base font-extrabold tabular-nums text-win">
+                {pct(t.win_title)}
+              </div>
+              <div className="text-[10px] uppercase tracking-wide text-muted">to win</div>
+            </div>
+            <FavoriteStar team={t.team} />
           </div>
         </Reveal>
       ))}
+    </div>
+  );
+}
+
+const COLS: { key: keyof TournamentOdds; label: string }[] = [
+  { key: "reach_r16", label: "R16" },
+  { key: "reach_qf", label: "QF" },
+  { key: "reach_sf", label: "SF" },
+  { key: "reach_final", label: "Final" },
+  { key: "win_title", label: "Win" },
+];
+
+function RoundTable({ rows }: { rows: TournamentOdds[] }) {
+  return (
+    <div className="glass overflow-x-auto rounded-2xl p-2 sm:p-4">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wider text-muted">
+            <th className="px-2 pb-2 text-left font-medium">Team</th>
+            {COLS.map((c) => (
+              <th key={c.key} className="px-2 pb-2 text-right font-medium">
+                {c.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((t) => (
+            <tr key={t.team_id} className="border-t border-border/50">
+              <td className="py-2.5 pr-2">
+                <Link
+                  href={`/team/${t.team_id}`}
+                  className="flex items-center gap-2.5 hover:text-win"
+                >
+                  <span className="shrink-0">
+                    <Flag team={t.team} size={20} />
+                  </span>
+                  <span className="min-w-0 font-medium leading-tight">{t.team}</span>
+                </Link>
+              </td>
+              {COLS.map((c) => {
+                const v = (t[c.key] as number | null) ?? 0;
+                const isWin = c.key === "win_title";
+                return (
+                  <td
+                    key={c.key}
+                    className={`px-2 text-right tabular-nums ${
+                      isWin ? "font-bold text-win" : "text-foreground/80"
+                    }`}
+                  >
+                    {pct(v)}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -150,7 +224,7 @@ function QualRow({
         {badge}
       </span>
       <Flag team={row.team} size={22} />
-      <Link href={`/team/${row.team_id}`} className="flex-1 truncate text-sm font-medium hover:text-win">
+      <Link href={`/team/${row.team_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-win">
         {row.team}
       </Link>
       <span className="text-xs font-semibold tabular-nums text-muted">

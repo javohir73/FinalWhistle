@@ -7,6 +7,7 @@ import type {
   PredictionWithHistory,
   Team,
   TeamProfile,
+  TournamentOdds,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
@@ -38,3 +39,5 @@ export const getTeam = (id: number | string) =>
 export const getGroups = () => getJson<Group[]>("/api/groups");
 export const getGroup = (id: number | string) =>
   getJson<Group>(`/api/groups/${id}`);
+export const getKnockoutOdds = () =>
+  getJson<TournamentOdds[]>("/api/knockout/odds");

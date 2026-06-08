@@ -108,6 +108,19 @@ class GroupOut(BaseModel):
     standings: list[StandingRowOut]
 
 
+class TournamentOddsOut(BaseModel):
+    """Per-team knockout-run probabilities from the tournament Monte-Carlo."""
+
+    team_id: int
+    team: str
+    make_knockout: float | None
+    reach_r16: float | None
+    reach_qf: float | None
+    reach_sf: float | None
+    reach_final: float | None
+    win_title: float | None
+
+
 class FormResultOut(BaseModel):
     opponent: str
     score_for: int

@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.api import groups, internal, matches, predictions, teams
+from app.api import groups, internal, knockout, matches, predictions, teams
 from app.config import settings
 
 app = FastAPI(title=settings.app_name)
@@ -57,4 +57,5 @@ app.include_router(matches.router)
 app.include_router(predictions.router)
 app.include_router(teams.router)
 app.include_router(groups.router)
+app.include_router(knockout.router)
 app.include_router(internal.router)

@@ -11,11 +11,12 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Group, GroupTeam, Match, Prediction, Standing, Team
+from app.models import Group, GroupTeam, Match, Prediction, Standing, Team, TournamentOdds
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.features.build_features import build_match_features, estimate_strength
 from ml.models.poisson import predict_match
 from ml.ratings.elo import HOME_ADVANTAGE
+from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
 
 
@@ -127,10 +128,55 @@ def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: i
         row.as_of = now
 
 
+def _simulate_tournament(db: Session, n_sims: int) -> int:
+    """Run the full group→knockout Monte-Carlo and persist per-team round/title
+    probabilities. Returns the number of teams with odds written."""
+    groups: dict[str, list[int]] = {}
+    fixtures: dict[str, list[KnockoutFixture]] = {}
+    team_elos: dict[int, float] = {}
+
+    for group in db.query(Group).all():
+        letter = group.name.split()[-1]  # "Group A" -> "A"
+        members = [gt.team for gt in group.group_teams]
+        groups[letter] = [t.id for t in members]
+        for t in members:
+            team_elos[t.id] = estimate_strength(t)[0]
+        fx: list[KnockoutFixture] = []
+        for m in db.query(Match).filter_by(group_id=group.id).all():
+            if m.team_home_id and m.team_away_id:
+                home = db.get(Team, m.team_home_id)
+                fx.append(KnockoutFixture(m.team_home_id, m.team_away_id, _host_adv(m, home)))
+        fixtures[letter] = fx
+
+    # Need the full 12-group structure to run the bracket; skip cleanly otherwise.
+    if len(groups) < 12:
+        return 0
+
+    results = simulate_tournament(team_elos, groups, fixtures, n_sims=n_sims, seed=2026)
+    now = datetime.now(timezone.utc)
+    for team_id, r in results.items():
+        row = db.query(TournamentOdds).filter_by(team_id=team_id).one_or_none()
+        if row is None:
+            row = TournamentOdds(team_id=team_id)
+            db.add(row)
+        row.make_knockout = r["make_knockout"]
+        row.reach_r16 = r["reach_r16"]
+        row.reach_qf = r["reach_qf"]
+        row.reach_sf = r["reach_sf"]
+        row.reach_final = r["reach_final"]
+        row.win_title = r["win_title"]
+        row.as_of = now
+    return len(results)
+
+
 def generate_predictions(
-    db: Session, model_version: str = "poisson-elo-v0.1", n_sims: int = 5000
+    db: Session,
+    model_version: str = "poisson-elo-v0.1",
+    n_sims: int = 5000,
+    tournament_sims: int = 2000,
 ) -> dict:
-    """Predict all upcoming group matches and simulate every group's standings."""
+    """Predict all upcoming group matches, simulate every group's standings, and
+    run the full-tournament (knockout) Monte-Carlo."""
     matches = (
         db.query(Match)
         .filter(Match.stage == "group", Match.status == "scheduled")
@@ -148,5 +194,11 @@ def generate_predictions(
     for group in groups:
         _simulate_standings(db, group, model_version, n_sims)
 
+    teams_simulated = _simulate_tournament(db, tournament_sims)
+
     db.commit()
-    return {"matches_predicted": predicted, "groups_simulated": len(groups)}
+    return {
+        "matches_predicted": predicted,
+        "groups_simulated": len(groups),
+        "tournament_teams": teams_simulated,
+    }

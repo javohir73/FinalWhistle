@@ -27,7 +27,9 @@ def client():
     for i, t in enumerate(seed.query(Team).order_by(Team.id).all()):
         t.elo_rating = 1500.0 + (i % 12) * 40
     seed.commit()
-    generate_predictions(seed, model_version="poisson-elo-v0.1", n_sims=200)
+    generate_predictions(
+        seed, model_version="poisson-elo-v0.1", n_sims=200, tournament_sims=200
+    )
     seed.close()
 
     def override_get_db():
@@ -73,6 +75,24 @@ def test_match_detail_matches_section_17_shape(client):
     assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
     assert body["odds_comparison"] == {"available": False}
     assert len(body["reasons"]) >= 3
+
+
+def test_knockout_odds(client):
+    r = client.get("/api/knockout/odds")
+    assert r.status_code == 200
+    data = r.json()
+    assert len(data) == 48  # every team has tournament odds
+    for row in data:
+        for key in [
+            "team_id", "team", "make_knockout", "reach_r16", "reach_qf",
+            "reach_sf", "reach_final", "win_title",
+        ]:
+            assert key in row
+    # sorted by title probability, descending
+    titles = [row["win_title"] for row in data]
+    assert titles == sorted(titles, reverse=True)
+    # exactly one champion per sim -> title probabilities sum to ~1
+    assert abs(sum(titles) - 1.0) < 0.001
 
 
 def test_match_detail_404(client):
