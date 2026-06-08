@@ -6,7 +6,7 @@ import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
-import { Analytics } from "@vercel/analytics/react";
+import { Analytics } from "@vercel/analytics/next";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
