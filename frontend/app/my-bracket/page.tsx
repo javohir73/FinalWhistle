@@ -1,7 +1,8 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
-import { getGroups, getUpcomingMatches } from "@/lib/api";
+import { getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useMyBracket } from "@/lib/useMyBracket";
 import { Loading, ErrorState } from "@/components/States";
@@ -14,10 +15,45 @@ import { cn } from "@/lib/utils";
 export default function MyBracketPage() {
   const groupsState = useFetch(getGroups, []);
   const matchesState = useFetch(getUpcomingMatches, []);
+  const oddsState = useFetch(getKnockoutOdds, []);
 
   const groups = groupsState.status === "success" ? groupsState.data : null;
   const matches = matchesState.status === "success" ? matchesState.data : null;
   const b = useMyBracket(groups, matches);
+
+  // Model strength per team (title odds) → the model favours the higher-rated
+  // side of any knockout tie. Used to flag where your picks back an upset.
+  const modelWin = useMemo(() => {
+    const m: Record<string, number> = {};
+    if (oddsState.status === "success") for (const o of oddsState.data) m[o.team] = o.win_title ?? 0;
+    return m;
+  }, [oddsState]);
+  const favouriteOf = (a?: string, b2?: string): string | undefined => {
+    if (!a) return b2;
+    if (!b2) return a;
+    return (modelWin[a] ?? 0) >= (modelWin[b2] ?? 0) ? a : b2;
+  };
+  const modelTop = useMemo(() => {
+    if (oddsState.status !== "success") return undefined;
+    return [...oddsState.data].sort((x, y) => (y.win_title ?? 0) - (x.win_title ?? 0))[0]?.team;
+  }, [oddsState]);
+
+  // Count knockout picks that go against the model (upset picks).
+  const upsets = useMemo(() => {
+    if (!b.seeding) return { against: 0, total: 0 };
+    let against = 0, total = 0;
+    for (const round of ROUNDS) {
+      for (const no of round.matches) {
+        const pick = b.koPicks[no];
+        if (!pick) continue;
+        const { a, b: bb } = b.sidesFor(no);
+        const fav = favouriteOf(a, bb);
+        total++;
+        if (fav && pick !== fav) against++;
+      }
+    }
+    return { against, total };
+  }, [b, modelWin]);
 
   const loading = groupsState.status === "loading" || matchesState.status === "loading";
   const error =
@@ -106,6 +142,26 @@ export default function MyBracketPage() {
                       <Flag team={b.champion} size={40} />
                       <span className="font-display text-2xl font-extrabold tracking-tight">{b.champion}</span>
                     </div>
+                    {modelTop && (
+                      <p className="mt-2.5 text-xs text-muted">
+                        {b.champion === modelTop ? (
+                          <>You agree with the model — it makes <span className="text-foreground/80">{modelTop}</span> the title favourite too.</>
+                        ) : (
+                          <>The model&apos;s favourite is <span className="text-foreground/80">{modelTop}</span> — you&apos;re backing a different winner.</>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {upsets.total > 0 && (
+                  <div className="glass mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl p-4 text-sm">
+                    <span className="text-muted">Your bracket vs the model</span>
+                    <span className="font-display font-bold">
+                      {upsets.against === 0
+                        ? "Every knockout pick backs the model favourite"
+                        : `${upsets.against} of ${upsets.total} knockout picks back an upset`}
+                    </span>
                   </div>
                 )}
                 <div className="space-y-6">
@@ -121,6 +177,7 @@ export default function MyBracketPage() {
                               a={sides.a}
                               b={sides.b}
                               picked={b.koPicks[no]}
+                              favourite={favouriteOf(sides.a, sides.b)}
                               isFinal={round.key === "final"}
                               teamId={b.teamId}
                               onPick={(team) => {
@@ -219,13 +276,19 @@ function MiniTable({ rows, teamId }: { rows: TableRow[]; teamId: Record<string, 
 }
 
 function TieCard({
-  a, b, picked, isFinal, teamId, onPick,
+  a, b, picked, favourite, isFinal, teamId, onPick,
 }: {
-  a?: string; b?: string; picked?: string; isFinal?: boolean;
+  a?: string; b?: string; picked?: string; favourite?: string; isFinal?: boolean;
   teamId: Record<string, number>; onPick: (team: string) => void;
 }) {
+  const isUpset = !!picked && !!favourite && picked !== favourite;
   return (
     <div className={cn("glass rounded-xl p-2", isFinal && "border-gold/30")}>
+      {isUpset && (
+        <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-draw">
+          ⚡ Upset pick
+        </div>
+      )}
       {[a, b].map((team, i) => (
         <button
           key={i}
