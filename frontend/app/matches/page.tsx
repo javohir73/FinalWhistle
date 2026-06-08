@@ -14,6 +14,25 @@ import { cn } from "@/lib/utils";
 
 const TBC = "tbc";
 
+type SortKey = "kickoff" | "confidence" | "upset" | "winprob";
+const SORTS: { value: SortKey; label: string }[] = [
+  { value: "kickoff", label: "Sort: Kickoff" },
+  { value: "winprob", label: "Sort: Highest win probability" },
+  { value: "confidence", label: "Sort: Confidence" },
+  { value: "upset", label: "Sort: Biggest upset chance" },
+];
+
+const CONF_RANK: Record<string, number> = { High: 3, Medium: 2, Low: 1 };
+// Favorite's win probability (strongest pick) vs the underdog's win probability
+// (how live an upset is). Draw isn't a "winner", so both ignore it. Fixtures
+// without a prediction yet (probabilities null) score lowest and sink to the end.
+const winProb = (m: MatchSummary) =>
+  m.probabilities ? Math.max(m.probabilities.home_win, m.probabilities.away_win) : -1;
+const upsetProb = (m: MatchSummary) =>
+  m.probabilities ? Math.min(m.probabilities.home_win, m.probabilities.away_win) : -1;
+const confScore = (m: MatchSummary) =>
+  m.probabilities ? (CONF_RANK[m.confidence ?? ""] ?? 0) + winProb(m) : -1;
+
 export default function MatchesPage() {
   // Poll every 30s so live in-game scores refresh automatically.
   const state = useFetch(getUpcomingMatches, [], 30_000);
@@ -22,6 +41,7 @@ export default function MatchesPage() {
   const [group, setGroup] = useState("all");
   const [query, setQuery] = useState("");
   const [favOnly, setFavOnly] = useState(false);
+  const [sort, setSort] = useState<SortKey>("kickoff");
 
   const matches = state.status === "success" ? state.data : [];
   const groups = useMemo(
@@ -55,6 +75,15 @@ export default function MatchesPage() {
       return a < b ? -1 : 1;
     });
   }, [filtered, tz]);
+
+  // Metric sorts produce a single ranked list (highest first); kickoff keeps the
+  // day-bucketed view above.
+  const ranked = useMemo(() => {
+    if (sort === "kickoff") return [];
+    const score =
+      sort === "confidence" ? confScore : sort === "upset" ? upsetProb : winProb;
+    return [...filtered].sort((a, b) => score(b) - score(a));
+  }, [filtered, sort]);
 
   return (
     <div>
@@ -100,6 +129,16 @@ export default function MatchesPage() {
             <option key={g} value={g}>{g}</option>
           ))}
         </select>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortKey)}
+          aria-label="Sort matches"
+          className="rounded-xl border border-border bg-surface/60 px-3 py-2.5 text-sm outline-none transition focus:border-win/50 focus:ring-2 focus:ring-win/20"
+        >
+          {SORTS.map((s) => (
+            <option key={s.value} value={s.value}>{s.label}</option>
+          ))}
+        </select>
         <button
           type="button"
           onClick={() => setFavOnly((v) => !v)}
@@ -129,6 +168,23 @@ export default function MatchesPage() {
                 : "No matches match your filters."
             }
           />
+        ) : sort !== "kickoff" ? (
+          <section>
+            <div className="mb-3.5 flex items-center gap-3">
+              <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                {SORTS.find((s) => s.value === sort)?.label.replace("Sort: ", "")}
+              </h2>
+              <span className="h-px flex-1 bg-border/60" />
+              <span className="font-display text-xs font-semibold text-muted">
+                {ranked.length} {ranked.length === 1 ? "match" : "matches"}
+              </span>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {ranked.map((m) => (
+                <MatchCard key={m.match_id} match={m} tz={tz} />
+              ))}
+            </div>
+          </section>
         ) : (
           <div className="space-y-9">
             {days.map(([key, dayMatches]) => (
