@@ -8,6 +8,7 @@ import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { Reveal } from "@/components/Reveal";
 import { ErrorState } from "@/components/States";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import type { Group, TournamentOdds } from "@/lib/types";
 import Link from "next/link";
@@ -157,6 +158,7 @@ function Contenders({ teams }: { teams: TournamentOdds[] }) {
             <div className="min-w-0 flex-1">
               <Link
                 href={`/team/${t.team_id}`}
+                onClick={() => trackEvent("bracket_team_click", { team: t.team, from: "title" })}
                 className="font-display font-bold tracking-tight hover:text-win"
               >
                 {t.team}
@@ -210,6 +212,7 @@ function RoundTable({ rows }: { rows: TournamentOdds[] }) {
               <td className="py-2.5 pr-2">
                 <Link
                   href={`/team/${t.team_id}`}
+                  onClick={() => trackEvent("bracket_team_click", { team: t.team, from: "stage" })}
                   className="flex items-center gap-2.5 hover:text-win"
                 >
                   <span className="shrink-0">
@@ -279,7 +282,11 @@ function QualRow({
         {badge}
       </span>
       <Flag team={row.team} size={22} />
-      <Link href={`/team/${row.team_id}`} className="min-w-0 flex-1 truncate text-sm font-medium hover:text-win">
+      <Link
+        href={`/team/${row.team_id}`}
+        onClick={() => trackEvent("bracket_team_click", { team: row.team, from: "groups" })}
+        className="min-w-0 flex-1 truncate text-sm font-medium hover:text-win"
+      >
         {row.team}
       </Link>
       <span className="text-xs font-semibold tabular-nums text-muted">
@@ -353,6 +360,7 @@ function ProjectedBracket({ groups }: { groups: Group[] }) {
             <Link
               key={t.team_id}
               href={`/team/${t.team_id}`}
+              onClick={() => trackEvent("bracket_team_click", { team: t.team, from: "thirds" })}
               className="inline-flex items-center gap-1.5 rounded-full bg-surface-2/60 px-2.5 py-1 text-xs font-medium hover:text-win"
             >
               <Flag team={t.team} size={16} /> {t.team}
@@ -394,6 +402,7 @@ function BracketSide({ slot, byLetter }: { slot: Slot; byLetter: Map<string, Gro
   return (
     <Link
       href={`/team/${row.team_id}`}
+      onClick={() => trackEvent("bracket_team_click", { team: row.team, from: "bracket" })}
       className="flex items-center gap-2 rounded-lg px-2 py-1.5 hover:text-win focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
     >
       <span className="grid h-5 w-7 shrink-0 place-items-center rounded bg-win/10 text-[10px] font-bold text-win">

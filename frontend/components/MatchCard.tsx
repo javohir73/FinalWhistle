@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
 import { kickoffTime, tzAbbrev } from "@/lib/datetime";
+import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
 import { ConfidenceBadge } from "./ConfidenceBadge";
 import { Flag } from "./Flag";
@@ -19,6 +22,7 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
   return (
     <Link
       href={`/match/${match.match_id}`}
+      onClick={() => trackEvent("match_card_click", { match_id: match.match_id })}
       className={`card-hover glass group block rounded-2xl p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 ${
         live ? "ring-1 ring-loss/40" : ""
       }`}

@@ -32,6 +32,21 @@ auth-bypass fix and later 14.2.x security patches.
 **Exit criteria:** completing the tracked Next 15/16 upgrade below clears the
 audit; re-run `npm audit --omit=dev` and confirm 0 high/critical.
 
+## Analytics event taxonomy
+
+Provider: **Vercel Web Analytics** (`@vercel/analytics`, `<Analytics/>` in the
+root layout). Privacy-friendly, no cookie banner required.
+
+- Page views (automatic) — cover methodology views and the team-page
+  view/exit funnel (drop-off is read from the pageview path in the dashboard).
+- `match_card_click` `{ match_id }` — match card → match detail.
+- `favorite_toggle` `{ team, favorited }` — star toggled on/off.
+- `bracket_team_click` `{ team, from }` — brackets → team page; `from` is one of
+  `title` | `stage` | `bracket` | `thirds` | `groups`.
+
+Events fire through `lib/analytics.ts#trackEvent`, which dynamic-imports the
+analytics module on first use (kept out of SSR/tests; failures are swallowed).
+
 ## Tracked task: Next.js 15/16 major upgrade
 
 **Priority:** High (technical), post-launch.

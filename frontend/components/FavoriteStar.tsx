@@ -1,6 +1,7 @@
 "use client";
 
 import { useFavorites } from "@/lib/useFavorites";
+import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 
 /** Star toggle for marking a team as a favorite. Safe to place inside a link —
@@ -24,6 +25,7 @@ export function FavoriteStar({
         e.preventDefault();
         e.stopPropagation();
         toggle(team);
+        trackEvent("favorite_toggle", { team, favorited: !active });
       }}
       aria-pressed={active}
       aria-label={active ? `Remove ${team} from favorites` : `Add ${team} to favorites`}

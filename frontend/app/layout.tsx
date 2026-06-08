@@ -6,6 +6,7 @@ import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { Analytics } from "@vercel/analytics/react";
 
 const display = Bricolage_Grotesque({
   subsets: ["latin"],
@@ -64,6 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           entertainment only. Not betting advice.
         </footer>
         <BottomNav />
+        <Analytics />
       </body>
     </html>
   );
