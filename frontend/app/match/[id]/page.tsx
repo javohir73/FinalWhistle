@@ -122,7 +122,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
         </div>
       </section>
 
-      <p className="text-center text-xs text-muted/60">
+      <p className="text-center text-xs text-muted">
         {p.generated_at && (
           <>Model updated {fmtUpdated(p.generated_at)} · </>
         )}

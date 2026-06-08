@@ -9,7 +9,9 @@
   --surface: 156 22% 9%;
   --surface-2: 156 18% 12%;
   --foreground: 150 20% 96%;
-  --muted: 150 8% 58%;
+  /* 64% L keeps muted text >= 4.5:1 (AA) on the near-black canvas even at the
+     reduced opacities (/70, /60) used for footnotes and disclaimers. */
+  --muted: 150 9% 64%;
   --border: 153 18% 18%;
 
   /* Data accents */
@@ -27,6 +29,27 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
+}
+
+/* ============ Keyboard focus ============ */
+/* A single, consistent, high-contrast focus ring for every interactive element.
+   :focus-visible only shows it for keyboard/AT users, not mouse clicks. */
+:focus-visible {
+  outline: 2px solid hsl(var(--win));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+/* Skip-to-content link: off-screen until focused, then pinned top-left. */
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  transform: translateY(-150%);
+  transition: transform 0.15s ease;
+}
+.skip-link:focus {
+  transform: translateY(0);
 }
 
 body {
@@ -182,12 +205,21 @@ body > * {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   .fade-up,
-  .skeleton::after {
+  .skeleton::after,
+  .float,
+  .float-slow,
+  .spin-slow {
     animation: none;
   }
   .card-hover {
     transition: none;
+  }
+  .card-hover:hover {
+    transform: none;
   }
   .reveal {
     opacity: 1;

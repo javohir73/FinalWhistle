@@ -33,7 +33,7 @@ export default async function GroupDetailPage({ params }: { params: { id: string
       <div className="glass rounded-2xl p-6">
         <GroupTable standings={group.standings} />
       </div>
-      <p className="mt-4 text-xs leading-relaxed text-muted/70">
+      <p className="mt-4 text-xs leading-relaxed text-muted">
         Points and goal difference are simulated averages over thousands of runs.
         Top two advance directly; the eight best third-placed teams also progress
         (see the Brackets page for the full knockout simulation).

@@ -50,12 +50,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-[100dvh] font-sans antialiased">
         <ServiceWorker />
+        <a href="#main" className="skip-link glass rounded-lg px-4 py-2 text-sm font-semibold">
+          Skip to content
+        </a>
         <div className="app-top sticky top-0 z-50 bg-background">
           <DisclaimerBanner />
           <SiteNav />
         </div>
-        <main className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
-        <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted/70 sm:pb-10">
+        <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
+        <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted sm:pb-10">
           <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
           · Explainable World Cup 2026 predictions · For analytics and
           entertainment only. Not betting advice.

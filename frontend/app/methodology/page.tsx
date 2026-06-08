@@ -58,7 +58,7 @@ export default function MethodologyPage() {
         <div className="mt-5">
           <CalibrationChart bins={data.reliability} />
         </div>
-        <p className="mt-3 text-xs text-muted/70">
+        <p className="mt-3 text-xs text-muted">
           Based on {data.reliability_n.toLocaleString()} probability–outcome pairs across the{" "}
           {data.backtest_years.join(" and ")} World Cups (all win/draw/loss calls).
         </p>

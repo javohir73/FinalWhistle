@@ -28,7 +28,7 @@ export function SiteNav() {
           className="group flex shrink-0 items-center gap-2.5"
         >
           <span className="grid h-8 w-8 place-items-center rounded-lg bg-win/15 text-win ring-1 ring-win/30 transition group-hover:bg-win/25">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
               <path d="M12 2l3 6 6 .8-4.5 4.2 1.2 6L12 17l-5.9 2 1.2-6L3 8.8 9 8z" strokeLinejoin="round" />
             </svg>
           </span>
@@ -43,6 +43,7 @@ export function SiteNav() {
             <Link
               key={n.href}
               href={n.href}
+              aria-current={isActive(n.href) ? "page" : undefined}
               className={cn(
                 "rounded-lg px-3 py-1.5 transition",
                 isActive(n.href)
@@ -61,9 +62,10 @@ export function SiteNav() {
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
+          aria-controls="mobile-menu"
           className="grid h-9 w-9 place-items-center rounded-lg text-foreground transition hover:bg-surface-2/60 sm:hidden"
         >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             {open ? (
               <path d="M6 6l12 12M18 6L6 18" />
             ) : (
@@ -75,13 +77,14 @@ export function SiteNav() {
 
       {/* Mobile dropdown panel */}
       {open && (
-        <div className="border-t border-border/60 bg-background/95 backdrop-blur-xl sm:hidden">
+        <div id="mobile-menu" className="border-t border-border/60 bg-background/95 backdrop-blur-xl sm:hidden">
           <div className="mx-auto flex max-w-6xl flex-col px-3 py-2">
             {NAV.map((n) => (
               <Link
                 key={n.href}
                 href={n.href}
                 onClick={() => setOpen(false)}
+                aria-current={isActive(n.href) ? "page" : undefined}
                 className={cn(
                   "rounded-lg px-3 py-2.5 text-sm transition",
                   isActive(n.href)
