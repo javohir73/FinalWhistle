@@ -1,5 +1,36 @@
 # Post-launch tasks & accepted risks
 
+## CI, monitoring & ops
+
+- **CI** (`.github/workflows/ci.yml`): on every push/PR runs backend `pytest`,
+  frontend `npm ci` → `typecheck` → `jest` → `build` (with `NEXT_PUBLIC_API_URL`
+  set) → non-blocking `npm audit --omit=dev`.
+- **Branch protection** on `main`: CI (`python-tests`, `frontend`) must pass;
+  force-pushes and deletions blocked. `enforce_admins` is off so the owner isn't
+  locked out; a required PR-review count is intentionally not set (a solo repo
+  can't self-approve a PR). To tighten once there's a collaborator:
+  `gh api -X PUT repos/<owner>/<repo>/branches/main/protection --input <json>`
+  with `required_pull_request_reviews.required_approving_review_count: 1`.
+- **Smoke test** (`.github/workflows/smoke.yml`): every 6h + manual; checks the
+  live site, key pages, an OG image and `/api/health` (retries for cold starts).
+- **Error tracking (Sentry)** — disabled until a DSN is set (safe no-op):
+  - Backend: `SENTRY_DSN` on Render → FastAPI auto-instrumented, tagged with
+    `model_version` + `ENVIRONMENT`.
+  - Frontend: `NEXT_PUBLIC_SENTRY_DSN` on Vercel → client error tracking
+    (lazy-loaded). CSP already allows `*.ingest.sentry.io`. Source-map upload and
+    Next server-component instrumentation are deferred (post-launch, low-risk).
+
+## Live mode activation (near June 11)
+
+Live in-game updates are a safe no-op until **both** are set on Render:
+1. `FOOTBALL_DATA_API_KEY` = a football-data.org key.
+2. `LIVE_MODE_ENABLED` = `true`.
+Then point a cron (e.g. cron-job.org) at `POST /api/internal/refresh-live` with
+the `X-Recompute-Token` header during match windows. `/api/health` reports
+`live_updates: ready`, and the Matches page shows a "Live updates on" badge.
+
+
+
 Tracking for work intentionally deferred until after the World Cup 2026 group
 stage opens (June 11, 2026), so framework-level changes don't risk a
 tournament-day regression.

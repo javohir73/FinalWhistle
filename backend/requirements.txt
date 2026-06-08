@@ -11,6 +11,9 @@ psycopg2-binary==2.9.10
 pydantic==2.10.4
 pydantic-settings==2.7.1
 
+# Error tracking (only active when SENTRY_DSN is set)
+sentry-sdk[fastapi]==2.20.0
+
 # Data / ML (used by the ml/ and pipeline/ packages)
 pandas==2.2.3
 numpy==2.2.1

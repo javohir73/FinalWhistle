@@ -8,6 +8,7 @@ import { useTimezone } from "@/lib/useTimezone";
 import { dayKey, dayHeading } from "@/lib/datetime";
 import { MatchCard } from "@/components/MatchCard";
 import { LocationPicker } from "@/components/LocationPicker";
+import { LiveStatusBadge } from "@/components/LiveStatusBadge";
 import { Loading, ErrorState, Empty } from "@/components/States";
 import type { MatchSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -88,9 +89,12 @@ export default function MatchesPage() {
   return (
     <div>
       <header className="mb-6">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Match predictions
-        </h1>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            Match predictions
+          </h1>
+          <LiveStatusBadge />
+        </div>
         <p className="mt-2 text-muted">
           Every fixture by kickoff — win probabilities, scorelines, time, and venue.
         </p>

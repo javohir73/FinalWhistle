@@ -6,6 +6,7 @@ import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
+import { SentryInit } from "@/components/SentryInit";
 import { Analytics } from "@vercel/analytics/next";
 
 const display = Bricolage_Grotesque({
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-[100dvh] font-sans antialiased">
         <ServiceWorker />
+        <SentryInit />
         <a href="#main" className="skip-link glass rounded-lg px-4 py-2 text-sm font-semibold">
           Skip to content
         </a>

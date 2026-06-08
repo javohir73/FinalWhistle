@@ -32,6 +32,7 @@ export interface HealthResponse {
   status: string;
   app: string;
   model_version: string;
+  live_updates?: "ready" | "inactive";
 }
 
 async function getJson<T>(path: string): Promise<T> {

@@ -1,4 +1,4 @@
-# CI: run BOTH test suites on every push/PR (task 7.6 — "test:all must pass before deploy").
+# CI: both test suites + typecheck + build must pass before merge to main.
 name: ci
 
 on:
@@ -21,8 +21,11 @@ jobs:
       - name: Run pytest
         run: python -m pytest
 
-  frontend-tests:
+  frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,9 +33,19 @@ jobs:
           node-version: "20"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Install frontend deps
-        run: cd frontend && npm ci
-      - name: Run Jest
-        run: cd frontend && npm test
+      - name: Install deps
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Jest
+        run: npm test
       - name: Build
-        run: cd frontend && npm run build
+        # The app guards against a missing API URL in production builds, so CI
+        # must provide it (points at the real backend; no calls happen at build).
+        env:
+          NEXT_PUBLIC_API_URL: https://pitchprophet-api.onrender.com
+        run: npm run build
+      - name: Audit (informational)
+        # Non-blocking: the remaining Next.js advisories are tracked as an
+        # accepted risk in docs/POST-LAUNCH.md until the post-launch 15/16 upgrade.
+        run: npm audit --omit=dev || true

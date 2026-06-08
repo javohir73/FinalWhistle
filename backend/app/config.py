@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     # Live in-game scores (football-data.org). Empty => live updates disabled.
     football_data_api_key: str = ""
     football_data_competition: str = "WC"  # FIFA World Cup competition code
+    # Master switch for live mode (activate near kickoff). Live updates are only
+    # active when BOTH this is on and an API key is set — otherwise a safe no-op.
+    live_mode_enabled: bool = False
+
+    @property
+    def live_updates_active(self) -> bool:
+        return bool(self.live_mode_enabled and self.football_data_api_key)
+
+    # Error tracking (Sentry). Empty => disabled (safe no-op).
+    sentry_dsn: str = ""
+    environment: str = "production"
 
     # CORS: comma-separated list of allowed frontend origins.
     cors_origins: str = "http://localhost:3000"

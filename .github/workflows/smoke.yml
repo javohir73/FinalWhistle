@@ -1,0 +1,48 @@
+# Production smoke test — verifies the live site + API serve the critical paths.
+# Runs on a schedule and on demand (also handy to run right after a deploy).
+name: smoke
+
+on:
+  schedule:
+    - cron: "0 */6 * * *" # every 6 hours
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    env:
+      SITE: https://fifa-wc26-prediction.vercel.app
+      API: https://pitchprophet-api.onrender.com
+    steps:
+      - name: Check critical paths
+        run: |
+          set -u
+          fail=0
+          # Retry wrapper (Render free tier can cold-start ~20s).
+          check() { # <url> [expected-content-type-substring]
+            url="$1"; ct_want="${2:-}"
+            for attempt in 1 2 3 4 5; do
+              out=$(curl -s -o /dev/null -m 40 -w "%{http_code} %{content_type}" "$url")
+              code=${out%% *}; ct=${out#* }
+              if [ "$code" = "200" ] && { [ -z "$ct_want" ] || printf '%s' "$ct" | grep -q "$ct_want"; }; then
+                echo "✓ $url ($out)"
+                return 0
+              fi
+              echo "… retry $attempt: $url ($out)"
+              sleep 12
+            done
+            echo "✗ FAILED: $url (last: $out)"
+            fail=1
+          }
+
+          check "$API/api/health" "application/json"
+          check "$SITE/"
+          check "$SITE/matches"
+          check "$SITE/brackets"
+          check "$SITE/my-bracket"
+          check "$SITE/match/1"
+          check "$SITE/team/1"
+          check "$SITE/groups/1"
+          check "$SITE/match/1/opengraph-image" "image/png"
+
+          exit $fail

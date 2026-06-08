@@ -26,5 +26,13 @@ services:
         value: poisson-elo-v0.1
       - key: CACHE_TTL_SECONDS
         value: "600"
+      - key: ENVIRONMENT
+        value: production
       - key: CORS_ORIGINS
         sync: false # set to your Vercel URL after the frontend deploys
+      - key: SENTRY_DSN
+        sync: false # optional: paste a Sentry DSN to enable backend error tracking
+      - key: FOOTBALL_DATA_API_KEY
+        sync: false # set near kickoff to enable live in-game scores
+      - key: LIVE_MODE_ENABLED
+        value: "false" # flip to "true" (with a key set) to activate live updates

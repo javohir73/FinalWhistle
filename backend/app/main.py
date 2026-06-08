@@ -13,6 +13,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.api import groups, internal, knockout, matches, predictions, teams
 from app.config import settings
 
+# Error tracking — only active when SENTRY_DSN is set (safe no-op otherwise).
+if settings.sentry_dsn:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        environment=settings.environment,
+        traces_sample_rate=0.0,  # errors only; no perf tracing on the free tier
+        send_default_pii=False,
+    )
+    sentry_sdk.set_tag("model_version", settings.model_version)
+
 app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
@@ -69,6 +81,7 @@ def health() -> dict:
         "status": "ok",
         "app": settings.app_name,
         "model_version": settings.model_version,
+        "live_updates": "ready" if settings.live_updates_active else "inactive",
     }
 
 

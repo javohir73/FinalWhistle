@@ -1,11 +1,19 @@
 /** Matches dashboard tests. */
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import MatchesPage from "./page";
-import { getUpcomingMatches } from "@/lib/api";
+import { getUpcomingMatches, getHealth } from "@/lib/api";
 import type { MatchSummary } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGet = getUpcomingMatches as jest.MockedFunction<typeof getUpcomingMatches>;
+const mockHealth = getHealth as jest.MockedFunction<typeof getHealth>;
+
+beforeEach(() => {
+  // The live-status badge fetches health; keep it resolved so it never crashes.
+  mockHealth.mockResolvedValue({
+    status: "ok", app: "FinalWhistle", model_version: "poisson-elo-v0.1", live_updates: "inactive",
+  });
+});
 
 function match(
   id: number,
