@@ -39,6 +39,12 @@ export default function BracketsPage() {
           the group stage and the real knockout bracket (top 2 + 8 best third-placed
           teams), giving each nation&apos;s odds of going all the way.
         </p>
+        <Link
+          href="/my-bracket"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-win/40 bg-win/10 px-4 py-2 text-sm font-semibold text-win transition hover:bg-win/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+        >
+          Build your own bracket <span aria-hidden>→</span>
+        </Link>
       </header>
 
       {/* Tabs */}
