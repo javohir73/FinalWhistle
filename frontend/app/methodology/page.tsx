@@ -14,6 +14,12 @@ type YearMetrics = (typeof data.years)[number];
 
 const fmt = (n: number) => n.toFixed(3);
 
+/** "2014, 2018 & 2022" */
+function listYears(years: number[]): string {
+  if (years.length <= 1) return years.join("");
+  return `${years.slice(0, -1).join(", ")} & ${years[years.length - 1]}`;
+}
+
 function bestLogLoss(y: YearMetrics): "model" | "favorite" | "base_rate" {
   const opts: ["model" | "favorite" | "base_rate", number][] = [
     ["model", y.model.log_loss],
@@ -42,7 +48,7 @@ export default function MethodologyPage() {
       {/* Plain-language summary */}
       <section className="grid gap-4 sm:grid-cols-3">
         <Stat big={`${data.training_matches.toLocaleString()}`} label="Real matches learned from (since 1872)" />
-        <Stat big={`${data.backtest_years.join(" & ")}`} label="World Cups it was back-tested on" />
+        <Stat big={listYears(data.backtest_years)} label="World Cups it was back-tested on" />
         <Stat big="Well-calibrated" label={`A stated 60% happens ~60% of the time`} />
       </section>
 
@@ -60,7 +66,7 @@ export default function MethodologyPage() {
         </div>
         <p className="mt-3 text-xs text-muted">
           Based on {data.reliability_n.toLocaleString()} probability–outcome pairs across the{" "}
-          {data.backtest_years.join(" and ")} World Cups (all win/draw/loss calls).
+          {listYears(data.backtest_years)} World Cups (all win/draw/loss calls).
         </p>
       </section>
 
@@ -168,11 +174,41 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      {/* Model changelog */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-display text-lg font-bold">Model changelog</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          Every change to the engine, dated, with whether it actually improved the
+          back-test — so you can see what&apos;s behind the numbers.
+        </p>
+        <ol className="mt-4 space-y-4">
+          {data.changelog.map((c) => (
+            <li key={c.version} className="border-l-2 border-border pl-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-display text-sm font-bold">{c.version}</span>
+                <span
+                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                    c.status === "current"
+                      ? "bg-win/15 text-win ring-1 ring-win/30"
+                      : "chip text-muted"
+                  }`}
+                >
+                  {c.status}
+                </span>
+                <span className="text-xs text-muted">{c.date}</span>
+              </div>
+              <p className="mt-1.5 text-sm text-foreground/90">{c.summary}</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">{c.metrics}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       {/* Limitations */}
       <section className="glass rounded-2xl border-gold/20 bg-gold/[0.04] p-6">
         <h2 className="font-display text-lg font-bold text-gold">Limitations</h2>
         <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-muted">
-          <li>Two World Cups (128 matches) is a small sample — treat single-tournament numbers with caution.</li>
+          <li>{listYears(data.backtest_years).replace(/&/, "and")} ({data.reliability_n} matches) is still a small sample — treat single-tournament numbers with caution.</li>
           <li>Team-level model: individual player form and injuries aren&apos;t factored in.</li>
           <li>Upset-heavy tournaments (like 2022) are inherently hard; the model can trail simple baselines there.</li>
           <li>Free, open data only: historical results, FIFA rankings, the official WC2026 draw.</li>

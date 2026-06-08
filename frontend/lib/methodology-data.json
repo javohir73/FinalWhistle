@@ -1,16 +1,42 @@
 {
-  "training_matches": 49363,
+  "model_version": "poisson-elo-v0.1",
+  "params": {
+    "base": 1.35,
+    "beta": 0.0019,
+    "home_adv": 60.0
+  },
+  "training_matches": 49371,
   "backtest_years": [
+    2014,
     2018,
     2022
   ],
   "years": [
     {
+      "year": 2014,
+      "n_matches": 64,
+      "model": {
+        "log_loss": 0.9047,
+        "brier": 0.533,
+        "accuracy": 0.5938
+      },
+      "favorite": {
+        "log_loss": 0.9588,
+        "brier": 0.5661,
+        "accuracy": 0.5938
+      },
+      "base_rate": {
+        "log_loss": 1.0593,
+        "brier": 0.6416,
+        "accuracy": 0.4531
+      }
+    },
+    {
       "year": 2018,
       "n_matches": 64,
       "model": {
-        "log_loss": 0.9678,
-        "brier": 0.5745,
+        "log_loss": 0.967,
+        "brier": 0.5739,
         "accuracy": 0.5625
       },
       "favorite": {
@@ -28,8 +54,8 @@
       "year": 2022,
       "n_matches": 64,
       "model": {
-        "log_loss": 1.0579,
-        "brier": 0.6213,
+        "log_loss": 1.0693,
+        "brier": 0.6236,
         "accuracy": 0.5312
       },
       "favorite": {
@@ -46,55 +72,71 @@
   ],
   "reliability": [
     {
-      "mean_predicted": 0.067,
-      "empirical_freq": 0.333,
-      "count": 9
+      "mean_predicted": 0.065,
+      "empirical_freq": 0.188,
+      "count": 16
     },
     {
-      "mean_predicted": 0.16,
-      "empirical_freq": 0.139,
-      "count": 72
+      "mean_predicted": 0.161,
+      "empirical_freq": 0.156,
+      "count": 96
     },
     {
       "mean_predicted": 0.243,
-      "empirical_freq": 0.243,
-      "count": 144
+      "empirical_freq": 0.222,
+      "count": 221
     },
     {
-      "mean_predicted": 0.343,
-      "empirical_freq": 0.4,
-      "count": 40
+      "mean_predicted": 0.348,
+      "empirical_freq": 0.371,
+      "count": 70
     },
     {
-      "mean_predicted": 0.45,
-      "empirical_freq": 0.476,
-      "count": 42
+      "mean_predicted": 0.447,
+      "empirical_freq": 0.448,
+      "count": 58
     },
     {
       "mean_predicted": 0.543,
-      "empirical_freq": 0.452,
-      "count": 31
+      "empirical_freq": 0.593,
+      "count": 54
     },
     {
-      "mean_predicted": 0.646,
-      "empirical_freq": 0.645,
-      "count": 31
+      "mean_predicted": 0.648,
+      "empirical_freq": 0.675,
+      "count": 40
     },
     {
-      "mean_predicted": 0.746,
-      "empirical_freq": 0.769,
-      "count": 13
+      "mean_predicted": 0.753,
+      "empirical_freq": 0.706,
+      "count": 17
     },
     {
-      "mean_predicted": 0.854,
-      "empirical_freq": 0.0,
-      "count": 1
+      "mean_predicted": 0.845,
+      "empirical_freq": 0.5,
+      "count": 2
     },
     {
-      "mean_predicted": 0.918,
-      "empirical_freq": 0.0,
-      "count": 1
+      "mean_predicted": 0.924,
+      "empirical_freq": 0.5,
+      "count": 2
     }
   ],
-  "reliability_n": 384
+  "reliability_n": 192,
+  "changelog": [
+    {
+      "version": "poisson-elo-v0.1",
+      "date": "2026-05",
+      "status": "current",
+      "summary": "Elo strength \u2192 expected goals \u2192 Poisson scoreline grid \u2192 W/D/L and most-likely score. Monte-Carlo for group & knockout odds.",
+      "metrics": "Beats both naive baselines on log-loss in the 2014 & 2018 back-tests; trails the favourite baseline in the upset-heavy 2022."
+    },
+    {
+      "version": "v0.2 study (not shipped)",
+      "date": "2026-06",
+      "status": "evaluated",
+      "summary": "Walk-forward tested temperature calibration, a Dixon-Coles draw correction, re-tuned goal parameters, and time-decayed Elo.",
+      "metrics": "No reliable out-of-sample gain: fitted temperature \u2248 1.0 (already calibrated) and re-tuning landed back on v0.1 values. v0.1 retained; the harness gates any future change. Real gains need new signal (squad strength, injuries, market priors)."
+    }
+  ]
 }

@@ -60,7 +60,7 @@ def is_world_cup_final_match(competition: str | None) -> bool:
     return "fifa world cup" in c and "qualif" not in c
 
 
-def backtest(rows: list[dict], year: int, base=1.35, beta=0.0017) -> dict:
+def backtest(rows: list[dict], year: int, base=BASE_GOALS, beta=ELO_TO_GOALS_BETA) -> dict:
     """Evaluate model vs baselines on a target World Cup year.
 
     `rows` are enriched replay rows with keys: pre_home, pre_away, is_neutral,
