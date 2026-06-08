@@ -1,11 +1,11 @@
-/** Match detail page tests (task 6.9). */
-import { render, screen, waitFor } from "@testing-library/react";
+/** Match detail page tests — server component (SSR) output. */
+import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatch } from "@/lib/api";
+import { getMatchServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
-const mockGet = getMatch as jest.MockedFunction<typeof getMatch>;
+const mockGet = getMatchServer as jest.MockedFunction<typeof getMatchServer>;
 
 // Recharts needs a non-zero layout size in jsdom.
 beforeAll(() => {
@@ -35,19 +35,19 @@ const prediction: Prediction = {
 
 afterEach(() => jest.resetAllMocks());
 
-it("renders probabilities, reasons and odds stub", async () => {
+it("server-renders teams, probabilities, reasons and odds stub", async () => {
   mockGet.mockResolvedValue(prediction);
-  render(<MatchDetailPage params={{ id: "1" }} />);
+  // Render the resolved async server component's output.
+  render(await MatchDetailPage({ params: { id: "1" } }));
 
-  await waitFor(() => expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1));
+  expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("Serbia")).toBeInTheDocument();
   expect(screen.getAllByText("62%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
   expect(screen.getByText(/coming in a later release/i)).toBeInTheDocument();
 });
 
-it("shows an error state on failure", async () => {
-  mockGet.mockRejectedValue(new Error("nope"));
-  render(<MatchDetailPage params={{ id: "1" }} />);
-  await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+it("calls notFound() for a missing match", async () => {
+  mockGet.mockResolvedValue(null);
+  await expect(MatchDetailPage({ params: { id: "999" } })).rejects.toThrow();
 });

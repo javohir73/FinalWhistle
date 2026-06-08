@@ -1,26 +1,37 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { getTeam } from "@/lib/api";
-import { useFetch } from "@/lib/useFetch";
+import { notFound } from "next/navigation";
+import { getTeamServer } from "@/lib/api";
+import { APP_NAME } from "@/lib/constants";
 import { FormStrip } from "@/components/FormStrip";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
-import { Loading, ErrorState } from "@/components/States";
 
-export default function TeamPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-  const state = useFetch(() => getTeam(id), [id]);
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const data = await getTeamServer(params.id);
+  if (!data) return { title: `Team — ${APP_NAME}` };
+  const t = data.team;
+  const title = `${t.name} — World Cup 2026 profile | ${APP_NAME}`;
+  const description = `${t.name} at the 2026 World Cup: Elo ${
+    t.elo_rating != null ? Math.round(t.elo_rating) : "—"
+  }, FIFA rank ${t.fifa_rank ?? "—"}, recent form, strengths and weaknesses.`;
+  return { title, description, openGraph: { title, description } };
+}
 
-  if (state.status === "loading") return <Loading label="Loading team…" />;
-  if (state.status === "error") return <ErrorState message={state.message} />;
+export default async function TeamPage({ params }: { params: { id: string } }) {
+  const data = await getTeamServer(params.id);
+  if (!data) notFound();
 
-  const { team, recent_form, strengths, weaknesses } = state.data;
+  const { team, recent_form, strengths, weaknesses } = data;
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <span aria-hidden>←</span> Home
+      <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+        <span aria-hidden>←</span> Groups
       </Link>
 
       {/* Hero */}

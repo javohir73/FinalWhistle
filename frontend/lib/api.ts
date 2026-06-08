@@ -41,3 +41,19 @@ export const getGroup = (id: number | string) =>
   getJson<Group>(`/api/groups/${id}`);
 export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
+
+/** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
+ *  HTML and stay resilient to backend cold starts; returns null on 404. */
+async function getServer<T>(path: string, revalidate: number): Promise<T | null> {
+  const res = await fetch(`${API_URL}${path}`, { next: { revalidate } });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API ${path} failed: ${res.status}`);
+  return (await res.json()) as T;
+}
+
+export const getMatchServer = (id: number | string) =>
+  getServer<Prediction>(`/api/matches/${id}`, 300);
+export const getTeamServer = (id: number | string) =>
+  getServer<TeamProfile>(`/api/teams/${id}`, 600);
+export const getGroupServer = (id: number | string) =>
+  getServer<Group>(`/api/groups/${id}`, 300);

@@ -1,17 +1,26 @@
-"use client";
-
+import type { Metadata } from "next";
 import Link from "next/link";
-import { getGroup } from "@/lib/api";
-import { useFetch } from "@/lib/useFetch";
+import { notFound } from "next/navigation";
+import { getGroupServer } from "@/lib/api";
+import { APP_NAME } from "@/lib/constants";
 import { GroupTable } from "@/components/GroupTable";
-import { Loading, ErrorState } from "@/components/States";
 
-export default function GroupDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
-  const state = useFetch(() => getGroup(id), [id]);
+export async function generateMetadata({
+  params,
+}: {
+  params: { id: string };
+}): Promise<Metadata> {
+  const group = await getGroupServer(params.id);
+  if (!group) return { title: `Group — ${APP_NAME}` };
+  const teams = group.standings.map((s) => s.team).join(", ");
+  const title = `${group.name} — projected table | ${APP_NAME}`;
+  const description = `${group.name} World Cup 2026 projected standings and qualification odds: ${teams}.`;
+  return { title, description, openGraph: { title, description } };
+}
 
-  if (state.status === "loading") return <Loading label="Loading group…" />;
-  if (state.status === "error") return <ErrorState message={state.message} />;
+export default async function GroupDetailPage({ params }: { params: { id: string } }) {
+  const group = await getGroupServer(params.id);
+  if (!group) notFound();
 
   return (
     <div className="fade-up mx-auto max-w-2xl">
@@ -19,15 +28,15 @@ export default function GroupDetailPage({ params }: { params: { id: string } }) 
         <span aria-hidden>←</span> All groups
       </Link>
       <h1 className="mb-5 mt-3 font-display text-3xl font-extrabold tracking-tight">
-        {state.data.name}
+        {group.name}
       </h1>
       <div className="glass rounded-2xl p-6">
-        <GroupTable standings={state.data.standings} />
+        <GroupTable standings={group.standings} />
       </div>
       <p className="mt-4 text-xs leading-relaxed text-muted/70">
         Points and goal difference are simulated averages over thousands of runs.
         Top two advance directly; the eight best third-placed teams also progress
-        (modeled in a later release).
+        (see the Brackets page for the full knockout simulation).
       </p>
     </div>
   );
