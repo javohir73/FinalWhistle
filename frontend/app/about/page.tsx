@@ -12,8 +12,8 @@ const STEPS = [
     body: "The Elo gap becomes expected goals, then the probability of every scoreline — giving win/draw/loss odds and a likely result.",
   },
   {
-    title: "Monte-Carlo groups",
-    body: "Each group is simulated thousands of times for qualification probabilities and predicted final tables.",
+    title: "Monte-Carlo tournament",
+    body: "Groups and the full knockout bracket are simulated thousands of times — for qualification odds, predicted tables, and each nation's chance of lifting the trophy.",
   },
 ];
 
@@ -56,8 +56,8 @@ export default function AboutPage() {
         <h2 className="font-display text-lg font-bold">Data &amp; limitations</h2>
         <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-muted">
           <li>Free, open data only: historical results, FIFA rankings, the official WC2026 draw.</li>
-          <li>Team-level model — player injuries and form are not yet modeled.</li>
-          <li>No live in-game updates yet; knockout bracket simulation is coming.</li>
+          <li>Team-level model — individual player form and injuries aren&apos;t factored in.</li>
+          <li>No live in-game updates yet — that arrives closer to kickoff.</li>
         </ul>
       </section>
 
