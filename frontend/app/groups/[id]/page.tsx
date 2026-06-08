@@ -5,6 +5,7 @@ import { getGroupServer, getUpcomingMatchesServer } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { GroupTable } from "@/components/GroupTable";
 import { GroupFixtureList } from "@/components/GroupFixtureList";
+import { ShareButton } from "@/components/ShareButton";
 
 export async function generateMetadata({
   params,
@@ -16,7 +17,11 @@ export async function generateMetadata({
   const teams = group.standings.map((s) => s.team).join(", ");
   const title = `${group.name} — projected table | ${APP_NAME}`;
   const description = `${group.name} World Cup 2026 projected standings and qualification odds: ${teams}.`;
-  return { title, description, openGraph: { title, description } };
+  return {
+    title, description,
+    alternates: { canonical: `/groups/${params.id}` },
+    openGraph: { title, description },
+  };
 }
 
 export default async function GroupDetailPage({ params }: { params: { id: string } }) {
@@ -36,9 +41,12 @@ export default async function GroupDetailPage({ params }: { params: { id: string
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <span aria-hidden>←</span> All groups
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+          <span aria-hidden>←</span> All groups
+        </Link>
+        <ShareButton title={`${group.name} — World Cup 2026 projected table`} />
+      </div>
       <h1 className="mt-3 font-display text-3xl font-extrabold tracking-tight">
         {group.name}
       </h1>

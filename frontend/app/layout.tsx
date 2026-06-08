@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
-import { APP_NAME } from "@/lib/constants";
+import { APP_NAME, SITE_URL } from "@/lib/constants";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
@@ -20,10 +20,12 @@ const body = Hanken_Grotesk({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: `${APP_NAME} — FIFA World Cup 2026 Predictions`,
   description:
     "Explainable AI predictions for the FIFA World Cup 2026. For analytics and entertainment only.",
   applicationName: APP_NAME,
+  twitter: { card: "summary_large_image" },
   appleWebApp: {
     capable: true,
     title: APP_NAME,

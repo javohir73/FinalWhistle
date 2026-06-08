@@ -13,6 +13,7 @@ import { FormStrip } from "@/components/FormStrip";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { TeamFixtures } from "@/components/TeamFixtures";
+import { ShareButton } from "@/components/ShareButton";
 
 export async function generateMetadata({
   params,
@@ -26,7 +27,11 @@ export async function generateMetadata({
   const description = `${t.name} at the 2026 World Cup: Elo ${
     t.elo_rating != null ? Math.round(t.elo_rating) : "—"
   }, FIFA rank ${t.fifa_rank ?? "—"}, recent form, strengths and weaknesses.`;
-  return { title, description, openGraph: { title, description } };
+  return {
+    title, description,
+    alternates: { canonical: `/team/${params.id}` },
+    openGraph: { title, description },
+  };
 }
 
 export default async function TeamPage({ params }: { params: { id: string } }) {
@@ -52,9 +57,12 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <span aria-hidden>←</span> Groups
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+          <span aria-hidden>←</span> Groups
+        </Link>
+        <ShareButton title={`${team.name} — World Cup 2026 profile`} />
+      </div>
 
       {/* Hero */}
       <header className="glass rounded-2xl p-6">

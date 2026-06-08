@@ -7,6 +7,7 @@ import { useFetch } from "@/lib/useFetch";
 import { useMyBracket } from "@/lib/useMyBracket";
 import { Loading, ErrorState } from "@/components/States";
 import { Flag } from "@/components/Flag";
+import { ShareButton } from "@/components/ShareButton";
 import { ROUNDS } from "@/lib/bracketStructure";
 import { trackEvent } from "@/lib/analytics";
 import type { BFixture, Outcome, TableRow } from "@/lib/myBracket";
@@ -88,13 +89,18 @@ export default function MyBracketPage() {
                 <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => { b.reset(); trackEvent("my_bracket_reset"); }}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
-            >
-              Reset
-            </button>
+            <div className="flex items-center gap-2">
+              <ShareButton
+                title={b.champion ? `My World Cup 2026 bracket — champion: ${b.champion}` : "My World Cup 2026 bracket"}
+              />
+              <button
+                type="button"
+                onClick={() => { b.reset(); trackEvent("my_bracket_reset"); }}
+                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+              >
+                Reset
+              </button>
+            </div>
           </div>
 
           {/* Group stage */}

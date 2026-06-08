@@ -11,6 +11,7 @@ import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { OddsCompare } from "@/components/OddsCompare";
 import { Flag } from "@/components/Flag";
 import { LocalKickoff } from "@/components/LocalKickoff";
+import { ShareButton } from "@/components/ShareButton";
 
 export async function generateMetadata({
   params,
@@ -25,7 +26,11 @@ export async function generateMetadata({
   )}, draw ${pct(p.probabilities.draw)}, ${p.teams.away} ${pct(
     p.probabilities.away_win,
   )}. Most likely score ${formatScore(p.predicted_score.home, p.predicted_score.away)}.`;
-  return { title, description, openGraph: { title, description } };
+  return {
+    title, description,
+    alternates: { canonical: `/match/${params.id}` },
+    openGraph: { title, description },
+  };
 }
 
 export default async function MatchDetailPage({ params }: { params: { id: string } }) {
@@ -37,9 +42,12 @@ export default async function MatchDetailPage({ params }: { params: { id: string
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <Link href="/matches" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-        <span aria-hidden>←</span> All matches
-      </Link>
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/matches" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+          <span aria-hidden>←</span> All matches
+        </Link>
+        <ShareButton title={`${home} vs ${away} — World Cup 2026 prediction`} />
+      </div>
 
       {/* Headline matchup (server-rendered) */}
       <section className="glass rounded-2xl p-6">
