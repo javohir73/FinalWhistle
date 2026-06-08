@@ -4,6 +4,7 @@ import "./globals.css";
 import { APP_NAME } from "@/lib/constants";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { SiteNav } from "@/components/SiteNav";
+import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
 
 const display = Bricolage_Grotesque({
@@ -54,11 +55,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteNav />
         </div>
         <main className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
-        <footer className="mx-auto mt-16 max-w-6xl px-5 py-10 text-center text-xs text-muted/70">
+        <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted/70 sm:pb-10">
           <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
           · Explainable World Cup 2026 predictions · For analytics and
           entertainment only. Not betting advice.
         </footer>
+        <BottomNav />
       </body>
     </html>
   );

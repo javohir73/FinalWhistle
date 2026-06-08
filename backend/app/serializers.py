@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app import schemas
-from app.models import HistoricalMatch, Match, Prediction, Standing, Team
+from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
 
 DISCLAIMER = "For analytics and entertainment only. Not betting advice."
 
@@ -70,6 +70,11 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         model_version=pred.model_version,
         generated_at=pred.created_at.isoformat() if pred.created_at else None,
         teams=schemas.TeamsOut(home=home.name if home else "TBD", away=away.name if away else "TBD"),
+        home_team_id=match.team_home_id,
+        away_team_id=match.team_away_id,
+        group=match.group.name if match.group else None,
+        group_id=match.group_id,
+        stage=match.stage,
         is_neutral=match.is_neutral,
         kickoff_utc=_kickoff_iso(match.kickoff_utc),
         venue=match.venue,
@@ -222,6 +227,20 @@ def team_profile(db: Session, team: Team, form_n: int = 8) -> schemas.TeamProfil
     if not weaknesses:
         weaknesses.append("No glaring weakness")
 
+    gt = (
+        db.query(GroupTeam, Group)
+        .join(Group, Group.id == GroupTeam.group_id)
+        .filter(GroupTeam.team_id == team.id)
+        .first()
+    )
+    group_id = gt[1].id if gt else None
+    group_name = gt[1].name if gt else None
+
     return schemas.TeamProfileOut(
-        team=team_to_out(team), recent_form=form, strengths=strengths, weaknesses=weaknesses
+        team=team_to_out(team),
+        group_id=group_id,
+        group_name=group_name,
+        recent_form=form,
+        strengths=strengths,
+        weaknesses=weaknesses,
     )

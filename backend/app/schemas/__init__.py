@@ -51,6 +51,11 @@ class PredictionOut(BaseModel):
     model_version: str
     generated_at: str | None
     teams: TeamsOut
+    home_team_id: int | None = None
+    away_team_id: int | None = None
+    group: str | None = None
+    group_id: int | None = None
+    stage: str | None = None
     is_neutral: bool
     kickoff_utc: str | None = None
     venue: str | None = None
@@ -136,6 +141,8 @@ class FormResultOut(BaseModel):
 
 class TeamProfileOut(BaseModel):
     team: TeamOut
+    group_id: int | None = None
+    group_name: str | None = None
     recent_form: list[FormResultOut]
     strengths: list[str]
     weaknesses: list[str]

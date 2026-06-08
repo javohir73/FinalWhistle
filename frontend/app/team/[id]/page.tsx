@@ -26,7 +26,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const data = await getTeamServer(params.id);
   if (!data) notFound();
 
-  const { team, recent_form, strengths, weaknesses } = data;
+  const { team, recent_form, strengths, weaknesses, group_id, group_name } = data;
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
@@ -90,7 +90,36 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           </ul>
         </section>
       </div>
+
+      {/* Explore — connect the team into the rest of the app */}
+      <section>
+        <h2 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted">
+          Explore
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {group_id && (
+            <HubLink href={`/groups/${group_id}`} label={group_name ?? "Group"} sub="Projected table & odds" />
+          )}
+          <HubLink href="/brackets" label="Title odds" sub="Run to the final" />
+          <HubLink href="/matches" label="All fixtures" sub="Every match prediction" />
+        </div>
+      </section>
     </div>
+  );
+}
+
+function HubLink({ href, label, sub }: { href: string; label: string; sub: string }) {
+  return (
+    <Link
+      href={href}
+      className="card-hover glass flex items-center justify-between gap-2 rounded-xl px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+    >
+      <span className="min-w-0">
+        <span className="block truncate font-display text-sm font-bold">{label}</span>
+        <span className="block truncate text-xs text-muted">{sub}</span>
+      </span>
+      <span className="shrink-0 text-win" aria-hidden>→</span>
+    </Link>
   );
 }
 

@@ -34,6 +34,11 @@ export interface Prediction {
   model_version: string;
   generated_at: string | null;
   teams: Teams;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  group: string | null;
+  group_id: number | null;
+  stage: string | null;
   is_neutral: boolean;
   kickoff_utc: string | null;
   venue: string | null;
@@ -115,6 +120,8 @@ export interface FormResult {
 
 export interface TeamProfile {
   team: Team;
+  group_id: number | null;
+  group_name: string | null;
   recent_form: FormResult[];
   strengths: string[];
   weaknesses: string[];
