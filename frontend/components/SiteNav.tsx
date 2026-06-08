@@ -20,7 +20,7 @@ export function SiteNav() {
     pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+    <header className="border-b border-border/60 bg-background/70 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
         <Link
           href="/"

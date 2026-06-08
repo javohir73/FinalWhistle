@@ -48,8 +48,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <body className="min-h-[100dvh] font-sans antialiased">
         <ServiceWorker />
-        <DisclaimerBanner />
-        <SiteNav />
+        <div className="app-top sticky top-0 z-50 bg-background">
+          <DisclaimerBanner />
+          <SiteNav />
+        </div>
         <main className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
         <footer className="mx-auto mt-16 max-w-6xl px-5 py-10 text-center text-xs text-muted/70">
           <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
