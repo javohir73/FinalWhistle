@@ -1,6 +1,6 @@
 import {
   groupTable, groupStageComplete, assignThirds, seedKnockouts,
-  matchSides, champion, pruneKnockoutPicks,
+  matchSides, champion, pruneKnockoutPicks, encodeBracket, decodeBracket,
   type BGroup, type GroupPicks, type KnockoutPicks,
 } from "./myBracket";
 import { R32, THIRD_SLOTS, FINAL_MATCH } from "./bracketStructure";
@@ -119,4 +119,37 @@ describe("seedKnockouts + knockout flow", () => {
 
 it("FINAL_MATCH is the title decider", () => {
   expect(FINAL_MATCH).toBe(104);
+});
+
+describe("share encode/decode", () => {
+  const groups = fullTournament();
+
+  it("round-trips group + knockout picks through a URL code", () => {
+    const gp = favouritesWin(groups);
+    const seeding = seedKnockouts(groups, gp);
+    const ko: KnockoutPicks = {};
+    for (const no of [...R32.map((m) => m.no), 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101, 102, 104]) {
+      const { a } = matchSides(no, seeding, ko);
+      if (a) ko[no] = a;
+    }
+    const code = encodeBracket(groups, gp, ko);
+    const back = decodeBracket(groups, code);
+    expect(back.groupPicks).toEqual(gp);
+    expect(back.koPicks).toEqual(ko);
+    expect(champion(back.koPicks)).toBe(champion(ko));
+  });
+
+  it("round-trips a partial (group-only) bracket", () => {
+    const gp = favouritesWin(groups);
+    // drop one pick so the group stage is incomplete -> no knockout segment
+    const firstId = groups[0].fixtures[0].matchId;
+    delete (gp as GroupPicks)[firstId];
+    const back = decodeBracket(groups, encodeBracket(groups, gp, {}));
+    expect(back.groupPicks).toEqual(gp);
+    expect(back.koPicks).toEqual({});
+  });
+
+  it("ignores a malformed code without throwing", () => {
+    expect(() => decodeBracket(groups, "not-a-real-code")).not.toThrow();
+  });
 });

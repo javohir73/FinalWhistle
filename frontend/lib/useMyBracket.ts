@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Group, MatchSummary } from "./types";
 import {
   groupTable, groupStageComplete, seedKnockouts, matchSides, champion,
-  pruneKnockoutPicks,
+  pruneKnockoutPicks, encodeBracket, decodeBracket,
   type BGroup, type GroupPicks, type KnockoutPicks, type Outcome, type Seeding,
 } from "./myBracket";
 
@@ -47,20 +47,41 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
   const [koPicks, setKoPicks] = useState<KnockoutPicks>({});
   const [loaded, setLoaded] = useState(false);
 
-  // Restore once on mount.
+  // Initialize once the model is available: a shared ?b= bracket takes
+  // precedence over local storage (then the param is stripped so edits persist
+  // cleanly and a refresh won't reload the shared copy).
   useEffect(() => {
+    if (loaded || model.length === 0) return;
+    let applied = false;
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const s = JSON.parse(raw) as Stored;
-        setGroupPicks(s.groupPicks ?? {});
-        setKoPicks(s.koPicks ?? {});
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("b");
+      if (code) {
+        const { groupPicks: gp, koPicks: kp } = decodeBracket(model, code);
+        setGroupPicks(gp);
+        setKoPicks(kp);
+        applied = true;
+        params.delete("b");
+        const qs = params.toString();
+        window.history.replaceState({}, "", window.location.pathname + (qs ? `?${qs}` : ""));
       }
     } catch {
-      /* ignore corrupt storage */
+      /* malformed share code — fall back to storage */
+    }
+    if (!applied) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (raw) {
+          const s = JSON.parse(raw) as Stored;
+          setGroupPicks(s.groupPicks ?? {});
+          setKoPicks(s.koPicks ?? {});
+        }
+      } catch {
+        /* ignore corrupt storage */
+      }
     }
     setLoaded(true);
-  }, []);
+  }, [model, loaded]);
 
   // Persist after load.
   useEffect(() => {
@@ -118,6 +139,11 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     [seeding, koPicks],
   );
 
+  const shareCode = useMemo(
+    () => (model.length ? encodeBracket(model, groupPicks, koPicks) : ""),
+    [model, groupPicks, koPicks],
+  );
+
   const groupsPicked = useMemo(
     () => model.reduce((n, g) => n + g.fixtures.filter((f) => groupPicks[f.matchId]).length, 0),
     [model, groupPicks],
@@ -134,6 +160,7 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     setGroupPick, setKoPick, reset,
     sidesFor,
     champion: champion(koPicks),
+    shareCode,
     progress: { groupsPicked, totalGroupFixtures },
   };
 }

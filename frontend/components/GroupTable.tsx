@@ -15,7 +15,7 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
           <th className="pb-2 pr-2 font-medium">Team</th>
           <th className="px-1 text-center font-medium" title="Predicted points">Pts</th>
           <th className="px-1 text-center font-medium" title="Predicted goal difference">GD</th>
-          <th className="pb-2 pl-2 text-right font-medium">Qualify</th>
+          <th className="pb-2 pl-2 text-right font-medium" title="Chance of finishing in the top two (direct qualification)">Top 2</th>
         </tr>
       </thead>
       <tbody>

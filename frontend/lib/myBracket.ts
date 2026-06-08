@@ -1,7 +1,7 @@
 /** Pure logic for the interactive "My Bracket" builder.
  *  Teams are identified by name (unique across the tournament); a separate map
  *  resolves names to ids/strength for links and tie-breaks. */
-import { R32, THIRD_SLOTS, KO_TREE, FINAL_MATCH, type Slot } from "./bracketStructure";
+import { R32, THIRD_SLOTS, KO_TREE, FINAL_MATCH, ROUNDS, type Slot } from "./bracketStructure";
 
 export type Outcome = "home" | "draw" | "away";
 export type GroupPicks = Record<number, Outcome>; // matchId -> outcome
@@ -137,6 +137,58 @@ export function matchSides(
 
 export function champion(ko: KnockoutPicks): string | undefined {
   return ko[FINAL_MATCH];
+}
+
+// ---- Shareable URL encoding ------------------------------------------------
+// Picks compress to two digit strings so a shared link rebuilds the exact bracket
+// (no backend needed). Group: one digit per match in matchId order
+// (0=unpicked,1=home,2=draw,3=away). Knockout: one digit per match in bracket
+// order (0=unpicked, 1=side A, 2=side B) — sides are re-derived on decode, so
+// team names never need to travel in the URL.
+const OUT_TO_DIGIT: Record<Outcome, string> = { home: "1", draw: "2", away: "3" };
+const DIGIT_TO_OUT: Record<string, Outcome> = { "1": "home", "2": "draw", "3": "away" };
+
+function sortedMatchIds(groups: BGroup[]): number[] {
+  return groups.flatMap((g) => g.fixtures.map((f) => f.matchId)).sort((a, b) => a - b);
+}
+const koOrder = (): number[] => ROUNDS.flatMap((r) => r.matches);
+
+export function encodeBracket(groups: BGroup[], gp: GroupPicks, ko: KnockoutPicks): string {
+  const ids = sortedMatchIds(groups);
+  const gStr = ids.map((id) => OUT_TO_DIGIT[gp[id]] ?? "0").join("");
+  let kStr = "";
+  if (groupStageComplete(groups, gp)) {
+    const seeding = seedKnockouts(groups, gp);
+    for (const no of koOrder()) {
+      const pick = ko[no];
+      const { a, b } = matchSides(no, seeding, ko);
+      kStr += pick && pick === a ? "1" : pick && pick === b ? "2" : "0";
+    }
+  }
+  return `${gStr}.${kStr}`;
+}
+
+export function decodeBracket(groups: BGroup[], code: string): { groupPicks: GroupPicks; koPicks: KnockoutPicks } {
+  const [gStr = "", kStr = ""] = code.split(".");
+  const ids = sortedMatchIds(groups);
+  const groupPicks: GroupPicks = {};
+  for (let i = 0; i < ids.length && i < gStr.length; i++) {
+    const out = DIGIT_TO_OUT[gStr[i]];
+    if (out) groupPicks[ids[i]] = out;
+  }
+  const koPicks: KnockoutPicks = {};
+  if (kStr && groupStageComplete(groups, groupPicks)) {
+    const seeding = seedKnockouts(groups, groupPicks);
+    const order = koOrder();
+    for (let i = 0; i < order.length && i < kStr.length; i++) {
+      const d = kStr[i];
+      if (d !== "1" && d !== "2") continue;
+      const { a, b } = matchSides(order[i], seeding, koPicks);
+      const team = d === "1" ? a : b;
+      if (team) koPicks[order[i]] = team;
+    }
+  }
+  return { groupPicks, koPicks };
 }
 
 /** Drop knockout picks that are no longer valid (their team isn't in the tie

@@ -80,6 +80,18 @@ in `ml/models/poisson.py`, the tuner in `ml/evaluation/tune.py`, `walk_forward`
 in `ml/evaluation/backtest.py`, report via `pipeline/tune_model.py`) is the gate
 for any future model change: ship a new version only if it beats v0.1 here.
 
+**Exact third-place assignment (deferred):** the knockout sim and the My Bracket
+seeding fill the 8 best-third slots via a constraint-respecting *approximation*,
+not FIFA's full Annex C lookup (which group-3rd combination maps to which slots).
+This doesn't change a team's own round-by-round odds materially, but to be exact:
+encode the 495-row Annex C matrix and test every qualifying-group combination. UI
+copy already states the slotting is approximate.
+
+**Client Sentry depth (deferred):** the frontend SDK lazy-loads after hydration,
+so the earliest render/hydration errors can be missed. The full Next/Sentry
+instrumentation (withSentryConfig + server instrumentation + source maps) is the
+stronger option once we're in a calm window.
+
 **Real next levers (need new signal, deferred):**
 - Squad strength / injuries / availability (the biggest expected gain; needs a
   data source — do not fabricate).

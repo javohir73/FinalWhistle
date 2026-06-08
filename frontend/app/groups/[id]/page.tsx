@@ -56,9 +56,10 @@ export default async function GroupDetailPage({ params }: { params: { id: string
         <h2 className="mb-4 font-display text-lg font-bold">Projected standings</h2>
         <GroupTable standings={group.standings} />
         <p className="mt-4 text-xs leading-relaxed text-muted">
-          Points and goal difference are simulated averages over thousands of runs;
-          &ldquo;Qualify&rdquo; is each team&apos;s chance of reaching the knockouts.
-          Top two advance directly; the eight best third-placed teams also progress.
+          Points and goal difference are simulated averages over thousands of runs.
+          &ldquo;Top 2&rdquo; is each team&apos;s chance of finishing in the top two —
+          i.e. direct qualification. (The eight best third-placed teams also reach the
+          Round of 32; those odds aren&apos;t shown in this column.)
         </p>
       </section>
 

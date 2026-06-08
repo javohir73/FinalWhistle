@@ -8,17 +8,20 @@ import { cn } from "@/lib/utils";
 export function ShareButton({
   title,
   label = "Share",
+  url: urlProp,
   className,
 }: {
   title?: string;
   label?: string;
+  /** Explicit URL to share. Defaults to the current page URL. */
+  url?: string;
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
 
   const onShare = async () => {
     if (typeof window === "undefined") return;
-    const url = window.location.href;
+    const url = urlProp ?? window.location.href;
     trackEvent("share", { path: window.location.pathname });
     const shareTitle = title ?? document.title;
     if (navigator.share) {

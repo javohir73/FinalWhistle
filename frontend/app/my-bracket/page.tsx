@@ -92,6 +92,11 @@ export default function MyBracketPage() {
             <div className="flex items-center gap-2">
               <ShareButton
                 title={b.champion ? `My World Cup 2026 bracket — champion: ${b.champion}` : "My World Cup 2026 bracket"}
+                url={
+                  typeof window !== "undefined" && b.shareCode
+                    ? `${window.location.origin}/my-bracket?b=${b.shareCode}`
+                    : undefined
+                }
               />
               <button
                 type="button"
@@ -202,9 +207,11 @@ export default function MyBracketPage() {
           </section>
 
           <p className="rounded-xl chip p-4 text-xs leading-relaxed text-muted">
-            Group tables rank by points; ties are broken by the model&apos;s rating. Best
-            third-placed teams are seeded into the official Round of 32. Your picks are
-            stored only in this browser.{" "}
+            Group tables rank by points; ties are broken by the model&apos;s rating. The
+            Round of 32 is seeded from your group results; which exact slot each best
+            third-placed team fills is approximated (not the full FIFA pairing table).
+            Picks are saved in this browser — use Share to send your full bracket as a
+            link.{" "}
             <Link href="/brackets" className="text-win underline underline-offset-2">
               See the model&apos;s projected bracket →
             </Link>
