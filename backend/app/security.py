@@ -40,15 +40,21 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(stored_hash: str, password: str) -> bool:
-    from argon2.exceptions import (
-        InvalidHashError,
-        VerificationError,
-        VerifyMismatchError,
-    )
+    """True iff the password matches the stored argon2 hash; never raises.
 
+    A wrong password, or a malformed/garbage/empty stored hash, returns False.
+    We catch argon2's stable base ``Argon2Error`` (wrong-password mismatches) **and**
+    ``ValueError``: a malformed hash raises ``InvalidHash``/``InvalidHashError``,
+    which subclasses ``ValueError`` (not ``Argon2Error``) and whose exact name varies
+    by argon2-cffi version — so importing that name directly would crash every login
+    on some versions. Catching the stable bases keeps verification version-proof."""
+    from argon2.exceptions import Argon2Error
+
+    if not isinstance(stored_hash, str) or not stored_hash:
+        return False
     try:
         return _ph().verify(stored_hash, password)
-    except (VerifyMismatchError, VerificationError, InvalidHashError):
+    except (Argon2Error, ValueError):
         return False
 
 

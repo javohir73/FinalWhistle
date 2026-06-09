@@ -40,11 +40,13 @@ def test_register_sets_cookie_and_me_works(client):
                     json={"email": "Pat@Example.com", "password": "supersecret", "display_name": "Pat"})
     assert r.status_code == 200, r.text
     assert r.json()["email"] == "pat@example.com"  # normalized
+    assert "password_hash" not in r.json()  # never leak the hash
     assert "fw_session" in r.cookies or "fw_session" in [c.name for c in client.cookies.jar]
 
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json()["display_name"] == "Pat"
+    assert "password_hash" not in me.json()
 
 
 def test_duplicate_email_rejected(client):
