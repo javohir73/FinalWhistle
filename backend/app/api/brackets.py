@@ -15,6 +15,7 @@ from app.auth import get_current_user
 from app.cache import cache
 from app.db import get_db
 from app.models import AppUser, Bracket, BracketGroupPick, BracketKnockoutPick, Match
+from app.security import require_same_origin
 
 router = APIRouter(prefix="/api/brackets", tags=["brackets"])
 
@@ -65,7 +66,8 @@ def my_bracket(user: AppUser = Depends(get_current_user), db: Session = Depends(
     return to_bracket_out(b)
 
 
-@router.post("", response_model=schemas.BracketOut)
+@router.post("", response_model=schemas.BracketOut,
+             dependencies=[Depends(require_same_origin)])
 def save_bracket(
     payload: schemas.BracketIn,
     user: AppUser = Depends(get_current_user),

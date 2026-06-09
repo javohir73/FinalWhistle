@@ -157,6 +157,30 @@ class ErrorOut(BaseModel):
     error: ErrorBody
 
 
+# ---- Auth (first-party email + password) ----
+class RegisterIn(BaseModel):
+    email: str
+    password: str
+    display_name: str | None = None
+
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+
+class ChangePasswordIn(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    display_name: str | None = None
+    avatar_url: str | None = None
+
+
 # ---- Accounts / brackets / leaderboard ----
 class GroupPickIn(BaseModel):
     match_id: int

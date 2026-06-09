@@ -11,7 +11,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
-    brackets, groups, internal, knockout, leaderboard, matches, predictions, teams,
+    auth, brackets, groups, internal, knockout, leaderboard, matches, predictions,
+    teams,
 )
 from app.config import settings
 
@@ -87,6 +88,7 @@ def health() -> dict:
     }
 
 
+app.include_router(auth.router)
 app.include_router(matches.router)
 app.include_router(predictions.router)
 app.include_router(teams.router)

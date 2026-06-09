@@ -1,71 +1,58 @@
 """Authentication dependency.
 
-Verifies a Clerk session JWT (RS256, validated against Clerk's JWKS) and maps it
-to a local AppUser row. Dormant until CLERK_JWKS_URL is configured — protected
-endpoints then return 503 instead of trusting unverified callers. All routes
-stay public; this only guards the account-only actions (save across devices,
-join leaderboard, restore).
-
-PyJWT is imported lazily so local/test environments (which override this
-dependency) don't require it at import time.
+Resolves the signed-in AppUser from the opaque session cookie (`fw_session`): we
+hash the raw token, look up a live (non-revoked, unexpired) UserSession, and
+return its user. All routes stay public; this only guards the account-only
+actions (save across devices, join leaderboard, restore). No external service.
 """
 from __future__ import annotations
 
-from fastapi import Depends, Header, HTTPException
+from datetime import datetime, timezone
+
+from fastapi import Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.db import get_db
-from app.models import AppUser
+from app.models import AppUser, UserSession
+from app.security import SESSION_COOKIE, hash_token
 
 
-def _bearer(authorization: str | None) -> str:
-    if not authorization or not authorization.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail={"code": "unauthorized",
-                                                     "message": "Missing bearer token"})
-    return authorization.split(" ", 1)[1].strip()
+def _aware(dt: datetime) -> datetime:
+    """SQLite hands back naive datetimes; treat stored times as UTC."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 
-def verify_clerk_token(token: str) -> dict:
-    """Validate a Clerk JWT against the configured JWKS; return its claims."""
-    import jwt  # lazy: only needed when auth is actually configured
-    from jwt import PyJWKClient
+def _session_from_request(request: Request, db: Session) -> UserSession | None:
+    raw = request.cookies.get(SESSION_COOKIE)
+    if not raw:
+        return None
+    sess = (
+        db.query(UserSession)
+        .filter_by(session_token_hash=hash_token(raw))
+        .one_or_none()
+    )
+    if sess is None or sess.revoked_at is not None:
+        return None
+    if _aware(sess.expires_at) <= datetime.now(timezone.utc):
+        return None
+    return sess
 
-    try:
-        signing_key = PyJWKClient(settings.clerk_jwks_url).get_signing_key_from_jwt(token)
-        return jwt.decode(
-            token,
-            signing_key.key,
-            algorithms=["RS256"],
-            issuer=settings.clerk_issuer or None,
-            options={"verify_aud": False, "verify_iss": bool(settings.clerk_issuer)},
+
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> AppUser:
+    """Resolve the AppUser for the request's session cookie, or 401."""
+    sess = _session_from_request(request, db)
+    if sess is None:
+        raise HTTPException(
+            status_code=401,
+            detail={"code": "unauthorized", "message": "Sign in to continue."},
         )
-    except Exception as exc:  # invalid/expired/forged token
-        raise HTTPException(status_code=401, detail={"code": "unauthorized",
-                                                     "message": "Invalid token"}) from exc
+    return sess.user
 
 
-def get_current_user(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db),
-) -> AppUser:
-    """Resolve (and lazily create) the AppUser for the bearer token's subject."""
-    if not settings.auth_configured:
-        raise HTTPException(status_code=503, detail={"code": "auth_disabled",
-                                                     "message": "Accounts are not enabled yet."})
-    claims = verify_clerk_token(_bearer(authorization))
-    sub = claims.get("sub")
-    if not sub:
-        raise HTTPException(status_code=401, detail={"code": "unauthorized",
-                                                     "message": "Token has no subject"})
-    user = db.query(AppUser).filter_by(auth_provider_user_id=sub).one_or_none()
-    if user is None:
-        user = AppUser(
-            auth_provider_user_id=sub,
-            display_name=claims.get("name") or claims.get("username"),
-            avatar_url=claims.get("picture"),
-        )
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    return user
+def get_current_user_optional(
+    request: Request, db: Session = Depends(get_db)
+) -> AppUser | None:
+    """Like get_current_user but returns None instead of raising (for endpoints
+    whose response varies by auth without requiring it)."""
+    sess = _session_from_request(request, db)
+    return sess.user if sess else None

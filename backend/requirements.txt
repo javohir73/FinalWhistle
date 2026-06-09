@@ -14,8 +14,8 @@ pydantic-settings==2.7.1
 # Error tracking (only active when SENTRY_DSN is set)
 sentry-sdk[fastapi]==2.20.0
 
-# Auth — verify Clerk session JWTs (only used when CLERK_JWKS_URL is set)
-PyJWT[crypto]==2.10.1
+# Auth — first-party email+password accounts with opaque session cookies.
+argon2-cffi==23.1.0
 
 # Data / ML (used by the ml/ and pipeline/ packages)
 pandas==2.2.3

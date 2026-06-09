@@ -36,16 +36,13 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     environment: str = "production"
 
-    # Auth (Clerk). Accounts are dormant until a JWKS URL is configured: the
-    # protected endpoints return 503 rather than accept unverified callers.
-    clerk_jwks_url: str = ""
-    clerk_issuer: str = ""  # optional issuer claim to enforce
+    # Auth — first-party email+password accounts on opaque session cookies.
+    # COOKIE_SECURE must be "false" in local dev (http://localhost), "true" in prod
+    # (the Secure flag stops a cookie from being sent over plain http otherwise).
+    cookie_secure: bool = True
 
-    @property
-    def auth_configured(self) -> bool:
-        return bool(self.clerk_jwks_url)
-
-    # CORS: comma-separated list of allowed frontend origins.
+    # CORS / allowed browser origins. Also used for the Origin check on
+    # state-changing requests (CSRF defense-in-depth). Comma-separated.
     cors_origins: str = "http://localhost:3000"
 
     # Read-cache lifetime. Lets a separate refresh process's DB writes appear in
