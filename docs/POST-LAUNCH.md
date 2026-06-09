@@ -20,27 +20,46 @@
     (lazy-loaded). CSP already allows `*.ingest.sentry.io`. Source-map upload and
     Next server-component instrumentation are deferred (post-launch, low-risk).
 
-## Accounts & leaderboard
+## Accounts & leaderboard — first-party auth (Clerk removed)
 
-**Backend foundation is shipped (dormant until Clerk is configured).** Anonymous
-play is unchanged (localStorage + ?b= link); accounts are an upgrade.
+**Shipped: first-party email + password accounts on opaque session cookies.**
+Clerk (and `@clerk/clerk-react`, the Clerk CSP entries, and `CLERK_*` env vars)
+was removed. Anonymous play is unchanged (localStorage + ?b= link); accounts are
+an upgrade that only gate save/publish/join/restore — never play.
 
-- Tables: `app_users`, `brackets`, `bracket_group_picks`, `bracket_knockout_picks`,
-  `bracket_scores` (Alembic `d4e5f6a7b8c9`).
-- Auth: `app/auth.py#get_current_user` verifies a Clerk session JWT against
-  `CLERK_JWKS_URL` (RS256). **Fails closed** — protected endpoints return 503
-  until that's set, so nothing is exposed prematurely.
-- Endpoints: `POST /api/brackets` + `GET /api/brackets/me` (auth),
-  `POST /api/leaderboard/join` (auth), `GET /api/leaderboard` (public top-N).
-- Scoring is **backend-owned** (`app/scoring.py`, 3/5/10/20), recomputed via
-  `POST /api/internal/recompute-scores` (token-guarded) after results update.
-  Picks for kicked-off matches are locked (edits rejected).
+- Tables: `app_users` (now `email` + `password_hash` + `email_verified_at`,
+  no more `auth_provider_user_id`), `user_sessions`, `login_attempts`, plus the
+  existing `brackets`/`bracket_*` (Alembic `e5f6a7b8c9d0`, which also wipes the
+  pre-launch Clerk test rows).
+- Auth: opaque session token (`secrets.token_urlsafe`), only its SHA-256 hash
+  stored; argon2id password hashing (`app/security.py`). Cookie `fw_session` is
+  HttpOnly + SameSite=Lax + `Secure` (env-aware via `COOKIE_SECURE`), host-only.
+  `app/auth.py#get_current_user` resolves the user from the cookie (401 if absent).
+- CSRF defense-in-depth: `require_same_origin` rejects state-changing requests
+  whose `Origin` isn't in `CORS_ORIGINS` (so `CORS_ORIGINS` now gates both CORS
+  and the Origin check). Login throttling via `login_attempts` (5/15min per email+IP).
+- Endpoints: `POST /api/auth/{register,login,logout,change-password}`,
+  `GET /api/auth/me`; `POST /api/brackets` + `GET /api/brackets/me`,
+  `POST /api/leaderboard/join` (cookie-authed), `GET /api/leaderboard` (public).
+- Cross-origin: the frontend talks to the backend through a same-origin Next
+  rewrite (`/backend-api/*` → backend `/api/*`, see `next.config.mjs`) so the
+  cookie is first-party to the Vercel host. Works in `next dev` too.
+- Scoring stays **backend-owned** (`app/scoring.py`, 3/5/10/20); kicked-off picks
+  locked.
 
-**To activate (next batch):**
-1. Create a Clerk app; set `CLERK_JWKS_URL` (+ optional `CLERK_ISSUER`) on Render.
-2. Frontend wiring (not yet built): Clerk provider, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
-   "Save across devices" (sync local bracket on login), restore, "Join leaderboard",
-   and `/leaderboard` UI. Sign-in only gates save/publish/join/restore — never play.
+**Deploy checklist for this change (4 phases):**
+1. **Vercel:** redeploy frontend (NEXT_PUBLIC_* is build-time inlined). The
+   `NEXT_PUBLIC_API_URL` is still required (SSR fetches + rewrite destination).
+   `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` can be deleted.
+2. **Render:** remove `CLERK_JWKS_URL` / `CLERK_ISSUER`; add `COOKIE_SECURE=true`;
+   confirm `CORS_ORIGINS` = the Vercel URL (now also gates the Origin check).
+3. **Migration:** `alembic upgrade head` runs via `.github/workflows/refresh.yml`
+   (revision `e5f6a7b8c9d0`). It deletes pre-launch rows then alters schema.
+4. **Clerk dashboard:** the instance can be deleted once deployed.
+
+**Known limitation (chosen):** no email sending yet → **no email verification and
+no self-serve password reset** (the auth modal says so). Add an email provider
+(Resend/Postmark + verified domain) later to enable reset + magic-link.
 
 ## Live mode activation (near June 11)
 
@@ -78,6 +97,10 @@ lines, so the entire 14.2.x range is flagged regardless of patch level.
 - No i18n routing → the i18n middleware-bypass advisory is not reachable.
 - Hosted on **Vercel** (not self-hosted), which mitigates the "self-hosted"
   classes at the platform/CDN layer.
+- We now use a `rewrites()` proxy (`/backend-api/*`), so the "HTTP request
+  smuggling in rewrites" advisory is newly *applicable*; on Vercel the platform's
+  HTTP layer handles the proxy hop (not the self-hosted Next server), which
+  mitigates it. Completing the Next 15/16 upgrade is still the real fix.
 
 The 14.2.18 → 14.2.35 bump already pulled in the CVE-2025-29927 middleware
 auth-bypass fix and later 14.2.x security patches.

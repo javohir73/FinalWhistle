@@ -1,6 +1,8 @@
 /** Matches dashboard tests. */
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
-import MatchesPage from "./page";
+// The route's page.tsx is now a server component; the interactive UI lives in the
+// client island. Render that directly (unseeded → it fetches via the mock below).
+import { MatchesClient as MatchesPage } from "./MatchesClient";
 import { getUpcomingMatches, getHealth } from "@/lib/api";
 import type { MatchSummary } from "@/lib/types";
 
