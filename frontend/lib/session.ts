@@ -105,3 +105,39 @@ export async function getMyBracket(): Promise<SavedBracket | null> {
 
 export const joinLeaderboard = (body: { display_name: string; visibility: "public" | "private" }) =>
   request<SavedBracket>("/api/leaderboard/join", { method: "POST", body: JSON.stringify(body) });
+
+// ---- Display-only signed-in hint ----
+// A cached copy of the public user fields so the account indicator can render
+// instantly on every page/navigation (and survive a reload) without waiting on
+// /auth/me. This is NOT auth: it holds no token and cannot authenticate anything
+// — the HttpOnly cookie remains the only credential. /auth/me reconciles it, and
+// a confirmed 401 or logout clears it.
+const USER_HINT_KEY = "fw_user";
+
+export function loadUserHint(): SessionUser | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(USER_HINT_KEY);
+    return raw ? (JSON.parse(raw) as SessionUser) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveUserHint(user: SessionUser): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(USER_HINT_KEY, JSON.stringify(user));
+  } catch {
+    /* storage unavailable (private mode / quota) — non-fatal */
+  }
+}
+
+export function clearUserHint(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(USER_HINT_KEY);
+  } catch {
+    /* non-fatal */
+  }
+}

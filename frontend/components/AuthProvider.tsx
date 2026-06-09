@@ -1,8 +1,16 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useState } from "react";
-import { getMe, logout as apiLogout, type SessionUser } from "@/lib/session";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import {
+  getMe,
+  logout as apiLogout,
+  loadUserHint,
+  saveUserHint,
+  clearUserHint,
+  type SessionUser,
+} from "@/lib/session";
 import { AuthModal } from "@/components/AuthModal";
+import { AuthToast } from "@/components/AuthToast";
 
 interface SignInOptions {
   onSuccess?: () => void;
@@ -18,53 +26,62 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-/** First-party auth context. Fetches the current session once on mount and owns
- *  a single sign-in modal. Anonymous play is unaffected — nothing here blocks
- *  rendering and the modal only opens when a user explicitly asks to sign in. */
+/** First-party auth context. The signed-in user is shown instantly on every page
+ *  from a cached display hint, then reconciled against /auth/me — so navigating
+ *  between pages (or reloading) never flashes back to "Sign in". A transient
+ *  /auth/me failure (e.g. backend cold start) does NOT sign the user out. */
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
-  const [onSuccess, setOnSuccess] = useState<(() => void) | undefined>(undefined);
+  const [toast, setToast] = useState<string | null>(null);
+  const onSuccessRef = useRef<(() => void) | undefined>(undefined);
 
   const refresh = useCallback(async () => {
     try {
-      setUser(await getMe());
+      const me = await getMe(); // user (200) | null (401) | throws (network/cold start)
+      setUser(me);
+      if (me) saveUserHint(me);
+      else clearUserHint();
     } catch {
-      setUser(null);
+      // Transient failure — keep whatever we already have (hint/last good user).
     } finally {
       setLoading(false);
     }
   }, []);
 
+  // On mount: paint from the cached hint immediately, then reconcile with /me.
   useEffect(() => {
+    const hint = loadUserHint();
+    if (hint) setUser(hint);
     void refresh();
   }, [refresh]);
 
   const logout = useCallback(async () => {
     await apiLogout();
+    clearUserHint();
     setUser(null);
   }, []);
 
   const openSignIn = useCallback((opts?: SignInOptions) => {
-    setOnSuccess(() => opts?.onSuccess);
+    onSuccessRef.current = opts?.onSuccess;
     setModalOpen(true);
   }, []);
 
-  const handleAuthed = useCallback(
-    (authedUser: SessionUser) => {
-      // Use the user returned by login/register as the source of truth. Calling
-      // /auth/me here would race the just-set cookie's visibility (Safari/PWA) and
-      // could leave `user` null even though the session is valid. On the next page
-      // load, the mount-time refresh() reconciles from the cookie.
-      setUser(authedUser);
-      setLoading(false);
-      setModalOpen(false);
-      onSuccess?.();
-      setOnSuccess(undefined);
-    },
-    [onSuccess],
-  );
+  const handleAuthed = useCallback((authedUser: SessionUser, isNew: boolean) => {
+    // Use the user returned by login/register as the source of truth — calling
+    // /auth/me here would race the just-set cookie's visibility (Safari/PWA).
+    setUser(authedUser);
+    saveUserHint(authedUser);
+    setLoading(false);
+    setModalOpen(false);
+    if (isNew) {
+      const name = authedUser.display_name?.trim();
+      setToast(name ? `Welcome, ${name}! Your account is ready.` : "Your account is ready 🎉");
+    }
+    onSuccessRef.current?.();
+    onSuccessRef.current = undefined;
+  }, []);
 
   return (
     <AuthContext.Provider value={{ user, loading, refresh, logout, openSignIn }}>
@@ -74,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         onClose={() => setModalOpen(false)}
         onAuthed={handleAuthed}
       />
+      <AuthToast message={toast} onDone={() => setToast(null)} />
     </AuthContext.Provider>
   );
 }
