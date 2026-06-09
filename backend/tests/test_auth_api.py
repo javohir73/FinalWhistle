@@ -108,12 +108,20 @@ def test_internal_stats_token_guarded(client):
         ok = client.get("/api/internal/stats", headers={"X-Recompute-Token": "testtoken"})
         assert ok.status_code == 200
         body = ok.json()
-        for k in ("users", "signups_last_24h", "brackets", "public_brackets", "latest_signup"):
+        for k in ("users", "signups_last_24h", "brackets", "public_brackets",
+                  "latest_signup", "by_country", "by_city"):
             assert k in body
         assert body["users"] == 0
-        client.post("/api/auth/register", json={"email": "s@example.com", "password": "supersecret"})
+        # Register with Vercel geo headers → captured + aggregated in stats.
+        client.post(
+            "/api/auth/register",
+            json={"email": "s@example.com", "password": "supersecret"},
+            headers={"x-vercel-ip-country": "us", "x-vercel-ip-city": "San%20Francisco"},
+        )
         after = client.get("/api/internal/stats", headers={"X-Recompute-Token": "testtoken"}).json()
         assert after["users"] == 1 and after["signups_last_24h"] == 1
+        assert {"country": "US", "count": 1} in after["by_country"]
+        assert after["by_city"][0]["city"] == "San Francisco"
     finally:
         settings.recompute_token = ""
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timezone
+from urllib.parse import unquote
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
@@ -67,6 +68,16 @@ def _create_session(db: Session, request: Request, user: AppUser) -> str:
     return raw
 
 
+def _signup_geo(request: Request) -> tuple[str | None, str | None]:
+    """Best-effort country/city from Vercel's edge headers (present when the
+    request came through the frontend proxy). City is URL-encoded by Vercel."""
+    country = request.headers.get("x-vercel-ip-country")
+    city = request.headers.get("x-vercel-ip-city")
+    country = country.strip().upper()[:2] if country else None
+    city = unquote(city).strip()[:120] if city else None
+    return country or None, city or None
+
+
 def _user_out(u: AppUser) -> schemas.UserOut:
     return schemas.UserOut(id=u.id, email=u.email, display_name=u.display_name,
                            avatar_url=u.avatar_url)
@@ -80,10 +91,13 @@ def register(payload: schemas.RegisterIn, request: Request, response: Response,
     if db.query(AppUser).filter_by(email=email).first() is not None:
         raise HTTPException(status_code=409, detail={"code": "email_taken",
                                                      "message": "An account with that email already exists."})
+    country, city = _signup_geo(request)
     user = AppUser(
         email=email,
         password_hash=hash_password(payload.password),
         display_name=(payload.display_name or "").strip()[:60] or None,
+        signup_country=country,
+        signup_city=city,
     )
     db.add(user)
     db.flush()
