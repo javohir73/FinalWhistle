@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { login, register, ApiError } from "@/lib/session";
+import { trackEvent } from "@/lib/analytics";
 
 type Mode = "signin" | "signup";
 
@@ -49,8 +50,10 @@ export function AuthModal({
     try {
       if (mode === "signup") {
         await register(email.trim(), password, name.trim() || undefined);
+        trackEvent("signup");
       } else {
         await login(email.trim(), password);
+        trackEvent("login");
       }
       onAuthed();
     } catch (err) {

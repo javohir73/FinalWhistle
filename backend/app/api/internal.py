@@ -8,8 +8,10 @@ cron calls.
 from __future__ import annotations
 
 import secrets
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.cache import cache
@@ -62,6 +64,28 @@ def refresh_live(
     summary = run_live(db)
     cache.clear()
     return {"status": "ok", "live": summary}
+
+
+@router.get("/stats")
+def stats(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Lightweight ops counts (signups, brackets). Token-guarded — same secret as
+    the other internal endpoints. Use to check signups without DB access:
+    `curl -H "X-Recompute-Token: <token>" <api>/api/internal/stats`."""
+    _require_token(x_recompute_token)
+    from app.models import AppUser, Bracket
+
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    latest = db.query(func.max(AppUser.created_at)).scalar()
+    return {
+        "users": db.query(AppUser).count(),
+        "signups_last_24h": db.query(AppUser).filter(AppUser.created_at >= since).count(),
+        "brackets": db.query(Bracket).count(),
+        "public_brackets": db.query(Bracket).filter(Bracket.visibility == "public").count(),
+        "latest_signup": latest.isoformat() if latest else None,
+    }
 
 
 @router.post("/recompute-scores")
