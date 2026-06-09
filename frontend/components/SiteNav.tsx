@@ -5,12 +5,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { AuthButton } from "@/components/AuthButton";
 
 const NAV = [
   { href: "/matches", label: "Matches" },
   { href: "/groups", label: "Groups" },
   { href: "/brackets", label: "Brackets" },
   { href: "/my-bracket", label: "My Bracket" },
+  { href: "/leaderboard", label: "Leaderboard" },
   { href: "/about", label: "How it works" },
 ];
 
@@ -38,27 +40,30 @@ export function SiteNav() {
           </span>
         </Link>
 
-        {/* Desktop links */}
-        <div className="hidden items-center gap-1 text-sm sm:flex">
-          {NAV.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              aria-current={isActive(n.href) ? "page" : undefined}
-              className={cn(
-                "rounded-lg px-3 py-1.5 transition",
-                isActive(n.href)
-                  ? "bg-surface-2/70 text-foreground"
-                  : "text-muted hover:bg-surface-2/60 hover:text-foreground",
-              )}
-            >
-              {n.label}
-            </Link>
-          ))}
-        </div>
+        <div className="flex items-center gap-2">
+          {/* Desktop links */}
+          <div className="hidden items-center gap-1 text-sm sm:flex">
+            {NAV.map((n) => (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={isActive(n.href) ? "page" : undefined}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 transition",
+                  isActive(n.href)
+                    ? "bg-surface-2/70 text-foreground"
+                    : "text-muted hover:bg-surface-2/60 hover:text-foreground",
+                )}
+              >
+                {n.label}
+              </Link>
+            ))}
+          </div>
 
-        {/* Mobile hamburger */}
-        <button
+          <AuthButton />
+
+          {/* Mobile hamburger */}
+          <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-label={open ? "Close menu" : "Open menu"}
@@ -73,7 +78,8 @@ export function SiteNav() {
               <path d="M4 7h16M4 12h16M4 17h16" />
             )}
           </svg>
-        </button>
+          </button>
+        </div>
       </nav>
 
       {/* Mobile dropdown panel */}

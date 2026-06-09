@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import type { Group, MatchSummary } from "./types";
+import type { Group, MatchSummary, SavedBracket } from "./types";
+import type { BracketPayload } from "./auth";
 import {
   groupTable, groupStageComplete, seedKnockouts, matchSides, champion,
   pruneKnockoutPicks, encodeBracket, decodeBracket,
@@ -144,6 +145,40 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     [model, groupPicks, koPicks],
   );
 
+  const idToName = useMemo(() => {
+    const m: Record<number, string> = {};
+    for (const [name, id] of Object.entries(teamId)) m[id] = name;
+    return m;
+  }, [teamId]);
+
+  // Convert to/from the backend's saved-bracket shape (ids instead of names).
+  const toBracketPayload = useCallback((): BracketPayload => {
+    const champ = champion(koPicks);
+    return {
+      group_picks: Object.entries(groupPicks).map(([mid, pick]) => ({
+        match_id: Number(mid), pick,
+      })),
+      knockout_picks: Object.entries(koPicks).flatMap(([no, name]) => {
+        const id = teamId[name];
+        return id ? [{ match_no: Number(no), picked_team_id: id }] : [];
+      }),
+      champion_team_id: champ ? teamId[champ] ?? null : null,
+      encoded_state: shareCode,
+    };
+  }, [groupPicks, koPicks, teamId, shareCode]);
+
+  const loadFromServer = useCallback((b: SavedBracket) => {
+    const gp: GroupPicks = {};
+    for (const p of b.group_picks) gp[p.match_id] = p.pick;
+    const kp: KnockoutPicks = {};
+    for (const p of b.knockout_picks) {
+      const name = idToName[p.picked_team_id];
+      if (name) kp[p.match_no] = name;
+    }
+    setGroupPicks(gp);
+    setKoPicks(kp);
+  }, [idToName]);
+
   const groupsPicked = useMemo(
     () => model.reduce((n, g) => n + g.fixtures.filter((f) => groupPicks[f.matchId]).length, 0),
     [model, groupPicks],
@@ -161,6 +196,8 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     sidesFor,
     champion: champion(koPicks),
     shareCode,
+    toBracketPayload,
+    loadFromServer,
     progress: { groupsPicked, totalGroupFixtures },
   };
 }

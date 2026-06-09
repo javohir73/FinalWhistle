@@ -2,6 +2,7 @@
  *  Base URL comes from NEXT_PUBLIC_API_URL so dev/prod point at the right host. */
 import type {
   Group,
+  LeaderboardRow,
   MatchSummary,
   Prediction,
   PredictionWithHistory,
@@ -27,6 +28,8 @@ function resolveApiUrl(): string {
 }
 
 const API_URL = resolveApiUrl();
+/** Resolved backend base URL (for authed clients in lib/auth.ts). */
+export const API_BASE = API_URL;
 
 export interface HealthResponse {
   status: string;
@@ -58,6 +61,8 @@ export const getGroup = (id: number | string) =>
   getJson<Group>(`/api/groups/${id}`);
 export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
+export const getLeaderboard = () =>
+  getJson<LeaderboardRow[]>("/api/leaderboard");
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */

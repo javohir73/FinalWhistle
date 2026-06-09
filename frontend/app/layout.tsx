@@ -7,6 +7,7 @@ import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { SentryInit } from "@/components/SentryInit";
+import { AuthProvider } from "@/components/AuthProvider";
 import { Analytics } from "@vercel/analytics/next";
 
 const display = Bricolage_Grotesque({
@@ -55,20 +56,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-[100dvh] font-sans antialiased">
         <ServiceWorker />
         <SentryInit />
-        <a href="#main" className="skip-link glass rounded-lg px-4 py-2 text-sm font-semibold">
-          Skip to content
-        </a>
-        <div className="app-top sticky top-0 z-50 bg-background">
-          <DisclaimerBanner />
-          <SiteNav />
-        </div>
-        <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
-        <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted sm:pb-10">
-          <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
-          · Explainable World Cup 2026 predictions · For analytics and
-          entertainment only. Not betting advice.
-        </footer>
-        <BottomNav />
+        <AuthProvider>
+          <a href="#main" className="skip-link glass rounded-lg px-4 py-2 text-sm font-semibold">
+            Skip to content
+          </a>
+          <div className="app-top sticky top-0 z-50 bg-background">
+            <DisclaimerBanner />
+            <SiteNav />
+          </div>
+          <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
+          <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted sm:pb-10">
+            <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
+            · Explainable World Cup 2026 predictions · For analytics and
+            entertainment only. Not betting advice.
+          </footer>
+          <BottomNav />
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

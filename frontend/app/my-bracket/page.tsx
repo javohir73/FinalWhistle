@@ -8,6 +8,8 @@ import { useMyBracket } from "@/lib/useMyBracket";
 import { Loading, ErrorState } from "@/components/States";
 import { Flag } from "@/components/Flag";
 import { ShareButton } from "@/components/ShareButton";
+import { AccountPanel } from "@/components/AccountPanel";
+import { CLERK_ENABLED } from "@/lib/auth";
 import { ROUNDS } from "@/lib/bracketStructure";
 import { trackEvent } from "@/lib/analytics";
 import type { BFixture, Outcome, TableRow } from "@/lib/myBracket";
@@ -107,6 +109,10 @@ export default function MyBracketPage() {
               </button>
             </div>
           </div>
+
+          {CLERK_ENABLED && (
+            <AccountPanel getPayload={b.toBracketPayload} onRestore={b.loadFromServer} />
+          )}
 
           {/* Group stage */}
           <section>

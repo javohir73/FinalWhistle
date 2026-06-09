@@ -139,3 +139,34 @@ export interface PredictionWithHistory {
   current: Prediction;
   history: PredictionHistoryPoint[];
 }
+
+// ---- Accounts / leaderboard ----
+export interface LeaderboardRow {
+  rank: number | null;
+  display_name: string;
+  champion: string | null;
+  total_points: number;
+  percentile: number | null;
+  updated_at: string | null;
+}
+
+export interface SavedBracketScore {
+  group_points: number;
+  knockout_points: number;
+  champion_bonus: number;
+  total_points: number;
+  rank: number | null;
+}
+
+export interface SavedBracket {
+  id: number;
+  visibility: string;
+  display_name: string | null;
+  champion_team_id: number | null;
+  completion_pct: number;
+  group_picks: { match_id: number; pick: "home" | "draw" | "away" }[];
+  knockout_picks: { match_no: number; picked_team_id: number }[];
+  score: SavedBracketScore | null;
+  submitted_at: string | null;
+  updated_at: string | null;
+}
