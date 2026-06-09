@@ -79,12 +79,33 @@ def stats(
 
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     latest = db.query(func.max(AppUser.created_at)).scalar()
+
+    by_country = [
+        {"country": c or "??", "count": n}
+        for c, n in db.query(AppUser.signup_country, func.count(AppUser.id))
+        .group_by(AppUser.signup_country)
+        .order_by(func.count(AppUser.id).desc())
+        .all()
+    ]
+    by_city = [
+        {"city": city, "country": country or "??", "count": n}
+        for city, country, n in db.query(
+            AppUser.signup_city, AppUser.signup_country, func.count(AppUser.id)
+        )
+        .filter(AppUser.signup_city.isnot(None))
+        .group_by(AppUser.signup_city, AppUser.signup_country)
+        .order_by(func.count(AppUser.id).desc())
+        .limit(20)
+        .all()
+    ]
     return {
         "users": db.query(AppUser).count(),
         "signups_last_24h": db.query(AppUser).filter(AppUser.created_at >= since).count(),
         "brackets": db.query(Bracket).count(),
         "public_brackets": db.query(Bracket).filter(Bracket.visibility == "public").count(),
         "latest_signup": latest.isoformat() if latest else None,
+        "by_country": by_country,
+        "by_city": by_city,
     }
 
 

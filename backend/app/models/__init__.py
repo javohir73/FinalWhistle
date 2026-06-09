@@ -240,6 +240,10 @@ class AppUser(Base):
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     display_name: Mapped[str | None] = mapped_column(String(60))
     avatar_url: Mapped[str | None] = mapped_column(String(400))
+    # Approx. geo at signup, from Vercel's edge headers (set when the request
+    # came through the frontend proxy). Best-effort — null for direct API calls.
+    signup_country: Mapped[str | None] = mapped_column(String(2))
+    signup_city: Mapped[str | None] = mapped_column(String(120))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
