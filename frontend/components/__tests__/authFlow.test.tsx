@@ -1,7 +1,7 @@
-/** Regression: the nav/account UI must reflect signed-in state immediately after
- *  login, using the user returned by login() — NOT a second /auth/me call, which
- *  can race the just-set cookie's visibility (Safari/PWA) and leave the UI showing
- *  "Sign in" even though the session is valid. */
+/** Regression: the nav must reflect signed-in state immediately after login,
+ *  using the user returned by login() — NOT a second /auth/me call, which can race
+ *  the just-set cookie's visibility (Safari/PWA). Signed-in shows an account circle
+ *  (initials) with a Sign-out menu. */
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { AuthProvider } from "@/components/AuthProvider";
 import { AuthButton } from "@/components/AuthButton";
@@ -12,11 +12,12 @@ const mockGetMe = session.getMe as jest.MockedFunction<typeof session.getMe>;
 const mockLogin = session.login as jest.MockedFunction<typeof session.login>;
 
 beforeEach(() => {
+  localStorage.clear();
   mockGetMe.mockResolvedValue(null); // start signed out (mount-time /me)
 });
 afterEach(() => jest.resetAllMocks());
 
-it("shows signed-in state right after login without a second /me call", async () => {
+it("shows the account circle right after login without a second /me call", async () => {
   mockLogin.mockResolvedValue({
     id: 1, email: "pat@example.com", display_name: "Pat", avatar_url: null,
   });
@@ -41,11 +42,14 @@ it("shows signed-in state right after login without a second /me call", async ()
   });
   fireEvent.submit(dialog.querySelector("form")!);
 
-  // After login resolves, the nav reflects the signed-in user immediately.
-  await waitFor(() => expect(screen.getByText("Sign out")).toBeInTheDocument());
-  expect(screen.getByText("Pat")).toBeInTheDocument();
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument(); // modal closed
+  // Account circle (initials) appears immediately; modal closes.
+  await waitFor(() => expect(screen.getByLabelText("Account: Pat")).toBeInTheDocument());
+  expect(screen.getByText("P")).toBeInTheDocument(); // initials
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(mockGetMe).toHaveBeenCalledTimes(1); // the fix: no post-login /me
 
-  // The fix: no post-login /auth/me — only the single mount-time call ran.
-  expect(mockGetMe).toHaveBeenCalledTimes(1);
+  // Opening the menu reveals the email + Sign out.
+  fireEvent.click(screen.getByLabelText("Account: Pat"));
+  expect(screen.getByText("pat@example.com")).toBeInTheDocument();
+  expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
 });

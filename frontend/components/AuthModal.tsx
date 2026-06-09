@@ -16,7 +16,7 @@ export function AuthModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onAuthed: (user: SessionUser) => void;
+  onAuthed: (user: SessionUser, isNew: boolean) => void;
 }) {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -58,7 +58,7 @@ export function AuthModal({
       }
       // Pass the authoritative user straight through — don't rely on an immediate
       // /auth/me, which can race the just-set cookie's visibility (Safari/PWA).
-      onAuthed(user);
+      onAuthed(user, mode === "signup");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong — please try again.");
     } finally {

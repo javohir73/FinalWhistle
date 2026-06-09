@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useMyBracket } from "@/lib/useMyBracket";
+import { useBracketSync } from "@/lib/useBracketSync";
 import { Loading, ErrorState } from "@/components/States";
 import { Flag } from "@/components/Flag";
 import { ShareButton } from "@/components/ShareButton";
@@ -71,6 +72,10 @@ export function MyBracketClient({
     groupsState.status === "error" ? groupsState.message :
     matchesState.status === "error" ? matchesState.message : null;
 
+  // Signed-in users: restore their saved bracket on return + auto-save changes.
+  const ready = !loading && !error && b.model.length > 0;
+  const sync = useBracketSync(b, ready);
+
   return (
     <div className="space-y-8">
       <header className="fade-up">
@@ -97,6 +102,11 @@ export function MyBracketClient({
               <span className="text-muted">group games picked</span>
               {b.champion && (
                 <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
+              )}
+              {sync.signedIn && sync.status !== "idle" && (
+                <span className="ml-2 text-xs text-win">
+                  {sync.status === "saving" ? "· Saving…" : "· Saved to your account ✓"}
+                </span>
               )}
             </div>
             <div className="flex items-center gap-2">
