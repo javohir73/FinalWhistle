@@ -98,6 +98,26 @@ def test_auth_responses_are_not_shared_cached(client):
     assert "public" in (groups.headers.get("cache-control") or "")
 
 
+def test_internal_stats_token_guarded(client):
+    from app.config import settings
+
+    assert client.get("/api/internal/stats").status_code == 503  # no token configured
+    settings.recompute_token = "testtoken"
+    try:
+        assert client.get("/api/internal/stats").status_code == 401  # missing token
+        ok = client.get("/api/internal/stats", headers={"X-Recompute-Token": "testtoken"})
+        assert ok.status_code == 200
+        body = ok.json()
+        for k in ("users", "signups_last_24h", "brackets", "public_brackets", "latest_signup"):
+            assert k in body
+        assert body["users"] == 0
+        client.post("/api/auth/register", json={"email": "s@example.com", "password": "supersecret"})
+        after = client.get("/api/internal/stats", headers={"X-Recompute-Token": "testtoken"}).json()
+        assert after["users"] == 1 and after["signups_last_24h"] == 1
+    finally:
+        settings.recompute_token = ""
+
+
 def test_foreign_origin_rejected(client):
     """A foreign Origin is blocked on state-changing auth routes (CSRF guard)."""
     r = client.post("/api/auth/register",
