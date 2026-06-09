@@ -1,26 +1,25 @@
 /** @type {import('next').NextConfig} */
+const IS_PROD = process.env.NODE_ENV === "production";
 const API_ORIGIN =
-  process.env.NEXT_PUBLIC_API_URL || "https://pitchprophet-api.onrender.com";
+  process.env.NEXT_PUBLIC_API_URL ||
+  (IS_PROD ? "https://pitchprophet-api.onrender.com" : "http://localhost:8000");
 
 // Content-Security-Policy. 'unsafe-inline' is needed for Next's inline bootstrap
-// + styled JSX; flagcdn is the flag image host; the API origin is whitelisted for
-// fetches. Applied in production only so dev HMR (eval + websockets) keeps working.
-// Clerk (auth) loads its JS from the instance Frontend API and uses Cloudflare
-// Turnstile for bot protection, so those hosts must be allowed when auth is on.
-const CLERK = "https://*.clerk.accounts.dev";
-const TURNSTILE = "https://challenges.cloudflare.com";
+// + styled JSX; flagcdn is the flag image host. The backend is reached through the
+// same-origin /backend-api proxy, so connect-src only needs 'self' (+ Sentry).
+// Applied in production only so dev HMR (eval + websockets) keeps working.
 const csp = [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self'",
-  `img-src 'self' data: https://flagcdn.com https://img.clerk.com ${CLERK}`,
-  `script-src 'self' 'unsafe-inline' ${CLERK} ${TURNSTILE}`,
+  "img-src 'self' data: https://flagcdn.com",
+  "script-src 'self' 'unsafe-inline'",
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  `connect-src 'self' ${API_ORIGIN} ${CLERK} https://clerk-telemetry.com https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io`,
-  `frame-src 'self' ${CLERK} ${TURNSTILE}`,
+  "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+  "frame-src 'self'",
   "manifest-src 'self'",
   "worker-src 'self' blob:",
 ].join("; ");
@@ -46,6 +45,16 @@ const nextConfig = {
   },
   async redirects() {
     return [{ source: "/how-it-works", destination: "/about", permanent: true }];
+  },
+  // Same-origin proxy to the backend. Client-side API calls go to /backend-api/*
+  // so authenticated requests carry the session cookie (SameSite=Lax) — a cookie
+  // set by the Render host would be third-party to Vercel and never sent. Server
+  // components still call the backend directly (server-to-server). Works in
+  // `next dev` too, so the full auth round trip is testable locally.
+  async rewrites() {
+    return [
+      { source: "/backend-api/:path*", destination: `${API_ORIGIN}/:path*` },
+    ];
   },
 };
 

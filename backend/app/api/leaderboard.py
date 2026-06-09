@@ -15,6 +15,7 @@ from app.auth import get_current_user
 from app.cache import cache
 from app.db import get_db
 from app.models import AppUser, Bracket, BracketScore, Team
+from app.security import require_same_origin
 
 router = APIRouter(prefix="/api/leaderboard", tags=["leaderboard"])
 
@@ -60,7 +61,8 @@ def leaderboard(
     return out
 
 
-@router.post("/join", response_model=schemas.BracketOut)
+@router.post("/join", response_model=schemas.BracketOut,
+             dependencies=[Depends(require_same_origin)])
 def join_leaderboard(
     payload: schemas.JoinLeaderboardIn,
     user: AppUser = Depends(get_current_user),

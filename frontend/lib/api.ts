@@ -28,8 +28,14 @@ function resolveApiUrl(): string {
 }
 
 const API_URL = resolveApiUrl();
-/** Resolved backend base URL (for authed clients in lib/auth.ts). */
+/** Resolved backend base URL (absolute) — used by server-side fetchers. */
 export const API_BASE = API_URL;
+
+/** Client-side base. Browser calls are routed through a same-origin Next rewrite
+ *  (`/backend-api/*` → backend, see next.config.mjs) so the session cookie is sent
+ *  (SameSite=Lax) and the CSP connect-src can stay `'self'`. Paths keep their
+ *  `/api/...` prefix; the rewrite forwards `/backend-api/api/x` → `<backend>/api/x`. */
+export const CLIENT_BASE = "/backend-api";
 
 export interface HealthResponse {
   status: string;
@@ -39,7 +45,7 @@ export interface HealthResponse {
 }
 
 async function getJson<T>(path: string): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, { cache: "no-store" });
+  const res = await fetch(`${CLIENT_BASE}${path}`, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`API ${path} failed: ${res.status}`);
   }
@@ -83,3 +89,7 @@ export const getUpcomingMatchesServer = () =>
   getServer<MatchSummary[]>("/api/matches/upcoming", 300);
 export const getKnockoutOddsServer = () =>
   getServer<TournamentOdds[]>("/api/knockout/odds", 600);
+export const getGroupsServer = () =>
+  getServer<Group[]>("/api/groups", 300);
+export const getLeaderboardServer = () =>
+  getServer<LeaderboardRow[]>("/api/leaderboard", 60);

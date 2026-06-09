@@ -12,7 +12,6 @@
     "test:watch": "jest --watch"
   },
   "dependencies": {
-    "@clerk/clerk-react": "^5.61.8",
     "@sentry/nextjs": "^10.56.0",
     "@vercel/analytics": "^2.0.1",
     "clsx": "^2.1.1",

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Group, MatchSummary, SavedBracket } from "./types";
-import type { BracketPayload } from "./auth";
+import type { BracketPayload } from "./session";
 import {
   groupTable, groupStageComplete, seedKnockouts, matchSides, champion,
   pruneKnockoutPicks, encodeBracket, decodeBracket,

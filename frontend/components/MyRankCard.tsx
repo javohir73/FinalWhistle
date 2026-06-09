@@ -1,20 +1,27 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { SignedIn, useAuth } from "@clerk/clerk-react";
-import { getMyBracket } from "@/lib/auth";
+import { useAuth } from "@/components/AuthProvider";
+import { getMyBracket } from "@/lib/session";
 import type { SavedBracket } from "@/lib/types";
 
-function Inner() {
-  const { getToken } = useAuth();
+/** Signed-in user's standing on the leaderboard page. Renders nothing when
+ *  signed out. */
+export function MyRankCard() {
+  const { user, loading } = useAuth();
   const [bracket, setBracket] = useState<SavedBracket | null>(null);
   const [done, setDone] = useState(false);
 
   useEffect(() => {
+    if (!user) {
+      setDone(true);
+      return;
+    }
     let live = true;
+    setDone(false);
     (async () => {
       try {
-        const b = await getMyBracket(await getToken());
+        const b = await getMyBracket();
         if (live) setBracket(b);
       } catch {
         /* ignore */
@@ -25,9 +32,9 @@ function Inner() {
     return () => {
       live = false;
     };
-  }, [getToken]);
+  }, [user]);
 
-  if (!done) return null;
+  if (loading || !user || !done) return null;
 
   const score = bracket?.score;
   return (
@@ -47,14 +54,5 @@ function Inner() {
         </p>
       )}
     </div>
-  );
-}
-
-/** Signed-in user's standing. Renders nothing when signed out. */
-export function MyRankCard() {
-  return (
-    <SignedIn>
-      <Inner />
-    </SignedIn>
   );
 }
