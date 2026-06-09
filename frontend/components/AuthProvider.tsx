@@ -51,12 +51,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setModalOpen(true);
   }, []);
 
-  const handleAuthed = useCallback(async () => {
-    setModalOpen(false);
-    await refresh();
-    onSuccess?.();
-    setOnSuccess(undefined);
-  }, [refresh, onSuccess]);
+  const handleAuthed = useCallback(
+    (authedUser: SessionUser) => {
+      // Use the user returned by login/register as the source of truth. Calling
+      // /auth/me here would race the just-set cookie's visibility (Safari/PWA) and
+      // could leave `user` null even though the session is valid. On the next page
+      // load, the mount-time refresh() reconciles from the cookie.
+      setUser(authedUser);
+      setLoading(false);
+      setModalOpen(false);
+      onSuccess?.();
+      setOnSuccess(undefined);
+    },
+    [onSuccess],
+  );
 
   return (
     <AuthContext.Provider value={{ user, loading, refresh, logout, openSignIn }}>

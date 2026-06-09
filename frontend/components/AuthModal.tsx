@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { login, register, ApiError } from "@/lib/session";
+import { login, register, ApiError, type SessionUser } from "@/lib/session";
 import { trackEvent } from "@/lib/analytics";
 
 type Mode = "signin" | "signup";
@@ -16,7 +16,7 @@ export function AuthModal({
 }: {
   open: boolean;
   onClose: () => void;
-  onAuthed: () => void;
+  onAuthed: (user: SessionUser) => void;
 }) {
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
@@ -48,14 +48,17 @@ export function AuthModal({
     setBusy(true);
     setError(null);
     try {
+      let user: SessionUser;
       if (mode === "signup") {
-        await register(email.trim(), password, name.trim() || undefined);
+        user = await register(email.trim(), password, name.trim() || undefined);
         trackEvent("signup");
       } else {
-        await login(email.trim(), password);
+        user = await login(email.trim(), password);
         trackEvent("login");
       }
-      onAuthed();
+      // Pass the authoritative user straight through — don't rely on an immediate
+      // /auth/me, which can race the just-set cookie's visibility (Safari/PWA).
+      onAuthed(user);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong — please try again.");
     } finally {
