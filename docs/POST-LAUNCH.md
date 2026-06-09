@@ -20,6 +20,28 @@
     (lazy-loaded). CSP already allows `*.ingest.sentry.io`. Source-map upload and
     Next server-component instrumentation are deferred (post-launch, low-risk).
 
+## Accounts & leaderboard
+
+**Backend foundation is shipped (dormant until Clerk is configured).** Anonymous
+play is unchanged (localStorage + ?b= link); accounts are an upgrade.
+
+- Tables: `app_users`, `brackets`, `bracket_group_picks`, `bracket_knockout_picks`,
+  `bracket_scores` (Alembic `d4e5f6a7b8c9`).
+- Auth: `app/auth.py#get_current_user` verifies a Clerk session JWT against
+  `CLERK_JWKS_URL` (RS256). **Fails closed** — protected endpoints return 503
+  until that's set, so nothing is exposed prematurely.
+- Endpoints: `POST /api/brackets` + `GET /api/brackets/me` (auth),
+  `POST /api/leaderboard/join` (auth), `GET /api/leaderboard` (public top-N).
+- Scoring is **backend-owned** (`app/scoring.py`, 3/5/10/20), recomputed via
+  `POST /api/internal/recompute-scores` (token-guarded) after results update.
+  Picks for kicked-off matches are locked (edits rejected).
+
+**To activate (next batch):**
+1. Create a Clerk app; set `CLERK_JWKS_URL` (+ optional `CLERK_ISSUER`) on Render.
+2. Frontend wiring (not yet built): Clerk provider, `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`,
+   "Save across devices" (sync local bracket on login), restore, "Join leaderboard",
+   and `/leaderboard` UI. Sign-in only gates save/publish/join/restore — never play.
+
 ## Live mode activation (near June 11)
 
 Live in-game updates are a safe no-op until **both** are set on Render:

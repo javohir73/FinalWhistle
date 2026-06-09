@@ -155,3 +155,56 @@ class ErrorBody(BaseModel):
 
 class ErrorOut(BaseModel):
     error: ErrorBody
+
+
+# ---- Accounts / brackets / leaderboard ----
+class GroupPickIn(BaseModel):
+    match_id: int
+    pick: str  # home/draw/away
+
+
+class KnockoutPickIn(BaseModel):
+    match_no: int
+    picked_team_id: int
+
+
+class BracketIn(BaseModel):
+    group_picks: list[GroupPickIn] = []
+    knockout_picks: list[KnockoutPickIn] = []
+    champion_team_id: int | None = None
+    encoded_state: str | None = None
+
+
+class BracketScoreOut(BaseModel):
+    group_points: int
+    knockout_points: int
+    champion_bonus: int
+    total_points: int
+    rank: int | None = None
+
+
+class BracketOut(BaseModel):
+    id: int
+    visibility: str
+    display_name: str | None = None
+    champion_team_id: int | None = None
+    completion_pct: float
+    group_picks: list[GroupPickIn]
+    knockout_picks: list[KnockoutPickIn]
+    score: BracketScoreOut | None = None
+    submitted_at: str | None = None
+    updated_at: str | None = None
+
+
+class JoinLeaderboardIn(BaseModel):
+    display_name: str
+    visibility: str = "public"  # public/private
+
+
+class LeaderboardRowOut(BaseModel):
+    rank: int | None = None
+    display_name: str
+    champion: str | None = None
+    total_points: int
+    percentile: int | None = None
+    updated_at: str | None = None

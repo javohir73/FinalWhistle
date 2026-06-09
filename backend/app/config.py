@@ -36,6 +36,15 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     environment: str = "production"
 
+    # Auth (Clerk). Accounts are dormant until a JWKS URL is configured: the
+    # protected endpoints return 503 rather than accept unverified callers.
+    clerk_jwks_url: str = ""
+    clerk_issuer: str = ""  # optional issuer claim to enforce
+
+    @property
+    def auth_configured(self) -> bool:
+        return bool(self.clerk_jwks_url)
+
     # CORS: comma-separated list of allowed frontend origins.
     cors_origins: str = "http://localhost:3000"
 

@@ -62,3 +62,18 @@ def refresh_live(
     summary = run_live(db)
     cache.clear()
     return {"status": "ok", "live": summary}
+
+
+@router.post("/recompute-scores")
+def recompute_scores_endpoint(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Recompute every bracket's leaderboard score + rank from current results.
+    Backend-owned scoring; run after results update."""
+    _require_token(x_recompute_token)
+    from app.scoring import recompute_scores
+
+    scored = recompute_scores(db)
+    cache.clear()
+    return {"status": "ok", "brackets_scored": scored}

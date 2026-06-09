@@ -32,6 +32,10 @@ services:
         sync: false # set to your Vercel URL after the frontend deploys
       - key: SENTRY_DSN
         sync: false # optional: paste a Sentry DSN to enable backend error tracking
+      - key: CLERK_JWKS_URL
+        sync: false # set to enable accounts (Clerk JWKS, e.g. https://<app>.clerk.accounts.dev/.well-known/jwks.json)
+      - key: CLERK_ISSUER
+        sync: false # optional: Clerk issuer to enforce on tokens
       - key: FOOTBALL_DATA_API_KEY
         sync: false # set near kickoff to enable live in-game scores
       - key: LIVE_MODE_ENABLED

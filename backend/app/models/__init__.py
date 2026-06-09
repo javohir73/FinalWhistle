@@ -227,6 +227,95 @@ class Odds(Base):
     captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class AppUser(Base):
+    """A signed-in user (identity comes from the auth provider, e.g. Clerk).
+    Accounts are an upgrade for anonymous players — never required to play."""
+
+    __tablename__ = "app_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    auth_provider_user_id: Mapped[str] = mapped_column(String(120), unique=True, index=True)
+    display_name: Mapped[str | None] = mapped_column(String(60))
+    avatar_url: Mapped[str | None] = mapped_column(String(400))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    bracket: Mapped[Bracket | None] = relationship(back_populates="user", uselist=False)
+
+
+class Bracket(Base):
+    """A user's saved bracket (one per user in the MVP)."""
+
+    __tablename__ = "brackets"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), unique=True, index=True)
+    encoded_state: Mapped[str | None] = mapped_column(String(400))  # the ?b= share code
+    champion_team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
+    completion_pct: Mapped[float] = mapped_column(Float, default=0.0)
+    visibility: Mapped[str] = mapped_column(String(10), default="private")  # private/public
+    display_name: Mapped[str | None] = mapped_column(String(60))  # public leaderboard name
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[AppUser] = relationship(back_populates="bracket")
+    champion: Mapped[Team | None] = relationship(foreign_keys=[champion_team_id])
+    group_picks: Mapped[list[BracketGroupPick]] = relationship(
+        back_populates="bracket", cascade="all, delete-orphan"
+    )
+    knockout_picks: Mapped[list[BracketKnockoutPick]] = relationship(
+        back_populates="bracket", cascade="all, delete-orphan"
+    )
+    score: Mapped[BracketScore | None] = relationship(
+        back_populates="bracket", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class BracketGroupPick(Base):
+    __tablename__ = "bracket_group_picks"
+    __table_args__ = (UniqueConstraint("bracket_id", "match_id", name="uq_bracket_group_pick"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bracket_id: Mapped[int] = mapped_column(ForeignKey("brackets.id"), index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))
+    pick: Mapped[str] = mapped_column(String(4))  # home/draw/away
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    bracket: Mapped[Bracket] = relationship(back_populates="group_picks")
+
+
+class BracketKnockoutPick(Base):
+    __tablename__ = "bracket_knockout_picks"
+    __table_args__ = (UniqueConstraint("bracket_id", "match_no", name="uq_bracket_ko_pick"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bracket_id: Mapped[int] = mapped_column(ForeignKey("brackets.id"), index=True)
+    match_no: Mapped[int] = mapped_column(Integer)  # official knockout match number (73..104)
+    picked_team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"))
+
+    bracket: Mapped[Bracket] = relationship(back_populates="knockout_picks")
+
+
+class BracketScore(Base):
+    """Backend-computed score for a bracket (never trust the client)."""
+
+    __tablename__ = "bracket_scores"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    bracket_id: Mapped[int] = mapped_column(ForeignKey("brackets.id"), unique=True, index=True)
+    group_points: Mapped[int] = mapped_column(Integer, default=0)
+    knockout_points: Mapped[int] = mapped_column(Integer, default=0)
+    champion_bonus: Mapped[int] = mapped_column(Integer, default=0)
+    total_points: Mapped[int] = mapped_column(Integer, default=0)
+    rank: Mapped[int | None] = mapped_column(Integer)
+    recalculated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    bracket: Mapped[Bracket] = relationship(back_populates="score")
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -239,4 +328,9 @@ __all__ = [
     "Standing",
     "TournamentOdds",
     "Odds",
+    "AppUser",
+    "Bracket",
+    "BracketGroupPick",
+    "BracketKnockoutPick",
+    "BracketScore",
 ]
