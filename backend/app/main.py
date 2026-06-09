@@ -43,10 +43,16 @@ app.add_middleware(
 async def cache_control(request: Request, call_next):
     """Explicit cache headers on read endpoints. Predictions change only on the
     daily refresh, so a short shared-cache TTL + SWR lets any CDN/proxy serve
-    repeats cheaply (and is harmless behind the app's no-store fetches)."""
+    repeats cheaply (and is harmless behind the app's no-store fetches).
+
+    Auth and bracket responses are user-specific and MUST never be shared-cached
+    — a CDN keying on the (user-less) URL could otherwise serve one user's
+    session/bracket to another. Force `no-store` on those regardless of method."""
     response = await call_next(request)
     path = request.url.path
-    if (
+    if path.startswith("/api/auth") or path.startswith("/api/brackets"):
+        response.headers["Cache-Control"] = "no-store"
+    elif (
         request.method == "GET"
         and path.startswith("/api/")
         and path != "/api/health"

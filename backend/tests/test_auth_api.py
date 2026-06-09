@@ -87,6 +87,17 @@ def test_login_throttled_after_failures(client):
     assert r.json()["error"]["code"] == "too_many_attempts"
 
 
+def test_auth_responses_are_not_shared_cached(client):
+    """User-specific auth/bracket responses must be no-store (never CDN-cached),
+    while public reads stay cacheable."""
+    me = client.get("/api/auth/me")  # 401, but the header is what matters
+    assert me.headers.get("cache-control") == "no-store"
+    bm = client.get("/api/brackets/me")  # 401 without a session
+    assert bm.headers.get("cache-control") == "no-store"
+    groups = client.get("/api/groups")
+    assert "public" in (groups.headers.get("cache-control") or "")
+
+
 def test_foreign_origin_rejected(client):
     """A foreign Origin is blocked on state-changing auth routes (CSRF guard)."""
     r = client.post("/api/auth/register",
