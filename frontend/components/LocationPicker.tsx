@@ -39,7 +39,8 @@ const TIMEZONES: { group: string; zones: [string, string][] }[] = [
     zones: [
       ["Asia/Dubai", "Dubai"],
       ["Asia/Tehran", "Tehran"],
-      ["Asia/Karachi", "Karachi / Tashkent"],
+      ["Asia/Tashkent", "Tashkent"],
+      ["Asia/Karachi", "Karachi / Islamabad"],
       ["Asia/Kolkata", "Mumbai / Delhi"],
       ["Asia/Bangkok", "Bangkok / Jakarta"],
       ["Asia/Shanghai", "Beijing / Singapore"],
