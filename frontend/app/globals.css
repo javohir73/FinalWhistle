@@ -180,6 +180,29 @@ body > * {
 }
 .spin-slow { animation: spinSlow 28s linear infinite; }
 
+/* ===== AI "thinking" orb — Siri/Jarvis style ===== */
+@keyframes spinCW { to { transform: rotate(360deg); } }
+@keyframes spinCCW { to { transform: rotate(-360deg); } }
+.ai-spin-cw { animation: spinCW 18s linear infinite; }
+.ai-spin-cw-fast { animation: spinCW 7s linear infinite; }
+.ai-spin-ccw { animation: spinCCW 11s linear infinite; }
+/* Radar sweep that orbits the ring */
+.ai-sweep { animation: spinCW 2.6s linear infinite; }
+
+/* Breathing halo */
+@keyframes aiPulse {
+  0%, 100% { transform: scale(1); opacity: 0.45; }
+  50% { transform: scale(1.14); opacity: 0.85; }
+}
+.ai-pulse { animation: aiPulse 2.4s ease-in-out infinite; }
+
+/* Siri-style equalizer bar */
+@keyframes aiEq {
+  0%, 100% { transform: scaleY(0.28); }
+  50% { transform: scaleY(1); }
+}
+.ai-eq { transform-origin: center; animation: aiEq 0.9s ease-in-out infinite; }
+
 @keyframes shimmer {
   100% {
     transform: translateX(100%);
@@ -212,7 +235,13 @@ body > * {
   .skeleton::after,
   .float,
   .float-slow,
-  .spin-slow {
+  .spin-slow,
+  .ai-spin-cw,
+  .ai-spin-cw-fast,
+  .ai-spin-ccw,
+  .ai-sweep,
+  .ai-pulse,
+  .ai-eq {
     animation: none;
   }
   .card-hover {
