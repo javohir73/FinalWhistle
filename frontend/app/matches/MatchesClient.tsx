@@ -5,8 +5,10 @@ import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useFavorites } from "@/lib/useFavorites";
 import { useTimezone } from "@/lib/useTimezone";
+import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { dayKey, dayHeading } from "@/lib/datetime";
 import { MatchCard } from "@/components/MatchCard";
+import { Flag } from "@/components/Flag";
 import { LocationPicker } from "@/components/LocationPicker";
 import { LiveStatusBadge } from "@/components/LiveStatusBadge";
 import { Loading, ErrorState, Empty } from "@/components/States";
@@ -40,12 +42,18 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   const state = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
   const { favorites, isFavorite } = useFavorites();
   const { tz } = useTimezone();
+  const { selection, hydrated } = useSelectedCountry();
   const [group, setGroup] = useState("all");
   const [query, setQuery] = useState("");
   const [favOnly, setFavOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>("kickoff");
+  // Country-first: when a nation is being followed, default the list to its
+  // fixtures. The user can flip to all matches; with no selection this is inert.
+  const [countryFocus, setCountryFocus] = useState(true);
 
   const matches = state.status === "success" ? state.data : [];
+  const country = hydrated && selection ? selection.team : null;
+  const focused = !!country && countryFocus;
   const groups = useMemo(
     () => Array.from(new Set(matches.map((m) => m.group).filter(Boolean))).sort() as string[],
     [matches],
@@ -59,7 +67,9 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       m.teams.home.toLowerCase().includes(q) ||
       m.teams.away.toLowerCase().includes(q);
     const okFav = !favOnly || isFavorite(m.teams.home) || isFavorite(m.teams.away);
-    return okGroup && okQuery && okFav;
+    const okCountry =
+      !focused || m.teams.home === country || m.teams.away === country;
+    return okGroup && okQuery && okFav && okCountry;
   });
 
   // Bucket matches by their local calendar day (soonest first; undated last).
@@ -100,6 +110,25 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
           Every fixture by kickoff — win probabilities, scorelines, time, and venue.
         </p>
       </header>
+
+      {country && (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-win/30 bg-win/5 px-4 py-3">
+          <span className="flex items-center gap-2.5 text-sm">
+            <Flag team={country} size={26} />
+            <span className="text-muted">
+              {focused ? "Showing fixtures for" : "Following"}{" "}
+              <span className="font-semibold text-foreground">{country}</span>
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => setCountryFocus((v) => !v)}
+            className="rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-win/40"
+          >
+            {focused ? "Show all matches" : `Show only ${country}`}
+          </button>
+        </div>
+      )}
 
       <div className="mb-6">
         <LocationPicker />
