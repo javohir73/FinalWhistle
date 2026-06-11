@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Flag } from "@/components/Flag";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -17,6 +17,27 @@ export function CountrySearch({
   onSelect: (team: Team) => void;
 }) {
   const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLUListElement>(null);
+
+  // The grid advertises listbox semantics, so arrow keys must move between
+  // options (screen-reader users expect it; Tab alone would overpromise).
+  const onListKeyDown = (e: React.KeyboardEvent) => {
+    const handled = ["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"];
+    if (!handled.includes(e.key)) return;
+    const options = Array.from(
+      listRef.current?.querySelectorAll<HTMLButtonElement>('button[role="option"]') ?? [],
+    );
+    if (options.length === 0) return;
+    const current = options.indexOf(document.activeElement as HTMLButtonElement);
+    let next: number;
+    if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = options.length - 1;
+    else if (e.key === "ArrowDown" || e.key === "ArrowRight")
+      next = current < 0 ? 0 : Math.min(current + 1, options.length - 1);
+    else next = Math.max(current - 1, 0);
+    options[next]?.focus();
+    e.preventDefault();
+  };
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -52,6 +73,8 @@ export function CountrySearch({
       </div>
 
       <ul
+        ref={listRef}
+        onKeyDown={onListKeyDown}
         className="mt-4 grid max-h-[44vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3"
         role="listbox"
         aria-label="Countries"

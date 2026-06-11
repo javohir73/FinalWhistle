@@ -30,6 +30,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     from pipeline.ingest.fifa_rankings import LOCAL_RANKINGS_CSV, apply_rankings, load_rankings_df
     from pipeline.ingest.historical_results import download_results_df, load_historical
     from pipeline.ingest.wc26_structure import load_structure
+    from pipeline.prune_auth import prune_auth_rows
     from pipeline.team_stats import compute_team_stats
 
     summary: dict = {}
@@ -58,6 +59,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
         log.info("step skipped: fifa_rankings (no %s)", LOCAL_RANKINGS_CSV.name)
 
     step("predictions", lambda: generate_predictions(db, settings.model_version, n_sims))
+    step("prune_auth", lambda: prune_auth_rows(db))
     log.info("pipeline complete")
     return summary
 

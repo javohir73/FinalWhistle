@@ -10,6 +10,8 @@ import * as session from "@/lib/session";
 jest.mock("@/lib/session");
 const mockGetMe = session.getMe as jest.MockedFunction<typeof session.getMe>;
 const mockLogin = session.login as jest.MockedFunction<typeof session.login>;
+const mockRegister = session.register as jest.MockedFunction<typeof session.register>;
+const mockLogout = session.logout as jest.MockedFunction<typeof session.logout>;
 
 beforeEach(() => {
   localStorage.clear();
@@ -52,4 +54,44 @@ it("shows the account circle right after login without a second /me call", async
   fireEvent.click(screen.getByLabelText("Account: Pat"));
   expect(screen.getByText("pat@example.com")).toBeInTheDocument();
   expect(screen.getByRole("menuitem", { name: "Sign out" })).toBeInTheDocument();
+});
+
+it("does not leak the previous user's details into the next sign-up (shared device)", async () => {
+  mockRegister.mockResolvedValue({
+    id: 1, email: "alice@example.com", display_name: "Alice Test", avatar_url: null,
+  });
+  mockLogout.mockResolvedValue(undefined);
+
+  render(
+    <AuthProvider>
+      <AuthButton />
+    </AuthProvider>,
+  );
+
+  // Alice signs up (with a display name)…
+  await waitFor(() => expect(screen.getByText("Sign in")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("Sign in"));
+  let dialog = screen.getByRole("dialog");
+  // First "Create account" button is the mode tab; the submit appears after.
+  fireEvent.click(within(dialog).getAllByRole("button", { name: "Create account" })[0]);
+  fireEvent.change(within(dialog).getByLabelText("Display name"), { target: { value: "Alice Test" } });
+  fireEvent.change(within(dialog).getByLabelText("Email address"), { target: { value: "alice@example.com" } });
+  fireEvent.change(within(dialog).getByLabelText("Password"), { target: { value: "alice-pass-123" } });
+  fireEvent.submit(dialog.querySelector("form")!);
+  await waitFor(() => expect(screen.getByLabelText("Account: Alice Test")).toBeInTheDocument());
+
+  // …signs out…
+  fireEvent.click(screen.getByLabelText("Account: Alice Test"));
+  fireEvent.click(screen.getByRole("menuitem", { name: "Sign out" }));
+  await waitFor(() => expect(screen.getByText("Sign in")).toBeInTheDocument());
+
+  // …and when the modal opens again for the NEXT person, it starts back on the
+  // Sign-in tab and no field carries over.
+  fireEvent.click(screen.getByText("Sign in"));
+  dialog = screen.getByRole("dialog");
+  expect(within(dialog).getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
+  fireEvent.click(within(dialog).getAllByRole("button", { name: "Create account" })[0]);
+  expect((within(dialog).getByLabelText("Display name") as HTMLInputElement).value).toBe("");
+  expect((within(dialog).getByLabelText("Email address") as HTMLInputElement).value).toBe("");
+  expect((within(dialog).getByLabelText("Password") as HTMLInputElement).value).toBe("");
 });

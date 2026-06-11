@@ -1,14 +1,16 @@
 # Keep the free Render web service warm to avoid ~20s cold starts.
 # Render's free tier spins the service down after ~15 min idle; this pings the
-# health endpoint every ~10 min so first-load users hit a warm instance.
+# health endpoint so first-load users hit a warm instance.
 #
-# Note: GitHub's scheduler can delay sub-hourly crons under load. For rock-solid
-# 1-minute pings, point a free cron-job.org job at the same URL instead.
+# IMPORTANT: GitHub throttles sub-hourly schedules heavily — observed gaps of
+# 2-5 HOURS between runs (June 2026), so users still hit cold starts. The */5
+# cadence below just raises the number of attempts; for rock-solid pings point
+# a free cron-job.org job at the same URL (every 10 min) instead.
 name: keep-warm
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 jobs:

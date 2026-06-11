@@ -22,6 +22,9 @@ interface AuthContextValue {
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
   openSignIn: (opts?: SignInOptions) => void;
+  /** Register work that must complete BEFORE logout revokes the session (e.g.
+   *  saving unsynced bracket picks). Returns an unregister function. */
+  registerLogoutFlush: (fn: () => Promise<void>) => () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -57,7 +60,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     void refresh();
   }, [refresh]);
 
+  // Pending-data flushers (e.g. the bracket auto-saver) that must run while the
+  // session cookie is still valid — signing out must never lose data.
+  const flushersRef = useRef(new Set<() => Promise<void>>());
+  const registerLogoutFlush = useCallback((fn: () => Promise<void>) => {
+    flushersRef.current.add(fn);
+    return () => {
+      flushersRef.current.delete(fn);
+    };
+  }, []);
+
   const logout = useCallback(async () => {
+    await Promise.allSettled([...flushersRef.current].map((fn) => fn()));
     await apiLogout();
     clearUserHint();
     setUser(null);
@@ -84,7 +98,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, refresh, logout, openSignIn }}>
+    <AuthContext.Provider
+      value={{ user, loading, refresh, logout, openSignIn, registerLogoutFlush }}
+    >
       {children}
       <AuthModal
         open={modalOpen}
