@@ -1,19 +1,25 @@
 """Match endpoints (PRD §11)."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app import schemas, serializers
 from app.cache import cache
+from app.config import settings
 from app.db import get_db
+from app.live_refresh import maybe_refresh_live
 from app.models import Match
 
 router = APIRouter(prefix="/api/matches", tags=["matches"])
 
 
 @router.get("/upcoming", response_model=list[schemas.MatchSummaryOut])
-def upcoming_matches(db: Session = Depends(get_db)):
+def upcoming_matches(background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    # The board's polling doubles as the live-score heartbeat: viewers watching
+    # matches are exactly when scores must stay fresh (see app/live_refresh.py).
+    if settings.live_updates_active:
+        background_tasks.add_task(maybe_refresh_live)
     cached = cache.get("matches:upcoming")
     if cached is not None:
         return cached
