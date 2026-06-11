@@ -23,8 +23,18 @@ export function AuthModal({
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const firstField = useRef<HTMLInputElement>(null);
+  const card = useRef<HTMLDivElement>(null);
+  const restoreFocus = useRef<HTMLElement | null>(null);
+
+  // Every open starts on the Sign-in tab: the nav button says "Sign in", and a
+  // tab left on "Create account" from a previous user makes existing users
+  // accidentally re-register ("account already exists").
+  useEffect(() => {
+    if (open) setMode("signin");
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -34,9 +44,39 @@ export function AuthModal({
     }
   }, [open, mode]);
 
+  // Return focus to whatever opened the modal once it closes.
+  useEffect(() => {
+    if (open) {
+      restoreFocus.current = document.activeElement as HTMLElement | null;
+    } else {
+      restoreFocus.current?.focus?.();
+      restoreFocus.current = null;
+    }
+  }, [open]);
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+      // Keep Tab inside the dialog (basic focus trap).
+      if (e.key === "Tab" && card.current) {
+        const focusables = card.current.querySelectorAll<HTMLElement>(
+          'button, input, [href], [tabindex]:not([tabindex="-1"])',
+        );
+        if (!focusables.length) return;
+        const first = focusables[0];
+        const last = focusables[focusables.length - 1];
+        const active = document.activeElement;
+        const outside = !card.current.contains(active);
+        if (e.shiftKey && (active === first || outside)) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && (active === last || outside)) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
@@ -47,6 +87,9 @@ export function AuthModal({
     e.preventDefault();
     setBusy(true);
     setError(null);
+    // The free-tier backend sleeps when idle; the first request after a quiet
+    // spell can take tens of seconds. Past ~4s, say so instead of looking hung.
+    const slowTimer = setTimeout(() => setSlow(true), 4000);
     try {
       let user: SessionUser;
       if (mode === "signup") {
@@ -59,9 +102,16 @@ export function AuthModal({
       // Pass the authoritative user straight through — don't rely on an immediate
       // /auth/me, which can race the just-set cookie's visibility (Safari/PWA).
       onAuthed(user, mode === "signup");
+      // Clear every field once the account is in: on a shared device the next
+      // person to open this modal must not inherit this user's details.
+      setEmail("");
+      setPassword("");
+      setName("");
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Something went wrong — please try again.");
     } finally {
+      clearTimeout(slowTimer);
+      setSlow(false);
       setBusy(false);
     }
   };
@@ -90,6 +140,7 @@ export function AuthModal({
       onClick={onClose}
     >
       <div
+        ref={card}
         className="glass w-full max-w-sm rounded-2xl p-6"
         onClick={(e) => e.stopPropagation()}
       >
@@ -157,6 +208,13 @@ export function AuthModal({
           >
             {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
           </button>
+
+          {busy && slow && (
+            <p className="text-center text-xs text-muted" role="status">
+              Still working — waking the match server after a quiet spell can take
+              up to a minute. Hang tight.
+            </p>
+          )}
         </form>
 
         <p className="mt-4 text-center text-xs text-muted">

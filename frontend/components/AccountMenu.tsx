@@ -50,7 +50,9 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
       {open && (
         <div
           role="menu"
-          className="glass absolute right-0 z-50 mt-2 w-56 rounded-xl border border-border/70 p-1.5 shadow-xl"
+          // Near-opaque (unlike decorative .glass cards): page content showing
+          // through a dropdown makes the name/email hard to read.
+          className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-border/70 bg-surface/95 p-1.5 shadow-xl backdrop-blur-xl"
         >
           <div className="px-3 py-2">
             <div className="truncate text-sm font-semibold">{user.display_name || "Signed in"}</div>

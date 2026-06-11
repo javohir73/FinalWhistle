@@ -92,7 +92,13 @@ export async function getMe(): Promise<SessionUser | null> {
 
 // ---- Brackets / leaderboard (cookie-authed) ----
 export const saveBracket = (body: BracketPayload) =>
-  request<SavedBracket>("/api/brackets", { method: "POST", body: JSON.stringify(body) });
+  request<SavedBracket>("/api/brackets", {
+    method: "POST",
+    body: JSON.stringify(body),
+    // This call is also the sign-out / leave-page flush; keepalive lets it
+    // complete even while the page is being torn down.
+    keepalive: true,
+  });
 
 export async function getMyBracket(): Promise<SavedBracket | null> {
   try {
