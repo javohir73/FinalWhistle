@@ -1,11 +1,13 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGet = getMatchServer as jest.MockedFunction<typeof getMatchServer>;
+const mockSummaryServer = getMatchSummaryServer as jest.MockedFunction<typeof getMatchSummaryServer>;
+const mockSummary = getMatchSummary as jest.MockedFunction<typeof getMatchSummary>;
 
 // Recharts needs a non-zero layout size in jsdom.
 beforeAll(() => {
@@ -38,6 +40,12 @@ const prediction: Prediction = {
   disclaimer: "For analytics and entertainment only. Not betting advice.",
 };
 
+beforeEach(() => {
+  // The scoreboard's secondary fetches: no summary in these SSR tests — the
+  // page must render prediction-only.
+  mockSummaryServer.mockResolvedValue(null);
+  mockSummary.mockRejectedValue(new Error("no api in jsdom"));
+});
 afterEach(() => jest.resetAllMocks());
 
 it("server-renders teams, probabilities, reasons and odds stub", async () => {
