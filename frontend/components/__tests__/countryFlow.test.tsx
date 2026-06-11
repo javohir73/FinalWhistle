@@ -53,6 +53,24 @@ it("lets an anonymous user choose a country and start the AI forecast", async ()
   expect(localStorage.getItem("finalwhistle:selected-country:v1")).toContain("Brazil");
 });
 
+it("supports arrow-key navigation between country options (listbox contract)", async () => {
+  render(<HomeExperience initialTeams={teams} />);
+  await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
+
+  const brazil = screen.getByRole("option", { name: /Brazil/ });
+  const mexico = screen.getByRole("option", { name: /Mexico/ });
+
+  brazil.focus();
+  fireEvent.keyDown(brazil, { key: "ArrowDown" });
+  expect(mexico).toHaveFocus();
+  fireEvent.keyDown(mexico, { key: "ArrowUp" });
+  expect(brazil).toHaveFocus();
+  fireEvent.keyDown(brazil, { key: "End" });
+  expect(mexico).toHaveFocus();
+  fireEvent.keyDown(mexico, { key: "Home" });
+  expect(brazil).toHaveFocus();
+});
+
 it("sends a returning user straight to the personalized hub", async () => {
   localStorage.setItem(
     "finalwhistle:selected-country:v1",
