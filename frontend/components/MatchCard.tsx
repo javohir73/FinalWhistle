@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
+import { predictionVerdict } from "@/lib/verdict";
 import { kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
@@ -18,6 +19,7 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
   const live = match.status === "in_play";
   const finished = match.status === "finished";
   const hasScore = match.score_home != null && match.score_away != null;
+  const verdict = predictionVerdict(match);
 
   return (
     <Link
@@ -83,15 +85,31 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
         <p className="text-sm text-muted">Prediction pending…</p>
       )}
 
-      <div className="mt-4 flex items-center justify-between border-t border-border/60 pt-3 text-sm">
-        <span className="text-muted">
-          Winner{" "}
-          <strong className="font-semibold text-foreground">
-            {predicted_winner ?? "—"}
-          </strong>
-        </span>
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-sm">
+        {verdict ? (
+          <span
+            className={`inline-flex items-center gap-1 text-xs font-semibold ${
+              verdict.kind === "miss" ? "text-loss" : "text-win"
+            }`}
+          >
+            <span aria-hidden>{verdict.kind === "miss" ? "✗" : "✓"}</span>
+            {verdict.label}
+          </span>
+        ) : (
+          <span className="text-muted">
+            Winner{" "}
+            <strong className="font-semibold text-foreground">
+              {predicted_winner ?? "—"}
+            </strong>
+          </span>
+        )}
         {predicted_score && (
           <span className="chip rounded-md px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
+            {(live || finished) && (
+              <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
+                Predicted
+              </span>
+            )}
             {formatScore(predicted_score.home, predicted_score.away)}
           </span>
         )}

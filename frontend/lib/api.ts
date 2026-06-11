@@ -69,6 +69,8 @@ export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
 export const getLeaderboard = () =>
   getJson<LeaderboardRow[]>("/api/leaderboard");
+export const getMatchSummary = (id: number | string) =>
+  getJson<MatchSummary>(`/api/matches/${id}/summary`);
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */
@@ -81,6 +83,9 @@ async function getServer<T>(path: string, revalidate: number): Promise<T | null>
 
 export const getMatchServer = (id: number | string) =>
   getServer<Prediction>(`/api/matches/${id}`, 300);
+/** Short revalidate: this seeds the live scoreboard on the match page. */
+export const getMatchSummaryServer = (id: number | string) =>
+  getServer<MatchSummary>(`/api/matches/${id}/summary`, 30);
 export const getTeamsServer = () =>
   getServer<Team[]>("/api/teams", 600);
 export const getTeamServer = (id: number | string) =>

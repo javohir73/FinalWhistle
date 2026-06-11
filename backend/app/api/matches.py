@@ -36,6 +36,27 @@ def upcoming_matches(background_tasks: BackgroundTasks, db: Session = Depends(ge
     return result
 
 
+@router.get("/{match_id}/summary", response_model=schemas.MatchSummaryOut)
+def match_summary(match_id: int, background_tasks: BackgroundTasks,
+                  db: Session = Depends(get_db)):
+    """Scoreboard feed for the match page: actual status/score/minute alongside
+    the predicted score. Viewers parked on a live match page also drive the
+    opportunistic live refresh, same as the matches board."""
+    if settings.live_updates_active:
+        background_tasks.add_task(maybe_refresh_live)
+    cache_key = f"matches:summary:{match_id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+    match = db.get(Match, match_id)
+    if match is None:
+        raise HTTPException(status_code=404, detail={"code": "match_not_found",
+                                                     "message": f"No match {match_id}"})
+    result = serializers.match_to_summary(db, match)
+    cache.set(cache_key, result)
+    return result
+
+
 @router.get("/{match_id}", response_model=schemas.PredictionOut)
 def match_detail(match_id: int, db: Session = Depends(get_db)):
     match = db.get(Match, match_id)
