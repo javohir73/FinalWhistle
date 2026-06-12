@@ -1,6 +1,8 @@
 """Tests for live in-game score ingestion (mocked feed, no network)."""
+from datetime import datetime, timedelta, timezone
+
 from app.models import Match, Team
-from pipeline.ingest.live_scores import refresh_live, update_live_scores
+from pipeline.ingest.live_scores import estimate_minute, refresh_live, update_live_scores
 from pipeline.ingest.wc26_structure import load_structure
 
 
@@ -54,6 +56,39 @@ def test_team_name_aliases_are_mapped(db_session):
     }]
     summary = update_live_scores(db_session, api)
     assert summary["updated"] == 1  # "Korea Republic" -> "South Korea"
+
+
+def test_minute_estimated_from_kickoff_when_feed_omits_it(db_session):
+    # football-data.org's free tier sends no `minute` field — the live clock
+    # must still tick, estimated from kickoff time.
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=30)
+    db_session.commit()
+
+    api = [{
+        "homeTeam": {"name": "Mexico"}, "awayTeam": {"name": "South Africa"},
+        "status": "IN_PLAY",  # no "minute" key at all
+        "score": {"fullTime": {"home": 1, "away": 0}},
+    }]
+    update_live_scores(db_session, api)
+    db_session.refresh(m)
+    assert m.status == "in_play"
+    assert m.minute == 31  # 30 elapsed minutes → playing the 31st
+
+
+def test_estimate_minute_maps_match_phases():
+    k = datetime(2026, 6, 12, 18, 0, tzinfo=timezone.utc)
+    at = lambda mins: k + timedelta(minutes=mins)  # noqa: E731
+    assert estimate_minute(None) is None
+    assert estimate_minute(k, at(-2)) == 1     # pre-kickoff race → clamp
+    assert estimate_minute(k, at(0.5)) == 1    # opening minute
+    assert estimate_minute(k, at(30)) == 31    # first half
+    assert estimate_minute(k, at(50)) == 45    # stoppage / half-time holds at 45
+    assert estimate_minute(k, at(61)) == 47    # second half resumes (15' break)
+    assert estimate_minute(k, at(120)) == 90   # capped
+    # Naive datetimes (SQLite) are treated as UTC.
+    assert estimate_minute(k.replace(tzinfo=None), at(30)) == 31
 
 
 def test_no_api_key_is_a_safe_noop(db_session):
