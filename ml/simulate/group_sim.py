@@ -22,6 +22,24 @@ class GroupFixture:
     home_id: int
     away_id: int
     home_adv: float = 0.0  # +Elo for a host playing at home, else 0
+    # Final (home, away) score once the match has actually been played.
+    # Played fixtures count as fact in every draw — only unplayed ones are sampled.
+    score: tuple[int, int] | None = None
+
+
+def _apply_result(points: dict, gf: dict, ga: dict,
+                  home_id: int, away_id: int, sh: int, sa: int) -> None:
+    gf[home_id] += sh
+    ga[home_id] += sa
+    gf[away_id] += sa
+    ga[away_id] += sh
+    if sh > sa:
+        points[home_id] += 3
+    elif sh < sa:
+        points[away_id] += 3
+    else:
+        points[home_id] += 1
+        points[away_id] += 1
 
 
 def simulate_group(
@@ -35,13 +53,21 @@ def simulate_group(
     rng = np.random.default_rng(seed)
     team_ids = list(team_elos)
 
-    # Pre-compute Poisson means per fixture (constant across sims).
+    # Played fixtures contribute fixed tallies; the rest get Poisson means
+    # (constant across sims).
+    base_points = {tid: 0 for tid in team_ids}
+    base_gf = {tid: 0 for tid in team_ids}
+    base_ga = {tid: 0 for tid in team_ids}
     lams = []
     for fx in fixtures:
-        lh, la = expected_goals_from_elo(
-            team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
-        )
-        lams.append((fx.home_id, fx.away_id, lh, la))
+        if fx.score is not None:
+            _apply_result(base_points, base_gf, base_ga,
+                          fx.home_id, fx.away_id, fx.score[0], fx.score[1])
+        else:
+            lh, la = expected_goals_from_elo(
+                team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
+            )
+            lams.append((fx.home_id, fx.away_id, lh, la))
 
     qualify = {tid: 0 for tid in team_ids}
     sum_points = {tid: 0 for tid in team_ids}
@@ -49,24 +75,14 @@ def simulate_group(
     sum_gf = {tid: 0 for tid in team_ids}
 
     for _ in range(n_sims):
-        points = {tid: 0 for tid in team_ids}
-        gf = {tid: 0 for tid in team_ids}
-        ga = {tid: 0 for tid in team_ids}
+        points = dict(base_points)
+        gf = dict(base_gf)
+        ga = dict(base_ga)
 
         for home_id, away_id, lh, la in lams:
             sh = int(rng.poisson(lh))
             sa = int(rng.poisson(la))
-            gf[home_id] += sh
-            ga[home_id] += sa
-            gf[away_id] += sa
-            ga[away_id] += sh
-            if sh > sa:
-                points[home_id] += 3
-            elif sh < sa:
-                points[away_id] += 3
-            else:
-                points[home_id] += 1
-                points[away_id] += 1
+            _apply_result(points, gf, ga, home_id, away_id, sh, sa)
 
         # Rank by points, then goal difference, then goals for, then a random
         # tiebreak (drawing of lots) to avoid bias.

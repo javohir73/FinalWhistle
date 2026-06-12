@@ -55,6 +55,23 @@ def test_third_assignment_is_a_valid_matching():
         assert g in slot_elig[mno]  # respects eligibility
 
 
+def test_played_results_lock_group_outcomes():
+    elos, groups, fixtures = _build_tournament()
+    # Group A fully decided in reality: the WEAKEST member won all three games,
+    # the Elo favourite lost all three. Knockout odds must respect the facts.
+    a, b, c, d = groups["A"]
+    pairs = [(a, b), (c, d), (a, c), (d, b), (d, a), (b, c)]
+    scores = [(0, 2), (0, 1), (0, 1), (1, 0), (2, 0), (2, 0)]
+    fixtures["A"] = [GroupFixture(h, w, score=s) for (h, w), s in zip(pairs, scores)]
+
+    res = simulate_tournament(elos, groups, fixtures, n_sims=300, seed=5)
+    assert res[d]["make_knockout"] == 1.0  # real group winner — locked
+    assert res[b]["make_knockout"] == 1.0  # real runner-up — locked
+    assert res[a]["make_knockout"] == 0.0  # finished last with 0 points
+    # The favourite's title odds are gone despite the highest Elo in the group.
+    assert res[a]["win_title"] == 0.0
+
+
 def test_probabilities_valid_and_one_champion():
     elos, groups, fixtures = _build_tournament()
     res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=2026)

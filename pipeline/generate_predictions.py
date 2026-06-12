@@ -103,6 +103,14 @@ def _write_prediction(db: Session, payload: dict, model_version: str) -> None:
     )
 
 
+def _played_score(m: Match) -> tuple[int, int] | None:
+    """The final score when a match has actually been played, else None.
+    In-play matches stay None — they aren't final until the whistle."""
+    if m.status == "finished" and m.score_home is not None and m.score_away is not None:
+        return (m.score_home, m.score_away)
+    return None
+
+
 def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: int) -> None:
     members = [gt.team for gt in group.group_teams]
     team_elos = {t.id: estimate_strength(t)[0] for t in members}
@@ -111,7 +119,8 @@ def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: i
         if m.team_home_id and m.team_away_id:
             home = db.get(Team, m.team_home_id)
             fixtures.append(
-                GroupFixture(m.team_home_id, m.team_away_id, home_adv=_host_adv(m, home))
+                GroupFixture(m.team_home_id, m.team_away_id,
+                             home_adv=_host_adv(m, home), score=_played_score(m))
             )
 
     results = simulate_group(team_elos, fixtures, n_sims=n_sims, seed=2026)
@@ -145,7 +154,8 @@ def _simulate_tournament(db: Session, n_sims: int) -> int:
         for m in db.query(Match).filter_by(group_id=group.id).all():
             if m.team_home_id and m.team_away_id:
                 home = db.get(Team, m.team_home_id)
-                fx.append(KnockoutFixture(m.team_home_id, m.team_away_id, _host_adv(m, home)))
+                fx.append(KnockoutFixture(m.team_home_id, m.team_away_id,
+                                          _host_adv(m, home), score=_played_score(m)))
         fixtures[letter] = fx
 
     # Need the full 12-group structure to run the bracket; skip cleanly otherwise.
