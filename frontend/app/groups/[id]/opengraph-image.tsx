@@ -23,7 +23,7 @@ export default async function Image({ params }: { params: { id: string } }) {
 
   return new ImageResponse(
     (
-      <Shell eyebrow="Projected standings">
+      <Shell eyebrow="Group standings">
         <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
           <div style={{ display: "flex", fontSize: 60, fontWeight: 800, letterSpacing: -1 }}>{g.name}</div>
           <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>

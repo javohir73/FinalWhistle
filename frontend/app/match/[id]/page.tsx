@@ -114,7 +114,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
         <div className="grid gap-3 sm:grid-cols-2">
           {p.home_team_id && <HubLink href={`/team/${p.home_team_id}`} label={`${home} profile`} sub="Form, strengths, group" />}
           {p.away_team_id && <HubLink href={`/team/${p.away_team_id}`} label={`${away} profile`} sub="Form, strengths, group" />}
-          {p.group_id && <HubLink href={`/groups/${p.group_id}`} label={`${p.group ?? "Group"} table`} sub="Projected standings & qualification" />}
+          {p.group_id && <HubLink href={`/groups/${p.group_id}`} label={`${p.group ?? "Group"} table`} sub="Live standings & qualification" />}
           <HubLink href="/brackets" label="Tournament odds" sub="Title & round-by-round chances" />
         </div>
       </section>

@@ -7,7 +7,7 @@ import { ErrorState, Empty } from "@/components/States";
 import type { Group } from "@/lib/types";
 
 export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
-  const state = useFetch(getGroups, [], undefined, initialGroups);
+  const state = useFetch(getGroups, [], 30_000, initialGroups);
 
   return (
     <div>

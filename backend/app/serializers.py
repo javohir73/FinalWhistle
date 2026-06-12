@@ -157,26 +157,89 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
     )
 
 
+def live_group_table(db: Session, group_id: int, include_in_play: bool = True) -> dict[int, dict]:
+    """Real standings tallies from results: {team_id: {played, won, drawn, lost,
+    points, gf, ga}}. Finished matches count as fact; an in-play match's current
+    score counts provisionally when include_in_play (a live league table)."""
+    statuses = ("finished", "in_play") if include_in_play else ("finished",)
+    tally: dict[int, dict] = {}
+
+    def row(tid: int) -> dict:
+        return tally.setdefault(
+            tid, {"played": 0, "won": 0, "drawn": 0, "lost": 0, "points": 0, "gf": 0, "ga": 0}
+        )
+
+    matches = (
+        db.query(Match)
+        .filter(
+            Match.group_id == group_id,
+            Match.status.in_(statuses),
+            Match.score_home.isnot(None),
+            Match.score_away.isnot(None),
+            Match.team_home_id.isnot(None),
+            Match.team_away_id.isnot(None),
+        )
+        .all()
+    )
+    for m in matches:
+        h, a = row(m.team_home_id), row(m.team_away_id)
+        h["played"] += 1
+        a["played"] += 1
+        h["gf"] += m.score_home
+        h["ga"] += m.score_away
+        a["gf"] += m.score_away
+        a["ga"] += m.score_home
+        if m.score_home > m.score_away:
+            h["points"] += 3
+            h["won"] += 1
+            a["lost"] += 1
+        elif m.score_home < m.score_away:
+            a["points"] += 3
+            a["won"] += 1
+            h["lost"] += 1
+        else:
+            h["points"] += 1
+            a["points"] += 1
+            h["drawn"] += 1
+            a["drawn"] += 1
+    return tally
+
+
+_EMPTY_TALLY = {"played": 0, "won": 0, "drawn": 0, "lost": 0, "points": 0, "gf": 0, "ga": 0}
+
+
 def group_to_out(db: Session, group) -> schemas.GroupOut:
+    """The LIVE group table: points/goals come from real results (in-play scores
+    count provisionally), never from simulations. Qualification probability is
+    the model's forecast for the games still to play — a separate column.
+    Ranked points → GD → GF, with qual prob as the pre-tournament tiebreak so an
+    all-zero table still orders sensibly."""
     rows = db.query(Standing).filter_by(group_id=group.id).all()
-    # Rank like a real league table: projected points, then goal difference, then
-    # goals for. Qualification probability is shown as its own column, not the sort
-    # key — otherwise the #1 row could have fewer points than #2, which misreads as
-    # a broken table. (Qual prob is highly correlated with points but not identical.)
+    live = live_group_table(db, group.id)
+
+    def tally(r: Standing) -> dict:
+        return live.get(r.team_id, _EMPTY_TALLY)
+
     rows.sort(
-        key=lambda r: (r.points or 0, r.goal_diff or 0, r.goals_for or 0),
+        key=lambda r: (
+            tally(r)["points"],
+            tally(r)["gf"] - tally(r)["ga"],
+            tally(r)["gf"],
+            r.qualification_prob or 0.0,
+        ),
         reverse=True,
     )
     standings = []
     for r in rows:
         team = db.get(Team, r.team_id)
+        t = tally(r)
         standings.append(
             schemas.StandingRowOut(
                 team_id=r.team_id,
                 team=team.name if team else "TBD",
-                projected_points=r.points,
-                projected_goals_for=r.goals_for,
-                projected_goal_diff=r.goal_diff,
+                projected_points=t["points"],
+                projected_goals_for=t["gf"],
+                projected_goal_diff=t["gf"] - t["ga"],
                 qualification_prob=r.qualification_prob,
             )
         )

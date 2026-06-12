@@ -91,14 +91,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         </div>
       </header>
 
-      {/* Tournament outlook — projected group finish + run-deep odds */}
+      {/* Tournament outlook — live group position + run-deep odds */}
       {(standingRow || teamOdds) && (
         <section className="glass rounded-2xl p-6">
           <h2 className="mb-4 font-display text-lg font-bold">Tournament outlook</h2>
           {standingRow && (
             <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <Outlook label="Projected finish" value={`${ordinal(rank + 1)}${group_name ? ` · ${group_name}` : ""}`} />
-              <Outlook label="Projected points" value={String(standingRow.projected_points)} />
+              <Outlook label="Group position" value={`${ordinal(rank + 1)}${group_name ? ` · ${group_name}` : ""}`} />
+              <Outlook label="Points" value={String(standingRow.projected_points)} />
               <Outlook
                 label="Advance from group"
                 value={pct(standingRow.qualification_prob)}
@@ -167,7 +167,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         </h2>
         <div className="grid gap-3 sm:grid-cols-3">
           {group_id && (
-            <HubLink href={`/groups/${group_id}`} label={group_name ?? "Group"} sub="Projected table & odds" />
+            <HubLink href={`/groups/${group_id}`} label={group_name ?? "Group"} sub="Live table & odds" />
           )}
           <HubLink href="/brackets" label="Title odds" sub="Run to the final" />
           <HubLink href="/matches" label="All fixtures" sub="Every match prediction" />
