@@ -49,6 +49,22 @@ def test_register_sets_cookie_and_me_works(client):
     assert "password_hash" not in me.json()
 
 
+def test_session_cookie_attributes(client):
+    """The session cookie must stay HttpOnly + SameSite=Lax + Path=/ with a
+    30-day Max-Age — the contract the same-origin /backend-api proxy and the
+    installed-PWA reload flow both depend on (FR 4.6)."""
+    r = client.post("/api/auth/register",
+                    json={"email": "cookie@example.com", "password": "supersecret"})
+    set_cookie = r.headers.get("set-cookie", "")
+    assert set_cookie.startswith("fw_session=")
+    lowered = set_cookie.lower()
+    assert "httponly" in lowered
+    assert "samesite=lax" in lowered
+    assert "path=/" in lowered
+    assert "max-age=2592000" in lowered  # 30 days
+    assert "domain=" not in lowered  # host-only: belongs to the frontend origin
+
+
 def test_duplicate_email_rejected(client):
     body = {"email": "dup@example.com", "password": "supersecret"}
     assert client.post("/api/auth/register", json=body).status_code == 200
