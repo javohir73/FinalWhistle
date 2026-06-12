@@ -84,6 +84,9 @@ class GroupFixture:
     home_id: int
     away_id: int
     home_adv: float = 0.0
+    # Final (home, away) score once the match has actually been played.
+    # Played fixtures count as fact in every draw — only unplayed ones are sampled.
+    score: tuple[int, int] | None = None
 
 
 def _assign_thirds(qualified_groups: list[str], rng: np.random.Generator) -> dict[int, str]:
@@ -125,6 +128,34 @@ def simulate_tournament(
     all_ids = [t for members in groups.values() for t in members]
     counts = {tid: {k: 0 for _, k in ROUND_KEYS} for tid in all_ids}
 
+    # Per group: fixed tallies from already-played fixtures (facts, identical in
+    # every draw) + Poisson means for the games still to be played.
+    base: dict[str, tuple[dict, dict, dict]] = {}
+    sampled: dict[str, list[tuple[int, int, float, float]]] = {}
+    for letter, members in groups.items():
+        bp = {t: 0 for t in members}
+        bgf = {t: 0 for t in members}
+        bga = {t: 0 for t in members}
+        lams: list[tuple[int, int, float, float]] = []
+        for fx in group_fixtures[letter]:
+            if fx.score is not None:
+                sh, sa = fx.score
+                bgf[fx.home_id] += sh; bga[fx.home_id] += sa
+                bgf[fx.away_id] += sa; bga[fx.away_id] += sh
+                if sh > sa:
+                    bp[fx.home_id] += 3
+                elif sa > sh:
+                    bp[fx.away_id] += 3
+                else:
+                    bp[fx.home_id] += 1; bp[fx.away_id] += 1
+            else:
+                lh, la = expected_goals_from_elo(
+                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
+                )
+                lams.append((fx.home_id, fx.away_id, lh, la))
+        base[letter] = (bp, bgf, bga)
+        sampled[letter] = lams
+
     def play(h: int, a: int) -> int:
         """One knockout match (neutral). Draw → penalties via Elo logistic."""
         lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=0.0)
@@ -140,24 +171,22 @@ def simulate_tournament(
         placement: dict[str, list[int]] = {}
         thirds: list[tuple] = []
 
-        # --- group stage ---
+        # --- group stage (facts fixed, remaining games sampled) ---
         for letter, members in groups.items():
-            pts = {t: 0 for t in members}
-            gf = {t: 0 for t in members}
-            ga = {t: 0 for t in members}
-            for fx in group_fixtures[letter]:
-                lh, la = expected_goals_from_elo(
-                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
-                )
+            bp, bgf, bga = base[letter]
+            pts = dict(bp)
+            gf = dict(bgf)
+            ga = dict(bga)
+            for home_id, away_id, lh, la in sampled[letter]:
                 sh, sa = int(rng.poisson(lh)), int(rng.poisson(la))
-                gf[fx.home_id] += sh; ga[fx.home_id] += sa
-                gf[fx.away_id] += sa; ga[fx.away_id] += sh
+                gf[home_id] += sh; ga[home_id] += sa
+                gf[away_id] += sa; ga[away_id] += sh
                 if sh > sa:
-                    pts[fx.home_id] += 3
+                    pts[home_id] += 3
                 elif sa > sh:
-                    pts[fx.away_id] += 3
+                    pts[away_id] += 3
                 else:
-                    pts[fx.home_id] += 1; pts[fx.away_id] += 1
+                    pts[home_id] += 1; pts[away_id] += 1
             order = sorted(
                 members,
                 key=lambda t: (pts[t], gf[t] - ga[t], gf[t], rng.random()),

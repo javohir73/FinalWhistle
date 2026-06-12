@@ -52,6 +52,41 @@ def test_generate_predictions_writes_rows(db_session):
     assert len(standings) == 48
 
 
+def test_finished_matches_feed_standings_as_facts(db_session):
+    """Real results must flow into projected standings: a team that has already
+    won all three of its games sits on exactly 9 points with qualification
+    locked at 1.0 — regardless of what the model would have predicted."""
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    from app.models import Group
+
+    group = db_session.query(Group).first()
+    matches = db_session.query(Match).filter_by(group_id=group.id).all()
+    members = sorted({m.team_home_id for m in matches} | {m.team_away_id for m in matches})
+    elo = {t: db_session.get(Team, t).elo_rating for t in members}
+    target = min(members, key=lambda t: elo[t])   # weakest wins everything
+    loser = max(members, key=lambda t: elo[t])    # strongest loses everything
+
+    for m in matches:
+        m.status = "finished"
+        if target in (m.team_home_id, m.team_away_id):
+            m.score_home, m.score_away = (1, 0) if m.team_home_id == target else (0, 1)
+        elif loser in (m.team_home_id, m.team_away_id):
+            m.score_home, m.score_away = (0, 1) if m.team_home_id == loser else (1, 0)
+        else:
+            m.score_home, m.score_away = 0, 0
+    db_session.commit()
+
+    generate_predictions(db_session, n_sims=300)
+
+    rows = {r.team_id: r for r in db_session.query(Standing).filter_by(group_id=group.id)}
+    assert rows[target].points == 9
+    assert rows[target].qualification_prob == 1.0
+    assert rows[loser].points == 0
+    assert rows[loser].qualification_prob == 0.0
+
+
 def test_qualification_probs_sum_to_two_per_group(db_session):
     load_structure(db_session)
     _set_elos(db_session)
