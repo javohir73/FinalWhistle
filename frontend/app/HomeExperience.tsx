@@ -28,8 +28,9 @@ export function HomeExperience({
   const [changing, setChanging] = useState(false);
 
   const teamsState = useFetch(getTeams, [], undefined, initialTeams);
-  const groupsState = useFetch(getGroups, [], undefined, initialGroups);
-  // Poll fixtures every 30s so live scores/clock on the country hub stay current.
+  // Poll fixtures + groups every 30s so live scores/clock and the live group
+  // table on the country hub stay current (same cadence as /matches, /groups).
+  const groupsState = useFetch(getGroups, [], 30_000, initialGroups);
   const matchesState = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
   const oddsState = useFetch(getKnockoutOdds, [], undefined, initialOdds);
 

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import { FormStrip } from "@/components/FormStrip";
-import { QualificationBar } from "@/components/QualificationBar";
+import { GroupTable } from "@/components/GroupTable";
 import { LocationPicker } from "@/components/LocationPicker";
 import { UserPredictionCard } from "@/components/UserPredictionCard";
 import { useFetch } from "@/lib/useFetch";
@@ -95,7 +95,8 @@ export function PersonalizedCountryHome({
               {team.name}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {group ? `Group ${group.name}` : "Group TBC"}
+              {/* group.name is already "Group A" — no extra prefix */}
+              {group ? group.name : "Group TBC"}
               {team.confederation ? ` · ${team.confederation}` : ""}
             </p>
           </div>
@@ -224,49 +225,22 @@ export function PersonalizedCountryHome({
         )}
       </section>
 
-      {/* ===== Group table ===== */}
+      {/* ===== Group table (live — same data/render as the Groups page) ===== */}
       {group && (
         <section className="mt-9">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-xl font-extrabold tracking-tight">Group {group.name}</h2>
+            <h2 className="font-display text-xl font-extrabold tracking-tight">
+              {group.name}
+              <span className="ml-2 align-middle text-xs font-semibold uppercase tracking-wider text-muted">
+                Live table
+              </span>
+            </h2>
             <Link href={`/groups/${group.id}`} className="text-sm font-medium text-win underline-offset-2 hover:underline">
               Full group →
             </Link>
           </div>
-          <div className="overflow-hidden rounded-2xl border border-border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-2/50 text-left text-[11px] uppercase tracking-wider text-muted">
-                  <th className="px-3 py-2 font-semibold">Team</th>
-                  <th className="px-3 py-2 text-right font-semibold">Pts</th>
-                  <th className="px-3 py-2 text-right font-semibold">Qualify</th>
-                </tr>
-              </thead>
-              <tbody>
-                {group.standings.map((s) => {
-                  const isTeam = s.team_id === team.id;
-                  return (
-                    <tr
-                      key={s.team_id}
-                      className={isTeam ? "bg-win/10" : "border-t border-border/60"}
-                    >
-                      <td className="px-3 py-2.5">
-                        <span className="flex items-center gap-2">
-                          <Flag team={s.team} size={20} />
-                          <span className={isTeam ? "font-bold" : "font-medium"}>{s.team}</span>
-                        </span>
-                      </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">{s.projected_points}</td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex justify-end">
-                          <QualificationBar prob={s.qualification_prob} />
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="glass rounded-2xl p-4 sm:p-5">
+            <GroupTable standings={group.standings} highlightTeamId={team.id} />
           </div>
         </section>
       )}

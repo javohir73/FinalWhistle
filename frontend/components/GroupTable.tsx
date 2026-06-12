@@ -7,8 +7,15 @@ import { QualificationBar } from "./QualificationBar";
 import { Flag } from "./Flag";
 
 /** Live standings table (real results; in-play scores count provisionally),
- *  with the model's qualification bar per team. */
-export function GroupTable({ standings }: { standings: StandingRow[] }) {
+ *  with the model's qualification bar per team. Pass `highlightTeamId` to mark
+ *  one row (the followed nation on the country hub). */
+export function GroupTable({
+  standings,
+  highlightTeamId,
+}: {
+  standings: StandingRow[];
+  highlightTeamId?: number;
+}) {
   return (
     <table className="w-full text-sm">
       <thead>
@@ -26,6 +33,7 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
             className={cn(
               "border-t border-border/50",
               i < 2 && "bg-win/[0.04]",
+              row.team_id === highlightTeamId && "bg-win/10",
             )}
           >
             <td className="py-2.5 pr-2">
@@ -40,7 +48,14 @@ export function GroupTable({ standings }: { standings: StandingRow[] }) {
                 <span className="shrink-0">
                   <Flag team={row.team} size={20} />
                 </span>
-                <span className="min-w-0 font-medium leading-tight">{row.team}</span>
+                <span
+                  className={cn(
+                    "min-w-0 font-medium leading-tight",
+                    row.team_id === highlightTeamId && "font-bold",
+                  )}
+                >
+                  {row.team}
+                </span>
               </Link>
             </td>
             <td className="px-1 text-center font-semibold tabular-nums">{row.projected_points}</td>
