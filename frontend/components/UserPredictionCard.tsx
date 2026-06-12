@@ -93,26 +93,60 @@ export function UserPredictionCard({
   const labelFor = (s: Outcome) =>
     s === "home" ? match.teams.home : s === "away" ? match.teams.away : "Draw";
 
+  const live = match.status === "in_play";
+  const finished = match.status === "finished";
+  const hasScore = match.score_home != null && match.score_away != null;
+
   return (
-    <div className="rounded-2xl border border-border bg-surface/50 p-4">
-      {/* Matchup header */}
+    <div
+      className={cn(
+        "rounded-2xl border bg-surface/50 p-4",
+        live ? "border-loss/40 ring-1 ring-loss/30" : "border-border",
+      )}
+    >
+      {/* Matchup header — live/final score shown in the middle when available */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <Flag team={match.teams.home} size={24} />
           <span className="truncate text-sm font-semibold">{match.teams.home}</span>
         </div>
-        <span className="shrink-0 text-xs font-bold text-muted">vs</span>
-        <div className="flex min-w-0 items-center justify-end gap-2">
+        {(live || finished) && hasScore ? (
+          <span className="shrink-0 font-display text-lg font-extrabold tabular-nums">
+            {match.score_home}
+            <span className="px-1 text-muted">–</span>
+            {match.score_away}
+          </span>
+        ) : (
+          <span className="shrink-0 text-xs font-bold text-muted">vs</span>
+        )}
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
           <span className="truncate text-sm font-semibold">{match.teams.away}</span>
           <Flag team={match.teams.away} size={24} />
         </div>
       </div>
 
-      <div className="mt-1.5 text-center text-[11px] text-muted">
-        {match.group ? `Group ${match.group} · ` : ""}
-        {match.kickoff_utc
-          ? `${dayHeading(match.kickoff_utc, tz)} · ${kickoffTime(match.kickoff_utc, tz)} ${tzAbbrev(match.kickoff_utc, tz)}`
-          : "Date to be confirmed"}
+      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
+        {match.group && (
+          <>
+            <span>Group {match.group}</span>
+            <span aria-hidden>·</span>
+          </>
+        )}
+        {live ? (
+          <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wide text-loss">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
+            Live{match.minute != null ? ` ${match.minute}'` : ""}
+          </span>
+        ) : finished ? (
+          <span className="font-semibold uppercase tracking-wide">Full time</span>
+        ) : match.kickoff_utc ? (
+          <span>
+            {dayHeading(match.kickoff_utc, tz)} · {kickoffTime(match.kickoff_utc, tz)}{" "}
+            {tzAbbrev(match.kickoff_utc, tz)}
+          </span>
+        ) : (
+          <span>Date to be confirmed</span>
+        )}
       </div>
 
       {/* Pick buttons */}
