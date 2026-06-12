@@ -92,6 +92,35 @@ accounts (Apple $99/yr, Play $25) to sign and ship, and they'd ride along an
 unrelated critical bugfix PR. The decision + config above is the part that
 needed solving; generation is one command when accounts are provisioned.
 
+## Android release signing (configured 2026-06-12)
+
+The upload keystore is generated and lives **outside the repo**:
+
+- Keystore: `~/FinalWhistle-keys/upload-keystore.jks` (RSA 2048, alias
+  `finalwhistle-upload`, valid 25 years)
+- Credentials: `~/FinalWhistle-keys/key.properties` (chmod 600; random
+  password — never committed, never pasted anywhere)
+- `android/app/build.gradle` auto-loads that file (override the path with
+  `FW_KEYSTORE_PROPERTIES`); without it, builds fall back to unsigned debug so
+  CI and fresh clones need no secrets. `*.jks`/`key.properties` are
+  force-gitignored.
+
+Build the artifacts (SDK via `brew install --cask android-commandlinetools`,
+JDK via `brew install openjdk@21`):
+
+```bash
+cd frontend/android
+JAVA_HOME=/opt/homebrew/opt/openjdk@21 \
+ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
+./gradlew bundleRelease assembleRelease
+# → app/build/outputs/bundle/release/app-release.aab   (Play upload)
+# → app/build/outputs/apk/release/app-release.apk      (sideload testing)
+```
+
+When enrolling in Play App Signing, upload `app-release.aab` — Google manages
+the app signing key; this keystore is only the upload key. **Back up
+`~/FinalWhistle-keys/` somewhere safe.**
+
 ## Store submission checklist (deferred)
 
 - [ ] Apple Developer + Play Console accounts
