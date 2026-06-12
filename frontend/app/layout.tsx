@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, SITE_URL } from "@/lib/constants";
@@ -74,6 +75,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
             · Explainable World Cup 2026 predictions · For analytics and
             entertainment only. Not betting advice.
+            <span className="mt-1.5 block">
+              <Link href="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
+                Privacy
+              </Link>{" "}
+              ·{" "}
+              <Link href="/terms" className="underline-offset-2 hover:text-foreground hover:underline">
+                Terms &amp; support
+              </Link>
+            </span>
           </footer>
           <BottomNav />
           <InstallAppPrompt />
