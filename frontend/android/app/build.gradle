@@ -1,5 +1,16 @@
 apply plugin: 'com.android.application'
 
+// Upload-key signing for Play releases. The keystore + credentials live
+// OUTSIDE the repo (default ~/FinalWhistle-keys/key.properties; override with
+// FW_KEYSTORE_PROPERTIES). Builds stay unsigned-debug-only when absent, so CI
+// and fresh clones work without secrets.
+def keystorePropertiesFile = file(System.getenv("FW_KEYSTORE_PROPERTIES")
+        ?: "${System.properties['user.home']}/FinalWhistle-keys/key.properties")
+def keystoreProperties = new Properties()
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.withInputStream { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.finalwhistle.app"
     compileSdk = rootProject.ext.compileSdkVersion
@@ -16,10 +27,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            release {
+                keyAlias keystoreProperties['keyAlias']
+                keyPassword keystoreProperties['keyPassword']
+                storeFile file(keystoreProperties['storeFile'])
+                storePassword keystoreProperties['storePassword']
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (keystorePropertiesFile.exists()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
