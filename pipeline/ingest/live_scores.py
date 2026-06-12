@@ -11,6 +11,7 @@ football-data.org v4: GET /v4/competitions/{code}/matches, auth via the
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 import requests
 from sqlalchemy.orm import Session
@@ -59,6 +60,27 @@ def _index_by_pair(db: Session) -> dict[frozenset, Match]:
     return index
 
 
+def estimate_minute(kickoff: datetime | None, now: datetime | None = None) -> int | None:
+    """Approximate the live minute from kickoff time. The free tier's match
+    list carries no `minute` field, so without this every in-play match shows
+    a bare "Live" badge. First half maps to 1–45, the break holds at 45 (HT),
+    the second half maps to 46–90 assuming a 15-minute interval; capped at 90.
+    A scoreboard clock, not an official one."""
+    if kickoff is None:
+        return None
+    if kickoff.tzinfo is None:  # SQLite drops tzinfo; naive means UTC here
+        kickoff = kickoff.replace(tzinfo=timezone.utc)
+    now = now or datetime.now(timezone.utc)
+    elapsed = (now - kickoff).total_seconds() / 60
+    if elapsed < 0:
+        return 1
+    if elapsed <= 45:
+        return max(1, int(elapsed) + 1)  # 0:00–0:59 is the 1st minute
+    if elapsed <= 60:
+        return 45  # first-half stoppage + half-time interval
+    return min(int(elapsed) - 15 + 1, 90)
+
+
 def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     """Apply fetched match states to our DB. Returns a small summary."""
     index = _index_by_pair(db)
@@ -86,7 +108,12 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
             match.score_home, match.score_away = their_away, their_home
 
         match.status = status
-        match.minute = am.get("minute") if status == "in_play" else None
+        # The free tier omits `minute`, so fall back to a kickoff-based estimate.
+        match.minute = (
+            (am.get("minute") or estimate_minute(match.kickoff_utc))
+            if status == "in_play"
+            else None
+        )
         updated += 1
         if status == "in_play":
             live += 1
