@@ -121,6 +121,18 @@ When enrolling in Play App Signing, upload `app-release.aab` — Google manages
 the app signing key; this keystore is only the upload key. **Back up
 `~/FinalWhistle-keys/` somewhere safe.**
 
+### Emulator verification (2026-06-12)
+
+The signed release APK was installed and exercised on an Android 15 (API 35,
+Pixel 7 AVD) emulator: install accepted the release signature, the shell
+booted, loaded the production origin (country chooser, disclaimer banner,
+bottom nav all rendered), and in-shell navigation to Matches showed LIVE
+production data (Mexico 2–0 South Africa, full time) with timezone
+auto-detection working. This validates the remote-shell config end-to-end;
+the remaining real-device pass is a store-policy formality, not a functional
+unknown. (Run it any time: `sdkmanager emulator "system-images;android-35;google_apis;arm64-v8a"`,
+`avdmanager create avd -n fw-test -k ... -d pixel_7`, boot headless, `adb install`.)
+
 ## Store submission checklist (deferred)
 
 - [ ] Apple Developer + Play Console accounts
