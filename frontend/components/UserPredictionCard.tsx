@@ -111,10 +111,20 @@ export function UserPredictionCard({
           <span className="truncate text-sm font-semibold">{match.teams.home}</span>
         </div>
         {(live || finished) && hasScore ? (
-          <span className="shrink-0 font-display text-lg font-extrabold tabular-nums">
-            {match.score_home}
-            <span className="px-1 text-muted">–</span>
-            {match.score_away}
+          <span className="flex shrink-0 flex-col items-center">
+            <span className="font-display text-lg font-extrabold leading-none tabular-nums">
+              {match.score_home}
+              <span className="px-1 text-muted">–</span>
+              {match.score_away}
+            </span>
+            {live ? (
+              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-loss">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
+                {match.minute != null ? `${match.minute}'` : "Live"}
+              </span>
+            ) : (
+              <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">FT</span>
+            )}
           </span>
         ) : (
           <span className="shrink-0 text-xs font-bold text-muted">vs</span>
@@ -126,27 +136,24 @@ export function UserPredictionCard({
       </div>
 
       <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
-        {match.group && (
-          <>
-            <span>Group {match.group}</span>
-            <span aria-hidden>·</span>
-          </>
-        )}
-        {live ? (
-          <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wide text-loss">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
-            Live{match.minute != null ? ` ${match.minute}'` : ""}
-          </span>
-        ) : finished ? (
-          <span className="font-semibold uppercase tracking-wide">Full time</span>
-        ) : match.kickoff_utc ? (
-          <span>
-            {dayHeading(match.kickoff_utc, tz)} · {kickoffTime(match.kickoff_utc, tz)}{" "}
-            {tzAbbrev(match.kickoff_utc, tz)}
-          </span>
-        ) : (
-          <span>Date to be confirmed</span>
-        )}
+        {match.group && <span>Group {match.group}</span>}
+        {/* Live/FT status sits under the score above; here we only add the
+            kickoff for upcoming fixtures. */}
+        {!live && !finished &&
+          (match.kickoff_utc ? (
+            <>
+              {match.group && <span aria-hidden>·</span>}
+              <span>
+                {dayHeading(match.kickoff_utc, tz)} · {kickoffTime(match.kickoff_utc, tz)}{" "}
+                {tzAbbrev(match.kickoff_utc, tz)}
+              </span>
+            </>
+          ) : (
+            <>
+              {match.group && <span aria-hidden>·</span>}
+              <span>Date to be confirmed</span>
+            </>
+          ))}
       </div>
 
       {/* Pick buttons */}
