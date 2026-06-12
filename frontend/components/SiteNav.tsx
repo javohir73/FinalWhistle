@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { recordEngagement } from "@/lib/engagement";
 import { AuthButton } from "@/components/AuthButton";
 
 const NAV = [
@@ -65,7 +66,12 @@ export function SiteNav() {
           {/* Mobile hamburger */}
           <button
           type="button"
-          onClick={() => setOpen((v) => !v)}
+          onClick={() =>
+            setOpen((v) => {
+              if (!v) recordEngagement("menu-open"); // gates the install prompt
+              return !v;
+            })
+          }
           aria-label={open ? "Close menu" : "Open menu"}
           aria-expanded={open}
           aria-controls="mobile-menu"

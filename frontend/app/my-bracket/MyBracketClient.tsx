@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
@@ -12,6 +12,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { AccountPanel } from "@/components/AccountPanel";
 import { ROUNDS } from "@/lib/bracketStructure";
 import { trackEvent } from "@/lib/analytics";
+import { recordEngagement } from "@/lib/engagement";
 import type { BFixture, Outcome, TableRow } from "@/lib/myBracket";
 import type { Group, MatchSummary, TournamentOdds } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -75,6 +76,11 @@ export function MyBracketClient({
   // Signed-in users: restore their saved bracket on return + auto-save changes.
   const ready = !loading && !error && b.model.length > 0;
   const sync = useBracketSync(b, ready);
+
+  // A repeat My Bracket visit is an engagement signal for the install prompt.
+  useEffect(() => {
+    recordEngagement("my-bracket-visit");
+  }, []);
 
   return (
     <div className="space-y-8">

@@ -6,6 +6,7 @@ import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
+import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { SentryInit } from "@/components/SentryInit";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -75,6 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             entertainment only. Not betting advice.
           </footer>
           <BottomNav />
+          <InstallAppPrompt />
         </AuthProvider>
         <Analytics />
       </body>
