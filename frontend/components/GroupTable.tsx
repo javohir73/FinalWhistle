@@ -17,7 +17,10 @@ export function GroupTable({
   highlightTeamId?: number;
 }) {
   return (
-    <table className="w-full text-sm">
+    // Auto-layout tables ignore truncate on long names ("Bosnia and
+    // Herzegovina") — the scroll guard keeps 390px viewports overflow-free.
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
           <th className="pb-2 pr-2 font-medium">Team</th>
@@ -70,6 +73,7 @@ export function GroupTable({
           </tr>
         ))}
       </tbody>
-    </table>
+      </table>
+    </div>
   );
 }
