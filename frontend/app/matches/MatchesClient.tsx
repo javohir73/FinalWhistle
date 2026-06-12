@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useFavorites } from "@/lib/useFavorites";
@@ -49,7 +49,28 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   const [sort, setSort] = useState<SortKey>("kickoff");
   // Country-first: when a nation is being followed, default the list to its
   // fixtures. The user can flip to all matches; with no selection this is inert.
-  const [countryFocus, setCountryFocus] = useState(true);
+  // Persisted in sessionStorage so opening a match and coming back doesn't snap
+  // the list back to country-only (component state resets on navigation).
+  const FOCUS_KEY = "finalwhistle:matches-country-focus:v1";
+  const [countryFocus, setCountryFocusState] = useState(true);
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(FOCUS_KEY);
+      if (stored !== null) setCountryFocusState(stored === "1");
+    } catch {
+      /* storage unavailable — keep the default */
+    }
+  }, []);
+  const setCountryFocus = (updater: (v: boolean) => boolean) =>
+    setCountryFocusState((v) => {
+      const next = updater(v);
+      try {
+        window.sessionStorage.setItem(FOCUS_KEY, next ? "1" : "0");
+      } catch {
+        /* non-fatal */
+      }
+      return next;
+    });
 
   const matches = state.status === "success" ? state.data : [];
   const country = hydrated && selection ? selection.team : null;

@@ -80,6 +80,32 @@ it("groups matches by date and shows venue + a day heading", async () => {
   expect(screen.getByText(/2026/)).toBeInTheDocument();
 });
 
+it("remembers 'Show all matches' across remounts (back from a match page)", async () => {
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Scotland", "Group C"),
+    match(2, "Spain", "Uruguay", "Group H"),
+  ]);
+
+  // First visit: focused on Brazil → flip to all matches.
+  const first = render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  expect(screen.queryByText("Uruguay")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Show all matches" }));
+  expect(screen.getByText("Uruguay")).toBeInTheDocument();
+  first.unmount();
+
+  // Remount (user opened a match and came back): still showing all matches.
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Uruguay")).toBeInTheDocument());
+
+  localStorage.removeItem("finalwhistle:selected-country:v1");
+  sessionStorage.clear();
+});
+
 it("offers a location/timezone control", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
