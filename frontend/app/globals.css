@@ -106,6 +106,15 @@ body > * {
   }
 }
 
+/* With viewport-fit=cover, landscape on notched phones draws edge-to-edge
+   under the sensor housing. Inset the full-bleed bars horizontally too —
+   resolves to 0 in portrait / on non-notched devices, so it's harmless. */
+.app-top,
+.safe-x {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
 /* ============ Reusable utilities ============ */
 @layer components {
   .glass {

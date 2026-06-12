@@ -3,6 +3,7 @@ import { APP_NAME } from "@/lib/constants";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
+    id: "/",
     name: `${APP_NAME} — World Cup 2026 Predictions`,
     short_name: APP_NAME,
     description:
@@ -17,7 +18,10 @@ export default function manifest(): MetadataRoute.Manifest {
     icons: [
       { src: "/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
       { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
-      { src: "/icon-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      // Distinct maskable assets: logo confined to the ~80% safe zone on the
+      // brand background, so Android circle/squircle masks never clip it.
+      { src: "/icon-maskable-192.png", sizes: "192x192", type: "image/png", purpose: "maskable" },
+      { src: "/icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

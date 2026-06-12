@@ -14,7 +14,7 @@ interface SyncableBracket {
   reset: () => void;
 }
 
-export type SyncStatus = "idle" | "saving" | "saved";
+export type SyncStatus = "idle" | "saving" | "saved" | "offline";
 
 /** Which account the picks on this device belong to. Recorded whenever a
  *  signed-in user's bracket is reconciled (loaded, claimed, or saved); read on
@@ -155,12 +155,30 @@ export function useBracketSync(b: SyncableBracket, ready: boolean): {
         saveOwner(user.id);
         setStatus("saved");
       } catch {
-        setStatus("idle"); // still unsynced; retried on next change or flush
+        // Still unsynced; retried on next change, flush, or reconnect. Offline
+        // gets honest feedback instead of a silent failure.
+        const offline = typeof navigator !== "undefined" && !navigator.onLine;
+        setStatus(offline ? "offline" : "idle");
       }
     }, 1200);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [picksKey, user, ready]);
+
+  // "Will save when online" must actually save when online: when the
+  // connection returns, push any unsaved picks immediately.
+  useEffect(() => {
+    if (!user || !ready) return;
+    const onOnline = () => {
+      if (syncedKeyRef.current === picksKeyRef.current) return;
+      setStatus("saving");
+      void flush().then(() => {
+        setStatus(syncedKeyRef.current === picksKeyRef.current ? "saved" : "offline");
+      });
+    };
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [user, ready, flush]);
 
   // Sign-out must never lose data: flush pending changes while the session is
   // still valid (logout() awaits this before revoking the cookie).

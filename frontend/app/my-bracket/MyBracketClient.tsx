@@ -104,8 +104,12 @@ export function MyBracketClient({
                 <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
               )}
               {sync.signedIn && sync.status !== "idle" && (
-                <span className="ml-2 text-xs text-win">
-                  {sync.status === "saving" ? "· Saving…" : "· Saved to your account ✓"}
+                <span className={cn("ml-2 text-xs", sync.status === "offline" ? "text-draw" : "text-win")}>
+                  {sync.status === "saving"
+                    ? "· Saving…"
+                    : sync.status === "offline"
+                      ? "· Offline — will save when online"
+                      : "· Saved to your account ✓"}
                 </span>
               )}
             </div>

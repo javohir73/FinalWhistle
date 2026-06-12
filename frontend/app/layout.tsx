@@ -3,6 +3,7 @@ import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, SITE_URL } from "@/lib/constants";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { ServiceWorker } from "@/components/ServiceWorker";
@@ -63,9 +64,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="app-top sticky top-0 z-50 bg-background">
             <DisclaimerBanner />
             <SiteNav />
+            <OfflineBanner />
           </div>
           <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
-          <footer className="mx-auto mt-16 max-w-6xl px-5 pb-24 pt-10 text-center text-xs text-muted sm:pb-10">
+          {/* Bottom padding clears the fixed mobile tab bar + the iPhone home
+              indicator (safe-area inset is 0 on desktop/non-notched devices). */}
+          <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
             <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
             · Explainable World Cup 2026 predictions · For analytics and
             entertainment only. Not betting advice.
