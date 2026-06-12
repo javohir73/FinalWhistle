@@ -77,12 +77,32 @@ it("sends a returning user straight to the personalized hub", async () => {
     JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
   );
 
-  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
+  // /api/groups serves the LIVE table (real results) — names come prefixed.
+  const groups = [{
+    id: 3,
+    name: "Group C",
+    standings: [
+      { team_id: 1, team: "Brazil", projected_points: 3, projected_goals_for: 2, projected_goal_diff: 2, qualification_prob: 0.9 },
+      { team_id: 9, team: "Scotland", projected_points: 0, projected_goals_for: 0, projected_goal_diff: -2, qualification_prob: 0.2 },
+    ],
+  }];
+  (api.getGroups as jest.Mock).mockResolvedValue(groups);
+
+  render(<HomeExperience initialTeams={teams} initialGroups={groups} initialMatches={[]} initialOdds={[]} />);
 
   await waitFor(() =>
     expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
   );
   expect(screen.getByText("Your predictions for Brazil")).toBeInTheDocument();
+
+  // The hub shows the LIVE group table: real points (3 after a win, not a
+  // simulated average) and no doubled "Group Group C" heading.
+  expect(screen.getByText("Live table")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: /^Group C/ })).toBeInTheDocument();
+  expect(screen.queryByText(/Group Group/)).not.toBeInTheDocument();
+  const cells = screen.getAllByRole("cell").map((c) => c.textContent);
+  expect(cells).toContain("3"); // Brazil's live points
+
   // Strengths come from the per-team profile fetch.
   await waitFor(() =>
     expect(screen.getByText("Elite attacking depth")).toBeInTheDocument(),

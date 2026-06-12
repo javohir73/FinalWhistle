@@ -136,7 +136,8 @@ export function UserPredictionCard({
       </div>
 
       <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
-        {match.group && <span>Group {match.group}</span>}
+        {/* match.group is already "Group A" from the API — no extra prefix */}
+        {match.group && <span>{match.group}</span>}
         {/* Live/FT status sits under the score above; here we only add the
             kickoff for upcoming fixtures. */}
         {!live && !finished &&
