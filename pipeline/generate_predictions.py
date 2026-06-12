@@ -124,16 +124,28 @@ def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: i
             )
 
     results = simulate_group(team_elos, fixtures, n_sims=n_sims, seed=2026)
+    # Persist REAL tallies (finished matches only) — the table users see is the
+    # actual league table; only qualification_prob comes from the simulation.
+    from app.serializers import live_group_table
+
+    real = live_group_table(db, group.id, include_in_play=False)
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():
         row = db.query(Standing).filter_by(group_id=group.id, team_id=team_id).one_or_none()
         if row is None:
             row = Standing(group_id=group.id, team_id=team_id)
             db.add(row)
+        t = real.get(team_id, {"played": 0, "won": 0, "drawn": 0, "lost": 0,
+                               "points": 0, "gf": 0, "ga": 0})
         row.qualification_prob = r["qualification_prob"]
-        row.points = round(r["avg_points"])
-        row.goal_diff = round(r["avg_gd"])
-        row.goals_for = round(r["avg_gf"])
+        row.played = t["played"]
+        row.won = t["won"]
+        row.drawn = t["drawn"]
+        row.lost = t["lost"]
+        row.points = t["points"]
+        row.goals_for = t["gf"]
+        row.goals_against = t["ga"]
+        row.goal_diff = t["gf"] - t["ga"]
         row.as_of = now
 
 

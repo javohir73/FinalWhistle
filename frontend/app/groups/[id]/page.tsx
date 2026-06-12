@@ -15,8 +15,8 @@ export async function generateMetadata({
   const group = await getGroupServer(params.id);
   if (!group) return { title: `Group — ${APP_NAME}` };
   const teams = group.standings.map((s) => s.team).join(", ");
-  const title = `${group.name} — projected table | ${APP_NAME}`;
-  const description = `${group.name} World Cup 2026 projected standings and qualification odds: ${teams}.`;
+  const title = `${group.name} — standings & qualification odds | ${APP_NAME}`;
+  const description = `${group.name} World Cup 2026 live standings and qualification odds: ${teams}.`;
   return {
     title, description,
     alternates: { canonical: `/groups/${params.id}` },
@@ -45,21 +45,22 @@ export default async function GroupDetailPage({ params }: { params: { id: string
         <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <span aria-hidden>←</span> All groups
         </Link>
-        <ShareButton title={`${group.name} — World Cup 2026 projected table`} />
+        <ShareButton title={`${group.name} — World Cup 2026 standings`} />
       </div>
       <h1 className="mt-3 font-display text-3xl font-extrabold tracking-tight">
         {group.name}
       </h1>
 
-      {/* Projected table + qualification odds */}
+      {/* Live table + qualification odds */}
       <section className="glass rounded-2xl p-6">
-        <h2 className="mb-4 font-display text-lg font-bold">Projected standings</h2>
+        <h2 className="mb-4 font-display text-lg font-bold">Standings</h2>
         <GroupTable standings={group.standings} />
         <p className="mt-4 text-xs leading-relaxed text-muted">
-          Points and goal difference are simulated averages over thousands of runs.
-          &ldquo;Top 2&rdquo; is each team&apos;s chance of finishing in the top two —
-          i.e. direct qualification. (The eight best third-placed teams also reach the
-          Round of 32; those odds aren&apos;t shown in this column.)
+          Points and goal difference come from real results — a live match&apos;s current
+          score counts provisionally. &ldquo;Top 2&rdquo; is the model&apos;s chance of each
+          team finishing in the top two — i.e. direct qualification. (The eight best
+          third-placed teams also reach the Round of 32; those odds aren&apos;t shown in
+          this column.)
         </p>
       </section>
 

@@ -9,7 +9,7 @@ from app.cache import cache
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
-from app.models import Prediction, Team
+from app.models import Match, Prediction, Team
 from pipeline.generate_predictions import generate_predictions
 from pipeline.ingest.wc26_structure import load_structure
 
@@ -128,11 +128,39 @@ def test_groups(client):
     detail = client.get(f"/api/groups/{gid}").json()
     rows = detail["standings"]
     assert len(rows) == 4
-    # Table is ranked like a real league table: projected points, then GD, then GF
+    # Table is ranked like a real league table: points, then GD, then GF
     # (descending). Qualification prob is a separate column, not the sort key.
     keys = [(r["projected_points"], r["projected_goal_diff"], r["projected_goals_for"]) for r in rows]
     assert keys == sorted(keys, reverse=True)
     assert client.get("/api/groups/999999").status_code == 404
+
+
+def test_group_standings_are_live_not_simulated(client):
+    """Standings show REAL results: a finished win counts exactly 3 points, an
+    in-play score counts provisionally, and unplayed games contribute nothing —
+    simulated averages must never appear in the table."""
+    gen = app.dependency_overrides[get_db]()
+    db = next(gen)
+    m1 = db.query(Match).filter(Match.group_id.isnot(None)).order_by(Match.id).first()
+    # A second match in the same group with neither of m1's teams.
+    m2 = next(
+        m for m in db.query(Match).filter_by(group_id=m1.group_id).order_by(Match.id)
+        if {m.team_home_id, m.team_away_id}.isdisjoint({m1.team_home_id, m1.team_away_id})
+    )
+    m1.status, m1.score_home, m1.score_away = "finished", 2, 0
+    m2.status, m2.score_home, m2.score_away, m2.minute = "in_play", 1, 1, 70
+    db.commit()
+    cache.clear()
+
+    rows = client.get(f"/api/groups/{m1.group_id}").json()["standings"]
+    by_id = {r["team_id"]: r for r in rows}
+    assert by_id[m1.team_home_id]["projected_points"] == 3  # the real win, locked
+    assert by_id[m1.team_home_id]["projected_goal_diff"] == 2
+    assert by_id[m1.team_away_id]["projected_points"] == 0
+    assert by_id[m2.team_home_id]["projected_points"] == 1  # live draw, provisional
+    assert by_id[m2.team_away_id]["projected_points"] == 1
+    # The real leader tops the table.
+    assert rows[0]["team_id"] == m1.team_home_id
 
 
 def test_reads_do_not_trigger_model_run(client):

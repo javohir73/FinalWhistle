@@ -6,15 +6,16 @@ import { cn } from "@/lib/utils";
 import { QualificationBar } from "./QualificationBar";
 import { Flag } from "./Flag";
 
-/** Predicted standings table with a qualification bar per team. */
+/** Live standings table (real results; in-play scores count provisionally),
+ *  with the model's qualification bar per team. */
 export function GroupTable({ standings }: { standings: StandingRow[] }) {
   return (
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left text-[11px] uppercase tracking-wider text-muted">
           <th className="pb-2 pr-2 font-medium">Team</th>
-          <th className="px-1 text-center font-medium" title="Predicted points">Pts</th>
-          <th className="px-1 text-center font-medium" title="Predicted goal difference">GD</th>
+          <th className="px-1 text-center font-medium" title="Points">Pts</th>
+          <th className="px-1 text-center font-medium" title="Goal difference">GD</th>
           <th className="pb-2 pl-2 text-right font-medium" title="Chance of finishing in the top two (direct qualification)">Top 2</th>
         </tr>
       </thead>

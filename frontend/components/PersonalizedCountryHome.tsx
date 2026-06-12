@@ -256,7 +256,7 @@ export function PersonalizedCountryHome({
                           <span className={isTeam ? "font-bold" : "font-medium"}>{s.team}</span>
                         </span>
                       </td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">{s.projected_points.toFixed(1)}</td>
+                      <td className="px-3 py-2.5 text-right tabular-nums">{s.projected_points}</td>
                       <td className="px-3 py-2.5">
                         <div className="flex justify-end">
                           <QualificationBar prob={s.qualification_prob} />
