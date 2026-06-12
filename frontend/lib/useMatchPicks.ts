@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { recordEngagement } from "./engagement";
 
 /** A user's anonymous per-match prediction: which side they think wins. */
 export type Pick = "home" | "draw" | "away";
@@ -53,6 +54,7 @@ export function useMatchPicks() {
   }, []);
 
   const setPick = useCallback((matchId: number, pick: Pick) => {
+    recordEngagement("pick"); // user action — gates the install prompt
     setPicks((prev) => {
       const next = { ...prev, [matchId]: pick };
       window.localStorage.setItem(KEY, JSON.stringify(next));

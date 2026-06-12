@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Group, MatchSummary, SavedBracket } from "./types";
 import type { BracketPayload } from "./session";
+import { recordEngagement } from "./engagement";
 import {
   groupTable, groupStageComplete, seedKnockouts, matchSides, champion,
   pruneKnockoutPicks, encodeBracket, decodeBracket,
@@ -107,6 +108,7 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
   );
 
   const setGroupPick = useCallback((matchId: number, outcome: Outcome) => {
+    recordEngagement("pick"); // user action — gates the install prompt
     setGroupPicks((prev) => {
       const next = { ...prev, [matchId]: outcome };
       // Group results changed -> re-seed and drop any now-invalid KO picks.
@@ -123,6 +125,7 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
   }, [groups, matches]);
 
   const setKoPick = useCallback((no: number, team: string) => {
+    recordEngagement("pick");
     setKoPicks((prev) => {
       if (!seeding) return prev;
       const next = { ...prev, [no]: team };

@@ -28,7 +28,12 @@ export function AccountPanel({
     try {
       await fn();
     } catch {
-      setStatus("Something went wrong — please try again.");
+      const offline = typeof navigator !== "undefined" && !navigator.onLine;
+      setStatus(
+        offline
+          ? "You're offline — couldn't reach the server. Your picks stay saved on this device."
+          : "Something went wrong — please try again.",
+      );
     } finally {
       setBusy(false);
     }

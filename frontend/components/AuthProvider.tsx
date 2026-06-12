@@ -40,16 +40,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<string | null>(null);
   const onSuccessRef = useRef<(() => void) | undefined>(undefined);
 
+  // Monotonic token that invalidates in-flight /me reconciles. A login or
+  // logout that completes while a refresh is mid-flight must win over the
+  // refresh's result — e.g. a slow pre-login /me 401 (Render cold start)
+  // resolving AFTER a successful login must not sign the fresh session out.
+  const generationRef = useRef(0);
+
   const refresh = useCallback(async () => {
+    const gen = ++generationRef.current;
     try {
       const me = await getMe(); // user (200) | null (401) | throws (network/cold start)
+      if (gen !== generationRef.current) return; // superseded — drop stale result
       setUser(me);
       if (me) saveUserHint(me);
       else clearUserHint();
     } catch {
       // Transient failure — keep whatever we already have (hint/last good user).
     } finally {
-      setLoading(false);
+      if (gen === generationRef.current) setLoading(false);
     }
   }, []);
 
@@ -71,6 +79,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    generationRef.current++; // an in-flight /me must not resurrect the session UI
     await Promise.allSettled([...flushersRef.current].map((fn) => fn()));
     await apiLogout();
     clearUserHint();
@@ -85,6 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleAuthed = useCallback((authedUser: SessionUser, isNew: boolean) => {
     // Use the user returned by login/register as the source of truth — calling
     // /auth/me here would race the just-set cookie's visibility (Safari/PWA).
+    generationRef.current++; // drop any /me reconcile that started pre-login
     setUser(authedUser);
     saveUserHint(authedUser);
     setLoading(false);

@@ -181,3 +181,11 @@ Verification gates for the upgrade PR:
 - Screenshot regression check on key routes: `/`, `/matches`, `/match/[id]`,
   `/groups/[id]`, `/team/[id]`, `/brackets`, `/methodology` (desktop + 390px).
 - `npm audit --omit=dev` reports 0 high/critical.
+
+## Native app (App Store / Google Play)
+
+The Capacitor shell decision + runbook live in [NATIVE-SHELL.md](NATIVE-SHELL.md):
+remote shell over the deployed Vercel origin (first-party cookies work
+unchanged). Blocked on store accounts; push notifications should land with or
+before the first submission (guideline 4.2). Manifest `screenshots` (richer
+Android install sheet) are also still open — needs real device captures.

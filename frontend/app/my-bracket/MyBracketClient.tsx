@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
@@ -12,6 +12,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { AccountPanel } from "@/components/AccountPanel";
 import { ROUNDS } from "@/lib/bracketStructure";
 import { trackEvent } from "@/lib/analytics";
+import { recordEngagement } from "@/lib/engagement";
 import type { BFixture, Outcome, TableRow } from "@/lib/myBracket";
 import type { Group, MatchSummary, TournamentOdds } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,11 @@ export function MyBracketClient({
   const ready = !loading && !error && b.model.length > 0;
   const sync = useBracketSync(b, ready);
 
+  // A repeat My Bracket visit is an engagement signal for the install prompt.
+  useEffect(() => {
+    recordEngagement("my-bracket-visit");
+  }, []);
+
   return (
     <div className="space-y-8">
       <header className="fade-up">
@@ -104,8 +110,12 @@ export function MyBracketClient({
                 <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
               )}
               {sync.signedIn && sync.status !== "idle" && (
-                <span className="ml-2 text-xs text-win">
-                  {sync.status === "saving" ? "· Saving…" : "· Saved to your account ✓"}
+                <span className={cn("ml-2 text-xs", sync.status === "offline" ? "text-draw" : "text-win")}>
+                  {sync.status === "saving"
+                    ? "· Saving…"
+                    : sync.status === "offline"
+                      ? "· Offline — will save when online"
+                      : "· Saved to your account ✓"}
                 </span>
               )}
             </div>

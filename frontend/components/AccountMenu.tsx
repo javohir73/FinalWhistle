@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { SessionUser } from "@/lib/session";
+import { recordEngagement } from "@/lib/engagement";
 
 function initials(user: SessionUser): string {
   const name = (user.display_name || "").trim();
@@ -37,7 +38,12 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
     <div className="relative" ref={ref}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() =>
+          setOpen((v) => {
+            if (!v) recordEngagement("menu-open"); // gates the install prompt
+            return !v;
+          })
+        }
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Account: ${label}`}
