@@ -135,7 +135,11 @@ Reviewed all user-facing copy (site + this listing) on 2026-06-12:
       TestFlight upload (`xcodebuild archive` + Transporter), real-iPhone test.
       Also update Xcode first — 15.1's actool is incompatible with this macOS
       (only the asset-catalog compile step fails; all sources build cleanly).
-- [ ] **BLOCKED — needs Play Console account ($25) + Android SDK install:**
-      signed AAB (`./gradlew bundleRelease` + keystore), internal testing
-      track, real-Android test.
+      (Owner decision 2026-06-12: paused.)
+- [x] Signed Android release artifacts — `app-release.aab` (Play-ready) and
+      `app-release.apk` (sideload testing), built and signature-verified with
+      the external upload keystore (see NATIVE-SHELL.md → Android release
+      signing). Artifacts: `frontend/android/app/build/outputs/`.
+- [ ] **BLOCKED — needs Play Console account ($25):** internal testing track
+      upload, real-Android-device test. (Owner decision 2026-06-12: paused.)
 - [ ] Recommended before submission: push notifications (Apple 4.2 mitigation).
