@@ -1,8 +1,17 @@
 # Native shell (Capacitor) — spike outcome & runbook
 
-**Status:** decision made, scaffold ready to generate. Native projects are NOT
-committed yet (deliberately — see "Why not in the repo yet").
+**Status:** native projects GENERATED and committed (`frontend/ios/`,
+`frontend/android/`) with production icons + splash for both platforms;
+store listing package in [STORE-LISTING.md](STORE-LISTING.md). Remaining
+items are account-gated (signing, TestFlight, Play internal track) — see the
+checklist in STORE-LISTING.md.
 **Date:** 2026-06-12 · relates to PRD FR 4.8 (tasks 7.x).
+
+> **Local toolchain note:** on this machine Xcode 15.1's `actool` cannot spawn
+> its AssetCatalogSimulatorAgent under the current macOS (every other build
+> step — SPM resolution, Capacitor framework, Swift sources — compiles
+> cleanly; only `CompileAssetCatalog` fails). Update Xcode from the App Store
+> before archiving; no project changes are needed.
 
 ## Decision: remote shell over the deployed origin
 
