@@ -57,6 +57,16 @@ async def cache_control(request: Request, call_next):
         or path.startswith("/api/match-picks")
     ):
         response.headers["Cache-Control"] = "no-store"
+    elif path == "/api/matches/upcoming" or (
+        path.startswith("/api/matches/") and path.endswith("/summary")
+    ):
+        # Live scoreboard feeds: the frontend polls these every 30s through
+        # Vercel's same-origin /backend-api/* rewrite, and the edge honors
+        # origin Cache-Control — a shared max-age let PoPs answer those polls
+        # with minutes-old "scheduled" payloads after kickoff. A poll that
+        # never reaches the origin also can't drive the opportunistic live
+        # refresh (live_refresh.py). The in-process cache absorbs the load.
+        response.headers["Cache-Control"] = "no-store"
     elif (
         request.method == "GET"
         and path.startswith("/api/")
