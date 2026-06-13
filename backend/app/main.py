@@ -12,7 +12,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
     auth, brackets, groups, internal, knockout, leaderboard, match_picks, matches,
-    predictions, teams,
+    model_record, predictions, teams,
 )
 from app.config import settings
 
@@ -108,4 +108,5 @@ app.include_router(knockout.router)
 app.include_router(brackets.router)
 app.include_router(match_picks.router)
 app.include_router(leaderboard.router)
+app.include_router(model_record.router)
 app.include_router(internal.router)
