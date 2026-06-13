@@ -49,6 +49,23 @@ def client():
     cache.clear()
 
 
+def test_live_endpoints_are_never_shared_cacheable(client):
+    # The frontend reaches these through Vercel's /backend-api/* rewrite, and the
+    # edge honors origin Cache-Control. A public max-age let the CDN answer the
+    # 30s live polls with stale "scheduled" payloads for minutes after kickoff —
+    # and starved the opportunistic live refresh those polls are meant to drive.
+    for path in ("/api/matches/upcoming", "/api/matches/1/summary"):
+        res = client.get(path)
+        assert res.status_code == 200, path
+        assert res.headers["Cache-Control"] == "no-store", path
+
+
+def test_slow_moving_reads_keep_shared_cache(client):
+    res = client.get("/api/teams")
+    assert res.status_code == 200
+    assert res.headers["Cache-Control"] == "public, max-age=60, stale-while-revalidate=300"
+
+
 def test_summary_returns_actual_and_predicted_side_by_side(client):
     res = client.get("/api/matches/1/summary")
     assert res.status_code == 200
