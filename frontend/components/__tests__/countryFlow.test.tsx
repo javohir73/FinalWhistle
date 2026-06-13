@@ -4,7 +4,7 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HomeExperience } from "@/app/HomeExperience";
 import * as api from "@/lib/api";
-import type { Team } from "@/lib/types";
+import type { MatchSummary, Team } from "@/lib/types";
 
 jest.mock("@/lib/api");
 
@@ -126,4 +126,56 @@ it("sends a returning user straight to the personalized hub", async () => {
   await waitFor(() =>
     expect(screen.getByText(/AI record so far/)).toBeInTheDocument(),
   );
+});
+
+it("keeps the first view simple — advanced detail and the pick game stay collapsed", async () => {
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+
+  const fixture: MatchSummary = {
+    match_id: 101, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
+    venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
+    status: "scheduled", score_home: null, score_away: null, minute: null,
+    period: null, injury_time: null, penalty_home: null, penalty_away: null,
+    teams: { home: "Brazil", away: "Scotland" },
+    predicted_winner: "Brazil",
+    probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
+    predicted_score: { home: 2, away: 0, probability: 0.1 },
+    confidence: "High",
+  };
+  (api.getUpcomingMatches as jest.Mock).mockResolvedValue([fixture]);
+
+  const { container } = render(
+    <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
+  );
+
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
+  );
+
+  // Both advanced drawers render COLLAPSED by default — the first view is the
+  // payoff, not a dashboard. (jsdom keeps <details> content in the DOM even
+  // when closed, so we assert the `open` attribute, not element presence.)
+  const drawers = container.querySelectorAll("details");
+  expect(drawers).toHaveLength(2);
+  drawers.forEach((d) => expect(d).not.toHaveAttribute("open"));
+  expect(screen.getByText("More about Brazil")).toBeInTheDocument();
+  expect(screen.getByText("Make your own call")).toBeInTheDocument();
+
+  // The default view shows the read-only AI prediction card (a link to the
+  // match detail), outside any drawer.
+  const matchLink = container.querySelector('a[href^="/match/"]');
+  expect(matchLink).not.toBeNull();
+  expect(matchLink?.closest("details")).toBeNull();
+
+  // The interactive pick game lives ONLY inside the collapsed "Make your own
+  // call" drawer — there are no pick buttons in the default first view.
+  const helper = screen.getByText(/Think the AI.s got it wrong/);
+  const pickDrawer = helper.closest("details");
+  expect(pickDrawer).not.toBeNull();
+  expect(pickDrawer).not.toHaveAttribute("open");
+  expect(pickDrawer?.querySelector("summary")?.textContent).toContain("Make your own call");
+  expect(pickDrawer?.querySelectorAll('button[aria-pressed]').length ?? 0).toBeGreaterThan(0);
 });
