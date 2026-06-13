@@ -107,12 +107,12 @@ it("sends a returning user straight to the personalized hub", async () => {
   await waitFor(() =>
     expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
   );
-  expect(screen.getByText("Your predictions for Brazil")).toBeInTheDocument();
+  expect(screen.getByText("Brazil's upcoming matches")).toBeInTheDocument();
 
-  // The hub shows the LIVE group table: real points (3 after a win, not a
-  // simulated average) and no doubled "Group Group C" heading.
-  expect(screen.getByText("Live table")).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: /^Group C/ })).toBeInTheDocument();
+  // The "More about" drawer still carries the LIVE group table: real points
+  // (3 after a win, not a simulated average) and the projected-finish line uses
+  // the already-prefixed group name (no doubled "Group Group C").
+  expect(screen.getByText(/Projected to finish in Group C/)).toBeInTheDocument();
   expect(screen.queryByText(/Group Group/)).not.toBeInTheDocument();
   const cells = screen.getAllByRole("cell").map((c) => c.textContent);
   expect(cells).toContain("3"); // Brazil's live points
