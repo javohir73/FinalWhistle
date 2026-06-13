@@ -110,10 +110,12 @@ export function PersonalizedCountryHome({
           <>
             <p className="mt-3 font-display text-xl font-extrabold leading-snug tracking-tight sm:text-2xl">
               Our AI gives <span className="text-win">{team.name}</span>{" "}
-              {teamOdds?.make_knockout != null && teamOdds.make_knockout >= 0.5
-                ? "a strong chance to reach the knockouts"
-                : "a shot at the knockouts"}
-              {teamOdds?.win_title != null && (
+              {teamOdds?.make_knockout == null
+                ? "a fighting chance in the tournament"
+                : teamOdds.make_knockout >= 0.5
+                  ? "a strong chance to reach the knockouts"
+                  : "a shot at the knockouts"}
+              {teamOdds?.win_title != null && teamOdds.win_title >= 0.01 && (
                 <>
                   {" "}and a{" "}
                   <span className="text-win">{pct(teamOdds.win_title)}</span> title chance
@@ -138,7 +140,7 @@ export function PersonalizedCountryHome({
                   <div className="mt-0.5 text-[11px] uppercase tracking-wider text-muted">Reach final</div>
                 </div>
               )}
-              {teamOdds?.win_title != null && (
+              {teamOdds?.win_title != null && teamOdds.win_title >= 0.01 && (
                 <div className="min-w-0 rounded-xl border border-border bg-surface/50 px-4 py-3 text-center">
                   <div className="font-display text-2xl font-extrabold text-win sm:text-3xl">
                     {pct(teamOdds.win_title)}
