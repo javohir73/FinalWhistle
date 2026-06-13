@@ -179,6 +179,24 @@ def test_paused_is_half_time_and_freezes_the_clock(db_session):
     assert m.minute is None        # frozen: the UI shows HT, never a ticking number
 
 
+def test_stale_paused_into_second_half_is_not_half_time(db_session):
+    # The free feed lags and can stay PAUSED well into the second half. Once our
+    # clock is past the half-time interval (>60' elapsed), the match must read as
+    # the second half, NOT "HT". Regression: the HT window ran to estimated
+    # minute 60, so a 2nd-half match was mislabelled "HT" for ~14 minutes.
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=65)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("PAUSED", home=1, away=0))
+
+    db_session.refresh(m)
+    assert m.status == "in_play"
+    assert m.period == "second_half"   # past the break — not half_time
+    assert m.minute is not None        # the clock ticks again in the 2nd half
+
+
 def test_extra_time_duration_sets_period(db_session):
     # ET/penalties are signalled by score.duration, NOT the status field.
     load_structure(db_session)
