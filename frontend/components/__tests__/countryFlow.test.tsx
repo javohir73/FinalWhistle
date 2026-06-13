@@ -170,6 +170,10 @@ it("keeps the first view simple — advanced detail and the pick game stay colla
   expect(matchLink).not.toBeNull();
   expect(matchLink?.closest("details")).toBeNull();
 
+  // The hub isn't grouped under day headers, so each card must show the kickoff
+  // DATE (a month name), not just the time.
+  expect(matchLink?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
+
   // The interactive pick game lives ONLY inside the collapsed "Make your own
   // call" drawer — there are no pick buttons in the default first view.
   const helper = screen.getByText(/Think the AI.s got it wrong/);

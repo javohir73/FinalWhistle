@@ -5,7 +5,7 @@ import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
 import { liveLabel } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
-import { kickoffTime, tzAbbrev } from "@/lib/datetime";
+import { kickoffDate, kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
 import { ConfidenceBadge } from "./ConfidenceBadge";
@@ -13,8 +13,18 @@ import { Flag } from "./Flag";
 import { FavoriteStar } from "./FavoriteStar";
 
 /** The core dashboard card: matchup, predicted winner, W/D/L bar, score.
- *  When `tz` is given, kickoff time is shown in the user's local timezone. */
-export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
+ *  When `tz` is given, kickoff time is shown in the user's local timezone.
+ *  Set `showDate` when the card isn't inside a day-grouped list (e.g. the
+ *  personalized country hub) so the local date is shown alongside the time. */
+export function MatchCard({
+  match,
+  tz,
+  showDate = false,
+}: {
+  match: MatchSummary;
+  tz?: string;
+  showDate?: boolean;
+}) {
   const { teams, probabilities, predicted_score, confidence, predicted_winner } = match;
   const venue = [match.venue, match.venue_city].filter(Boolean).join(" · ");
   const live = match.status === "in_play";
@@ -58,7 +68,9 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
               <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
               </svg>
-              {kickoffTime(match.kickoff_utc, tz)}
+              {showDate
+                ? `${kickoffDate(match.kickoff_utc, tz)} · ${kickoffTime(match.kickoff_utc, tz)}`
+                : kickoffTime(match.kickoff_utc, tz)}
               <span className="font-medium text-muted">{tzAbbrev(match.kickoff_utc, tz)}</span>
             </span>
           )}

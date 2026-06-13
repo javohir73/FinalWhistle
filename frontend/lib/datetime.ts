@@ -44,6 +44,17 @@ export function kickoffTime(iso: string, tz: string): string {
   }).format(new Date(iso));
 }
 
+/** Compact local kickoff date, e.g. "Sat 20 Jun" — for cards shown outside a
+ *  day-grouped list (the matches page groups by day, so it doesn't need this). */
+export function kickoffDate(iso: string, tz: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: tz,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(new Date(iso));
+}
+
 /** Short timezone abbreviation for the instant, e.g. "EDT", "BST", "GMT+9". */
 export function tzAbbrev(iso: string, tz: string): string {
   const p = new Intl.DateTimeFormat("en-US", {
