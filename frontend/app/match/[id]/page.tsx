@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMatchServer, getMatchSummaryServer } from "@/lib/api";
+import { getMatchServer, getMatchSummaryServer, getModelRecordServer } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { pct, formatScore } from "@/lib/format";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
@@ -38,6 +38,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
   // Seeds the scoreboard with the actual status/score; the page must still
   // render (prediction-only) if this secondary fetch hiccups.
   const summary = await getMatchSummaryServer(params.id).catch(() => null);
+  const record = await getModelRecordServer().catch(() => null);
 
   const { home, away } = p.teams;
   const venue = [p.venue, p.venue_city, p.venue_country].filter(Boolean).join(", ");
@@ -119,10 +120,31 @@ export default async function MatchDetailPage({ params }: { params: { id: string
         </div>
       </section>
 
+      {record && record.evaluated_matches > 0 && (
+        <p className="text-center text-xs text-muted">
+          AI record so far: {record.winners_correct}/{record.evaluated_matches} winners ·{" "}
+          {record.exact_score_hits} exact score{record.exact_score_hits !== 1 ? "s" : ""} ·{" "}
+          predictions update automatically after each final whistle
+        </p>
+      )}
       <p className="text-center text-xs text-muted">
-        {p.generated_at && (
-          <>Model updated {fmtUpdated(p.generated_at)} · </>
-        )}
+        {(() => {
+          // Prefer record.last_updated when it's non-null and newer than
+          // p.generated_at. Compare numerically — the two timestamps come from
+          // different serializers (naive vs offset ISO), so string comparison
+          // mis-orders them.
+          const epoch = (ts: string | null | undefined): number => {
+            if (!ts) return NaN;
+            return Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(ts) ? ts : ts + "Z");
+          };
+          const base = p.generated_at;
+          const recordTs = record?.last_updated ?? null;
+          let displayTs: string | null = base;
+          if (recordTs && (!base || epoch(recordTs) > epoch(base))) {
+            displayTs = recordTs;
+          }
+          return displayTs ? <>Model updated {fmtUpdated(displayTs)} · </> : null;
+        })()}
         {p.disclaimer}
       </p>
     </div>

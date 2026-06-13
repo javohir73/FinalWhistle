@@ -220,6 +220,21 @@ class BracketOut(BaseModel):
     updated_at: str | None = None
 
 
+# ---- Per-match picks (account copy of the device-local match predictions) ----
+class MatchPickIn(BaseModel):
+    match_id: int
+    pick: str  # home/draw/away
+
+
+class MatchPicksIn(BaseModel):
+    picks: list[MatchPickIn] = []
+
+
+class MatchPicksOut(BaseModel):
+    picks: list[MatchPickIn]
+    updated_at: str | None = None
+
+
 class JoinLeaderboardIn(BaseModel):
     display_name: str
     visibility: str = "public"  # public/private

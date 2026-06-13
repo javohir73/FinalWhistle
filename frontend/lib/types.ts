@@ -170,3 +170,42 @@ export interface SavedBracket {
   submitted_at: string | null;
   updated_at: string | null;
 }
+
+/** The account copy of the device-local per-match predictions. */
+export interface SavedMatchPicks {
+  picks: { match_id: number; pick: "home" | "draw" | "away" }[];
+  updated_at: string | null;
+}
+
+// ---- Model performance record ----
+export interface ModelRecordEntry {
+  match_id: number;
+  label: string;
+  predicted_score: { home: number | null; away: number | null } | null;
+  prob_assigned: number | null;
+  winner_correct: boolean | null;
+  exact_score_correct: boolean | null;
+  brier: number | null;
+  log_loss: number | null;
+}
+
+export interface CalibrationPoint {
+  mean_predicted: number;
+  empirical_freq: number;
+  count: number;
+}
+
+export interface ModelRecord {
+  evaluated_matches: number;
+  winner_accuracy: number | null;
+  winners_correct: number;
+  exact_score_hits: number;
+  avg_brier: number | null;
+  avg_log_loss: number | null;
+  calibration: CalibrationPoint[];
+  best_calls: ModelRecordEntry[];
+  biggest_misses: ModelRecordEntry[];
+  last_updated: string | null;
+  model_version: string;
+  disclaimer: string;
+}

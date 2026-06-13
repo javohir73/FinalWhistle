@@ -91,7 +91,7 @@ def estimate_minute(kickoff: datetime | None, now: datetime | None = None) -> in
 def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     """Apply fetched match states to our DB. Returns a small summary."""
     index = _index_by_pair(db)
-    updated = live = finished = 0
+    updated = live = finished = newly_finished = 0
 
     for am in api_matches:
         try:
@@ -136,6 +136,10 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         else:  # the feed's home/away is our away/home — swap to our orientation
             match.score_home, match.score_away = their_away, their_home
 
+        # A scheduled/in_play -> finished TRANSITION is the learning loop's
+        # event trigger (callers react to `newly_finished`).
+        if status == "finished" and match.status != "finished":
+            newly_finished += 1
         match.status = status
         # The free tier omits `minute`, so fall back to a kickoff-based estimate.
         match.minute = (
@@ -150,7 +154,12 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
             finished += 1
 
     db.commit()
-    return {"updated": updated, "live": live, "finished": finished}
+    return {
+        "updated": updated,
+        "live": live,
+        "finished": finished,
+        "newly_finished": newly_finished,
+    }
 
 
 def refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:

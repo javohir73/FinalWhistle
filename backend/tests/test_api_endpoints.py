@@ -195,7 +195,11 @@ def test_recompute_requires_token(client, monkeypatch):
     ).status_code == 401
     r = client.post("/api/internal/recompute", headers={"X-Recompute-Token": "test-secret"})
     assert r.status_code == 200
-    assert r.json()["recomputed"]["matches_predicted"] == 72
+    # /recompute now runs the full post-results chain: learning loop ->
+    # predictions -> bracket rescore.
+    recomputed = r.json()["recomputed"]
+    assert recomputed["predictions"]["matches_predicted"] == 72
+    assert "learning" in recomputed
 
 
 def test_prediction_rows_log_model_version_and_timestamp(client):

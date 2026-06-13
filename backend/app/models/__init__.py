@@ -210,6 +210,65 @@ class TournamentOdds(Base):
     team: Mapped[Team] = relationship()
 
 
+class PredictionResult(Base):
+    """Prediction-vs-actual evaluation for one finished match (learning loop).
+
+    Written once per finished match from the FROZEN pre-kickoff Prediction row
+    (predictions are append-only and never regenerated after kickoff, so the
+    latest row per match is the immutable snapshot). This table is the audited
+    source of truth for the "AI record" endpoint and marketing claims.
+    """
+
+    __tablename__ = "prediction_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), unique=True)
+    prediction_id: Mapped[int] = mapped_column(ForeignKey("predictions.id"))
+    model_version: Mapped[str] = mapped_column(String(40))
+    actual_score_home: Mapped[int] = mapped_column(Integer)
+    actual_score_away: Mapped[int] = mapped_column(Integer)
+    outcome: Mapped[str] = mapped_column(String(4))  # 'home' / 'draw' / 'away'
+    winner_correct: Mapped[bool] = mapped_column(Boolean)
+    exact_score_correct: Mapped[bool] = mapped_column(Boolean)
+    prob_assigned: Mapped[float] = mapped_column(Float)  # p(actual outcome)
+    brier: Mapped[float] = mapped_column(Float)
+    log_loss: Mapped[float] = mapped_column(Float)
+    goal_error: Mapped[int] = mapped_column(Integer)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    match: Mapped[Match] = relationship()
+    prediction: Mapped[Prediction] = relationship()
+
+
+class TeamTournamentState(Base):
+    """Per-team in-tournament learning state (learning loop).
+
+    Recomputed from scratch on every run by replaying finished WC matches from
+    the historical Elo base (ml/ratings/tournament.py) — never incremental, so
+    it cannot drift or double-apply. ``elo_delta + form_adjustment`` is added
+    to ``teams.elo_rating`` wherever predictions/simulations read strength.
+    ``detail`` keeps the per-match inputs for explainability.
+    """
+
+    __tablename__ = "team_tournament_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team_id: Mapped[int] = mapped_column(ForeignKey("teams.id"), unique=True)
+    elo_delta: Mapped[float] = mapped_column(Float, default=0.0)
+    form_adjustment: Mapped[float] = mapped_column(Float, default=0.0)
+    gf_residual_mean: Mapped[float] = mapped_column(Float, default=0.0)
+    ga_residual_mean: Mapped[float] = mapped_column(Float, default=0.0)
+    matches_played: Mapped[int] = mapped_column(Integer, default=0)
+    detail: Mapped[list | None] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    team: Mapped[Team] = relationship()
+
+
 class Odds(Base):
     """Bookmaker odds. Historical odds are ingested for calibration only in MVP
     (Decision #1); user-facing odds comparison is Phase 4."""
@@ -249,6 +308,9 @@ class AppUser(Base):
     )
 
     bracket: Mapped[Bracket | None] = relationship(back_populates="user", uselist=False)
+    match_picks: Mapped[list[MatchPick]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     sessions: Mapped[list[UserSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -360,6 +422,24 @@ class BracketScore(Base):
     bracket: Mapped[Bracket] = relationship(back_populates="score")
 
 
+class MatchPick(Base):
+    """A signed-in user's per-match outcome pick (home/draw/away) — the account
+    copy of the device-local match predictions, one row per (user, match)."""
+
+    __tablename__ = "match_picks"
+    __table_args__ = (UniqueConstraint("user_id", "match_id", name="uq_match_pick_user_match"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))
+    pick: Mapped[str] = mapped_column(String(4))  # home/draw/away
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[AppUser] = relationship(back_populates="match_picks")
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -371,6 +451,8 @@ __all__ = [
     "Prediction",
     "Standing",
     "TournamentOdds",
+    "PredictionResult",
+    "TeamTournamentState",
     "Odds",
     "AppUser",
     "UserSession",
@@ -379,4 +461,5 @@ __all__ = [
     "BracketGroupPick",
     "BracketKnockoutPick",
     "BracketScore",
+    "MatchPick",
 ]

@@ -4,6 +4,7 @@ import type {
   Group,
   LeaderboardRow,
   MatchSummary,
+  ModelRecord,
   Prediction,
   PredictionWithHistory,
   Team,
@@ -71,6 +72,8 @@ export const getLeaderboard = () =>
   getJson<LeaderboardRow[]>("/api/leaderboard");
 export const getMatchSummary = (id: number | string) =>
   getJson<MatchSummary>(`/api/matches/${id}/summary`);
+export const getModelRecord = () =>
+  getJson<ModelRecord>("/api/model/record");
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */
@@ -100,3 +103,5 @@ export const getGroupsServer = () =>
   getServer<Group[]>("/api/groups", 300);
 export const getLeaderboardServer = () =>
   getServer<LeaderboardRow[]>("/api/leaderboard", 60);
+export const getModelRecordServer = () =>
+  getServer<ModelRecord>("/api/model/record", 300);
