@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
+import { liveLabel } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
@@ -34,13 +35,16 @@ export function MatchCard({ match, tz }: { match: MatchSummary; tz?: string }) {
           {match.group ?? match.stage}
         </span>
         {live ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
-            Live{match.minute != null ? ` ${match.minute}'` : ""}
+          <span
+            className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
+            aria-label={`Live, ${liveLabel(match)}`}
+          >
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+            {liveLabel(match)}
           </span>
         ) : finished ? (
           <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-            Full time
+            FT
           </span>
         ) : (
           confidence && <ConfidenceBadge level={confidence} />

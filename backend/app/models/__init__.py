@@ -101,7 +101,17 @@ class Match(Base):
     status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled/in_play/finished
     score_home: Mapped[int | None] = mapped_column(Integer)
     score_away: Mapped[int | None] = mapped_column(Integer)
-    minute: Mapped[int | None] = mapped_column(Integer)  # live clock when in_play
+    minute: Mapped[int | None] = mapped_column(Integer)  # live clock when in_play (None at HT/PENS)
+    # Phase of play, refines `status` while in_play: first_half / half_time /
+    # second_half / extra_time / penalty_shootout (None otherwise). Drives the
+    # scoreboard label (HT / ET / PENS) since the free feed has no live minute.
+    period: Mapped[str | None] = mapped_column(String(20))
+    injury_time: Mapped[int | None] = mapped_column(Integer)  # added minutes, when the feed reports it
+    penalty_home: Mapped[int | None] = mapped_column(Integer)  # shootout tally (score.penalties)
+    penalty_away: Mapped[int | None] = mapped_column(Integer)
+    # Feed's per-match version stamp (lastUpdated). A lagging cache node must not
+    # overwrite a fresher record we already applied (see live_scores.update).
+    provider_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])

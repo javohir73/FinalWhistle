@@ -9,6 +9,7 @@ function match(): MatchSummary {
     match_id: 7, stage: "group", group: "C", kickoff_utc: null,
     venue: null, venue_city: null, venue_country: null, is_neutral: true,
     status: "scheduled", score_home: null, score_away: null, minute: null,
+    period: null, injury_time: null, penalty_home: null, penalty_away: null,
     teams: { home: "Brazil", away: "Scotland" },
     predicted_winner: "Brazil",
     probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
