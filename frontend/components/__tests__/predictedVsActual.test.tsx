@@ -23,6 +23,10 @@ const base: MatchSummary = {
   score_home: null,
   score_away: null,
   minute: null,
+  period: null,
+  injury_time: null,
+  penalty_home: null,
+  penalty_away: null,
   teams: { home: "Mexico", away: "South Africa" },
   predicted_winner: "Mexico",
   probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },
@@ -31,7 +35,16 @@ const base: MatchSummary = {
 };
 
 const finished: MatchSummary = { ...base, status: "finished", score_home: 2, score_away: 0 };
-const live: MatchSummary = { ...base, status: "in_play", score_home: 1, score_away: 0, minute: 63 };
+const live: MatchSummary = {
+  ...base, status: "in_play", score_home: 1, score_away: 0, minute: 63, period: "second_half",
+};
+const halfTime: MatchSummary = {
+  ...base, status: "in_play", score_home: 1, score_away: 0, minute: null, period: "half_time",
+};
+const shootout: MatchSummary = {
+  ...base, status: "in_play", score_home: 1, score_away: 1, minute: null,
+  period: "penalty_shootout", penalty_home: 5, penalty_away: 4,
+};
 
 beforeEach(() => mockGetMatchSummary.mockResolvedValue(finished));
 afterEach(() => jest.resetAllMocks());
@@ -88,14 +101,28 @@ describe("MatchScoreboard", () => {
     mockGetMatchSummary.mockResolvedValue(live);
     renderBoard(live);
     expect(screen.getByText("1–0")).toBeInTheDocument(); // actual (1–0 at 63')
-    expect(screen.getByText(/Live 63'/)).toBeInTheDocument();
+    expect(screen.getByText("63'")).toBeInTheDocument();
     expect(screen.getByText(/Model predicted/)).toBeInTheDocument();
+  });
+
+  it("shows HT at half-time instead of a ticking minute", () => {
+    mockGetMatchSummary.mockResolvedValue(halfTime);
+    renderBoard(halfTime);
+    expect(screen.getByText("HT")).toBeInTheDocument();
+    expect(screen.queryByText(/'/)).not.toBeInTheDocument(); // no minute shown
+  });
+
+  it("shows PENS and the shootout tally during a penalty shootout", () => {
+    mockGetMatchSummary.mockResolvedValue(shootout);
+    renderBoard(shootout);
+    expect(screen.getByText("PENS")).toBeInTheDocument();
+    expect(screen.getByText(/5–4 pens/)).toBeInTheDocument();
   });
 
   it("at full time shows actual + predicted + verdict together", () => {
     renderBoard(finished);
     expect(screen.getByText("2–0")).toBeInTheDocument(); // actual headline
-    expect(screen.getByText("Full time")).toBeInTheDocument();
+    expect(screen.getByText("FT")).toBeInTheDocument();
     expect(screen.getByText("Mexico 1–0 South Africa")).toBeInTheDocument(); // prediction kept visible
     expect(screen.getByText("Result predicted right")).toBeInTheDocument();
   });
