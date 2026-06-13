@@ -218,3 +218,36 @@ it("shows the kickoff date on already-played (finished) hub matches too", async 
   // Even with an FT result, the kickoff DATE (a month name) is present.
   expect(card?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
 });
+
+it("survives a corrupted stored timezone without crashing the hub", async () => {
+  // A stale/garbage zone (e.g. left by an older build) must NOT reach
+  // Intl.DateTimeFormat and throw — useTimezone should reject it and fall back.
+  localStorage.setItem("pp:timezone", JSON.stringify({ tz: "Not/AReal_Zone", confirmed: true }));
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+
+  const fixture: MatchSummary = {
+    match_id: 303, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
+    venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
+    status: "scheduled", score_home: null, score_away: null, minute: null,
+    period: null, injury_time: null, penalty_home: null, penalty_away: null,
+    teams: { home: "Brazil", away: "Scotland" },
+    predicted_winner: "Brazil",
+    probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
+    predicted_score: { home: 2, away: 0, probability: 0.1 },
+    confidence: "High",
+  };
+  (api.getUpcomingMatches as jest.Mock).mockResolvedValue([fixture]);
+
+  const { container } = render(
+    <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
+  );
+
+  // The hub renders the fixture card without the bad zone crashing the tree.
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
+  );
+  expect(container.querySelector('a[href^="/match/"]')).not.toBeNull();
+});

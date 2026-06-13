@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { isValidTimeZone } from "@/lib/datetime";
 
 const KEY = "pp:timezone";
 const EVENT = "pp:timezone-changed";
@@ -25,7 +26,9 @@ function read(): TzState | null {
     const raw = window.localStorage.getItem(KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed.tz === "string") {
+    // Reject a stale/garbage zone (e.g. left by an older build) so it never
+    // reaches Intl.DateTimeFormat and throws mid-render — fall back to detection.
+    if (parsed && typeof parsed.tz === "string" && isValidTimeZone(parsed.tz)) {
       return { tz: parsed.tz, confirmed: !!parsed.confirmed };
     }
   } catch {
@@ -66,9 +69,10 @@ export function useTimezone() {
     setState(next);
   }, []);
 
-  /** Choose a timezone (marks it confirmed). */
+  /** Choose a timezone (marks it confirmed). Guards against an invalid id. */
   const setTimezone = useCallback(
-    (tz: string) => persist({ tz, confirmed: true }),
+    (tz: string) =>
+      persist({ tz: isValidTimeZone(tz) ? tz : detectTimezone(), confirmed: true }),
     [persist],
   );
 
