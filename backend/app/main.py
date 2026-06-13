@@ -11,8 +11,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api import (
-    auth, brackets, groups, internal, knockout, leaderboard, matches, predictions,
-    teams,
+    auth, brackets, groups, internal, knockout, leaderboard, match_picks, matches,
+    model_record, predictions, teams,
 )
 from app.config import settings
 
@@ -45,12 +45,17 @@ async def cache_control(request: Request, call_next):
     daily refresh, so a short shared-cache TTL + SWR lets any CDN/proxy serve
     repeats cheaply (and is harmless behind the app's no-store fetches).
 
-    Auth and bracket responses are user-specific and MUST never be shared-cached
-    — a CDN keying on the (user-less) URL could otherwise serve one user's
-    session/bracket to another. Force `no-store` on those regardless of method."""
+    Auth, bracket, and match-pick responses are user-specific and MUST never be
+    shared-cached — a CDN keying on the (user-less) URL could otherwise serve one
+    user's session/bracket/picks to another. Force `no-store` on those regardless
+    of method."""
     response = await call_next(request)
     path = request.url.path
-    if path.startswith("/api/auth") or path.startswith("/api/brackets"):
+    if (
+        path.startswith("/api/auth")
+        or path.startswith("/api/brackets")
+        or path.startswith("/api/match-picks")
+    ):
         response.headers["Cache-Control"] = "no-store"
     elif path == "/api/matches/upcoming" or (
         path.startswith("/api/matches/") and path.endswith("/summary")
@@ -111,5 +116,7 @@ app.include_router(teams.router)
 app.include_router(groups.router)
 app.include_router(knockout.router)
 app.include_router(brackets.router)
+app.include_router(match_picks.router)
 app.include_router(leaderboard.router)
+app.include_router(model_record.router)
 app.include_router(internal.router)

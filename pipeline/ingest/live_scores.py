@@ -156,7 +156,7 @@ def _pick_minute(feed_minute: object, kickoff: datetime | None) -> int | None:
 def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     """Apply fetched match states to our DB. Returns a small summary."""
     index = _index_by_pair(db)
-    updated = live = finished = 0
+    updated = live = finished = newly_finished = 0
 
     for am in api_matches:
         try:
@@ -221,6 +221,10 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
                 match.score_home is None and match.score_away is None):
             match.score_home, match.score_away = new_home, new_away
 
+        # A scheduled/in_play -> finished TRANSITION is the learning loop's
+        # event trigger (callers react to `newly_finished`).
+        if status == "finished" and match.status != "finished":
+            newly_finished += 1
         match.status = status
         if status == "in_play":
             feed_minute = am.get("minute")
@@ -254,7 +258,12 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         updated += 1
 
     db.commit()
-    return {"updated": updated, "live": live, "finished": finished}
+    return {
+        "updated": updated,
+        "live": live,
+        "finished": finished,
+        "newly_finished": newly_finished,
+    }
 
 
 def refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:

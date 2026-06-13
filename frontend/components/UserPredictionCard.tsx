@@ -6,6 +6,7 @@ import type { Pick } from "@/lib/useMatchPicks";
 import type { MatchSummary } from "@/lib/types";
 import { kickoffTime, dayHeading, tzAbbrev } from "@/lib/datetime";
 import { liveLabel } from "@/lib/liveLabel";
+import { predictionVerdict } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 
 type Outcome = "home" | "draw" | "away";
@@ -97,6 +98,7 @@ export function UserPredictionCard({
   const live = match.status === "in_play";
   const finished = match.status === "finished";
   const hasScore = match.score_home != null && match.score_away != null;
+  const matchVerdict = finished ? predictionVerdict(match) : null;
 
   return (
     <div
@@ -160,6 +162,15 @@ export function UserPredictionCard({
             </>
           ))}
       </div>
+
+      {matchVerdict && (
+        <div className="mt-1.5 flex items-center justify-center gap-1 text-xs font-semibold">
+          <span aria-hidden>{matchVerdict.kind === "miss" ? "✗" : "✓"}</span>
+          <span className={matchVerdict.kind === "miss" ? "text-loss" : "text-win"}>
+            {matchVerdict.label}
+          </span>
+        </div>
+      )}
 
       {/* Pick buttons */}
       <div className="mt-3.5 grid grid-cols-3 gap-2" role="group" aria-label={`Your prediction for ${country} vs ${opponent}`}>

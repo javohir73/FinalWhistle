@@ -41,3 +41,31 @@ it("flags an upset when the user backs the long shot", () => {
   );
   expect(screen.getByText("You’re calling an upset")).toBeInTheDocument();
 });
+
+it("shows ‘Exact score predicted’ badge when the predicted score matches the final score", () => {
+  const m: MatchSummary = {
+    ...match(),
+    status: "finished",
+    score_home: 2,
+    score_away: 0,
+    // predicted_score is { home: 2, away: 0 } from match() — exact hit
+  };
+  render(
+    <UserPredictionCard match={m} country="Brazil" pick={undefined} onPick={jest.fn()} tz="UTC" />,
+  );
+  expect(screen.getByText("Exact score predicted")).toBeInTheDocument();
+});
+
+it("shows ‘Model missed this one’ badge when the model predicted the wrong winner", () => {
+  const m: MatchSummary = {
+    ...match(),
+    status: "finished",
+    score_home: 0,
+    score_away: 1,
+    // predicted_score { home: 2, away: 0 } — wrong; probabilities lean home (0.62) but away won
+  };
+  render(
+    <UserPredictionCard match={m} country="Brazil" pick={undefined} onPick={jest.fn()} tz="UTC" />,
+  );
+  expect(screen.getByText("Model missed this one")).toBeInTheDocument();
+});

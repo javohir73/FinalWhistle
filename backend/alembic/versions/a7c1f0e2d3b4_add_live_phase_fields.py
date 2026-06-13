@@ -1,7 +1,7 @@
 """add live phase fields to matches (period, injury time, penalties, freshness)
 
 Revision ID: a7c1f0e2d3b4
-Revises: f6a7b8c9d0e1
+Revises: b8c9d0e1f2a3
 Create Date: 2026-06-13
 """
 from typing import Sequence, Union
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "a7c1f0e2d3b4"
-down_revision: Union[str, None] = "f6a7b8c9d0e1"
+down_revision: Union[str, None] = "b8c9d0e1f2a3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

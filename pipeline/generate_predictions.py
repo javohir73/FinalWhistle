@@ -28,9 +28,14 @@ def _host_adv(match: Match, home: Team) -> float:
 
 
 def build_payload(
-    db: Session, match: Match, model_version: str
+    db: Session, match: Match, model_version: str,
+    strengths: dict[int, float] | None = None,
 ) -> dict | None:
-    """Build the PRD §17 prediction payload for a match (None if teams unknown)."""
+    """Build the PRD §17 prediction payload for a match (None if teams unknown).
+
+    ``strengths`` (team_id -> effective Elo) lets the learning loop inject
+    tournament-adjusted ratings; absent entries fall back to the base rating.
+    """
     if match.team_home_id is None or match.team_away_id is None:
         return None
     home = db.get(Team, match.team_home_id)
@@ -38,8 +43,15 @@ def build_payload(
 
     feats = build_match_features(db, home, away, host_team_id=match.host_team_id)
     host_adv = _host_adv(match, home)
-    elo_home, _ = estimate_strength(home)
-    elo_away, _ = estimate_strength(away)
+    strengths = strengths or {}
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    # Keep the explanation layer consistent with the probabilities: reasons and
+    # top_features must describe the SAME effective ratings the model used,
+    # not the pre-tournament base.
+    feats.elo_home = elo_home
+    feats.elo_away = elo_away
+    feats.elo_diff = elo_home - elo_away
     pred = predict_match(elo_home, elo_away, home_adv=host_adv)
 
     cold_start = feats.strength_source_home != "elo" or feats.strength_source_away != "elo"
@@ -111,9 +123,13 @@ def _played_score(m: Match) -> tuple[int, int] | None:
     return None
 
 
-def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: int) -> None:
+def _simulate_standings(
+    db: Session, group: Group, model_version: str, n_sims: int,
+    strengths: dict[int, float] | None = None,
+) -> None:
     members = [gt.team for gt in group.group_teams]
-    team_elos = {t.id: estimate_strength(t)[0] for t in members}
+    strengths = strengths or {}
+    team_elos = {t.id: strengths.get(t.id, estimate_strength(t)[0]) for t in members}
     fixtures = []
     for m in db.query(Match).filter_by(group_id=group.id).all():
         if m.team_home_id and m.team_away_id:
@@ -149,19 +165,22 @@ def _simulate_standings(db: Session, group: Group, model_version: str, n_sims: i
         row.as_of = now
 
 
-def _simulate_tournament(db: Session, n_sims: int) -> int:
+def _simulate_tournament(
+    db: Session, n_sims: int, strengths: dict[int, float] | None = None
+) -> int:
     """Run the full group→knockout Monte-Carlo and persist per-team round/title
     probabilities. Returns the number of teams with odds written."""
     groups: dict[str, list[int]] = {}
     fixtures: dict[str, list[KnockoutFixture]] = {}
     team_elos: dict[int, float] = {}
+    strengths = strengths or {}
 
     for group in db.query(Group).all():
         letter = group.name.split()[-1]  # "Group A" -> "A"
         members = [gt.team for gt in group.group_teams]
         groups[letter] = [t.id for t in members]
         for t in members:
-            team_elos[t.id] = estimate_strength(t)[0]
+            team_elos[t.id] = strengths.get(t.id, estimate_strength(t)[0])
         fx: list[KnockoutFixture] = []
         for m in db.query(Match).filter_by(group_id=group.id).all():
             if m.team_home_id and m.team_away_id:
@@ -199,6 +218,13 @@ def generate_predictions(
 ) -> dict:
     """Predict all upcoming group matches, simulate every group's standings, and
     run the full-tournament (knockout) Monte-Carlo."""
+    # Tournament-adjusted strengths (base Elo + conservative delta + capped
+    # form) so match predictions and both simulations move together once the
+    # learning loop has run. Falls back to base ratings when no state exists.
+    from pipeline.learning_loop import effective_elos
+
+    strengths = effective_elos(db)
+
     matches = (
         db.query(Match)
         .filter(Match.stage == "group", Match.status == "scheduled")
@@ -206,7 +232,7 @@ def generate_predictions(
     )
     predicted = 0
     for match in matches:
-        payload = build_payload(db, match, model_version)
+        payload = build_payload(db, match, model_version, strengths=strengths)
         if payload is None:
             continue
         _write_prediction(db, payload, model_version)
@@ -214,9 +240,9 @@ def generate_predictions(
 
     groups = db.query(Group).all()
     for group in groups:
-        _simulate_standings(db, group, model_version, n_sims)
+        _simulate_standings(db, group, model_version, n_sims, strengths=strengths)
 
-    teams_simulated = _simulate_tournament(db, tournament_sims)
+    teams_simulated = _simulate_tournament(db, tournament_sims, strengths=strengths)
 
     db.commit()
     return {

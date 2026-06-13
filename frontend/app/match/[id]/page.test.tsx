@@ -1,13 +1,14 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer, getMatchSummary, getMatchSummaryServer } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer, getModelRecordServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGet = getMatchServer as jest.MockedFunction<typeof getMatchServer>;
 const mockSummaryServer = getMatchSummaryServer as jest.MockedFunction<typeof getMatchSummaryServer>;
 const mockSummary = getMatchSummary as jest.MockedFunction<typeof getMatchSummary>;
+const mockModelRecord = getModelRecordServer as jest.MockedFunction<typeof getModelRecordServer>;
 
 // Recharts needs a non-zero layout size in jsdom.
 beforeAll(() => {
@@ -45,6 +46,8 @@ beforeEach(() => {
   // page must render prediction-only.
   mockSummaryServer.mockResolvedValue(null);
   mockSummary.mockRejectedValue(new Error("no api in jsdom"));
+  // Record fetch is secondary — resolve to null (no evaluated matches yet).
+  mockModelRecord.mockResolvedValue(null);
 });
 afterEach(() => jest.resetAllMocks());
 

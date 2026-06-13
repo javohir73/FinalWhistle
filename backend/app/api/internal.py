@@ -44,9 +44,14 @@ def recompute(
 ):
     _require_token(x_recompute_token)
     # Lazy import: the model packages aren't needed for normal read traffic.
-    from pipeline.generate_predictions import generate_predictions
+    # Full chain: evaluate finished predictions + update tournament ratings
+    # (conservative Elo delta + capped form), THEN regenerate predictions and
+    # simulations from the adjusted ratings, THEN rescore brackets.
+    from pipeline.learning_loop import run_post_results_chain
 
-    summary = generate_predictions(db, model_version=settings.model_version)
+    summary = run_post_results_chain(
+        db, settings.model_version, n_sims=5000, tournament_sims=2000
+    )
     cache.clear()
     return {"status": "ok", "recomputed": summary}
 

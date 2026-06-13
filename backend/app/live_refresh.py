@@ -84,6 +84,21 @@ def maybe_refresh_live(session_factory=None) -> dict | None:
             from pipeline.ingest.live_scores import refresh_live
 
             summary = refresh_live(db)
+            if summary.get("newly_finished"):
+                # Final whistle just blew: run the learning chain — evaluate
+                # the frozen prediction, update tournament ratings (conservative
+                # + capped), regenerate future predictions/simulations, rescore
+                # the leaderboard. Still inside _lock, so chains never overlap;
+                # rare by nature (a handful of finals per day at most).
+                from app.config import settings as app_settings
+                from pipeline.learning_loop import run_post_results_chain
+
+                try:
+                    chain = run_post_results_chain(db, app_settings.model_version)
+                    summary["post_results"] = chain
+                    log.info("post-results chain after final whistle: %s", chain)
+                except Exception:  # noqa: BLE001 — next trigger/daily run retries
+                    log.exception("post-results chain failed; data remains consistent")
             if summary.get("updated"):
                 cache.clear()  # evict the stale board so the next poll shows new scores
             return summary
