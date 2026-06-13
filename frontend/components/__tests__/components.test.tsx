@@ -71,6 +71,10 @@ describe("MatchCard", () => {
     score_home: null,
     score_away: null,
     minute: null,
+    period: null,
+    injury_time: null,
+    penalty_home: null,
+    penalty_away: null,
     teams: { home: "Mexico", away: "South Africa" },
     predicted_winner: "Mexico",
     probabilities: { home_win: 0.78, draw: 0.14, away_win: 0.08 },
@@ -94,9 +98,10 @@ describe("MatchCard", () => {
       score_home: 1,
       score_away: 0,
       minute: 67,
+      period: "second_half" as const,
     };
     render(<MatchCard match={liveMatch} />);
-    expect(screen.getByText(/Live 67'/i)).toBeInTheDocument();
+    expect(screen.getByText("67'")).toBeInTheDocument();
     expect(screen.getByText("1")).toBeInTheDocument(); // home live score
   });
 });

@@ -66,6 +66,13 @@ def test_slow_moving_reads_keep_shared_cache(client):
     assert res.headers["Cache-Control"] == "public, max-age=60, stale-while-revalidate=300"
 
 
+def test_summary_exposes_live_phase_fields(client):
+    # The scoreboard needs period/injury/penalty to render HT / 45+2' / PENS.
+    body = client.get("/api/matches/1/summary").json()
+    for key in ("period", "injury_time", "penalty_home", "penalty_away"):
+        assert key in body, key
+
+
 def test_summary_returns_actual_and_predicted_side_by_side(client):
     res = client.get("/api/matches/1/summary")
     assert res.status_code == 200

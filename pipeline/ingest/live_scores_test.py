@@ -98,12 +98,28 @@ def test_no_api_key_is_a_safe_noop(db_session):
     assert summary["updated"] == 0
 
 
-def _feed(status: str, home=1, away=0, **extra) -> list[dict]:
-    return [{
+def _feed(status: str, home=1, away=0, *, duration="REGULAR", minute=None,
+          injury_time=None, last_updated=None, penalties=None,
+          top_penalties=None) -> list[dict]:
+    """Build a one-item football-data.org v4 match list.
+    `penalties` is the score.penalties OBJECT tally; `top_penalties` is the
+    UNRELATED top-level kick-event ARRAY (the collision trap)."""
+    score: dict = {"fullTime": {"home": home, "away": away}, "duration": duration}
+    if penalties is not None:
+        score["penalties"] = penalties
+    item: dict = {
         "homeTeam": {"name": "Mexico"}, "awayTeam": {"name": "South Africa"},
-        "status": status, "score": {"fullTime": {"home": home, "away": away}},
-        **extra,
-    }]
+        "status": status, "score": score,
+    }
+    if minute is not None:
+        item["minute"] = minute
+    if injury_time is not None:
+        item["injuryTime"] = injury_time
+    if last_updated is not None:
+        item["lastUpdated"] = last_updated
+    if top_penalties is not None:
+        item["penalties"] = top_penalties
+    return [item]
 
 
 def test_lagging_feed_does_not_regress_live_match_to_scheduled(db_session):
@@ -147,14 +163,231 @@ def test_suspended_is_a_deliberate_downgrade_and_still_applies(db_session):
     assert m.status == "scheduled"
 
 
-def test_extra_time_and_penalty_shootout_are_in_play(db_session):
-    # Knockout matches: v4 statuses the map didn't cover fell back to
-    # "scheduled", which would un-live a match in extra time.
+def test_paused_is_half_time_and_freezes_the_clock(db_session):
+    # The overcount bug: the kickoff estimate kept ticking through the break.
+    # PAUSED is the feed's half-time signal — stay live, freeze, show HT.
     load_structure(db_session)
-    for raw in ("EXTRA_TIME", "PENALTY_SHOOTOUT"):
-        update_live_scores(db_session, _feed(raw, home=1, away=1))
-        m = _match_for(db_session, "Mexico", "South Africa")
-        assert m.status == "in_play", raw
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=55)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("PAUSED", home=1, away=0))
+
+    db_session.refresh(m)
+    assert m.status == "in_play"   # a single PAUSED is half-time, NOT terminal
+    assert m.period == "half_time"
+    assert m.minute is None        # frozen: the UI shows HT, never a ticking number
+
+
+def test_extra_time_duration_sets_period(db_session):
+    # ET/penalties are signalled by score.duration, NOT the status field.
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=100)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("IN_PLAY", home=1, away=1, duration="EXTRA_TIME"))
+
+    db_session.refresh(m)
+    assert m.status == "in_play"
+    assert m.period == "extra_time"
+
+
+def test_penalty_shootout_sets_period_and_tally(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=1, duration="PENALTY_SHOOTOUT",
+        penalties={"home": 5, "away": 4},
+    ))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.status == "in_play"
+    assert m.period == "penalty_shootout"
+    assert m.penalty_home == 5 and m.penalty_away == 4
+
+
+def test_penalty_tally_read_from_score_object_not_top_level_array(db_session):
+    # score.penalties is the shootout TALLY (object). The top-level `penalties`
+    # is an ARRAY of individual kicks — never read it as the aggregate.
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=1, duration="PENALTY_SHOOTOUT",
+        penalties={"home": 3, "away": 2},
+        top_penalties=[
+            {"player": {"id": 1, "name": "A"}, "team": {"id": 9, "name": "Mexico"}, "scored": True},
+            {"player": {"id": 2, "name": "B"}, "team": {"id": 9, "name": "Mexico"}, "scored": True},
+            {"player": {"id": 3, "name": "C"}, "team": {"id": 9, "name": "Mexico"}, "scored": True},
+            {"player": {"id": 4, "name": "D"}, "team": {"id": 9, "name": "Mexico"}, "scored": False},
+        ],
+    ))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.penalty_home == 3 and m.penalty_away == 2  # not len(top_penalties)
+
+
+def test_penalty_tally_orientation_swapped_when_feed_reversed(db_session):
+    load_structure(db_session)
+    # Our fixture is Mexico home, South Africa away; the feed sends it reversed.
+    update_live_scores(db_session, [{
+        "homeTeam": {"name": "South Africa"}, "awayTeam": {"name": "Mexico"},
+        "status": "IN_PLAY",
+        "score": {"fullTime": {"home": 1, "away": 1}, "duration": "PENALTY_SHOOTOUT",
+                  "penalties": {"home": 2, "away": 5}},
+    }])
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.penalty_home == 5 and m.penalty_away == 2  # swapped to our orientation
+
+
+def test_absent_phase_nodes_do_not_crash(db_session):
+    # A REGULAR match omits the penalties node entirely.
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=20)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("IN_PLAY", home=1, away=0))
+
+    db_session.refresh(m)
+    assert m.penalty_home is None and m.penalty_away is None
+    assert m.period in ("first_half", "second_half")
+
+
+def test_injury_time_stored_when_feed_reports_it(db_session):
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=46)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("IN_PLAY", home=1, away=0, minute=45, injury_time=2))
+
+    db_session.refresh(m)
+    assert m.minute == 45
+    assert m.injury_time == 2
+
+
+def test_first_then_second_half_period(db_session):
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=10)
+    db_session.commit()
+    update_live_scores(db_session, _feed("IN_PLAY", home=0, away=0))
+    db_session.refresh(m)
+    assert m.period == "first_half"
+
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=70)
+    db_session.commit()
+    update_live_scores(db_session, _feed("IN_PLAY", home=1, away=0))
+    db_session.refresh(m)
+    assert m.period == "second_half"
+
+
+def test_stale_lastupdated_does_not_overwrite_fresher_record(db_session):
+    # A lagging cache node can serve an OLDER snapshot. Compare lastUpdated and
+    # never let it clobber a newer record we already applied.
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=2, away=1, minute=70, last_updated="2026-06-13T02:10:00Z"))
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=0, minute=55, last_updated="2026-06-13T02:05:00Z"))
+
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home == 2 and m.score_away == 1  # newer record kept
+
+
+def test_lastupdated_recorded_and_strictly_newer_applies(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=0, last_updated="2026-06-13T02:05:00Z"))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.provider_last_updated is not None
+
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=2, away=0, last_updated="2026-06-13T02:12:00Z"))
+    db_session.refresh(m)
+    assert m.score_home == 2  # strictly-newer applies
+
+
+def test_finished_shootout_tally_survives_a_later_finished_without_duration(db_session):
+    # A lagging FINISHED snapshot that omits the duration must not wipe a settled
+    # knockout result (else the final renders as a draw with the pens line gone).
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "FINISHED", home=1, away=1, duration="PENALTY_SHOOTOUT",
+        penalties={"home": 4, "away": 2}))
+    update_live_scores(db_session, _feed("FINISHED", home=1, away=1))  # no duration/pens
+
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.penalty_home == 4 and m.penalty_away == 2
+
+
+def test_deliberate_suspension_applies_even_from_an_older_snapshot(db_session):
+    # SUSPENDED/POSTPONED/CANCELLED have no later snapshot to self-heal, so the
+    # freshness guard must not suppress them — a stranded match would show "in
+    # play" with a ticking clock forever otherwise.
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=0, last_updated="2026-06-13T02:10:00Z"))
+    update_live_scores(db_session, _feed(
+        "POSTPONED", home=1, away=0, last_updated="2026-06-13T02:05:00Z"))
+
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.status == "scheduled"
+
+
+def test_partial_payload_does_not_blank_a_known_live_score(db_session):
+    # A missing/null score on a refresh must keep the last known score, not flip
+    # the UI back to the predicted score under a live badge.
+    load_structure(db_session)
+    update_live_scores(db_session, _feed("IN_PLAY", home=2, away=1, minute=70))
+    update_live_scores(db_session, [{
+        "homeTeam": {"name": "Mexico"}, "awayTeam": {"name": "South Africa"},
+        "status": "IN_PLAY",  # no score node at all
+    }])
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home == 2 and m.score_away == 1
+
+
+def test_paused_after_90_is_not_labelled_half_time(db_session):
+    # The break before extra time (PAUSED, duration still REGULAR, ~90') must not
+    # show "HT" in a knockout match.
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=95)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed("PAUSED", home=1, away=1))
+
+    db_session.refresh(m)
+    assert m.period != "half_time"
+
+
+def test_finished_not_reopened_by_a_newer_stamped_in_play(db_session):
+    # Production always carries lastUpdated; the anti-flap guard must hold even
+    # when a stale IN_PLAY arrives with a *newer* stamp than the final.
+    load_structure(db_session)
+    update_live_scores(db_session, _feed(
+        "FINISHED", home=2, away=0, last_updated="2026-06-13T03:00:00Z"))
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=2, away=1, last_updated="2026-06-13T03:05:00Z"))
+
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.status == "finished"
+    assert m.score_home == 2 and m.score_away == 0
+
+
+def test_in_play_not_regressed_by_an_older_stamped_timed(db_session):
+    # Timestamped variant of the PR #26 flap guard (the path production takes).
+    load_structure(db_session)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=30)
+    db_session.commit()
+
+    update_live_scores(db_session, _feed(
+        "IN_PLAY", home=1, away=0, last_updated="2026-06-13T02:10:00Z"))
+    update_live_scores(db_session, _feed(
+        "TIMED", home=None, away=None, last_updated="2026-06-13T02:05:00Z"))
+
+    db_session.refresh(m)
+    assert m.status == "in_play"
+    assert m.score_home == 1 and m.score_away == 0
 
 
 def test_finished_match_is_not_reopened_by_lagging_in_play(db_session):

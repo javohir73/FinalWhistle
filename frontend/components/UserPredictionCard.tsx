@@ -5,6 +5,7 @@ import { Flag } from "@/components/Flag";
 import type { Pick } from "@/lib/useMatchPicks";
 import type { MatchSummary } from "@/lib/types";
 import { kickoffTime, dayHeading, tzAbbrev } from "@/lib/datetime";
+import { liveLabel } from "@/lib/liveLabel";
 import { cn } from "@/lib/utils";
 
 type Outcome = "home" | "draw" | "away";
@@ -118,9 +119,12 @@ export function UserPredictionCard({
               {match.score_away}
             </span>
             {live ? (
-              <span className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-loss">
-                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />
-                {match.minute != null ? `${match.minute}'` : "Live"}
+              <span
+                className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-loss"
+                aria-label={`Live, ${liveLabel(match)}`}
+              >
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+                {liveLabel(match)}
               </span>
             ) : (
               <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">FT</span>

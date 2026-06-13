@@ -54,6 +54,16 @@ export interface Prediction {
   disclaimer: string;
 }
 
+/** Phase of play while a match is in progress (refines `status`). Null before
+ *  kickoff and after the final whistle. */
+export type LivePeriod =
+  | "first_half"
+  | "half_time"
+  | "second_half"
+  | "extra_time"
+  | "penalty_shootout"
+  | null;
+
 export interface MatchSummary {
   match_id: number;
   stage: string;
@@ -67,6 +77,10 @@ export interface MatchSummary {
   score_home: number | null;
   score_away: number | null;
   minute: number | null;
+  period: LivePeriod;
+  injury_time: number | null;
+  penalty_home: number | null;
+  penalty_away: number | null;
   teams: Teams;
   predicted_winner: string | null;
   probabilities: Probabilities | null;

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getMatchSummary } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
+import { liveLabel, penaltyTally } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import type { MatchSummary, PredictedScore, Probabilities } from "@/lib/types";
 import { Flag } from "@/components/Flag";
@@ -63,16 +64,24 @@ export function MatchScoreboard({
           </div>
           <div className="mt-1 text-[10px] uppercase tracking-wide sm:text-[11px]">
             {live ? (
-              <span className="inline-flex items-center gap-1 font-bold text-loss">
+              <span
+                className="inline-flex items-center gap-1 font-bold text-loss"
+                aria-label={`Live, ${liveLabel(summary!)}`}
+              >
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-                Live{summary?.minute != null ? ` ${summary.minute}'` : ""}
+                {liveLabel(summary!)}
               </span>
             ) : finished ? (
-              <span className="font-bold text-muted">Full time</span>
+              <span className="font-bold text-muted">FT</span>
             ) : (
               <span className="text-muted">predicted</span>
             )}
           </div>
+          {hasActual && penaltyTally(summary!) && (
+            <div className="mt-0.5 text-[10px] tabular-nums text-muted sm:text-[11px]">
+              ({penaltyTally(summary!)} pens)
+            </div>
+          )}
         </div>
         <TeamHead name={away} prob={probabilities.away_win} teamId={awayTeamId} />
       </div>

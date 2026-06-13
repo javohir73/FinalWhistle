@@ -147,6 +147,10 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         score_home=match.score_home,
         score_away=match.score_away,
         minute=match.minute,
+        period=match.period,
+        injury_time=match.injury_time,
+        penalty_home=match.penalty_home,
+        penalty_away=match.penalty_away,
         teams=schemas.TeamsOut(
             home=home.name if home else "TBD", away=away.name if away else "TBD"
         ),

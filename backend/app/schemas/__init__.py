@@ -94,6 +94,10 @@ class MatchSummaryOut(BaseModel):
     score_home: int | None
     score_away: int | None
     minute: int | None
+    period: str | None = None
+    injury_time: int | None = None
+    penalty_home: int | None = None
+    penalty_away: int | None = None
     teams: TeamsOut
     predicted_winner: str | None
     probabilities: ProbabilitiesOut | None
