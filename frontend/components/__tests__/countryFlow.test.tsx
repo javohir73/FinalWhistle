@@ -183,3 +183,38 @@ it("keeps the first view simple — advanced detail and the pick game stay colla
   expect(pickDrawer?.querySelector("summary")?.textContent).toContain("Make your own call");
   expect(pickDrawer?.querySelectorAll('button[aria-pressed]').length ?? 0).toBeGreaterThan(0);
 });
+
+it("shows the kickoff date on already-played (finished) hub matches too", async () => {
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+
+  // A finished fixture (FT) — the card carries a result, but the kickoff date
+  // must still be shown since the hub isn't grouped under day headers.
+  const finished: MatchSummary = {
+    match_id: 202, stage: "group", group: "C", kickoff_utc: "2026-06-14T18:00:00Z",
+    venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
+    status: "finished", score_home: 4, score_away: 1, minute: null,
+    period: null, injury_time: null, penalty_home: null, penalty_away: null,
+    teams: { home: "Brazil", away: "Paraguay" },
+    predicted_winner: "Brazil",
+    probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
+    predicted_score: { home: 1, away: 0, probability: 0.1 },
+    confidence: "Medium",
+  };
+  (api.getUpcomingMatches as jest.Mock).mockResolvedValue([finished]);
+
+  const { container } = render(
+    <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[finished]} initialOdds={[]} />,
+  );
+
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
+  );
+
+  const card = container.querySelector('a[href^="/match/"]');
+  expect(card).not.toBeNull();
+  // Even with an FT result, the kickoff DATE (a month name) is present.
+  expect(card?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
+});
