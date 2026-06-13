@@ -36,6 +36,11 @@ const baseSecurityHeaders = [
 
 const nextConfig = {
   reactStrictMode: true,
+  eslint: {
+    // Linting runs as its own CI step (`npm run lint`); don't re-run it during
+    // `next build` so build failures and lint failures stay separate concerns.
+    ignoreDuringBuilds: true,
+  },
   async headers() {
     const headers = [...baseSecurityHeaders];
     if (process.env.NODE_ENV === "production") {
