@@ -24,8 +24,8 @@ which would otherwise count twice once the daily replay includes them).
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -135,10 +135,16 @@ def _already_in_history(db: Session, matches: list[Match]) -> set[int]:
     for m in matches:
         if m.kickoff_utc is None:
             continue
+        # Explicit UTC day window (±1 day for kickoff-vs-record date skew)
+        # instead of func.date(), whose Postgres result depends on the
+        # connection's session timezone.
+        day = m.kickoff_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        lo, hi = day - timedelta(days=1), day + timedelta(days=2)
         row = (
             db.query(HistoricalMatch.id)
             .filter(
-                func.date(HistoricalMatch.date) == m.kickoff_utc.date(),
+                HistoricalMatch.date >= lo,
+                HistoricalMatch.date < hi,
                 (
                     (HistoricalMatch.team_a_id == m.team_home_id)
                     & (HistoricalMatch.team_b_id == m.team_away_id)

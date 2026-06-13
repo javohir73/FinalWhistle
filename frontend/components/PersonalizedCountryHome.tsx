@@ -10,7 +10,7 @@ import { UserPredictionCard } from "@/components/UserPredictionCard";
 import { useFetch } from "@/lib/useFetch";
 import { useMatchPicks } from "@/lib/useMatchPicks";
 import { useTimezone } from "@/lib/useTimezone";
-import { getTeam } from "@/lib/api";
+import { getTeam, getModelRecord } from "@/lib/api";
 import { pct } from "@/lib/format";
 import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
 
@@ -53,6 +53,8 @@ export function PersonalizedCountryHome({
   const { picks, setPick } = useMatchPicks();
   const profileState = useFetch(() => getTeam(team.id), [team.id]);
   const profile = profileState.status === "success" ? profileState.data : null;
+  const recordState = useFetch(getModelRecord, []);
+  const record = recordState.status === "success" ? recordState.data : null;
 
   const group = useMemo(
     () => groups.find((g) => g.standings.some((s) => s.team_id === team.id)) ?? null,
@@ -145,6 +147,11 @@ export function PersonalizedCountryHome({
           ) : (
             <p className="mt-2.5 text-sm text-muted">
               Tournament odds for {team.name} will appear once the simulation runs.
+            </p>
+          )}
+          {record && record.evaluated_matches > 0 && (
+            <p className="mt-2 text-xs text-muted">
+              AI record so far: {record.winners_correct}/{record.evaluated_matches} winners, {record.exact_score_hits} exact.
             </p>
           )}
           {profile && profile.recent_form.length > 0 && (

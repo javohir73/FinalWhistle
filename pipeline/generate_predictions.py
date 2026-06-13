@@ -46,6 +46,12 @@ def build_payload(
     strengths = strengths or {}
     elo_home = strengths.get(home.id, estimate_strength(home)[0])
     elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    # Keep the explanation layer consistent with the probabilities: reasons and
+    # top_features must describe the SAME effective ratings the model used,
+    # not the pre-tournament base.
+    feats.elo_home = elo_home
+    feats.elo_away = elo_away
+    feats.elo_diff = elo_home - elo_away
     pred = predict_match(elo_home, elo_away, home_adv=host_adv)
 
     cold_start = feats.strength_source_home != "elo" or feats.strength_source_away != "elo"

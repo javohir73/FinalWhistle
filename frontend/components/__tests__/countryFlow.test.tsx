@@ -27,6 +27,20 @@ beforeEach(() => {
     strengths: ["Elite attacking depth"],
     weaknesses: ["Shaky in defensive transitions"],
   });
+  (api.getModelRecord as jest.Mock).mockResolvedValue({
+    evaluated_matches: 2,
+    winner_accuracy: 1.0,
+    winners_correct: 2,
+    exact_score_hits: 1,
+    avg_brier: null,
+    avg_log_loss: null,
+    calibration: [],
+    best_calls: [],
+    biggest_misses: [],
+    last_updated: null,
+    model_version: "test",
+    disclaimer: "test",
+  });
 });
 
 afterEach(() => {
@@ -106,5 +120,10 @@ it("sends a returning user straight to the personalized hub", async () => {
   // Strengths come from the per-team profile fetch.
   await waitFor(() =>
     expect(screen.getByText("Elite attacking depth")).toBeInTheDocument(),
+  );
+
+  // Model record line appears once the record has loaded (evaluated_matches > 0).
+  await waitFor(() =>
+    expect(screen.getByText(/AI record so far/)).toBeInTheDocument(),
   );
 });
