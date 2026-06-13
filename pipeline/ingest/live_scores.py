@@ -29,12 +29,19 @@ _STATUS_MAP = {
     "TIMED": "scheduled",
     "IN_PLAY": "in_play",
     "PAUSED": "in_play",
+    "EXTRA_TIME": "in_play",
+    "PENALTY_SHOOTOUT": "in_play",
     "FINISHED": "finished",
     "AWARDED": "finished",
     "SUSPENDED": "scheduled",
     "POSTPONED": "scheduled",
     "CANCELLED": "scheduled",
 }
+
+# Raw statuses that mean "hasn't kicked off yet" — unlike the deliberate
+# not-playing states (SUSPENDED/POSTPONED/CANCELLED) that also map to
+# "scheduled" but must always be applied.
+_NOT_STARTED = frozenset({"SCHEDULED", "TIMED"})
 
 
 def fetch_matches(api_key: str, competition: str = "WC", timeout: float = 15.0) -> list[dict]:
@@ -97,7 +104,29 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         if match is None or home_name == away_name:
             continue
 
-        status = _STATUS_MAP.get(am.get("status", ""), "scheduled")
+        raw_status = am.get("status", "")
+        status = _STATUS_MAP.get(raw_status)
+        if status is None:
+            # A status this code doesn't know. Guessing "scheduled" here once
+            # un-lived matches on every refresh — leave the row untouched.
+            log.warning("ignoring unknown feed status %r for %s vs %s",
+                        raw_status, home_name, away_name)
+            continue
+
+        # The feed is served by load-balanced caches that can lag a snapshot
+        # behind each other, and a match's lifecycle is one-way (scheduled ->
+        # in_play -> finished). A "hasn't kicked off" claim for a match we've
+        # seen in play, or anything un-finishing a final, is stale data: keep
+        # our state instead of seesawing the scoreboard (and keep the live
+        # clock ticking through the lag).
+        if match.status == "finished" and status != "finished":
+            continue
+        if match.status == "in_play" and raw_status in _NOT_STARTED:
+            match.minute = am.get("minute") or estimate_minute(match.kickoff_utc)
+            updated += 1
+            live += 1
+            continue
+
         full_time = (am.get("score") or {}).get("fullTime") or {}
         their_home, their_away = full_time.get("home"), full_time.get("away")
 
