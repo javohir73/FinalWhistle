@@ -93,30 +93,44 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
     return okGroup && okQuery && okFav && okCountry;
   });
 
-  // Bucket matches by their local calendar day (soonest first; undated last).
+  // Live games are pinned to the top so you never scroll to find the current
+  // match; everything else flows into the day/ranked views below.
+  const liveMatches = filtered
+    .filter((m) => m.status === "in_play")
+    .sort((a, b) => (a.kickoff_utc ?? "").localeCompare(b.kickoff_utc ?? ""));
+  const rest = filtered.filter((m) => m.status !== "in_play");
+
+  // Bucket the rest by local calendar day, ordered now-first: today + upcoming
+  // (soonest first), then past days (most recent first), undated last. So the
+  // board opens on current/recent action, not the tournament's first fixtures.
   const days = useMemo(() => {
     const byDay = new Map<string, MatchSummary[]>();
-    for (const m of filtered) {
+    for (const m of rest) {
       const key = m.kickoff_utc ? dayKey(m.kickoff_utc, tz) : TBC;
       let arr = byDay.get(key);
       if (!arr) byDay.set(key, (arr = []));
       arr.push(m);
     }
+    const todayKey = dayKey(new Date().toISOString(), tz);
     return Array.from(byDay.entries()).sort(([a], [b]) => {
       if (a === TBC) return 1;
       if (b === TBC) return -1;
-      return a < b ? -1 : 1;
+      const aPast = a < todayKey;
+      const bPast = b < todayKey;
+      if (aPast !== bPast) return aPast ? 1 : -1; // today + upcoming before past
+      if (!aPast) return a < b ? -1 : 1;          // today + upcoming: soonest first
+      return a < b ? 1 : -1;                      // past: most recent first
     });
-  }, [filtered, tz]);
+  }, [rest, tz]);
 
   // Metric sorts produce a single ranked list (highest first); kickoff keeps the
-  // day-bucketed view above.
+  // day-bucketed view above. Live games stay pinned regardless of sort.
   const ranked = useMemo(() => {
     if (sort === "kickoff") return [];
     const score =
       sort === "confidence" ? confScore : sort === "upset" ? upsetProb : winProb;
-    return [...filtered].sort((a, b) => score(b) - score(a));
-  }, [filtered, sort]);
+    return [...rest].sort((a, b) => score(b) - score(a));
+  }, [rest, sort]);
 
   return (
     <div>
@@ -128,7 +142,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
           <LiveStatusBadge />
         </div>
         <p className="mt-2 text-muted">
-          Every fixture by kickoff — win probabilities, scorelines, time, and venue.
+          Live now, upcoming fixtures, and recent results — win probabilities, scorelines, time, and venue.
         </p>
       </header>
 
@@ -223,45 +237,71 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
                 : "No matches match your filters."
             }
           />
-        ) : sort !== "kickoff" ? (
-          <section>
-            <div className="mb-3.5 flex items-center gap-3">
-              <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-                {SORTS.find((s) => s.value === sort)?.label.replace("Sort: ", "")}
-              </h2>
-              <span className="h-px flex-1 bg-border/60" />
-              <span className="font-display text-xs font-semibold text-muted">
-                {ranked.length} {ranked.length === 1 ? "match" : "matches"}
-              </span>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {ranked.map((m) => (
-                <MatchCard key={m.match_id} match={m} tz={tz} />
-              ))}
-            </div>
-          </section>
         ) : (
           <div className="space-y-9">
-            {days.map(([key, dayMatches]) => (
-              <section key={key}>
+            {/* Pinned: live games, so the current match is the first thing you see. */}
+            {liveMatches.length > 0 && (
+              <section>
                 <div className="mb-3.5 flex items-center gap-3">
-                  <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-                    {key === TBC
-                      ? "Date to be confirmed"
-                      : dayHeading(dayMatches[0].kickoff_utc!, tz)}
+                  <h2 className="flex items-center gap-2 font-display text-sm font-bold uppercase tracking-wider text-loss">
+                    <span className="h-2 w-2 animate-pulse rounded-full bg-loss" aria-hidden />
+                    Live now
                   </h2>
-                  <span className="h-px flex-1 bg-border/60" />
+                  <span className="h-px flex-1 bg-loss/30" />
                   <span className="font-display text-xs font-semibold text-muted">
-                    {dayMatches.length} {dayMatches.length === 1 ? "match" : "matches"}
+                    {liveMatches.length} {liveMatches.length === 1 ? "match" : "matches"}
                   </span>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {dayMatches.map((m) => (
+                  {liveMatches.map((m) => (
                     <MatchCard key={m.match_id} match={m} tz={tz} />
                   ))}
                 </div>
               </section>
-            ))}
+            )}
+
+            {rest.length > 0 &&
+              (sort !== "kickoff" ? (
+                <section>
+                  <div className="mb-3.5 flex items-center gap-3">
+                    <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                      {SORTS.find((s) => s.value === sort)?.label.replace("Sort: ", "")}
+                    </h2>
+                    <span className="h-px flex-1 bg-border/60" />
+                    <span className="font-display text-xs font-semibold text-muted">
+                      {ranked.length} {ranked.length === 1 ? "match" : "matches"}
+                    </span>
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                    {ranked.map((m) => (
+                      <MatchCard key={m.match_id} match={m} tz={tz} />
+                    ))}
+                  </div>
+                </section>
+              ) : (
+                <div className="space-y-9">
+                  {days.map(([key, dayMatches]) => (
+                    <section key={key}>
+                      <div className="mb-3.5 flex items-center gap-3">
+                        <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                          {key === TBC
+                            ? "Date to be confirmed"
+                            : dayHeading(dayMatches[0].kickoff_utc!, tz)}
+                        </h2>
+                        <span className="h-px flex-1 bg-border/60" />
+                        <span className="font-display text-xs font-semibold text-muted">
+                          {dayMatches.length} {dayMatches.length === 1 ? "match" : "matches"}
+                        </span>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {dayMatches.map((m) => (
+                          <MatchCard key={m.match_id} match={m} tz={tz} />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              ))}
           </div>
         ))}
     </div>

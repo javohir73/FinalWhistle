@@ -107,6 +107,24 @@ it("remembers 'Show all matches' across remounts (back from a match page)", asyn
   sessionStorage.clear();
 });
 
+it("pins live (in-play) matches in a 'Live now' section at the top", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Morocco", "Group C", {
+      status: "in_play", period: "second_half", minute: 70,
+      score_home: 1, score_away: 1, kickoff_utc: "2026-06-13T22:00:00+00:00",
+    }),
+    match(2, "Spain", "Uruguay", "Group H", { kickoff_utc: "2026-06-20T18:00:00+00:00" }),
+  ]);
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
+
+  // The live match is surfaced, and the "Live now" heading precedes the
+  // scheduled match in the DOM (pinned to the top, not buried by kickoff order).
+  const live = screen.getByText("Live now");
+  const scheduledTeam = screen.getByText("Uruguay");
+  expect(live.compareDocumentPosition(scheduledTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+});
+
 it("offers a location/timezone control", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
