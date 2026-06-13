@@ -70,3 +70,16 @@ export function tzCityLabel(tz: string): string {
   const tail = tz.split("/").pop() ?? tz;
   return tail.replace(/_/g, " ");
 }
+
+/** True if `tz` is an IANA timezone id this runtime can format with. Used to
+ *  reject stale/garbage stored values before they reach Intl.DateTimeFormat,
+ *  which would otherwise throw a RangeError mid-render. */
+export function isValidTimeZone(tz: string): boolean {
+  if (!tz) return false;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
