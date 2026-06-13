@@ -56,6 +56,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
+      <head>
+        {/* Warm the flag CDN connection: the country chooser fires ~48 flag
+            requests at once on first paint, so the early TLS handshake cuts
+            transient drops. */}
+        <link rel="preconnect" href="https://flagcdn.com" crossOrigin="" />
+        <link rel="dns-prefetch" href="https://flagcdn.com" />
+      </head>
       <body className="min-h-[100dvh] font-sans antialiased">
         <ServiceWorker />
         <SentryInit />
