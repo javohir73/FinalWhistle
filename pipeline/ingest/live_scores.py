@@ -129,10 +129,13 @@ def _derive_period(raw_status: str, duration: object, minute: int | None) -> str
         return "penalty_shootout"
     if duration == "EXTRA_TIME":
         return "extra_time"
-    if raw_status == "PAUSED" and (minute is None or minute <= 60):
-        # PAUSED is generic. Near 45' it is half-time; a later PAUSED (the break
-        # before extra time, or an ET interval, in a knockout) is not — fall
-        # through to a minute-based phase rather than mislabelling it "HT".
+    if raw_status == "PAUSED" and (minute is None or minute <= 45):
+        # PAUSED is generic. At ~45' it is half-time; but once our clock is past
+        # the half-time interval (estimate > 45') the second half has started even
+        # if the lagging free feed still reports PAUSED — fall through rather than
+        # keep showing "HT". A later PAUSED (the pre-ET break, ~90') falls through
+        # too. The estimate holds at exactly 45 across the break, so 45 is the
+        # right boundary; 60 left a stale-PAUSED match reading "HT" ~14' too long.
         return "half_time"
     return "second_half" if (minute is not None and minute > 45) else "first_half"
 
