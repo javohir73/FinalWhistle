@@ -61,7 +61,7 @@ export function MatchCard({
         )}
       </div>
 
-      {!live && !finished && (match.kickoff_utc || venue) && (
+      {(match.kickoff_utc || venue) && (showDate || (!live && !finished)) && (
         <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
           {match.kickoff_utc && tz && (
             <span className="inline-flex items-center gap-1.5 font-semibold text-win">
