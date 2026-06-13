@@ -249,6 +249,9 @@ class AppUser(Base):
     )
 
     bracket: Mapped[Bracket | None] = relationship(back_populates="user", uselist=False)
+    match_picks: Mapped[list[MatchPick]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
     sessions: Mapped[list[UserSession]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -360,6 +363,24 @@ class BracketScore(Base):
     bracket: Mapped[Bracket] = relationship(back_populates="score")
 
 
+class MatchPick(Base):
+    """A signed-in user's per-match outcome pick (home/draw/away) — the account
+    copy of the device-local match predictions, one row per (user, match)."""
+
+    __tablename__ = "match_picks"
+    __table_args__ = (UniqueConstraint("user_id", "match_id", name="uq_match_pick_user_match"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"))
+    pick: Mapped[str] = mapped_column(String(4))  # home/draw/away
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    user: Mapped[AppUser] = relationship(back_populates="match_picks")
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -379,4 +400,5 @@ __all__ = [
     "BracketGroupPick",
     "BracketKnockoutPick",
     "BracketScore",
+    "MatchPick",
 ]

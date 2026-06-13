@@ -170,3 +170,9 @@ export interface SavedBracket {
   submitted_at: string | null;
   updated_at: string | null;
 }
+
+/** The account copy of the device-local per-match predictions. */
+export interface SavedMatchPicks {
+  picks: { match_id: number; pick: "home" | "draw" | "away" }[];
+  updated_at: string | null;
+}
