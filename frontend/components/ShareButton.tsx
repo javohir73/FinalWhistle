@@ -24,9 +24,15 @@ export function ShareButton({
     const url = urlProp ?? window.location.href;
     trackEvent("share", { path: window.location.pathname });
     const shareTitle = title ?? document.title;
-    if (navigator.share) {
+    const preferNative =
+      typeof navigator.share === "function" &&
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(pointer: coarse)").matches;
+    if (preferNative) {
       try {
         await navigator.share({ title: shareTitle, url });
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
         return;
       } catch {
         /* user cancelled — fall through to copy */
@@ -55,7 +61,7 @@ export function ShareButton({
         <circle cx="18" cy="5" r="3" /><circle cx="6" cy="12" r="3" /><circle cx="18" cy="19" r="3" />
         <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" strokeLinecap="round" />
       </svg>
-      {copied ? "Link copied!" : label}
+      <span role="status" aria-live="polite">{copied ? "Link copied!" : label}</span>
     </button>
   );
 }

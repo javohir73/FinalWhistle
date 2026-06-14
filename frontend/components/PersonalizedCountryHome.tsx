@@ -81,7 +81,10 @@ export function PersonalizedCountryHome({
             <Flag team={team.name} size={56} />
           </span>
           <div className="min-w-0">
-            <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            <span className="inline-flex rounded-full chip px-3 py-1 text-xs font-medium text-muted">
+              Showing your team
+            </span>
+            <h1 className="mt-2 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
               {team.name}
             </h1>
             <p className="mt-1 text-sm text-muted">
@@ -99,7 +102,7 @@ export function PersonalizedCountryHome({
           <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" strokeLinejoin="round" />
           </svg>
-          Change country
+          Not your team? Change
         </button>
       </header>
 
@@ -191,11 +194,11 @@ export function PersonalizedCountryHome({
 
       {/* ===== E. More about {team} (collapsed by default) ===== */}
       <details className="group mt-9 overflow-hidden rounded-2xl border border-border bg-surface/50">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-display font-bold tracking-tight [&::-webkit-details-marker]:hidden sm:p-5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-display font-bold tracking-tight transition hover:text-win focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 [&::-webkit-details-marker]:hidden sm:p-5">
           <span>More about {team.name}</span>
           <svg
             viewBox="0 0 24 24"
-            className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
+            className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:text-win group-open:rotate-180"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -287,11 +290,11 @@ export function PersonalizedCountryHome({
 
       {/* ===== F. Make your own call (collapsed by default) ===== */}
       <details className="group mt-7 overflow-hidden rounded-2xl border border-border bg-surface/50">
-        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-display font-bold tracking-tight [&::-webkit-details-marker]:hidden sm:p-5">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-display font-bold tracking-tight transition hover:text-win focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 [&::-webkit-details-marker]:hidden sm:p-5">
           <span>Make your own call</span>
           <svg
             viewBox="0 0 24 24"
-            className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
+            className="h-4 w-4 shrink-0 text-muted transition-transform duration-200 group-hover:text-win group-open:rotate-180"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"

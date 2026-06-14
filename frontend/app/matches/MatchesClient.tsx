@@ -75,6 +75,13 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   const matches = state.status === "success" ? state.data : [];
   const country = hydrated && selection ? selection.team : null;
   const focused = !!country && countryFocus;
+  const hasActiveFilters = group !== "all" || query.trim() !== "" || favOnly || focused;
+  const clearFilters = () => {
+    setGroup("all");
+    setQuery("");
+    setFavOnly(false);
+    setCountryFocus(() => false);
+  };
   const groups = useMemo(
     () => Array.from(new Set(matches.map((m) => m.group).filter(Boolean))).sort() as string[],
     [matches],
@@ -230,13 +237,24 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       {state.status === "error" && <ErrorState message={state.message} />}
       {state.status === "success" &&
         (filtered.length === 0 ? (
-          <Empty
-            label={
-              favOnly && favorites.length === 0
-                ? "Star a team to build your favorites feed."
-                : "No matches match your filters."
-            }
-          />
+          favOnly && favorites.length === 0 ? (
+            <Empty label="Star a team to build your favorites feed." />
+          ) : (
+            <Empty
+              label="No matches match your filters."
+              action={
+                hasActiveFilters ? (
+                  <button
+                    type="button"
+                    onClick={clearFilters}
+                    className="rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-win/40"
+                  >
+                    Clear filters
+                  </button>
+                ) : undefined
+              }
+            />
+          )
         ) : (
           <div className="space-y-9">
             {/* Pinned: live games, so the current match is the first thing you see. */}

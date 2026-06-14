@@ -219,6 +219,48 @@ it("shows the kickoff date on already-played (finished) hub matches too", async 
   expect(card?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
 });
 
+it("tells a returning user why their team is showing and lets them switch back to the chooser", async () => {
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+
+  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
+
+  // The hub renders for the returning user...
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
+  );
+
+  // ...and it now explains WHY the team is showing, instead of silently restoring.
+  expect(screen.getByText("Showing your team")).toBeInTheDocument();
+
+  // The change control is framed to pair with that cue, and clicking it routes
+  // back to the country chooser (mirrors the onChangeCountry path).
+  fireEvent.click(screen.getByRole("button", { name: /Not your team\? Change/ }));
+  await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
+});
+
+it("gives both drawer summaries a hover + focus-visible affordance so they read as interactive", async () => {
+  localStorage.setItem(
+    "finalwhistle:selected-country:v1",
+    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
+  );
+
+  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
+
+  await waitFor(() =>
+    expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
+  );
+
+  for (const label of ["More about Brazil", "Make your own call"]) {
+    const summary = screen.getByText(label).closest("summary");
+    expect(summary).not.toBeNull();
+    expect(summary?.className).toMatch(/focus-visible:ring/);
+    expect(summary?.className).toMatch(/hover:/);
+  }
+});
+
 it("survives a corrupted stored timezone without crashing the hub", async () => {
   // A stale/garbage zone (e.g. left by an older build) must NOT reach
   // Intl.DateTimeFormat and throw — useTimezone should reject it and fall back.
