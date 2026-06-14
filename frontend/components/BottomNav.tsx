@@ -23,6 +23,18 @@ const TABS: Tab[] = [
     icon: <path d="M3 11l9-8 9 8M5 10v10h14V10" strokeLinejoin="round" strokeLinecap="round" />,
   },
   {
+    href: "/leaderboard",
+    label: "Leaders",
+    activePrefixes: ["/leaderboard"],
+    icon: <path d="M9 20v-8h6v8M3 20v-4h6v4M15 20v-6h6v6M2 20h20" strokeLinejoin="round" strokeLinecap="round" />,
+  },
+  {
+    href: "/my-bracket",
+    label: "My Bracket",
+    activePrefixes: ["/my-bracket"],
+    icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
+  },
+  {
     href: "/matches",
     label: "Matches",
     activePrefixes: ["/matches", "/match"],
@@ -32,18 +44,6 @@ const TABS: Tab[] = [
         <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
       </>
     ),
-  },
-  {
-    href: "/my-bracket",
-    label: "My Bracket",
-    activePrefixes: ["/my-bracket"],
-    icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
-  },
-  {
-    href: "/leaderboard",
-    label: "Leaders",
-    activePrefixes: ["/leaderboard"],
-    icon: <path d="M9 20v-8h6v8M3 20v-4h6v4M15 20v-6h6v6M2 20h20" strokeLinejoin="round" strokeLinecap="round" />,
   },
 ];
 
@@ -64,8 +64,8 @@ function matches(pathname: string, prefixes: string[], href: string): boolean {
 const hit = (pathname: string, prefix: string) =>
   pathname === prefix || pathname.startsWith(prefix + "/");
 
-/** Mobile-only sticky bottom tab bar: the core loop (Home, Matches, My Bracket,
- *  Leaderboard) one tap away, everything else under More. */
+/** Mobile-only sticky bottom tab bar: the core loop (Home, Leaderboard, My
+ *  Bracket, Matches) one tap away, everything else under More. */
 export function BottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
