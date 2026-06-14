@@ -72,8 +72,7 @@ it("does not leak the previous user's details into the next sign-up (shared devi
   await waitFor(() => expect(screen.getByText("Sign in")).toBeInTheDocument());
   fireEvent.click(screen.getByText("Sign in"));
   let dialog = screen.getByRole("dialog");
-  // First "Create account" button is the mode tab; the submit appears after.
-  fireEvent.click(within(dialog).getAllByRole("button", { name: "Create account" })[0]);
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Switch to create account" }));
   fireEvent.change(within(dialog).getByLabelText("Display name"), { target: { value: "Alice Test" } });
   fireEvent.change(within(dialog).getByLabelText("Email address"), { target: { value: "alice@example.com" } });
   fireEvent.change(within(dialog).getByLabelText("Password"), { target: { value: "alice-pass-123" } });
@@ -90,7 +89,11 @@ it("does not leak the previous user's details into the next sign-up (shared devi
   fireEvent.click(screen.getByText("Sign in"));
   dialog = screen.getByRole("dialog");
   expect(within(dialog).getByRole("heading", { name: "Welcome back" })).toBeInTheDocument();
-  fireEvent.click(within(dialog).getAllByRole("button", { name: "Create account" })[0]);
+  // The mode switcher is a tablist with distinct accessible names, so the submit
+  // button is the only role=button named "Sign in"/"Create account".
+  expect(within(dialog).getAllByRole("button", { name: "Sign in" })).toHaveLength(1);
+  expect(within(dialog).getByRole("tab", { name: "Switch to sign in" })).toBeInTheDocument();
+  fireEvent.click(within(dialog).getByRole("tab", { name: "Switch to create account" }));
   expect((within(dialog).getByLabelText("Display name") as HTMLInputElement).value).toBe("");
   expect((within(dialog).getByLabelText("Email address") as HTMLInputElement).value).toBe("");
   expect((within(dialog).getByLabelText("Password") as HTMLInputElement).value).toBe("");

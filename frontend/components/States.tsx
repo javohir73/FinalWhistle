@@ -41,8 +41,17 @@ export function ErrorState({ message }: { message: string }) {
   );
 }
 
-export function Empty({ label = "Nothing to show yet." }: { label?: string }) {
+export function Empty({
+  label = "Nothing to show yet.",
+  action,
+}: {
+  label?: string;
+  action?: React.ReactNode;
+}) {
   return (
-    <div className="glass rounded-2xl p-12 text-center text-muted">{label}</div>
+    <div className="glass rounded-2xl p-12 text-center text-muted">
+      {label}
+      {action && <div className="mt-4 flex justify-center">{action}</div>}
+    </div>
   );
 }

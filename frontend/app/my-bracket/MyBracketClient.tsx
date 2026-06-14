@@ -255,13 +255,14 @@ export function MyBracketClient({
 }
 
 function PickButton({
-  label, teamName, active, onClick, align = "left",
-}: { label: string; teamName?: string; active: boolean; onClick: () => void; align?: "left" | "center" | "right" }) {
+  label, teamName, active, onClick, align = "left", ariaLabel,
+}: { label: string; teamName?: string; active: boolean; onClick: () => void; align?: "left" | "center" | "right"; ariaLabel?: string }) {
   return (
     <button
       type="button"
       onClick={onClick}
       aria-pressed={active}
+      aria-label={ariaLabel}
       className={cn(
         "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50",
         align === "right" && "flex-row-reverse text-right",
@@ -280,9 +281,9 @@ function FixtureRow({
 }: { fixture: BFixture; pick?: Outcome; onPick: (o: Outcome) => void }) {
   return (
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
-      <PickButton label={fixture.home} teamName={fixture.home} active={pick === "home"} onClick={() => onPick("home")} />
-      <PickButton label="Draw" active={pick === "draw"} onClick={() => onPick("draw")} align="center" />
-      <PickButton label={fixture.away} teamName={fixture.away} active={pick === "away"} onClick={() => onPick("away")} align="right" />
+      <PickButton label={fixture.home} teamName={fixture.home} active={pick === "home"} onClick={() => onPick("home")} ariaLabel={`Pick ${fixture.home} to beat ${fixture.away}`} />
+      <PickButton label="Draw" active={pick === "draw"} onClick={() => onPick("draw")} align="center" ariaLabel={`Predict a draw between ${fixture.home} and ${fixture.away}`} />
+      <PickButton label={fixture.away} teamName={fixture.away} active={pick === "away"} onClick={() => onPick("away")} align="right" ariaLabel={`Pick ${fixture.away} to beat ${fixture.home}`} />
     </div>
   );
 }
@@ -334,13 +335,16 @@ function TieCard({
           ⚡ Upset pick
         </div>
       )}
-      {[a, b].map((team, i) => (
+      {[a, b].map((team, i) => {
+        const other = i === 0 ? b : a;
+        return (
         <button
           key={i}
           type="button"
           disabled={!team}
           onClick={() => team && onPick(team)}
           aria-pressed={!!team && picked === team}
+          aria-label={team ? `Pick ${team} to beat ${other ?? "TBD"}` : "Match not yet decided"}
           className={cn(
             "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50",
             !team && "cursor-not-allowed text-muted/50",
@@ -351,7 +355,8 @@ function TieCard({
           <span className="min-w-0 flex-1 truncate">{team ?? "To be decided"}</span>
           {team && picked === team && <span className="shrink-0 text-win" aria-hidden>✓</span>}
         </button>
-      ))}
+        );
+      })}
     </div>
   );
 }

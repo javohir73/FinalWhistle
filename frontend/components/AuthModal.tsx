@@ -119,6 +119,9 @@ export function AuthModal({
   const tab = (m: Mode, label: string) => (
     <button
       type="button"
+      role="tab"
+      aria-selected={mode === m}
+      aria-label={m === "signin" ? "Switch to sign in" : "Switch to create account"}
       onClick={() => setMode(m)}
       className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
         mode === m ? "bg-win/15 text-win ring-1 ring-win/30" : "text-muted hover:text-foreground"
@@ -160,7 +163,11 @@ export function AuthModal({
           </button>
         </div>
 
-        <div className="mb-4 flex gap-1 rounded-xl bg-surface-2/40 p-1">
+        <div
+          role="tablist"
+          aria-label="Authentication mode"
+          className="mb-4 flex gap-1 rounded-xl bg-surface-2/40 p-1"
+        >
           {tab("signin", "Sign in")}
           {tab("signup", "Create account")}
         </div>

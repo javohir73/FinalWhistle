@@ -26,10 +26,11 @@ export function FeatureImportanceChart({ features }: { features: FeatureWeight[]
     name: LABELS[f.name] ?? f.name,
     weight: Math.round(f.weight * 100),
   }));
+  const height = Math.max(120, data.length * 46);
 
   return (
-    <div style={{ width: "100%", height: Math.max(120, data.length * 46) }}>
-      <ResponsiveContainer>
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer width="100%" height={height}>
         <BarChart data={data} layout="vertical" margin={{ left: 8, right: 36 }}>
           <XAxis type="number" hide domain={[0, 100]} />
           <YAxis

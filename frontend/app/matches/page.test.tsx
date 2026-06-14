@@ -131,3 +131,37 @@ it("offers a location/timezone control", async () => {
   await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
   expect(screen.getByLabelText("Choose your timezone")).toBeInTheDocument();
 });
+
+it("offers a 'Clear filters' escape when filters yield zero matches", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Scotland", "Group C"),
+    match(2, "Spain", "Uruguay", "Group H"),
+  ]);
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+
+  // Search for something no team matches → the empty state appears with a recovery action.
+  fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "zzz" } });
+  expect(screen.getByText("No matches match your filters.")).toBeInTheDocument();
+  const clear = screen.getByRole("button", { name: /clear filters/i });
+  expect(clear).toBeInTheDocument();
+
+  // Clicking it resets the filters and the teams reappear.
+  fireEvent.click(clear);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  expect(screen.getByText("Uruguay")).toBeInTheDocument();
+});
+
+it("does not offer 'Clear filters' for the empty favorites feed", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Scotland", "Group C"),
+    match(2, "Spain", "Uruguay", "Group H"),
+  ]);
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+
+  // Favorites-only with no starred teams is its own empty state — guidance, not a clear button.
+  fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
+  expect(screen.getByText("Star a team to build your favorites feed.")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: /clear filters/i })).not.toBeInTheDocument();
+});
