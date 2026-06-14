@@ -25,10 +25,11 @@ export function CalibrationChart({ bins }: { bins: ReliabilityBin[] }) {
     perfect: Math.round(b.mean_predicted * 100),
     count: b.count,
   }));
+  const height = 300;
 
   return (
-    <div style={{ width: "100%", height: 300 }}>
-      <ResponsiveContainer>
+    <div style={{ width: "100%", height }}>
+      <ResponsiveContainer width="100%" height={height}>
         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 24, left: 4 }}>
           <CartesianGrid stroke="hsl(153 18% 18%)" strokeDasharray="3 3" />
           <XAxis
