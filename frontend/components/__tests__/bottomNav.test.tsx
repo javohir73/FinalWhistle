@@ -1,6 +1,7 @@
-/** Bottom nav (PRD FR 4.5): My Bracket + Leaderboard are first-class tabs, the
- *  More sheet covers the rest, and every key route lights up its tab —
- *  including detail pages like /match/[id] that don't share the tab's prefix. */
+/** Bottom nav (PRD FR 4.5): My Bracket + Groups are first-class tabs, the
+ *  leaderboard and the rest live under the More sheet, and every key route
+ *  lights its tab — including detail pages like /match/[id] that don't share
+ *  the tab's prefix. */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BottomNav } from "@/components/BottomNav";
 
@@ -26,7 +27,7 @@ afterEach(() => {
 
 it("exposes the core loop as first-class tabs", () => {
   renderAt("/");
-  for (const label of ["Home", "Matches", "My Bracket", "Leaders"]) {
+  for (const label of ["Home", "Matches", "My Bracket", "Groups"]) {
     expect(screen.getByRole("link", { name: new RegExp(label) })).toBeInTheDocument();
   }
   expect(screen.getByRole("button", { name: /More/ })).toBeInTheDocument();
@@ -38,7 +39,8 @@ it.each([
   ["/matches", "Matches"],
   ["/match/12", "Matches"], // singular detail route still lights Matches
   ["/my-bracket", "My Bracket"],
-  ["/leaderboard", "Leaders"],
+  ["/groups", "Groups"],
+  ["/groups/2", "Groups"], // group detail still lights Groups
 ])("marks the right tab active on %s", (path, label) => {
   renderAt(path);
   expect(current()).toContain(label);
@@ -52,13 +54,13 @@ it("does not false-match prefix collisions (/my-bracket is not Brackets)", () =>
 it("More opens a sheet with the secondary destinations", () => {
   renderAt("/");
   fireEvent.click(screen.getByRole("button", { name: /More/ }));
-  for (const label of ["Groups", "AI Bracket", "How it works", "Methodology"]) {
+  for (const label of ["Leaderboard", "AI Bracket", "How it works", "Methodology"]) {
     expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
   }
 });
 
 it("highlights More when on a sheet destination", () => {
-  renderAt("/groups/2");
+  renderAt("/leaderboard");
   const more = screen.getByRole("button", { name: /More/ });
   expect(more.className).toContain("text-win");
 });
