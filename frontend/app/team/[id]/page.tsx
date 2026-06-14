@@ -100,7 +100,7 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
               <Outlook label="Group position" value={`${ordinal(rank + 1)}${group_name ? ` · ${group_name}` : ""}`} />
               <Outlook label="Points" value={String(standingRow.projected_points)} />
               <Outlook
-                label="Advance from group"
+                label="Finish top 2"
                 value={pct(standingRow.qualification_prob)}
                 accent
               />
@@ -109,14 +109,14 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           {teamOdds && (
             <div className="space-y-2.5">
               {([
-                ["Reach knockouts", teamOdds.make_knockout],
-                ["Round of 16", teamOdds.reach_r16],
-                ["Quarter-final", teamOdds.reach_qf],
-                ["Semi-final", teamOdds.reach_sf],
-                ["Final", teamOdds.reach_final],
-                ["Win the title", teamOdds.win_title],
-              ] as const).map(([label, value]) => (
-                <OddsRow key={label} label={label} value={value} />
+                ["Reach knockouts", teamOdds.make_knockout, "incl. best 3rd-place"],
+                ["Round of 16", teamOdds.reach_r16, null],
+                ["Quarter-final", teamOdds.reach_qf, null],
+                ["Semi-final", teamOdds.reach_sf, null],
+                ["Final", teamOdds.reach_final, null],
+                ["Win the title", teamOdds.win_title, null],
+              ] as const).map(([label, value, hint]) => (
+                <OddsRow key={label} label={label} value={value} hint={hint} />
               ))}
             </div>
           )}
@@ -212,11 +212,14 @@ function Outlook({ label, value, accent }: { label: string; value: string; accen
   );
 }
 
-function OddsRow({ label, value }: { label: string; value: number | null }) {
+function OddsRow({ label, value, hint }: { label: string; value: number | null; hint?: string | null }) {
   const v = value ?? 0;
   return (
     <div className="flex items-center gap-3">
-      <span className="w-32 shrink-0 text-sm text-foreground/90">{label}</span>
+      <span className="w-32 shrink-0 text-sm text-foreground/90">
+        {label}
+        {hint && <span className="mt-0.5 block text-[10px] leading-tight text-muted">{hint}</span>}
+      </span>
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
         <div
           className="h-full rounded-full bg-gradient-to-r from-win/70 to-win"
