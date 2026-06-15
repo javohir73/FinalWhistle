@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { APP_NAME } from "@/lib/constants";
+import { BrandMark, Wordmark } from "@/components/Logo";
 import { cn } from "@/lib/utils";
 import { recordEngagement } from "@/lib/engagement";
 import { AuthButton } from "@/components/AuthButton";
@@ -29,16 +29,11 @@ export function SiteNav() {
         <Link
           href="/"
           onClick={() => setOpen(false)}
+          aria-label="FinalWhistle home"
           className="group flex shrink-0 items-center gap-2.5"
         >
-          <span className="grid h-8 w-8 place-items-center rounded-lg bg-win/15 text-win ring-1 ring-win/30 transition group-hover:bg-win/25">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden="true">
-              <path d="M12 2l3 6 6 .8-4.5 4.2 1.2 6L12 17l-5.9 2 1.2-6L3 8.8 9 8z" strokeLinejoin="round" />
-            </svg>
-          </span>
-          <span className="font-display text-lg font-extrabold tracking-tight">
-            {APP_NAME}
-          </span>
+          <BrandMark className="h-7 w-auto shrink-0 text-win transition group-hover:opacity-90" />
+          <Wordmark className="text-lg font-extrabold" />
         </Link>
 
         <div className="flex items-center gap-2">
