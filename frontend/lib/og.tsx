@@ -18,6 +18,14 @@ export const C = {
   gold: "#d9b25a",
 };
 
+/** The FinalWhistle mark as an inline SVG data-URI. next/og (Satori) renders
+ *  <img> data-URIs reliably; raw inline <svg> support is partial, so we embed. */
+const MARK_DATA_URI =
+  "data:image/svg+xml," +
+  encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 156"><path d="M46 0h80l46 78-46 78H46L0 78 46 0Z" fill="none" stroke="${C.win}" stroke-width="9" stroke-linejoin="round"/><g transform="translate(36 44)"><path fill="${C.win}" d="M40 70c-20.4 0-37-15.4-37-34.4C3 16.6 19.6 1.2 40 1.2c13.5 0 25.3 6.8 31.7 17h37.7c8.1 0 14.6 6.3 14.6 14.1v23.9H91.5V40.1H76.4C74 57 58.6 70 40 70Z"/><path fill="${C.bg}" d="M87.8 29h24.6c2.3 0 4.2 1.8 4.2 4v12.6H87.8V29Z"/><circle cx="39.6" cy="35.6" r="10.2" fill="${C.bg}"/><path fill="${C.win}" d="M111.5 19h27.8c8 0 14.5 6.3 14.5 14.1v13.2h-29.9v-14c0-7.3-5.4-13.3-12.4-13.3Z"/></g></svg>`,
+  );
+
 /** Branded frame: wordmark header, centered content, footer tagline. */
 export function Shell({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
   return (
@@ -35,16 +43,8 @@ export function Shell({ eyebrow, children }: { eyebrow?: string; children: React
     >
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div
-            style={{
-              width: 46, height: 46, borderRadius: 12,
-              background: "rgba(158,230,51,0.15)", border: "1px solid rgba(158,230,51,0.35)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              color: C.win, fontSize: 28, fontWeight: 800,
-            }}
-          >
-            F
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MARK_DATA_URI} width={48} height={44} alt="" style={{ display: "flex" }} />
           <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: -1 }}>FinalWhistle</div>
         </div>
         {eyebrow && (

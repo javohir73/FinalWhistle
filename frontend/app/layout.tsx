@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Bricolage_Grotesque, Hanken_Grotesk } from "next/font/google";
 import "./globals.css";
 import { APP_NAME, SITE_URL } from "@/lib/constants";
+import { Wordmark } from "@/components/Logo";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
 import { SiteNav } from "@/components/SiteNav";
@@ -39,6 +40,7 @@ export const metadata: Metadata = {
   other: { "mobile-web-app-capable": "yes" },
   icons: {
     icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
@@ -79,7 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Bottom padding clears the fixed mobile tab bar + the iPhone home
               indicator (safe-area inset is 0 on desktop/non-notched devices). */}
           <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
-            <span className="font-display font-bold text-muted">{APP_NAME}</span>{" "}
+            <Wordmark className="font-bold" />{" "}
             · Explainable World Cup 2026 predictions · For analytics and
             entertainment only. Not betting advice.
             <span className="mt-1.5 block">
