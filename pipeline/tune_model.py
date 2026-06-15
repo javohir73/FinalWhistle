@@ -9,13 +9,18 @@ the 2014/2018/2022 World Cups:
   * naive favorite / base-rate baselines
   * an annual-regression (time-decay) sweep on Elo
 
-Conclusion as of this writing: none of the v0.2 levers (recalibration,
-Dixon-Coles draw correction, parameter re-tuning, time-decay) reliably beats
-v0.1 out-of-sample — the model is already well-calibrated (fitted T ~= 1.0) and
-its hand-set parameters are near the achievable ceiling for Elo-only features.
-This script is the tool to re-check that whenever a new signal is added (squad
-strength, injuries, market priors), so any future model change is shipped only
-if it actually improves out-of-sample accuracy.
+Conclusion on this 3-World-Cup sample: no v0.2 lever reliably beats v0.1 on
+W/D/L — too few matches (~190) to detect an effect, and the model is already
+well-calibrated (fitted T ~= 1.0) on outcomes.
+
+UPDATE: pipeline/experiment_model_eval.py widens the holdout to every major
+international tournament final (~1,800 matches across ~50 editions). On that
+sample, goals re-tuning + Dixon-Coles (base=1.2, beta=0.0021, rho=-0.06,
+home_adv kept at 60) does NOT move W/D/L but SIGNIFICANTLY improves the exact
+SCORELINE distribution (exact-score NLL and top-5 hit rate, paired-bootstrap CI
+excludes 0). Those params shipped as v0.2 via ml/models/model_params.json.
+W/D/L is still at its Elo-only ceiling; the next real outcome lever is a market
+(odds) prior, not more goals-model tuning.
 
 Usage:
     PYTHONPATH=backend:. python -m pipeline.tune_model
@@ -114,7 +119,9 @@ def main() -> int:
         tag = "no decay" if carry == 1.0 else f"carry={carry}"
         log.info("  %-10s %s", tag, "  ".join(parts))
 
-    log.info("\nNo v0.2 lever reliably beats v0.1 out-of-sample. Served model unchanged.")
+    log.info("\nOn this 3-WC sample no lever beats v0.1 on W/D/L. For the larger "
+             "major-tournament holdout and the shipped v0.2 exact-score gain, see "
+             "pipeline/experiment_model_eval.py.")
     return 0
 
 

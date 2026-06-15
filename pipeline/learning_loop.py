@@ -261,7 +261,7 @@ def run_post_results_chain(
 
     summary: dict = {"learning": run_learning_loop(db, model_version)}
     summary["predictions"] = generate_predictions(
-        db, model_version, n_sims=n_sims, tournament_sims=tournament_sims
+        db, n_sims=n_sims, tournament_sims=tournament_sims
     )
     summary["brackets"] = recompute_scores(db)
     return summary

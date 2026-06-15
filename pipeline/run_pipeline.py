@@ -63,7 +63,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     # Learning loop AFTER the Elo base is fresh, BEFORE predictions consume the
     # adjusted ratings: evaluate finished matches, refresh tournament state.
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
-    step("predictions", lambda: generate_predictions(db, settings.model_version, n_sims))
+    step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
     step("bracket_scores", lambda: recompute_scores(db))
     step("prune_auth", lambda: prune_auth_rows(db))
     log.info("pipeline complete")
