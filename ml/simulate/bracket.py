@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ml.models.poisson import expected_goals_from_elo
+from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo
 
 # --- Round of 32: each side is a group placement or a third-place slot. ---
 # ("pos", group_letter, position)  position 1 = winner, 2 = runner-up
@@ -121,6 +121,8 @@ def simulate_tournament(
     group_fixtures: dict[str, list[GroupFixture]],
     n_sims: int = 2000,
     seed: int | None = 2026,
+    base: float = BASE_GOALS,
+    beta: float = ELO_TO_GOALS_BETA,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
     reach_final, win_title}} as probabilities over n_sims tournaments."""
@@ -130,7 +132,7 @@ def simulate_tournament(
 
     # Per group: fixed tallies from already-played fixtures (facts, identical in
     # every draw) + Poisson means for the games still to be played.
-    base: dict[str, tuple[dict, dict, dict]] = {}
+    base_tallies: dict[str, tuple[dict, dict, dict]] = {}
     sampled: dict[str, list[tuple[int, int, float, float]]] = {}
     for letter, members in groups.items():
         bp = {t: 0 for t in members}
@@ -150,15 +152,17 @@ def simulate_tournament(
                     bp[fx.home_id] += 1; bp[fx.away_id] += 1
             else:
                 lh, la = expected_goals_from_elo(
-                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
+                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
+                    base=base, beta=beta,
                 )
                 lams.append((fx.home_id, fx.away_id, lh, la))
-        base[letter] = (bp, bgf, bga)
+        base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
 
     def play(h: int, a: int) -> int:
         """One knockout match (neutral). Draw → penalties via Elo logistic."""
-        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=0.0)
+        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=0.0,
+                                         base=base, beta=beta)
         sh, sa = int(rng.poisson(lh)), int(rng.poisson(la))
         if sh > sa:
             return h
@@ -173,7 +177,7 @@ def simulate_tournament(
 
         # --- group stage (facts fixed, remaining games sampled) ---
         for letter, members in groups.items():
-            bp, bgf, bga = base[letter]
+            bp, bgf, bga = base_tallies[letter]
             pts = dict(bp)
             gf = dict(bgf)
             ga = dict(bga)
