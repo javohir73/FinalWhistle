@@ -1,0 +1,62 @@
+# Poll live in-game scores during World Cup match windows (free alternative to a
+# Render cron). POSTs to the API's token-guarded /api/internal/refresh-live, which
+# pulls live scores + status from football-data.org and updates the fixtures the
+# site reads. The frontend already re-fetches every 30s, so updates surface fast.
+#
+# GitHub's minimum schedule interval is 5 minutes, so each run loops internally
+# (~1-minute cadence) to cover the gap to the next tick. This repo is public, so
+# Actions minutes are free; on a private repo, widen the cron or drop the loop.
+#
+# SETUP (one time) — GitHub → repo → Settings → Secrets and variables → Actions:
+#   - API_URL          the deployed API base, e.g. https://pitchprophet-api.onrender.com
+#   - RECOMPUTE_TOKEN  the SAME value as the backend's RECOMPUTE_TOKEN env var
+# The backend must also have FOOTBALL_DATA_API_KEY set and LIVE_MODE_ENABLED=true
+# (verify with: curl <API_URL>/api/health → "live_updates":"ready"). Until the two
+# secrets above exist this workflow safely no-ops. For tighter-than-1-min updates,
+# point an external uptime cron (e.g. cron-job.org) at the same endpoint instead.
+name: refresh-live
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+# Don't let a slow run overlap the next scheduled tick.
+concurrency:
+  group: refresh-live
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll /api/internal/refresh-live (~1-min cadence across the 5-min window)
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+        run: |
+          set -u
+          # Only run during the tournament so it isn't pinging forever afterwards.
+          today=$(date -u +%Y-%m-%d)
+          if [[ "$today" < "2026-06-11" || "$today" > "2026-07-20" ]]; then
+            echo "Outside the World Cup window ($today) — skipping."
+            exit 0
+          fi
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set — skipping."
+            echo "Add them under Settings → Secrets and variables → Actions to enable live polling."
+            exit 0
+          fi
+          ok=0
+          for i in $(seq 1 5); do
+            code=$(curl -sS -o /tmp/live.json -w "%{http_code}" -m 60 \
+              -X POST "${API_URL%/}/api/internal/refresh-live" \
+              -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" || echo 000)
+            echo "[$i/5] HTTP ${code} $(cat /tmp/live.json 2>/dev/null || true)"
+            if [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]; then ok=1; fi
+            if [ "$i" -lt 5 ]; then sleep 55; fi
+          done
+          if [ "${ok}" != 1 ]; then
+            echo "All live pings failed this run (transient API error or misconfig)."
+            exit 1
+          fi
