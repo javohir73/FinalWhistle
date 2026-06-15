@@ -3,6 +3,8 @@
 # because Render's free tier doesn't allow pre-deploy commands or cron jobs.
 # Frontend is deployed separately on Vercel (see DEPLOYMENT.md).
 databases:
+  # NOTE: pitchprophet-* service/DB names are legacy but load-bearing — they map
+  # to live Render resources and the production API host. Do not rename.
   - name: pitchprophet-db
     plan: free # free Postgres (expires after ~90 days; upgrade for production)
 

@@ -18,7 +18,7 @@ Vercel (Next.js)  ──HTTPS──►  Render Web Service (FastAPI, Docker)  �
 |---|---|---|---|
 | `DATABASE_URL` | ✅ | `postgresql://user:pass@host/db` | Auto-wired from the Render database. `postgres://`/`postgresql://` are normalized to the psycopg2 driver automatically. |
 | `RECOMPUTE_TOKEN` | ✅ | (generated) | Secret guarding `POST /api/internal/recompute`. Render generates it. |
-| `CORS_ORIGINS` | ✅ | `https://pitchprophet.vercel.app` | Comma-separated allowed frontend origins. **Set after the Vercel URL exists.** |
+| `CORS_ORIGINS` | ✅ | `https://fifa-wc26-prediction.vercel.app` | Comma-separated allowed frontend origins. **Set after the Vercel URL exists.** |
 | `MODEL_VERSION` | ➖ | `poisson-elo-v0.1` | Stamped on predictions. |
 | `CACHE_TTL_SECONDS` | ➖ | `600` | Read-cache lifetime; lets the cron's DB writes appear in the web process. |
 | `FOOTBALL_DATA_API_KEY` | ➖ | (from football-data.org) | Enables **live in-game scores**. Empty = feature off (no-op). Free key at football-data.org/client/register. |
@@ -134,7 +134,7 @@ Click-by-click:
 2. **Root Directory** → set to `frontend` (important — the Next.js app lives there).
 3. Framework preset: **Next.js** (auto-detected).
 4. **Environment Variables** → add `NEXT_PUBLIC_API_URL` = your Render API URL (e.g. `https://pitchprophet-api.onrender.com`). Add it for **Production** and **Preview**.
-5. Click **Deploy**. Copy the resulting URL (e.g. `https://pitchprophet.vercel.app`).
+5. Click **Deploy**. Copy the resulting URL (e.g. `https://fifa-wc26-prediction.vercel.app`).
 6. Go back to Render → **pitchprophet-api** → Environment → set `CORS_ORIGINS` to that Vercel URL → save (the service redeploys).
 7. Open the Vercel URL — the dashboard should load real predictions.
 
