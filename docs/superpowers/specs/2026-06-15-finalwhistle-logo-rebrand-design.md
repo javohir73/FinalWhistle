@@ -100,17 +100,29 @@ were and were not regenerated — no silent coverage gaps.
 
 ### 5. PitchProphet cleanup (code & docs, not live infra)
 
-Rename:
-- `frontend/package.json` — `pitchprophet-frontend` → `finalwhistle-frontend`.
-- `frontend/app/sitemap.ts` — the `pitchprophet` fallback API/site URL.
-- `tools/admin_dashboard.py` — references and URL defaults.
-- Active docs: `README.md`, `DEPLOYMENT.md`.
+**Critical nuance:** most `pitchprophet` references are the **live backend's real
+hostname** (`pitchprophet-api.onrender.com`) and DB name (`pitchprophet-db`),
+derived from the Render service names we are deliberately keeping. Changing those
+strings would break the production API fallback. So the safe cleanup is narrow.
 
-Leave:
-- `render.yaml` service names (`pitchprophet-db` / `pitchprophet-api`) —
-  renaming would orphan or recreate live Render services. Add a one-line comment
-  noting these names are legacy but load-bearing.
-- Dated historical `prd-*.md` / `tasks-*.md` files — kept as historical record.
+Rename / fix:
+- `frontend/package.json` — `pitchprophet-frontend` → `finalwhistle-frontend`
+  (private package identifier; cosmetic, no infra impact). Update the matching
+  `name` fields in `frontend/package-lock.json`.
+- `DEPLOYMENT.md` — fix the **stale frontend URL** `https://pitchprophet.vercel.app`
+  → `https://fifa-wc26-prediction.vercel.app` (lines 21, 137). This is a real
+  documentation error (wrong Vercel URL), not infra.
+- `render.yaml` — add a one-line comment noting the `pitchprophet-*` service
+  names are legacy but load-bearing (names themselves unchanged).
+
+Leave untouched (all tied to live infra or historical record):
+- `frontend/app/sitemap.ts:4`, `tools/admin_dashboard.py:28` — the
+  `pitchprophet-api.onrender.com` fallback is the real production API host.
+- `.github/workflows/keep-warm.yml`, `smoke.yml` — ping the real host.
+- `render.yaml` service/DB names (`pitchprophet-db` / `pitchprophet-api`).
+- The `pitchprophet-api.onrender.com` / `pitchprophet-db` operational references
+  inside `DEPLOYMENT.md` (accurate infra instructions).
+- Dated historical `prd-*.md` / `tasks-*.md` files.
 
 ### 6. Testing & verification
 
@@ -142,8 +154,7 @@ Leave:
 | `frontend/assets/*` | New master sources for icon/splash |
 | `frontend/public/icon-*.png`, `apple-icon-180.png` | Regenerated |
 | `frontend/ios/**`, `frontend/android/**` | Regenerated native assets |
-| `frontend/package.json` | Rename to `finalwhistle-frontend` |
-| `frontend/app/sitemap.ts` | Drop pitchprophet fallback |
-| `tools/admin_dashboard.py` | Drop pitchprophet references |
-| `README.md`, `DEPLOYMENT.md` | Drop pitchprophet references |
+| `frontend/package.json` + `package-lock.json` | Rename to `finalwhistle-frontend` |
+| `DEPLOYMENT.md` | Fix stale `pitchprophet.vercel.app` → real Vercel URL |
 | `render.yaml` | Comment only (names untouched) |
+| `frontend/app/sitemap.ts`, `tools/admin_dashboard.py`, workflows | **Unchanged** — live API host |
