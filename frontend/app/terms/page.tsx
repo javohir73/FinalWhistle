@@ -63,8 +63,8 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         Bugs, questions, account help:{" "}
-        <a className="text-win underline-offset-2 hover:underline" href="mailto:pete@degail.com">
-          pete@degail.com
+        <a className="text-win underline-offset-2 hover:underline" href="mailto:javohirazizov48@gmail.com">
+          javohirazizov48@gmail.com
         </a>
         . We read everything.
       </p>
