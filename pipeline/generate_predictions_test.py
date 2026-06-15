@@ -26,7 +26,8 @@ def test_payload_matches_prd_section_17_shape(db_session):
     # Top-level keys from PRD §17
     for key in [
         "match_id", "model_version", "generated_at", "teams", "is_neutral",
-        "probabilities", "predicted_score", "confidence", "reasons",
+        "probabilities", "predicted_score", "scoreline_distribution",
+        "confidence", "reasons",
         "top_features", "head_to_head", "odds_comparison", "disclaimer",
     ]:
         assert key in payload, f"missing key {key}"
@@ -36,6 +37,10 @@ def test_payload_matches_prd_section_17_shape(db_session):
     assert payload["confidence"] in {"High", "Medium", "Low"}
     assert len(payload["reasons"]) >= 3
     assert payload["odds_comparison"] == {"available": False}
+    dist = payload["scoreline_distribution"]
+    assert dist["expected_goals"]["home"] > 0
+    assert set(dist["by_outcome"]) == {"home", "draw", "away"}
+    assert dist["by_outcome"]["home"][0]["home"] > dist["by_outcome"]["home"][0]["away"]
 
 
 def test_generate_predictions_writes_rows(db_session):
@@ -45,7 +50,9 @@ def test_generate_predictions_writes_rows(db_session):
 
     assert summary["matches_predicted"] == 72  # all group matches
     assert summary["groups_simulated"] == 12
+    first = db_session.query(Prediction).first()
     assert db_session.query(Prediction).count() == 72
+    assert first.scoreline_probs["expected_goals"]["home"] > 0
 
     # Standings: 48 teams, qualification probs sum to ~2 per group.
     standings = db_session.query(Standing).all()

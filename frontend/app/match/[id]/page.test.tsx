@@ -33,6 +33,21 @@ const prediction: Prediction = {
   venue_country: null,
   probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
   predicted_score: { home: 2, away: 0, probability: 0.17 },
+  scoreline_distribution: {
+    expected_goals: { home: 1.82, away: 0.74 },
+    by_outcome: {
+      home: [
+        { home: 2, away: 0, probability: 0.17, outcome: "home" },
+        { home: 1, away: 0, probability: 0.14, outcome: "home" },
+      ],
+      draw: [
+        { home: 1, away: 1, probability: 0.11, outcome: "draw" },
+      ],
+      away: [
+        { home: 0, away: 1, probability: 0.07, outcome: "away" },
+      ],
+    },
+  },
   confidence: "High",
   reasons: ["Brazil has a higher Elo rating.", "Strong recent form.", "Won last meeting."],
   top_features: [{ name: "elo_gap", weight: 0.66 }],
@@ -59,6 +74,9 @@ it("server-renders teams, probabilities, reasons and odds stub", async () => {
   expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("Serbia")).toBeInTheDocument();
   expect(screen.getAllByText("62%").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByText("Scoreline distribution")).toBeInTheDocument();
+  expect(screen.getByText(/xG Brazil 1\.82/)).toBeInTheDocument();
+  expect(screen.getAllByText("Home win").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
   expect(screen.getByText(/coming in a later release/i)).toBeInTheDocument();
 });

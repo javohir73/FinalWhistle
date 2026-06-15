@@ -173,6 +173,7 @@ class Prediction(Base):
     predicted_score_home: Mapped[int | None] = mapped_column(Integer)
     predicted_score_away: Mapped[int | None] = mapped_column(Integer)
     predicted_score_prob: Mapped[float | None] = mapped_column(Float)
+    scoreline_probs: Mapped[dict | None] = mapped_column(JSON)
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)

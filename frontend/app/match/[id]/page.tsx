@@ -11,6 +11,7 @@ import { MatchScoreboard } from "@/components/MatchScoreboard";
 import { OddsCompare } from "@/components/OddsCompare";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
+import { ScorelineDistributionPanel } from "@/components/ScorelineDistributionPanel";
 
 export async function generateMetadata({
   params,
@@ -74,6 +75,15 @@ export default async function MatchDetailPage({ params }: { params: { id: string
           initialSummary={summary}
         />
       </section>
+
+      {p.scoreline_distribution && (
+        <ScorelineDistributionPanel
+          distribution={p.scoreline_distribution}
+          probabilities={p.probabilities}
+          home={home}
+          away={away}
+        />
+      )}
 
       {/* Why (server-rendered reasons; chart hydrates client-side) */}
       <section className="glass rounded-2xl p-6">

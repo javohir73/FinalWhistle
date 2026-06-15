@@ -17,6 +17,25 @@ export interface PredictedScore {
   probability: number | null;
 }
 
+export interface ExpectedGoals {
+  home: number;
+  away: number;
+}
+
+export type ScorelineOutcome = "home" | "draw" | "away";
+
+export interface ScorelineProbability {
+  home: number;
+  away: number;
+  probability: number;
+  outcome: ScorelineOutcome;
+}
+
+export interface ScorelineDistribution {
+  expected_goals: ExpectedGoals;
+  by_outcome: Record<ScorelineOutcome, ScorelineProbability[]>;
+}
+
 export interface FeatureWeight {
   name: string;
   weight: number;
@@ -46,6 +65,7 @@ export interface Prediction {
   venue_country: string | null;
   probabilities: Probabilities;
   predicted_score: PredictedScore;
+  scoreline_distribution?: ScorelineDistribution | null;
   confidence: "High" | "Medium" | "Low" | null;
   reasons: string[];
   top_features: FeatureWeight[];

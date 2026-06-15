@@ -28,6 +28,23 @@ class PredictedScoreOut(BaseModel):
     probability: float | None
 
 
+class ExpectedGoalsOut(BaseModel):
+    home: float
+    away: float
+
+
+class ScorelineProbabilityOut(BaseModel):
+    home: int
+    away: int
+    probability: float
+    outcome: str
+
+
+class ScorelineDistributionOut(BaseModel):
+    expected_goals: ExpectedGoalsOut
+    by_outcome: dict[str, list[ScorelineProbabilityOut]]
+
+
 class FeatureWeightOut(BaseModel):
     name: str
     weight: float
@@ -63,6 +80,7 @@ class PredictionOut(BaseModel):
     venue_country: str | None = None
     probabilities: ProbabilitiesOut
     predicted_score: PredictedScoreOut
+    scoreline_distribution: ScorelineDistributionOut | None = None
     confidence: str | None
     reasons: list[str]
     top_features: list[FeatureWeightOut]

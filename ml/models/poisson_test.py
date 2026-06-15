@@ -6,6 +6,7 @@ from ml.models.poisson import (
     poisson_pmf,
     predict_match,
     score_matrix,
+    top_scorelines_by_outcome,
 )
 
 
@@ -67,6 +68,17 @@ def test_most_likely_score_is_a_valid_cell():
     h, a, p = most_likely_score(matrix)
     assert 0 <= h and 0 <= a
     assert 0 < p <= 1
+
+
+def test_top_scorelines_are_grouped_by_outcome():
+    grouped = top_scorelines_by_outcome(score_matrix(1.7, 0.9), per_outcome=3)
+
+    assert set(grouped) == {"home", "draw", "away"}
+    assert len(grouped["home"]) == 3
+    assert all(line.home > line.away for line in grouped["home"])
+    assert all(line.home == line.away for line in grouped["draw"])
+    assert all(line.home < line.away for line in grouped["away"])
+    assert grouped["home"][0].probability >= grouped["home"][1].probability
 
 
 def test_dixon_coles_increases_draw_probability():

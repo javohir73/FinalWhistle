@@ -121,6 +121,57 @@ def most_likely_score(
     return best_h, best_a, best_p
 
 
+@dataclass(frozen=True)
+class ScorelineProbability:
+    home: int
+    away: int
+    probability: float
+    outcome: str
+
+
+def top_scorelines_by_outcome(
+    matrix: list[list[float]], per_outcome: int = 5
+) -> dict[str, list[ScorelineProbability]]:
+    """Return the most likely scorelines grouped by result class.
+
+    Grouping avoids the UX trap where the absolute top cells can visually
+    contradict the headline W/D/L pick. Probabilities are normalized to the
+    displayed grid mass, matching outcome_probabilities().
+    """
+    total = sum(sum(row) for row in matrix)
+    if total <= 0:
+        return {"home": [], "draw": [], "away": []}
+
+    buckets: dict[str, list[ScorelineProbability]] = {
+        "home": [],
+        "draw": [],
+        "away": [],
+    }
+    for h, row in enumerate(matrix):
+        for a, raw_p in enumerate(row):
+            if h > a:
+                outcome = "home"
+            elif h == a:
+                outcome = "draw"
+            else:
+                outcome = "away"
+            buckets[outcome].append(
+                ScorelineProbability(
+                    home=h,
+                    away=a,
+                    probability=raw_p / total,
+                    outcome=outcome,
+                )
+            )
+
+    return {
+        outcome: sorted(cells, key=lambda cell: cell.probability, reverse=True)[
+            :per_outcome
+        ]
+        for outcome, cells in buckets.items()
+    }
+
+
 @dataclass
 class MatchPrediction:
     prob_home_win: float
@@ -131,6 +182,7 @@ class MatchPrediction:
     score_prob: float
     lambda_home: float
     lambda_away: float
+    scorelines_by_outcome: dict[str, list[ScorelineProbability]]
 
 
 def predict_match(
@@ -160,6 +212,7 @@ def predict_match(
         (("home", p_home), ("draw", p_draw), ("away", p_away)), key=lambda kv: kv[1]
     )[0]
     sh, sa, sp = most_likely_score(matrix, outcome)
+    scorelines = top_scorelines_by_outcome(matrix)
     return MatchPrediction(
         prob_home_win=p_home,
         prob_draw=p_draw,
@@ -169,4 +222,5 @@ def predict_match(
         score_prob=sp,
         lambda_home=lam_home,
         lambda_away=lam_away,
+        scorelines_by_outcome=scorelines,
     )

@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ml.models.poisson import expected_goals_from_elo
+from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo
 
 
 @dataclass
@@ -48,6 +48,8 @@ def simulate_group(
     n_sims: int = 10000,
     seed: int | None = None,
     advance_count: int = 2,
+    base: float = BASE_GOALS,
+    beta: float = ELO_TO_GOALS_BETA,
 ) -> dict[int, dict]:
     """Return {team_id: {qualification_prob, avg_points, avg_gd, avg_gf}}."""
     rng = np.random.default_rng(seed)
@@ -65,7 +67,11 @@ def simulate_group(
                           fx.home_id, fx.away_id, fx.score[0], fx.score[1])
         else:
             lh, la = expected_goals_from_elo(
-                team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv
+                team_elos[fx.home_id],
+                team_elos[fx.away_id],
+                home_adv=fx.home_adv,
+                base=base,
+                beta=beta,
             )
             lams.append((fx.home_id, fx.away_id, lh, la))
 

@@ -88,6 +88,11 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
             away=pred.predicted_score_away,
             probability=pred.predicted_score_prob,
         ),
+        scoreline_distribution=(
+            schemas.ScorelineDistributionOut(**pred.scoreline_probs)
+            if pred.scoreline_probs
+            else None
+        ),
         confidence=pred.confidence,
         reasons=pred.reasons or [],
         top_features=[schemas.FeatureWeightOut(**f) for f in (pred.top_features or [])],

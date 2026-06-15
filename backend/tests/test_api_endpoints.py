@@ -68,7 +68,8 @@ def test_match_detail_matches_section_17_shape(client):
     body = r.json()
     for key in [
         "match_id", "model_version", "generated_at", "teams", "is_neutral",
-        "probabilities", "predicted_score", "confidence", "reasons",
+        "probabilities", "predicted_score", "scoreline_distribution",
+        "confidence", "reasons",
         "top_features", "head_to_head", "odds_comparison", "disclaimer",
     ]:
         assert key in body
@@ -76,6 +77,8 @@ def test_match_detail_matches_section_17_shape(client):
     assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
     assert body["odds_comparison"] == {"available": False}
     assert len(body["reasons"]) >= 3
+    assert body["scoreline_distribution"]["expected_goals"]["home"] > 0
+    assert set(body["scoreline_distribution"]["by_outcome"]) == {"home", "draw", "away"}
 
 
 def test_knockout_odds(client):
