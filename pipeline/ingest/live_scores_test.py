@@ -98,18 +98,19 @@ def test_no_api_key_is_a_safe_noop(db_session):
     assert summary["updated"] == 0
 
 
-def test_unimplemented_provider_skips_loudly(db_session, monkeypatch):
-    # api_football is config-only scaffolding. Selecting it must NOT silently
-    # fetch football-data's endpoint with the wrong key — refresh_live skips with
-    # a clear marker so a misconfiguration surfaces instead of looking "broken".
+def test_unknown_provider_skips_loudly(db_session, monkeypatch):
+    # An unrecognised live_provider must NOT silently fetch football-data's
+    # endpoint with the wrong key — refresh_live skips with a clear marker so a
+    # misconfiguration surfaces instead of looking "broken". (football_data and
+    # api_football both have real ingestion; see their own tests.)
     from app.config import settings as app_settings
 
     load_structure(db_session)
-    monkeypatch.setattr(app_settings, "live_provider", "api_football")
-    monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
+    monkeypatch.setattr(app_settings, "live_provider", "satellite_telepathy")
+    monkeypatch.setattr(app_settings, "football_data_api_key", "dummy-key")
 
     summary = refresh_live(db_session)  # default key path -> active_live_api_key
-    assert summary["skipped"] == "provider_not_implemented:api_football"
+    assert summary["skipped"] == "unknown_provider:satellite_telepathy"
     assert summary["updated"] == 0
 
 

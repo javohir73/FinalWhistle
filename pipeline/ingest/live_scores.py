@@ -270,33 +270,32 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
 
 
 def refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:
-    """Fetch + apply live scores. No-op (never raises) when no key is configured.
-
-    Honours config.live_provider: only football-data.org has ingestion wired
-    here, so any other selection is skipped loudly rather than silently fetching
-    football-data's endpoint with the wrong provider's key.
+    """Fetch + apply live scores for the configured provider. No-op (never
+    raises) when no key is set. Both 'football_data' and 'api_football' are
+    wired; an unknown provider is skipped loudly. Honours config.live_provider
+    so the selected provider and the key in use always agree.
     """
     from app.config import settings
 
-    # Default to the *selected* provider's key (not football-data's specifically)
-    # so config.live_provider and the key in use actually agree.
+    provider = settings.live_provider
+    # Default to the *selected* provider's key (not football-data's specifically).
     key = api_key if api_key is not None else settings.active_live_api_key
-    comp = competition or settings.football_data_competition
     if not key:
-        log.info("live scores skipped: no API key for provider %r", settings.live_provider)
+        log.info("live scores skipped: no API key for provider %r", provider)
         return {"skipped": "no_api_key", "updated": 0, "live": 0, "finished": 0}
 
-    if settings.live_provider != "football_data":
-        # api_football is config-only scaffolding — no ingestion implemented yet.
-        log.warning(
-            "live scores skipped: provider %r has no ingestion wired "
-            "(only 'football_data' is implemented)", settings.live_provider,
-        )
-        return {"skipped": f"provider_not_implemented:{settings.live_provider}",
-                "updated": 0, "live": 0, "finished": 0}
-
     try:
-        api_matches = fetch_matches(key, comp)
+        if provider == "football_data":
+            comp = competition or settings.football_data_competition
+            api_matches = fetch_matches(key, comp)
+        elif provider == "api_football":
+            from pipeline.ingest.api_football import fetch_fixtures, to_feed
+            api_matches = to_feed(fetch_fixtures(
+                key, settings.api_football_league, settings.api_football_season))
+        else:
+            log.warning("live scores skipped: unknown provider %r", provider)
+            return {"skipped": f"unknown_provider:{provider}",
+                    "updated": 0, "live": 0, "finished": 0}
     except Exception as exc:  # noqa: BLE001 - never break the cron on a feed hiccup
         log.warning("live scores fetch failed: %s", exc)
         return {"error": str(exc), "updated": 0, "live": 0, "finished": 0}
