@@ -111,7 +111,8 @@ it("pins live (in-play) matches in a 'Live now' section at the top", async () =>
   mockGet.mockResolvedValue([
     match(1, "Brazil", "Morocco", "Group C", {
       status: "in_play", period: "second_half", minute: 70,
-      score_home: 1, score_away: 1, kickoff_utc: "2026-06-13T22:00:00+00:00",
+      // Recent kickoff so isLiveNow() pins it as live (a stale in_play would not).
+      score_home: 1, score_away: 1, kickoff_utc: new Date(Date.now() - 60 * 60_000).toISOString(),
     }),
     match(2, "Spain", "Uruguay", "Group H", { kickoff_utc: "2026-06-20T18:00:00+00:00" }),
   ]);

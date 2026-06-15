@@ -5,7 +5,7 @@ import { Flag } from "@/components/Flag";
 import type { Pick } from "@/lib/useMatchPicks";
 import type { MatchSummary } from "@/lib/types";
 import { kickoffTime, dayHeading, tzAbbrev } from "@/lib/datetime";
-import { liveLabel } from "@/lib/liveLabel";
+import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { cn } from "@/lib/utils";
 
@@ -95,8 +95,8 @@ export function UserPredictionCard({
   const labelFor = (s: Outcome) =>
     s === "home" ? match.teams.home : s === "away" ? match.teams.away : "Draw";
 
-  const live = match.status === "in_play";
-  const finished = match.status === "finished";
+  const live = isLiveNow(match);
+  const finished = match.status === "finished" || (match.status === "in_play" && !live);
   const hasScore = match.score_home != null && match.score_away != null;
   const matchVerdict = finished ? predictionVerdict(match) : null;
 

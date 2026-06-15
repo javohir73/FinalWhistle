@@ -94,6 +94,8 @@ describe("MatchCard", () => {
   it("shows a LIVE badge, minute and the running score when in play", () => {
     const liveMatch = {
       ...match,
+      // Recent kickoff so isLiveNow() treats it as actually live (not stale).
+      kickoff_utc: new Date(Date.now() - 60 * 60_000).toISOString(),
       status: "in_play" as const,
       score_home: 1,
       score_away: 0,

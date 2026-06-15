@@ -34,16 +34,21 @@ const base: MatchSummary = {
   confidence: "High",
 };
 
+// A live match must have a recent kickoff (isLiveNow bounds the live window),
+// so derive it relative to now rather than a fixed date that goes stale.
+const RECENT_KICKOFF = new Date(Date.now() - 60 * 60_000).toISOString();
 const finished: MatchSummary = { ...base, status: "finished", score_home: 2, score_away: 0 };
 const live: MatchSummary = {
-  ...base, status: "in_play", score_home: 1, score_away: 0, minute: 63, period: "second_half",
+  ...base, kickoff_utc: RECENT_KICKOFF, status: "in_play",
+  score_home: 1, score_away: 0, minute: 63, period: "second_half",
 };
 const halfTime: MatchSummary = {
-  ...base, status: "in_play", score_home: 1, score_away: 0, minute: null, period: "half_time",
+  ...base, kickoff_utc: RECENT_KICKOFF, status: "in_play",
+  score_home: 1, score_away: 0, minute: null, period: "half_time",
 };
 const shootout: MatchSummary = {
-  ...base, status: "in_play", score_home: 1, score_away: 1, minute: null,
-  period: "penalty_shootout", penalty_home: 5, penalty_away: 4,
+  ...base, kickoff_utc: RECENT_KICKOFF, status: "in_play", score_home: 1, score_away: 1,
+  minute: null, period: "penalty_shootout", penalty_home: 5, penalty_away: 4,
 };
 
 beforeEach(() => mockGetMatchSummary.mockResolvedValue(finished));

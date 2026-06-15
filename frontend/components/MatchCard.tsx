@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
-import { liveLabel } from "@/lib/liveLabel";
+import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { kickoffDate, kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
@@ -27,8 +27,10 @@ export function MatchCard({
 }) {
   const { teams, probabilities, predicted_score, confidence, predicted_winner } = match;
   const venue = [match.venue, match.venue_city].filter(Boolean).join(" · ");
-  const live = match.status === "in_play";
-  const finished = match.status === "finished";
+  const live = isLiveNow(match);
+  // A match the feed left stuck `in_play` past the live window is treated as
+  // over (show its last score as a result) rather than perpetually "live".
+  const finished = match.status === "finished" || (match.status === "in_play" && !live);
   const hasScore = match.score_home != null && match.score_away != null;
   const verdict = predictionVerdict(match);
 
