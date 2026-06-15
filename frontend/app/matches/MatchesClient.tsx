@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useFavorites } from "@/lib/useFavorites";
@@ -17,6 +17,14 @@ import type { MatchSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const TBC = "tbc";
+
+// The board splits the non-live fixtures into two tabs. "Played" mirrors the
+// finished-state logic the cards use (see MatchCard): a real full-time result, or
+// an `in_play` the feed left stranded past the live window (rendered as FT). Live
+// games are neither — they're pinned above both tabs.
+type TimeTab = "upcoming" | "past";
+const isPlayed = (m: MatchSummary) =>
+  m.status === "finished" || (m.status === "in_play" && !isLiveNow(m));
 
 type SortKey = "kickoff" | "confidence" | "upset" | "winprob";
 const SORTS: { value: SortKey; label: string }[] = [
@@ -73,6 +81,32 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       return next;
     });
 
+  // Upcoming vs. already-played, persisted like the focus toggle so returning from
+  // a match page keeps the tab you were on. Defaults to Upcoming — the board is
+  // forward-looking; results live one tap away.
+  const TAB_KEY = "finalwhistle:matches-time-tab:v1";
+  const [tab, setTabState] = useState<TimeTab>("upcoming");
+  useEffect(() => {
+    try {
+      const stored = window.sessionStorage.getItem(TAB_KEY);
+      if (stored === "upcoming" || stored === "past") setTabState(stored);
+    } catch {
+      /* storage unavailable — keep the default */
+    }
+  }, []);
+  const setTab = (next: TimeTab) => {
+    setTabState(next);
+    try {
+      window.sessionStorage.setItem(TAB_KEY, next);
+    } catch {
+      /* non-fatal */
+    }
+  };
+  const tabRefs = useRef<Record<TimeTab, HTMLButtonElement | null>>({
+    upcoming: null,
+    past: null,
+  });
+
   const matches = state.status === "success" ? state.data : [];
   const country = hydrated && selection ? selection.team : null;
   const focused = !!country && countryFocus;
@@ -110,37 +144,38 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
     .sort((a, b) => (a.kickoff_utc ?? "").localeCompare(b.kickoff_utc ?? ""));
   const rest = filtered.filter((m) => !isLiveNow(m));
 
-  // Bucket the rest by local calendar day, ordered now-first: today + upcoming
-  // (soonest first), then past days (most recent first), undated last. So the
-  // board opens on current/recent action, not the tournament's first fixtures.
+  // Non-live fixtures split across the two tabs. Counts label the tabs, so the
+  // user can see there *are* results to look at without switching.
+  const upcoming = rest.filter((m) => !isPlayed(m));
+  const past = rest.filter(isPlayed);
+  const active = tab === "past" ? past : upcoming;
+
+  // Bucket the active tab by local calendar day. Upcoming reads soonest-first
+  // (undated last); past reads most-recent-first, so the latest results lead.
   const days = useMemo(() => {
     const byDay = new Map<string, MatchSummary[]>();
-    for (const m of rest) {
+    for (const m of active) {
       const key = m.kickoff_utc ? dayKey(m.kickoff_utc, tz) : TBC;
       let arr = byDay.get(key);
       if (!arr) byDay.set(key, (arr = []));
       arr.push(m);
     }
-    const todayKey = dayKey(new Date().toISOString(), tz);
     return Array.from(byDay.entries()).sort(([a], [b]) => {
       if (a === TBC) return 1;
       if (b === TBC) return -1;
-      const aPast = a < todayKey;
-      const bPast = b < todayKey;
-      if (aPast !== bPast) return aPast ? 1 : -1; // today + upcoming before past
-      if (!aPast) return a < b ? -1 : 1;          // today + upcoming: soonest first
-      return a < b ? 1 : -1;                      // past: most recent first
+      if (tab === "past") return a < b ? 1 : -1; // past: most recent first
+      return a < b ? -1 : 1;                     // upcoming: soonest first
     });
-  }, [rest, tz]);
+  }, [active, tab, tz]);
 
-  // Metric sorts produce a single ranked list (highest first); kickoff keeps the
-  // day-bucketed view above. Live games stay pinned regardless of sort.
+  // Metric sorts produce a single ranked list (highest first) within the active
+  // tab; kickoff keeps the day-bucketed view above. Live games stay pinned.
   const ranked = useMemo(() => {
     if (sort === "kickoff") return [];
     const score =
       sort === "confidence" ? confScore : sort === "upset" ? upsetProb : winProb;
-    return [...rest].sort((a, b) => score(b) - score(a));
-  }, [rest, sort]);
+    return [...active].sort((a, b) => score(b) - score(a));
+  }, [active, sort]);
 
   return (
     <div>
@@ -281,63 +316,148 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
               </section>
             )}
 
-            {rest.length > 0 &&
-              (sort !== "kickoff" ? (
-                <section>
-                  <div className="mb-3.5 flex items-center gap-3">
-                    <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-                      {SORTS.find((s) => s.value === sort)?.label.replace("Sort: ", "")}
-                    </h2>
-                    <span className="h-px flex-1 bg-border/60" />
-                    <span className="font-display text-xs font-semibold text-muted">
-                      {ranked.length} {ranked.length === 1 ? "match" : "matches"}
-                    </span>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {ranked.map((m) => (
-                      <MatchCard key={m.match_id} match={m} tz={tz} />
-                    ))}
-                  </div>
-                </section>
-              ) : (
-                <div className="space-y-9">
-                  {days.map(([key, dayMatches]) => {
-                    const rel =
-                      key === TBC ? null : relativeDayLabel(dayMatches[0].kickoff_utc!, tz);
+            {/* Upcoming / Past split. Live games stay pinned above this, so a
+                match in progress is always visible whichever tab you're on. */}
+            {rest.length > 0 && (
+              <section aria-label="Upcoming and past matches">
+                <div
+                  role="tablist"
+                  aria-label="Match timeframe"
+                  className="mb-6 inline-flex rounded-xl border border-border bg-surface/60 p-1"
+                >
+                  {([
+                    { key: "upcoming", label: "Upcoming", n: upcoming.length },
+                    { key: "past", label: "Past matches", n: past.length },
+                  ] as const).map((t) => {
+                    const selected = tab === t.key;
                     return (
-                    <section key={key}>
-                      <div className="mb-3.5 flex items-center gap-3">
-                        {rel && (
-                          <span
-                            className={`rounded-full px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-wide ring-1 ${
-                              rel === "Today"
-                                ? "bg-win/15 text-win ring-win/30"
-                                : "bg-surface text-muted ring-border/60"
-                            }`}
-                          >
-                            {rel}
-                          </span>
+                      <button
+                        key={t.key}
+                        ref={(el) => {
+                          tabRefs.current[t.key] = el;
+                        }}
+                        type="button"
+                        role="tab"
+                        id={`tab-${t.key}`}
+                        aria-selected={selected}
+                        aria-controls="matches-panel"
+                        tabIndex={selected ? 0 : -1}
+                        onClick={() => setTab(t.key)}
+                        onKeyDown={(e) => {
+                          if (["ArrowRight", "ArrowLeft", "Home", "End"].includes(e.key)) {
+                            e.preventDefault();
+                            const target: TimeTab =
+                              e.key === "Home"
+                                ? "upcoming"
+                                : e.key === "End"
+                                ? "past"
+                                : t.key === "upcoming"
+                                ? "past"
+                                : "upcoming";
+                            setTab(target);
+                            tabRefs.current[target]?.focus();
+                          }
+                        }}
+                        className={cn(
+                          "rounded-lg px-4 py-2 text-sm font-semibold transition",
+                          selected
+                            ? "bg-win/15 text-foreground"
+                            : "text-muted hover:text-foreground",
                         )}
+                      >
+                        {t.label}
+                        <span
+                          className={cn(
+                            "ml-1.5 text-xs font-normal tabular-nums",
+                            selected ? "text-win" : "opacity-60",
+                          )}
+                        >
+                          {t.n}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div id="matches-panel" role="tabpanel" aria-labelledby={`tab-${tab}`}>
+                  {active.length === 0 ? (
+                    <Empty
+                      label={
+                        tab === "past"
+                          ? "No matches have been played yet."
+                          : "No upcoming matches."
+                      }
+                      action={
+                        (tab === "past" ? upcoming.length : past.length) > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => setTab(tab === "past" ? "upcoming" : "past")}
+                            className="rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm font-medium text-foreground transition hover:border-win/40"
+                          >
+                            {tab === "past" ? "View upcoming matches" : "View past matches"}
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  ) : sort !== "kickoff" ? (
+                    <section>
+                      <div className="mb-3.5 flex items-center gap-3">
                         <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
-                          {key === TBC
-                            ? "Date to be confirmed"
-                            : dayHeading(dayMatches[0].kickoff_utc!, tz)}
+                          {SORTS.find((s) => s.value === sort)?.label.replace("Sort: ", "")}
                         </h2>
                         <span className="h-px flex-1 bg-border/60" />
                         <span className="font-display text-xs font-semibold text-muted">
-                          {dayMatches.length} {dayMatches.length === 1 ? "match" : "matches"}
+                          {ranked.length} {ranked.length === 1 ? "match" : "matches"}
                         </span>
                       </div>
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {dayMatches.map((m) => (
+                        {ranked.map((m) => (
                           <MatchCard key={m.match_id} match={m} tz={tz} />
                         ))}
                       </div>
                     </section>
-                    );
-                  })}
+                  ) : (
+                    <div className="space-y-9">
+                      {days.map(([key, dayMatches]) => {
+                        const rel =
+                          key === TBC ? null : relativeDayLabel(dayMatches[0].kickoff_utc!, tz);
+                        return (
+                          <section key={key}>
+                            <div className="mb-3.5 flex items-center gap-3">
+                              {rel && (
+                                <span
+                                  className={`rounded-full px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-wide ring-1 ${
+                                    rel === "Today"
+                                      ? "bg-win/15 text-win ring-win/30"
+                                      : "bg-surface text-muted ring-border/60"
+                                  }`}
+                                >
+                                  {rel}
+                                </span>
+                              )}
+                              <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
+                                {key === TBC
+                                  ? "Date to be confirmed"
+                                  : dayHeading(dayMatches[0].kickoff_utc!, tz)}
+                              </h2>
+                              <span className="h-px flex-1 bg-border/60" />
+                              <span className="font-display text-xs font-semibold text-muted">
+                                {dayMatches.length} {dayMatches.length === 1 ? "match" : "matches"}
+                              </span>
+                            </div>
+                            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                              {dayMatches.map((m) => (
+                                <MatchCard key={m.match_id} match={m} tz={tz} />
+                              ))}
+                            </div>
+                          </section>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
-              ))}
+              </section>
+            )}
           </div>
         ))}
     </div>
