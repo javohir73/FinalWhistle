@@ -38,7 +38,12 @@ function match(
   };
 }
 
-afterEach(() => jest.resetAllMocks());
+afterEach(() => {
+  jest.resetAllMocks();
+  // The Upcoming/Past tab and country-focus both persist in sessionStorage; wipe
+  // it between tests so a click in one test doesn't change another's default tab.
+  sessionStorage.clear();
+});
 
 it("shows loading then the match cards", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
@@ -165,4 +170,65 @@ it("does not offer 'Clear filters' for the empty favorites feed", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
   expect(screen.getByText("Star a team to build your favorites feed.")).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: /clear filters/i })).not.toBeInTheDocument();
+});
+
+// A finished match has been played; a scheduled one has not. The kickoff dates are
+// relative so the partition is decided by status, not the wall clock at test time.
+const futureKickoff = new Date(Date.now() + 5 * 86_400_000).toISOString();
+const pastKickoff = new Date(Date.now() - 2 * 86_400_000).toISOString();
+
+it("keeps played matches behind a 'Past matches' tab, showing upcoming by default", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Mexico", "South Africa", "Group A", { kickoff_utc: futureKickoff }),
+    match(2, "Qatar", "Switzerland", "Group B", {
+      status: "finished", score_home: 1, score_away: 1, kickoff_utc: pastKickoff,
+    }),
+  ]);
+  render(<MatchesPage />);
+  // Query away-team names: the home team doubles as the predicted winner.
+  await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
+
+  // Default (Upcoming) tab hides the finished match.
+  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /Upcoming/ })).toHaveAttribute("aria-selected", "true");
+
+  // Switching to Past matches reveals the played one and hides the upcoming.
+  fireEvent.click(screen.getByRole("tab", { name: /Past matches/ }));
+  await waitFor(() => expect(screen.getByText("Switzerland")).toBeInTheDocument());
+  expect(screen.queryByText("South Africa")).not.toBeInTheDocument();
+});
+
+it("offers a way back when a tab is empty", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Qatar", "Switzerland", "Group B", {
+      status: "finished", score_home: 1, score_away: 1, kickoff_utc: pastKickoff,
+    }),
+  ]);
+  render(<MatchesPage />);
+  // Only a played match exists, so the default Upcoming tab is empty…
+  await waitFor(() => expect(screen.getByText("No upcoming matches.")).toBeInTheDocument());
+  // …with a shortcut into the populated Past tab.
+  fireEvent.click(screen.getByRole("button", { name: /View past matches/i }));
+  expect(screen.getByText("Switzerland")).toBeInTheDocument();
+});
+
+it("keeps the live match pinned regardless of the selected tab", async () => {
+  mockGet.mockResolvedValue([
+    match(1, "Brazil", "Morocco", "Group C", {
+      status: "in_play", period: "second_half", minute: 70, score_home: 1, score_away: 1,
+      kickoff_utc: new Date(Date.now() - 60 * 60_000).toISOString(),
+    }),
+    match(2, "Qatar", "Switzerland", "Group B", {
+      status: "finished", score_home: 1, score_away: 1, kickoff_utc: pastKickoff,
+    }),
+  ]);
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
+  expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
+
+  fireEvent.click(screen.getByRole("tab", { name: /Past matches/ }));
+  // Live stays pinned; the past result also appears.
+  expect(screen.getByText("Live now")).toBeInTheDocument();
+  expect(screen.getByText("Morocco")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText("Switzerland")).toBeInTheDocument());
 });
