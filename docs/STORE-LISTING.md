@@ -14,7 +14,7 @@ App Store + Play Store submission package. Pair with [NATIVE-SHELL.md](NATIVE-SH
 | Age rating | 4+ / Everyone (no gambling, no user-generated media, no ads) |
 | Privacy policy URL | https://fifa-wc26-prediction.vercel.app/privacy |
 | Terms / support URL | https://fifa-wc26-prediction.vercel.app/terms |
-| Support email | pete@degail.com |
+| Support email | javohirazizov48@gmail.com |
 
 ## App Store (iOS)
 
@@ -88,7 +88,7 @@ Source of truth: the running system (verified against `backend/app/api/auth.py`,
 - Shared with third parties: **none** (processors only: Vercel hosting/analytics,
   Render hosting, Sentry crash reporting).
 - Data encrypted in transit: yes (TLS everywhere). Deletion: on request via
-  pete@degail.com (in-app link on /privacy).
+  javohirazizov48@gmail.com (in-app link on /privacy).
 - Account creation optional; core features work without an account.
 
 ## Review-compliance check (betting/gambling wording)

@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-15
 **Status:** Approved (design)
-**Author:** pete@degail.com (with Claude)
+**Author:** Javohir (javohirazizov48@gmail.com) (with Claude)
 
 ## Summary
 

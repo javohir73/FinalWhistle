@@ -3,7 +3,7 @@
 **Status:** Draft for review
 **Author:** Generated with Claude Code
 **Date:** 2026-06-12
-**Owner:** pete@degail.com
+**Owner:** Javohir (javohirazizov48@gmail.com)
 
 ---
 
