@@ -24,13 +24,33 @@ class Settings(BaseSettings):
     # Live in-game scores (football-data.org). Empty => live updates disabled.
     football_data_api_key: str = ""
     football_data_competition: str = "WC"  # FIFA World Cup competition code
+
+    # Alternative live provider: API-Football (api-sports.io). Richer feed whose
+    # fixtures carry the real live minute (status.elapsed), so the scoreboard clock
+    # is the official one rather than a kickoff estimate. Empty => unused.
+    api_football_api_key: str = ""
+    api_football_league: int = 1   # API-Football league id for the FIFA World Cup
+    api_football_season: int = 2026
+
+    # Which provider serves /api/internal/refresh-live: "football_data" (default,
+    # free tier → estimated minute) or "api_football" (real live minute).
+    live_provider: str = "football_data"
+
     # Master switch for live mode (activate near kickoff). Live updates are only
-    # active when BOTH this is on and an API key is set — otherwise a safe no-op.
+    # active when BOTH this is on and the active provider's key is set — else a
+    # safe no-op.
     live_mode_enabled: bool = False
 
     @property
+    def active_live_api_key(self) -> str:
+        """API key for the currently selected live provider ("" => unconfigured)."""
+        if self.live_provider == "api_football":
+            return self.api_football_api_key
+        return self.football_data_api_key
+
+    @property
     def live_updates_active(self) -> bool:
-        return bool(self.live_mode_enabled and self.football_data_api_key)
+        return bool(self.live_mode_enabled and self.active_live_api_key)
 
     # Error tracking (Sentry). Empty => disabled (safe no-op).
     sentry_dsn: str = ""

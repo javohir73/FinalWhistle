@@ -270,14 +270,30 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
 
 
 def refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:
-    """Fetch + apply live scores. No-op (never raises) when no key is configured."""
+    """Fetch + apply live scores. No-op (never raises) when no key is configured.
+
+    Honours config.live_provider: only football-data.org has ingestion wired
+    here, so any other selection is skipped loudly rather than silently fetching
+    football-data's endpoint with the wrong provider's key.
+    """
     from app.config import settings
 
-    key = api_key if api_key is not None else settings.football_data_api_key
+    # Default to the *selected* provider's key (not football-data's specifically)
+    # so config.live_provider and the key in use actually agree.
+    key = api_key if api_key is not None else settings.active_live_api_key
     comp = competition or settings.football_data_competition
     if not key:
-        log.info("live scores skipped: no FOOTBALL_DATA_API_KEY configured")
+        log.info("live scores skipped: no API key for provider %r", settings.live_provider)
         return {"skipped": "no_api_key", "updated": 0, "live": 0, "finished": 0}
+
+    if settings.live_provider != "football_data":
+        # api_football is config-only scaffolding — no ingestion implemented yet.
+        log.warning(
+            "live scores skipped: provider %r has no ingestion wired "
+            "(only 'football_data' is implemented)", settings.live_provider,
+        )
+        return {"skipped": f"provider_not_implemented:{settings.live_provider}",
+                "updated": 0, "live": 0, "finished": 0}
 
     try:
         api_matches = fetch_matches(key, comp)
