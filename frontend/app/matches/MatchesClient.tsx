@@ -6,7 +6,7 @@ import { useFetch } from "@/lib/useFetch";
 import { useFavorites } from "@/lib/useFavorites";
 import { useTimezone } from "@/lib/useTimezone";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
-import { dayKey, dayHeading } from "@/lib/datetime";
+import { dayKey, dayHeading, relativeDayLabel } from "@/lib/datetime";
 import { MatchCard } from "@/components/MatchCard";
 import { Flag } from "@/components/Flag";
 import { LocationPicker } from "@/components/LocationPicker";
@@ -298,9 +298,23 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
                 </section>
               ) : (
                 <div className="space-y-9">
-                  {days.map(([key, dayMatches]) => (
+                  {days.map(([key, dayMatches]) => {
+                    const rel =
+                      key === TBC ? null : relativeDayLabel(dayMatches[0].kickoff_utc!, tz);
+                    return (
                     <section key={key}>
                       <div className="mb-3.5 flex items-center gap-3">
+                        {rel && (
+                          <span
+                            className={`rounded-full px-2 py-0.5 font-display text-[11px] font-bold uppercase tracking-wide ring-1 ${
+                              rel === "Today"
+                                ? "bg-win/15 text-win ring-win/30"
+                                : "bg-surface text-muted ring-border/60"
+                            }`}
+                          >
+                            {rel}
+                          </span>
+                        )}
                         <h2 className="font-display text-sm font-bold uppercase tracking-wider text-foreground">
                           {key === TBC
                             ? "Date to be confirmed"
@@ -317,7 +331,8 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
                         ))}
                       </div>
                     </section>
-                  ))}
+                    );
+                  })}
                 </div>
               ))}
           </div>
