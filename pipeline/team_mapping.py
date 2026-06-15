@@ -48,6 +48,7 @@ _ALIASES: dict[str, str] = {
     # Cape Verde
     "cabo verde": "Cape Verde",
     "cape verde": "Cape Verde",
+    "cape verde islands": "Cape Verde",  # football-data.org's spelling
     # Ireland
     "republic of ireland": "Ireland",
     "ireland": "Ireland",
