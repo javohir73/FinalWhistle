@@ -1,5 +1,25 @@
 import type { MatchSummary } from "./types";
 
+/** Upper bound on how long after kickoff a match can still plausibly be "in
+ *  play": 90' + half-time + full extra time + a penalty shootout + stoppage,
+ *  with margin — no real match runs this long. */
+export const MAX_LIVE_MINUTES = 180;
+
+/** True only when the feed says a match is in play AND it kicked off recently
+ *  enough to still be playing. The status field alone is not enough: if the live
+ *  refresh stalls (cron down, provider lag, no API key), a finished match stays
+ *  `in_play` forever and the UI shows "LIVE 90'" hours after full time. Bounding
+ *  by kickoff makes the live state self-heal even when the feed doesn't. */
+export function isLiveNow(
+  m: Pick<MatchSummary, "status" | "kickoff_utc">,
+  now: Date = new Date(),
+): boolean {
+  if (m.status !== "in_play") return false;
+  if (!m.kickoff_utc) return true; // no kickoff to bound by — trust the feed
+  const elapsedMin = (now.getTime() - new Date(m.kickoff_utc).getTime()) / 60_000;
+  return elapsedMin <= MAX_LIVE_MINUTES;
+}
+
 /** Short scoreboard label for a match's live state. The pulsing dot beside it
  *  carries the "live" meaning, so the text is just the clock or phase:
  *

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getMatchSummary } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
-import { liveLabel, penaltyTally } from "@/lib/liveLabel";
+import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import type { MatchSummary, PredictedScore, Probabilities } from "@/lib/types";
 import { Flag } from "@/components/Flag";
@@ -45,8 +45,11 @@ export function MatchScoreboard({
   );
   const summary = state.status === "success" ? state.data : initialSummary ?? null;
 
-  const live = summary?.status === "in_play";
-  const finished = summary?.status === "finished";
+  const live = !!summary && isLiveNow(summary);
+  // Treat a match stuck `in_play` past the live window as over, so the detail
+  // page doesn't show a ticking live clock hours after full time.
+  const finished =
+    summary?.status === "finished" || (summary?.status === "in_play" && !live);
   const hasActual =
     (live || finished) && summary != null &&
     summary.score_home != null && summary.score_away != null;

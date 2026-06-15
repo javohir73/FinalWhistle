@@ -7,6 +7,7 @@ import { useFavorites } from "@/lib/useFavorites";
 import { useTimezone } from "@/lib/useTimezone";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { dayKey, dayHeading, relativeDayLabel } from "@/lib/datetime";
+import { isLiveNow } from "@/lib/liveLabel";
 import { MatchCard } from "@/components/MatchCard";
 import { Flag } from "@/components/Flag";
 import { LocationPicker } from "@/components/LocationPicker";
@@ -101,11 +102,13 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   });
 
   // Live games are pinned to the top so you never scroll to find the current
-  // match; everything else flows into the day/ranked views below.
+  // match; everything else flows into the day/ranked views below. isLiveNow
+  // (not a bare status check) keeps a match the feed left stuck `in_play` from
+  // being pinned as "LIVE" forever — it falls into its day group as a result.
   const liveMatches = filtered
-    .filter((m) => m.status === "in_play")
+    .filter((m) => isLiveNow(m))
     .sort((a, b) => (a.kickoff_utc ?? "").localeCompare(b.kickoff_utc ?? ""));
-  const rest = filtered.filter((m) => m.status !== "in_play");
+  const rest = filtered.filter((m) => !isLiveNow(m));
 
   // Bucket the rest by local calendar day, ordered now-first: today + upcoming
   // (soonest first), then past days (most recent first), undated last. So the
