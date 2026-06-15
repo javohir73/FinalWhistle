@@ -64,7 +64,7 @@ export default function AboutPage() {
         <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-muted">
           <li>Free, open data only: historical results, FIFA rankings, the official WC2026 draw.</li>
           <li>Team-level model — individual player form and injuries aren&apos;t factored in.</li>
-          <li>No live in-game updates yet — that arrives closer to kickoff.</li>
+          <li>Live scores update automatically during matches.</li>
         </ul>
       </section>
 
