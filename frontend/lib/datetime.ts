@@ -34,6 +34,24 @@ export function dayHeading(iso: string, tz: string): string {
   }).format(new Date(iso));
 }
 
+/** "Today" / "Tomorrow" / "Yesterday" for a kickoff relative to `now`, evaluated
+ *  in the user's timezone — or null for any other day. The board groups by local
+ *  calendar day, but a returning user reads the page in their own tz: when it's
+ *  still (say) Sunday night in PDT, Monday's fixtures are "Tomorrow", not "today's
+ *  matches". This anchor removes that guesswork. `now` is injectable for tests. */
+export function relativeDayLabel(
+  iso: string,
+  tz: string,
+  now: Date = new Date(),
+): "Today" | "Tomorrow" | "Yesterday" | null {
+  const target = dayKey(iso, tz);
+  const DAY = 86_400_000;
+  if (target === dayKey(now.toISOString(), tz)) return "Today";
+  if (target === dayKey(new Date(now.getTime() + DAY).toISOString(), tz)) return "Tomorrow";
+  if (target === dayKey(new Date(now.getTime() - DAY).toISOString(), tz)) return "Yesterday";
+  return null;
+}
+
 /** Kickoff clock time in the user's timezone, e.g. "8:00 PM". */
 export function kickoffTime(iso: string, tz: string): string {
   return new Intl.DateTimeFormat("en-US", {
