@@ -64,7 +64,7 @@ def test_played_results_lock_group_outcomes():
     scores = [(0, 2), (0, 1), (0, 1), (1, 0), (2, 0), (2, 0)]
     fixtures["A"] = [GroupFixture(h, w, score=s) for (h, w), s in zip(pairs, scores)]
 
-    res = simulate_tournament(elos, groups, fixtures, n_sims=300, seed=5)
+    res = simulate_tournament(elos, groups, fixtures, n_sims=300, seed=5, rho=0.0)
     assert res[d]["make_knockout"] == 1.0  # real group winner — locked
     assert res[b]["make_knockout"] == 1.0  # real runner-up — locked
     assert res[a]["make_knockout"] == 0.0  # finished last with 0 points
@@ -74,7 +74,7 @@ def test_played_results_lock_group_outcomes():
 
 def test_probabilities_valid_and_one_champion():
     elos, groups, fixtures = _build_tournament()
-    res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=2026)
+    res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=2026, rho=0.0)
     assert len(res) == 48
     for r in res.values():
         # monotonic by round, all in [0,1]
@@ -90,7 +90,7 @@ def test_probabilities_valid_and_one_champion():
 
 def test_stronger_teams_more_likely_to_win():
     elos, groups, fixtures = _build_tournament()
-    res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=1)
+    res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=1, rho=0.0)
     strongest = max(elos, key=elos.get)
     weakest = min(elos, key=elos.get)
     assert res[strongest]["win_title"] > res[weakest]["win_title"]
@@ -98,6 +98,6 @@ def test_stronger_teams_more_likely_to_win():
 
 def test_deterministic_with_seed():
     elos, groups, fixtures = _build_tournament()
-    r1 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99)
-    r2 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99)
+    r1 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99, rho=0.0)
+    r2 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99, rho=0.0)
     assert r1 == r2

@@ -218,7 +218,7 @@ def _simulate_tournament(
 
     results = simulate_tournament(
         team_elos, groups, fixtures, n_sims=n_sims, seed=2026,
-        base=params.base, beta=params.beta,
+        base=params.base, beta=params.beta, rho=params.rho,
     )
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo
+from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo, score_cdf, sample_scoreline_from_cdf, sample_scoreline
 
 # --- Round of 32: each side is a group placement or a third-place slot. ---
 # ("pos", group_letter, position)  position 1 = winner, 2 = runner-up
@@ -123,6 +123,8 @@ def simulate_tournament(
     seed: int | None = 2026,
     base: float = BASE_GOALS,
     beta: float = ELO_TO_GOALS_BETA,
+    *,
+    rho: float,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
     reach_final, win_title}} as probabilities over n_sims tournaments."""
@@ -133,12 +135,12 @@ def simulate_tournament(
     # Per group: fixed tallies from already-played fixtures (facts, identical in
     # every draw) + Poisson means for the games still to be played.
     base_tallies: dict[str, tuple[dict, dict, dict]] = {}
-    sampled: dict[str, list[tuple[int, int, float, float]]] = {}
+    sampled: dict[str, list[tuple]] = {}
     for letter, members in groups.items():
         bp = {t: 0 for t in members}
         bgf = {t: 0 for t in members}
         bga = {t: 0 for t in members}
-        lams: list[tuple[int, int, float, float]] = []
+        lams: list[tuple] = []
         for fx in group_fixtures[letter]:
             if fx.score is not None:
                 sh, sa = fx.score
@@ -155,15 +157,15 @@ def simulate_tournament(
                     team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
                     base=base, beta=beta,
                 )
-                lams.append((fx.home_id, fx.away_id, lh, la))
+                lams.append((fx.home_id, fx.away_id, score_cdf(lh, la, rho)))
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
 
     def play(h: int, a: int) -> int:
-        """One knockout match (neutral). Draw → penalties via Elo logistic."""
+        """One knockout match (neutral). Draw -> penalties via Elo logistic."""
         lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=0.0,
                                          base=base, beta=beta)
-        sh, sa = int(rng.poisson(lh)), int(rng.poisson(la))
+        sh, sa = sample_scoreline(rng, lh, la, rho)
         if sh > sa:
             return h
         if sa > sh:
@@ -181,8 +183,8 @@ def simulate_tournament(
             pts = dict(bp)
             gf = dict(bgf)
             ga = dict(bga)
-            for home_id, away_id, lh, la in sampled[letter]:
-                sh, sa = int(rng.poisson(lh)), int(rng.poisson(la))
+            for home_id, away_id, cdf in sampled[letter]:
+                sh, sa = sample_scoreline_from_cdf(rng, cdf)
                 gf[home_id] += sh; ga[home_id] += sa
                 gf[away_id] += sa; ga[away_id] += sh
                 if sh > sa:
