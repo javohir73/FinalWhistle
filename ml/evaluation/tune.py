@@ -21,6 +21,10 @@ from ml.models.poisson import expected_goals_from_elo, outcome_probabilities, sc
 _LABEL_INDEX = {"H": 0, "D": 1, "A": 2}
 _EPS = 1e-15
 
+# A tuning/validation window below this many matches is underpowered — fitting on
+# it returns grid-corner params shaped by noise, so we fail loudly instead.
+MIN_VAL_MATCHES = 100
+
 # Coordinate-descent grids.
 _BASE_GRID = [1.20, 1.25, 1.30, 1.35, 1.40, 1.45, 1.50]
 _BETA_GRID = [0.0012, 0.0015, 0.0017, 0.0019, 0.0021, 0.0023, 0.0026]
@@ -51,6 +55,10 @@ def _logloss(rows, base, beta, home_adv, rho, temperature=1.0):
 
 def tune_params(val_rows: list[dict], version: str = "poisson-elo-v0.2", passes: int = 3) -> ModelParams:
     """Coordinate-descent the goals params on val_rows, then fit temperature."""
+    if len(val_rows) < MIN_VAL_MATCHES:
+        raise ValueError(
+            f"validation window has {len(val_rows)} matches (< MIN_VAL_MATCHES="
+            f"{MIN_VAL_MATCHES}); too underpowered to tune.")
     base, beta, home_adv, rho = 1.35, 0.0019, 60.0, 0.0
 
     def best_on(grid, setter):

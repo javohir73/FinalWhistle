@@ -34,7 +34,7 @@ from ml.evaluation.scoreline_metrics import (
     ranked_probability_score,
     top_k_scoreline_hit,
 )
-from ml.evaluation.tune import tune_params, validation_window
+from ml.evaluation.tune import tune_params, validation_window, MIN_VAL_MATCHES
 from ml.models.baseline_logistic import result_label
 from ml.models.params import DEFAULT_PARAMS, ModelParams
 from ml.models.poisson import (
@@ -201,7 +201,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
     for comp, year, target in editions:
         first_date = min(r["date"] for r in target)
         val = validation_window(rows, first_date, days=val_days)
-        if len(val) < 50:  # not enough recent data to tune meaningfully
+        if len(val) < MIN_VAL_MATCHES:  # underpowered window; skip (matches tune guard)
             continue
         edition_count += 1
         match_count += len(target)
