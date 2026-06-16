@@ -288,7 +288,7 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
     global_params = tune_params(train, version="poisson-elo-v0.2")
 
     def metrics_for(scorer) -> tuple[dict, dict]:
-        rec = {"ll": [], "rps": [], "esnll": [], "top5": [], "wdl": [], "labels": []}
+        rec = {"ll": [], "rps": [], "esnll": [], "top5": [], "wdl": [], "labels": [], "ed": []}
         for r in test:
             label = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
             wdl, grid = scorer(r)
@@ -297,6 +297,7 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
             rec["esnll"].append(exact_score_nll(grid, r["score_home"], r["score_away"]))
             rec["top5"].append(1.0 if top_k_scoreline_hit(grid, r["score_home"], r["score_away"], 5) else 0.0)
             rec["wdl"].append(wdl); rec["labels"].append(label)
+            rec["ed"].append((r["competition"], r["date"].year))
         summ = {
             "log_loss": float(np.mean(rec["ll"])), "rps": float(np.mean(rec["rps"])),
             "exact_nll": float(np.mean(rec["esnll"])), "top5": float(np.mean(rec["top5"])),
@@ -308,14 +309,12 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
     v2_s, v2_r = metrics_for(lambda r: wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], global_params))
 
     rng = np.random.default_rng(7)
-    n = len(v1_r["ll"]); idx = rng.integers(0, n, size=(n_boot, n))
     _REC_KEY = {"log_loss": "ll", "rps": "rps", "exact_nll": "esnll", "top5": "top5"}
 
     def ci(metric):
         rk = _REC_KEY[metric]
         d = np.array(v2_r[rk]) - np.array(v1_r[rk])
-        bd = d[idx].mean(axis=1)
-        return float(d.mean()), (float(np.percentile(bd, 2.5)), float(np.percentile(bd, 97.5)))
+        return float(d.mean()), block_bootstrap_ci(d, v1_r["ed"], n_boot, rng)
 
     return {
         "global_params": global_params.to_dict(),
