@@ -112,6 +112,10 @@ class Match(Base):
     # Feed's per-match version stamp (lastUpdated). A lagging cache node must not
     # overwrite a fresher record we already applied (see live_scores.update).
     provider_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Goal events for the live/actual scoreline: ordered list of
+    # {minute, side: "home"|"away", player, type: "goal"|"penalty"|"own_goal"}.
+    # Populated by the api_football provider only (football-data has no scorers).
+    goal_events: Mapped[list | None] = mapped_column(JSON)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
@@ -173,6 +177,12 @@ class Prediction(Base):
     predicted_score_home: Mapped[int | None] = mapped_column(Integer)
     predicted_score_away: Mapped[int | None] = mapped_column(Integer)
     predicted_score_prob: Mapped[float | None] = mapped_column(Float)
+    # Pre-match engine params — feed the in-play win-prob model (app/live_winprob.py):
+    # expected-goals rates (per 90) + Dixon-Coles rho, so the live bar reduces to
+    # this prediction at kickoff.
+    lambda_home: Mapped[float | None] = mapped_column(Float)
+    lambda_away: Mapped[float | None] = mapped_column(Float)
+    rho: Mapped[float | None] = mapped_column(Float)
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)

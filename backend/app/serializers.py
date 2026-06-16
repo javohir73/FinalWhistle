@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app import schemas
+from app.live_winprob import live_probabilities_for_match
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
 
 DISCLAIMER = "For analytics and entertainment only. Not betting advice."
@@ -114,10 +115,25 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
     pred = latest_prediction(db, match.id)
 
     probabilities = predicted_score = predicted_winner = confidence = None
+    live_probabilities = None
     if pred:
         probabilities = schemas.ProbabilitiesOut(
             home_win=pred.prob_home_win, draw=pred.prob_draw, away_win=pred.prob_away_win
         )
+        live = live_probabilities_for_match(
+            status=match.status,
+            score_home=match.score_home,
+            score_away=match.score_away,
+            minute=match.minute,
+            period=match.period,
+            lam_home=pred.lambda_home,
+            lam_away=pred.lambda_away,
+            rho=pred.rho,
+        )
+        if live is not None:
+            live_probabilities = schemas.ProbabilitiesOut(
+                home_win=round(live[0], 4), draw=round(live[1], 4), away_win=round(live[2], 4)
+            )
         predicted_score = schemas.PredictedScoreOut(
             home=pred.predicted_score_home,
             away=pred.predicted_score_away,
@@ -151,6 +167,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         injury_time=match.injury_time,
         penalty_home=match.penalty_home,
         penalty_away=match.penalty_away,
+        goal_events=[schemas.GoalEventOut(**g) for g in (match.goal_events or [])],
         teams=schemas.TeamsOut(
             home=home.name if home else "TBD", away=away.name if away else "TBD"
         ),
@@ -158,6 +175,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         probabilities=probabilities,
         predicted_score=predicted_score,
         confidence=confidence,
+        live_probabilities=live_probabilities,
     )
 
 

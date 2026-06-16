@@ -105,6 +105,7 @@ def test_refresh_live_routes_to_api_football_when_selected(db_session, monkeypat
     monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
     monkeypatch.setattr(af, "fetch_fixtures",
                         lambda *a, **k: [_fixture("2H", elapsed=55, gh=1, ga=0)])
+    monkeypatch.setattr(af, "fetch_events", lambda *a, **k: [])
 
     summary = refresh_live(db_session)  # default key path -> active_live_api_key
     assert summary["updated"] == 1
@@ -112,3 +113,88 @@ def test_refresh_live_routes_to_api_football_when_selected(db_session, monkeypat
     a = db_session.query(Team).filter_by(name="South Africa").one()
     m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
     assert m.status == "in_play" and m.minute == 55
+
+
+from pipeline.ingest.api_football import goals_from_events
+
+
+def _event(detail, team, player, minute, etype="Goal"):
+    return {"type": etype, "detail": detail, "team": {"name": team},
+            "player": {"name": player}, "time": {"elapsed": minute}}
+
+
+def test_goals_from_events_normal_penalty_and_side():
+    events = [
+        _event("Normal Goal", "Iran", "R. Rezaeian", 32),
+        _event("Penalty", "New Zealand", "C. Wood", 70),
+    ]
+    out = goals_from_events(events, "Iran", "New Zealand")
+    assert out == [
+        {"minute": 32, "side": "home", "player": "R. Rezaeian", "type": "goal"},
+        {"minute": 70, "side": "away", "player": "C. Wood", "type": "penalty"},
+    ]
+
+
+def test_own_goal_is_credited_to_the_opponent():
+    # Player from the home team scores an own goal -> counts for the AWAY side.
+    out = goals_from_events([_event("Own Goal", "Iran", "Defender X", 18)],
+                            "Iran", "New Zealand")
+    assert out == [{"minute": 18, "side": "away", "player": "Defender X", "type": "own_goal"}]
+
+
+def test_non_goal_and_missed_penalty_events_ignored():
+    events = [
+        _event("Yellow Card", "Iran", "Y", 10, etype="Card"),
+        _event("Missed Penalty", "Iran", "Z", 22),
+    ]
+    assert goals_from_events(events, "Iran", "New Zealand") == []
+
+
+def test_unknown_team_event_is_skipped_and_missing_player_defaulted():
+    events = [
+        _event("Normal Goal", "Some Other Team", "P", 5),
+        {"type": "Goal", "detail": "Normal Goal", "team": {"name": "Iran"},
+         "player": {}, "time": {"elapsed": 60}},
+    ]
+    out = goals_from_events(events, "Iran", "New Zealand")
+    assert out == [{"minute": 60, "side": "home", "player": "Unknown", "type": "goal"}]
+
+
+def test_attach_scorers_fetches_only_when_goal_total_changed(db_session, monkeypatch):
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    # A live fixture, Mexico 1-0 South Africa, fixture id 777.
+    feed = to_feed([_fixture("2H", elapsed=55, gh=1, ga=0)])
+    feed[0]["_fixture_id"] = 777
+
+    calls = {"n": 0}
+    def fake_events(key, fid, timeout=15.0):
+        calls["n"] += 1
+        return [_event("Normal Goal", "Mexico", "R. Jimenez", 30)]
+    monkeypatch.setattr(af, "fetch_events", fake_events)
+
+    af.attach_scorers(db_session, feed, "dummy-key")
+    assert calls["n"] == 1
+    assert feed[0]["scorers"] == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+
+
+def test_refresh_live_api_football_stores_scorers(db_session, monkeypatch):
+    from app.config import settings as app_settings
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    monkeypatch.setattr(app_settings, "live_provider", "api_football")
+    monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
+    monkeypatch.setattr(af, "fetch_fixtures",
+                        lambda *a, **k: [_fixture("2H", elapsed=55, gh=1, ga=0)])
+    monkeypatch.setattr(af, "fetch_events",
+                        lambda *a, **k: [_event("Normal Goal", "Mexico", "R. Jimenez", 30)])
+
+    refresh_live(db_session)
+    h = db_session.query(Team).filter_by(name="Mexico").one()
+    a = db_session.query(Team).filter_by(name="South Africa").one()
+    m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    assert m.goal_events == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
