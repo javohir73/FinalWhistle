@@ -64,6 +64,13 @@ export type LivePeriod =
   | "penalty_shootout"
   | null;
 
+export interface GoalEvent {
+  minute: number | null;
+  side: "home" | "away";
+  player: string;
+  type: "goal" | "penalty" | "own_goal";
+}
+
 export interface MatchSummary {
   match_id: number;
   stage: string;
@@ -81,6 +88,7 @@ export interface MatchSummary {
   injury_time: number | null;
   penalty_home: number | null;
   penalty_away: number | null;
+  goal_events: GoalEvent[];
   teams: Teams;
   predicted_winner: string | null;
   probabilities: Probabilities | null;

@@ -15,6 +15,7 @@ function match(): MatchSummary {
     probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
     predicted_score: { home: 2, away: 0, probability: 0.1 },
     confidence: "High",
+    goal_events: [],
   };
 }
 

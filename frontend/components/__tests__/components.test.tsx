@@ -80,6 +80,7 @@ describe("MatchCard", () => {
     probabilities: { home_win: 0.78, draw: 0.14, away_win: 0.08 },
     predicted_score: { home: 2, away: 0, probability: 0.12 },
     confidence: "High",
+    goal_events: [],
   };
 
   it("renders matchup, predicted winner, score and links to detail", () => {

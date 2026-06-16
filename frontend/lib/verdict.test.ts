@@ -24,6 +24,7 @@ const base: MatchSummary = {
   probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },
   predicted_score: { home: 1, away: 0, probability: 0.18 },
   confidence: "High",
+  goal_events: [],
 };
 
 it("is null while a match is scheduled or in play", () => {

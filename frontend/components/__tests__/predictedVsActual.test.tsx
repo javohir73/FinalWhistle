@@ -32,6 +32,7 @@ const base: MatchSummary = {
   probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },
   predicted_score: { home: 1, away: 0, probability: 0.18 },
   confidence: "High",
+  goal_events: [],
 };
 
 // A live match must have a recent kickoff (isLiveNow bounds the live window),

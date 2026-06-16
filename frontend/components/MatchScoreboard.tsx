@@ -6,7 +6,7 @@ import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
-import type { MatchSummary, PredictedScore, Probabilities } from "@/lib/types";
+import type { MatchSummary, PredictedScore, Probabilities, GoalEvent } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 
@@ -95,6 +95,21 @@ export function MatchScoreboard({
         <TeamHead name={away} prob={shownProbs.away_win} teamId={awayTeamId} />
       </div>
 
+      {hasActual && summary!.goal_events.length > 0 && (
+        <div className="mt-3 grid grid-cols-2 gap-x-4 text-[11px] text-muted sm:text-xs">
+          <ul className="space-y-0.5 text-right">
+            {summary!.goal_events.filter((g) => g.side === "home").map((g, i) => (
+              <li key={`h-${i}`} className="tabular-nums">{formatScorer(g)}</li>
+            ))}
+          </ul>
+          <ul className="space-y-0.5 text-left">
+            {summary!.goal_events.filter((g) => g.side === "away").map((g, i) => (
+              <li key={`a-${i}`} className="tabular-nums">{formatScorer(g)}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="mt-6">
         {liveProbs && (
           <div className="mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-loss sm:text-[11px]">
@@ -159,4 +174,10 @@ function TeamHead({ name, prob, teamId }: { name: string; prob: number; teamId?:
       </span>
     </div>
   );
+}
+
+function formatScorer(g: GoalEvent): string {
+  const annot = g.type === "penalty" ? " (pen)" : g.type === "own_goal" ? " (OG)" : "";
+  const min = g.minute != null ? ` ${g.minute}'` : "";
+  return `${g.player}${min}${annot}`;
 }

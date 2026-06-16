@@ -34,6 +34,7 @@ function match(
     probabilities: { home_win: 0.6, draw: 0.25, away_win: 0.15 },
     predicted_score: { home: 2, away: 1, probability: 0.1 },
     confidence: "Medium",
+    goal_events: [],
     ...extra,
   };
 }

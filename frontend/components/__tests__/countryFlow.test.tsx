@@ -144,6 +144,7 @@ it("keeps the first view simple — advanced detail and the pick game stay colla
     probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
     predicted_score: { home: 2, away: 0, probability: 0.1 },
     confidence: "High",
+    goal_events: [],
   };
   (api.getUpcomingMatches as jest.Mock).mockResolvedValue([fixture]);
 
@@ -202,6 +203,7 @@ it("shows the kickoff date on already-played (finished) hub matches too", async 
     probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
     predicted_score: { home: 1, away: 0, probability: 0.1 },
     confidence: "Medium",
+    goal_events: [],
   };
   (api.getUpcomingMatches as jest.Mock).mockResolvedValue([finished]);
 
@@ -280,6 +282,7 @@ it("survives a corrupted stored timezone without crashing the hub", async () => 
     probabilities: { home_win: 0.62, draw: 0.24, away_win: 0.14 },
     predicted_score: { home: 2, away: 0, probability: 0.1 },
     confidence: "High",
+    goal_events: [],
   };
   (api.getUpcomingMatches as jest.Mock).mockResolvedValue([fixture]);
 

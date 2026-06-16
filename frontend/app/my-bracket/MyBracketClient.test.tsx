@@ -57,6 +57,7 @@ const initialMatches: MatchSummary[] = [
     probabilities: null,
     predicted_score: null,
     confidence: null,
+    goal_events: [],
   },
 ];
 
