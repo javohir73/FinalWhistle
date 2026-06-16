@@ -153,9 +153,12 @@ def simulate_tournament(
     *,
     rho: float,
     pk_beta: float = 0.0,
+    home_adv: float = 0.0,
+    ko_host_by_match: dict[int, int] | None = None,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
     reach_final, win_title}} as probabilities over n_sims tournaments."""
+    ko_host = ko_host_by_match or {}
     rng = np.random.default_rng(seed)
     all_ids = [t for members in groups.values() for t in members]
     counts = {tid: {k: 0 for _, k in ROUND_KEYS} for tid in all_ids}
@@ -189,9 +192,12 @@ def simulate_tournament(
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
 
-    def play(h: int, a: int) -> int:
-        """One knockout match (neutral). Draw -> penalties via Elo logistic."""
-        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=0.0,
+    def play(mno: int, h: int, a: int) -> int:
+        """One knockout match. Draw -> penalties via Elo logistic.
+        Host advantage applied when ko_host maps mno to h or a."""
+        host = ko_host.get(mno)
+        adv = home_adv if host == h else -home_adv if host == a else 0.0
+        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=adv,
                                          base=base, beta=beta)
         sh, sa = sample_scoreline(rng, lh, la, rho)
         if sh > sa:
@@ -252,17 +258,17 @@ def simulate_tournament(
         for mno, hs, as_ in R32:
             h, a = resolve(hs, mno), resolve(as_, mno)
             mark(h, 1); mark(a, 1)
-            w = play(h, a)
+            w = play(mno, h, a)
             winners[mno] = w
             mark(w, 2)
 
         for tree, rnd in ((R16, 3), (QF, 4), (SF, 5)):
             for mno, (s1, s2) in tree.items():
-                w = play(winners[s1], winners[s2])
+                w = play(mno, winners[s1], winners[s2])
                 winners[mno] = w
                 mark(w, rnd)
 
-        champion = play(winners[FINAL[0]], winners[FINAL[1]])
+        champion = play(104, winners[FINAL[0]], winners[FINAL[1]])
         mark(champion, 6)
 
         for tid, rnd in reached.items():

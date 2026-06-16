@@ -216,9 +216,21 @@ def _simulate_tournament(
     if len(groups) < 12:
         return 0
 
+    hosts = {t.name: t.id for t in db.query(Team).filter_by(is_host=True).all()}
+    country_to_team = {"United States": hosts.get("United States"),
+                       "Mexico": hosts.get("Mexico"),
+                       "Canada": hosts.get("Canada")}
+    ko_host_by_match: dict[int, int] = {}
+    for m in db.query(Match).filter(Match.group_id.is_(None), Match.venue_country.isnot(None)).all():
+        team_id = country_to_team.get(m.venue_country)
+        if team_id is not None:
+            ko_host_by_match[m.id] = team_id
+
     results = simulate_tournament(
         team_elos, groups, fixtures, n_sims=n_sims, seed=2026,
-        base=params.base, beta=params.beta, rho=params.rho, pk_beta=params.pk_beta,
+        base=params.base, beta=params.beta, rho=params.rho,
+        pk_beta=params.pk_beta, home_adv=params.home_adv,
+        ko_host_by_match=ko_host_by_match,
     )
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():
