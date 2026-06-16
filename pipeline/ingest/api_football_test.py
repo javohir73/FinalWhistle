@@ -112,3 +112,48 @@ def test_refresh_live_routes_to_api_football_when_selected(db_session, monkeypat
     a = db_session.query(Team).filter_by(name="South Africa").one()
     m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
     assert m.status == "in_play" and m.minute == 55
+
+
+from pipeline.ingest.api_football import goals_from_events
+
+
+def _event(detail, team, player, minute, etype="Goal"):
+    return {"type": etype, "detail": detail, "team": {"name": team},
+            "player": {"name": player}, "time": {"elapsed": minute}}
+
+
+def test_goals_from_events_normal_penalty_and_side():
+    events = [
+        _event("Normal Goal", "Iran", "R. Rezaeian", 32),
+        _event("Penalty", "New Zealand", "C. Wood", 70),
+    ]
+    out = goals_from_events(events, "Iran", "New Zealand")
+    assert out == [
+        {"minute": 32, "side": "home", "player": "R. Rezaeian", "type": "goal"},
+        {"minute": 70, "side": "away", "player": "C. Wood", "type": "penalty"},
+    ]
+
+
+def test_own_goal_is_credited_to_the_opponent():
+    # Player from the home team scores an own goal -> counts for the AWAY side.
+    out = goals_from_events([_event("Own Goal", "Iran", "Defender X", 18)],
+                            "Iran", "New Zealand")
+    assert out == [{"minute": 18, "side": "away", "player": "Defender X", "type": "own_goal"}]
+
+
+def test_non_goal_and_missed_penalty_events_ignored():
+    events = [
+        _event("Yellow Card", "Iran", "Y", 10, etype="Card"),
+        _event("Missed Penalty", "Iran", "Z", 22),
+    ]
+    assert goals_from_events(events, "Iran", "New Zealand") == []
+
+
+def test_unknown_team_event_is_skipped_and_missing_player_defaulted():
+    events = [
+        _event("Normal Goal", "Some Other Team", "P", 5),
+        {"type": "Goal", "detail": "Normal Goal", "team": {"name": "Iran"},
+         "player": {}, "time": {"elapsed": 60}},
+    ]
+    out = goals_from_events(events, "Iran", "New Zealand")
+    assert out == [{"minute": 60, "side": "home", "player": "Unknown", "type": "goal"}]

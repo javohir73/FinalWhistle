@@ -37,6 +37,10 @@ _STATUS = {
 _EXTRA_TIME = frozenset({"ET", "AET", "BT"})
 _SHOOTOUT = frozenset({"P", "PEN"})
 
+# api-sports goal-event detail -> our scorer type. Other details (e.g.
+# "Missed Penalty") and non-Goal events are ignored.
+_GOAL_DETAIL = {"Normal Goal": "goal", "Penalty": "penalty", "Own Goal": "own_goal"}
+
 
 def fetch_fixtures(api_key: str, league: int, season: int, timeout: float = 15.0) -> list[dict]:
     """Return the raw fixture list for a league+season from api-sports.io."""
@@ -105,3 +109,32 @@ def to_feed(fixtures: list[dict]) -> list[dict]:
     """Translate an api-sports fixture list into football-data v4-shaped items,
     skipping malformed/unmodelled entries."""
     return [item for fx in (fixtures or []) if (item := _to_item(fx)) is not None]
+
+
+def goals_from_events(events: list[dict], home_name: str, away_name: str) -> list[dict]:
+    """Translate api-sports /fixtures/events into scorer dicts in our home/away
+    orientation. Own goals are credited to the opponent of the scoring player's
+    team. Non-goal events and unknown teams are skipped."""
+    out: list[dict] = []
+    for e in events or []:
+        if not isinstance(e, dict) or e.get("type") != "Goal":
+            continue
+        gtype = _GOAL_DETAIL.get(e.get("detail"))
+        if gtype is None:
+            continue
+        team = (e.get("team") or {}).get("name")
+        if team == home_name:
+            side = "home"
+        elif team == away_name:
+            side = "away"
+        else:
+            continue
+        if gtype == "own_goal":
+            side = "away" if side == "home" else "home"
+        out.append({
+            "minute": (e.get("time") or {}).get("elapsed"),
+            "side": side,
+            "player": (e.get("player") or {}).get("name") or "Unknown",
+            "type": gtype,
+        })
+    return out
