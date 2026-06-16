@@ -17,6 +17,7 @@ from pipeline.team_mapping import normalize_team_name
         ("Türkiye", "Turkey"),
         ("Cabo Verde", "Cape Verde"),
         ("Cape Verde Islands", "Cape Verde"),  # football-data.org's spelling
+        ("Bosnia & Herzegovina", "Bosnia and Herzegovina"),  # api-sports' spelling
         ("Republic of Ireland", "Ireland"),
         ("Côte d'Ivoire", "Ivory Coast"),
     ],

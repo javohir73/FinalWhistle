@@ -63,6 +63,7 @@ _ALIASES: dict[str, str] = {
     # Bosnia
     "bosnia and herzegovina": "Bosnia and Herzegovina",
     "bosnia-herzegovina": "Bosnia and Herzegovina",
+    "bosnia & herzegovina": "Bosnia and Herzegovina",  # api-sports' spelling
 }
 
 
