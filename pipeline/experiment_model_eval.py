@@ -67,6 +67,28 @@ def is_major_final(competition: str | None) -> bool:
     return any(k in c for k in _MAJOR_FINALS)
 
 
+def block_bootstrap_ci(values, edition_keys, n_boot, rng, pct=(2.5, 97.5)):
+    """Percentile CI of the mean of `values`, resampling whole tournament
+    EDITIONS with replacement (cluster/block bootstrap). values[i] belongs to
+    edition_keys[i]. Matches within an edition share context, so this gives an
+    honest (wider) CI than IID match resampling. Returns (lo, hi)."""
+    vals = np.asarray(values, dtype=float)
+    groups: dict = defaultdict(list)
+    for i, k in enumerate(edition_keys):
+        groups[k].append(i)
+    blocks = [np.asarray(ix) for ix in groups.values()]
+    n_ed = len(blocks)
+    if n_ed == 0:
+        return (0.0, 0.0)
+    means = np.empty(n_boot)
+    for b in range(n_boot):
+        chosen = rng.integers(0, n_ed, size=n_ed)
+        idx = np.concatenate([blocks[c] for c in chosen])
+        means[b] = vals[idx].mean()
+    lo, hi = pct
+    return float(np.percentile(means, lo)), float(np.percentile(means, hi))
+
+
 def tournament_editions(rows: list[dict], since_year: int) -> list[tuple[str, int, list[dict]]]:
     """Group major-tournament-final rows into (competition, year) editions."""
     groups: dict[tuple[str, int], list[dict]] = defaultdict(list)
@@ -172,6 +194,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
     }
     edition_count = 0
     match_count = 0
+    edition_keys: list[tuple] = []  # (comp, year) per pooled match, index-aligned
 
     for comp, year, target in editions:
         first_date = min(r["date"] for r in target)
@@ -184,6 +207,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
         for r in target:
             label = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
             sh, sa = r["score_home"], r["score_away"]
+            edition_keys.append((comp, year))
             for name, scorer in scorers.items():
                 wdl, grid = scorer(r)
                 p = pooled[name]
@@ -231,18 +255,15 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
         n = len(d_ll)
         if n == 0:
             return {}
-        idx = rng.integers(0, n, size=(n_boot, n))
-        bll = d_ll[idx].mean(axis=1); brps = d_rps[idx].mean(axis=1)
-        bes = d_es[idx].mean(axis=1); bt5 = d_t5[idx].mean(axis=1)
         return {
             "d_log_loss": float(d_ll.mean()),
-            "ll_ci": (float(np.percentile(bll, 2.5)), float(np.percentile(bll, 97.5))),
+            "ll_ci": block_bootstrap_ci(d_ll, edition_keys, n_boot, rng),
             "d_rps": float(d_rps.mean()),
-            "rps_ci": (float(np.percentile(brps, 2.5)), float(np.percentile(brps, 97.5))),
+            "rps_ci": block_bootstrap_ci(d_rps, edition_keys, n_boot, rng),
             "d_exact_nll": float(d_es.mean()),
-            "es_ci": (float(np.percentile(bes, 2.5)), float(np.percentile(bes, 97.5))),
+            "es_ci": block_bootstrap_ci(d_es, edition_keys, n_boot, rng),
             "d_top5": float(d_t5.mean()),
-            "t5_ci": (float(np.percentile(bt5, 2.5)), float(np.percentile(bt5, 97.5))),
+            "t5_ci": block_bootstrap_ci(d_t5, edition_keys, n_boot, rng),
         }
 
     return {
