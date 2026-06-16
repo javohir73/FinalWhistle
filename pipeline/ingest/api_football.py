@@ -58,6 +58,21 @@ def fetch_fixtures(api_key: str, league: int, season: int, timeout: float = 15.0
     return data.get("response") or []
 
 
+def fetch_events(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[dict]:
+    """Return the raw event list for one fixture from api-sports.io."""
+    resp = requests.get(
+        f"{BASE_URL}/fixtures/events",
+        headers={"x-apisports-key": api_key},
+        params={"fixture": fixture_id},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        log.warning("api-football events errors: %s", data["errors"])
+    return data.get("response") or []
+
+
 def _duration(short: str) -> str:
     if short in _SHOOTOUT:
         return "PENALTY_SHOOTOUT"
@@ -102,6 +117,7 @@ def _to_item(fx: object) -> dict | None:
     extra = status.get("extra")
     if isinstance(extra, int):
         item["injuryTime"] = extra
+    item["_fixture_id"] = (fx.get("fixture") or {}).get("id")
     return item
 
 
@@ -138,3 +154,33 @@ def goals_from_events(events: list[dict], home_name: str, away_name: str) -> lis
             "type": gtype,
         })
     return out
+
+
+# Statuses where new goals can have happened and scorers are worth fetching.
+_SCORABLE = frozenset({"IN_PLAY", "PAUSED", "FINISHED"})
+
+
+def attach_scorers(db, feed: list[dict], api_key: str) -> list[dict]:
+    """Enrich feed items with a `scorers` list, fetching /fixtures/events ONLY
+    for in-play/finished fixtures whose goal total differs from what's stored
+    (so events are fetched ~once per goal, not every refresh)."""
+    from pipeline.ingest.live_scores import _index_by_pair
+    from pipeline.team_mapping import normalize_team_name
+
+    index = _index_by_pair(db)
+    for item in feed:
+        if item.get("status") not in _SCORABLE:
+            continue
+        fid = item.get("_fixture_id")
+        if fid is None:
+            continue
+        home, away = item["homeTeam"]["name"], item["awayTeam"]["name"]
+        match = index.get(frozenset((normalize_team_name(home), normalize_team_name(away))))
+        if match is None:
+            continue
+        ft = item["score"].get("fullTime") or {}
+        total = (ft.get("home") or 0) + (ft.get("away") or 0)
+        stored = len(match.goal_events) if match.goal_events is not None else -1
+        if stored != total:
+            item["scorers"] = goals_from_events(fetch_events(api_key, fid), home, away)
+    return feed

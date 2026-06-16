@@ -157,3 +157,23 @@ def test_unknown_team_event_is_skipped_and_missing_player_defaulted():
     ]
     out = goals_from_events(events, "Iran", "New Zealand")
     assert out == [{"minute": 60, "side": "home", "player": "Unknown", "type": "goal"}]
+
+
+def test_attach_scorers_fetches_only_when_goal_total_changed(db_session, monkeypatch):
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    # A live fixture, Mexico 1-0 South Africa, fixture id 777.
+    feed = to_feed([_fixture("2H", elapsed=55, gh=1, ga=0)])
+    feed[0]["_fixture_id"] = 777
+
+    calls = {"n": 0}
+    def fake_events(key, fid, timeout=15.0):
+        calls["n"] += 1
+        return [_event("Normal Goal", "Mexico", "R. Jimenez", 30)]
+    monkeypatch.setattr(af, "fetch_events", fake_events)
+
+    af.attach_scorers(db_session, feed, "dummy-key")
+    assert calls["n"] == 1
+    assert feed[0]["scorers"] == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
