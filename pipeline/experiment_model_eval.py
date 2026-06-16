@@ -30,6 +30,7 @@ from ml.evaluation.calibration import fit_temperature
 from ml.evaluation.scoreline_metrics import (
     exact_score_nll,
     expected_calibration_error,
+    expected_calibration_error_equal_count,
     ranked_probability_score,
     top_k_scoreline_hit,
 )
@@ -195,6 +196,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
     edition_count = 0
     match_count = 0
     edition_keys: list[tuple] = []  # (comp, year) per pooled match, index-aligned
+    elo_gaps: list[float] = []  # |pre_home - pre_away| per pooled match
 
     for comp, year, target in editions:
         first_date = min(r["date"] for r in target)
@@ -208,6 +210,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
             label = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
             sh, sa = r["score_home"], r["score_away"]
             edition_keys.append((comp, year))
+            elo_gaps.append(abs(r["pre_home"] - r["pre_away"]))
             for name, scorer in scorers.items():
                 wdl, grid = scorer(r)
                 p = pooled[name]
@@ -266,11 +269,45 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
             "t5_ci": block_bootstrap_ci(d_t5, edition_keys, n_boot, rng),
         }
 
+    def segment_report() -> dict:
+        served = pooled["v0.1 (served)"]
+        ll = served["ll"]; wdl = served["wdl"]; labels = served["labels"]
+
+        def cell(idxs: list[int]) -> dict:
+            if not idxs:
+                return {"n": 0, "log_loss": 0.0, "ece": 0.0}
+            return {
+                "n": len(idxs),
+                "log_loss": float(np.mean([ll[i] for i in idxs])),
+                "ece": expected_calibration_error_equal_count(
+                    [wdl[i] for i in idxs], [labels[i] for i in idxs], bins=5),
+            }
+
+        by_edition: dict = defaultdict(list)
+        for i, k in enumerate(edition_keys):
+            by_edition[k].append(i)
+
+        gap_buckets = {"0-50": [], "50-150": [], "150-300": [], "300+": []}
+        for i, g in enumerate(elo_gaps):
+            key = "0-50" if g < 50 else "50-150" if g < 150 else "150-300" if g < 300 else "300+"
+            gap_buckets[key].append(i)
+
+        dvd = {"draw": [], "decisive": []}
+        for i, lab in enumerate(labels):
+            dvd["draw" if lab == 1 else "decisive"].append(i)
+
+        return {
+            "by_edition": {f"{c} {y}": cell(ix) for (c, y), ix in by_edition.items()},
+            "by_favorite_gap": {k: cell(ix) for k, ix in gap_buckets.items()},
+            "draw_vs_decisive": {k: cell(ix) for k, ix in dvd.items()},
+        }
+
     return {
         "editions": edition_count,
         "matches": match_count,
         "summary": {name: summarize(name) for name in CANDIDATES},
         "bootstrap": {name: bootstrap_delta(name) for name in CANDIDATES if name != "v0.1 (served)"},
+        "segments": segment_report(),
     }
 
 
@@ -363,6 +400,12 @@ def main() -> int:
               f"   RPS d={b['d_rps']:+.4f} CI[{b['rps_ci'][0]:+.4f},{b['rps_ci'][1]:+.4f}] {verdict(b['rps_ci'])}")
         print(f"     SCORE  exactNLL d={b['d_exact_nll']:+.4f} CI[{b['es_ci'][0]:+.4f},{b['es_ci'][1]:+.4f}] {verdict(b['es_ci'])}"
               f"   top5 d={b['d_top5']:+.4f} CI[{b['t5_ci'][0]:+.4f},{b['t5_ci'][1]:+.4f}] {verdict(b['t5_ci'], better_is_lower=False)}")
+
+    print("\nCalibration by segment (served v0.1 — n / log_loss / ece):")
+    for group, table in res["segments"].items():
+        print(f"  {group}:")
+        for seg, cell in table.items():
+            print(f"    {seg:<14} n={cell['n']:<5} ll={cell['log_loss']:.4f} ece={cell['ece']:.4f}")
 
     # Shippable global split: one fixed param set, honest out-of-sample test.
     print("\n==== Shippable global v0.2 (fit on 2004-2017, tested on 2018+ finals) ====")

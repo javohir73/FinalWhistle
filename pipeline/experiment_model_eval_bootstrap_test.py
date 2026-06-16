@@ -55,3 +55,24 @@ def test_global_split_ci_uses_edition_clustering(monkeypatch):
     res = ev.run_global_split(rows, train_lo=2014, train_hi=2014, test_since=2014, n_boot=200)
     assert calls["n"] >= 4  # one per delta metric (log_loss, rps, exact_nll, top5)
     assert "delta" in res
+
+
+def test_run_output_has_segment_tables():
+    import pipeline.experiment_model_eval as ev
+    from datetime import datetime
+
+    def row(year, ph, pa, sh, sa):
+        return {"competition": "FIFA World Cup", "date": datetime(year, 6, 1),
+                "pre_home": ph, "pre_away": pa, "is_neutral": True,
+                "score_home": sh, "score_away": sa}
+    rows = []
+    for yr in (2014, 2018):
+        for _ in range(120):
+            rows += [row(yr, 1700, 1400, 2, 0), row(yr, 1500, 1500, 1, 1)]
+    res = ev.run(rows, since_year=2010, n_boot=100, val_days=3650)
+    seg = res["segments"]
+    assert set(seg) == {"by_edition", "by_favorite_gap", "draw_vs_decisive"}
+    assert set(seg["draw_vs_decisive"]) == {"draw", "decisive"}
+    for table in seg.values():
+        for cell in table.values():
+            assert {"n", "log_loss", "ece"} <= set(cell)
