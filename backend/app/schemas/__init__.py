@@ -81,6 +81,13 @@ class TeamOut(BaseModel):
     is_host: bool
 
 
+class GoalEventOut(BaseModel):
+    minute: int | None
+    side: str          # "home" | "away"
+    player: str
+    type: str          # "goal" | "penalty" | "own_goal"
+
+
 class MatchSummaryOut(BaseModel):
     match_id: int
     stage: str
@@ -98,11 +105,16 @@ class MatchSummaryOut(BaseModel):
     injury_time: int | None = None
     penalty_home: int | None = None
     penalty_away: int | None = None
+    goal_events: list[GoalEventOut] = []
     teams: TeamsOut
     predicted_winner: str | None
     probabilities: ProbabilitiesOut | None
     predicted_score: PredictedScoreOut | None
     confidence: str | None
+    # In-play win probability (home/draw/away) given the current score and time
+    # left. Present only while the match is live; None otherwise (use the
+    # pre-match `probabilities`).
+    live_probabilities: ProbabilitiesOut | None = None
 
 
 class StandingRowOut(BaseModel):
