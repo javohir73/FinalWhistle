@@ -55,10 +55,16 @@ export function MatchScoreboard({
     summary.score_home != null && summary.score_away != null;
   const verdict = summary ? predictionVerdict(summary) : null;
 
+  // While the match is live, the headline win % and the bar reflect the in-play
+  // probability (current score + time left); otherwise they show the pre-match
+  // model. The pre-match "Model predicted X-Y" note stays below either way.
+  const liveProbs = live ? summary?.live_probabilities ?? null : null;
+  const shownProbs = liveProbs ?? probabilities;
+
   return (
     <>
       <div className="grid grid-cols-[1fr_auto_1fr] items-start gap-2 sm:gap-3">
-        <TeamHead name={home} prob={probabilities.home_win} teamId={homeTeamId} />
+        <TeamHead name={home} prob={shownProbs.home_win} teamId={homeTeamId} />
         <div className="px-1 pt-3 text-center sm:px-2">
           <div className="font-display text-2xl font-extrabold tabular-nums sm:text-3xl">
             {hasActual
@@ -86,11 +92,17 @@ export function MatchScoreboard({
             </div>
           )}
         </div>
-        <TeamHead name={away} prob={probabilities.away_win} teamId={awayTeamId} />
+        <TeamHead name={away} prob={shownProbs.away_win} teamId={awayTeamId} />
       </div>
 
       <div className="mt-6">
-        <ProbabilityBar probabilities={probabilities} homeLabel={home} awayLabel={away} />
+        {liveProbs && (
+          <div className="mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-loss sm:text-[11px]">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+            Live win probability · updates with the score
+          </div>
+        )}
+        <ProbabilityBar probabilities={shownProbs} homeLabel={home} awayLabel={away} />
       </div>
 
       <p className="mt-4 text-center text-sm text-muted">

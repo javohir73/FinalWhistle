@@ -86,6 +86,9 @@ export interface MatchSummary {
   probabilities: Probabilities | null;
   predicted_score: PredictedScore | null;
   confidence: "High" | "Medium" | "Low" | null;
+  /** In-play win probability given the live score and time left; present only
+   *  while the match is live (else use the pre-match `probabilities`). */
+  live_probabilities?: Probabilities | null;
 }
 
 export interface Team {

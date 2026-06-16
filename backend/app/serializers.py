@@ -128,6 +128,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
             period=match.period,
             lam_home=pred.lambda_home,
             lam_away=pred.lambda_away,
+            rho=pred.rho,
         )
         if live is not None:
             live_probabilities = schemas.ProbabilitiesOut(
