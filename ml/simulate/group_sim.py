@@ -14,7 +14,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo
+from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo, score_cdf, sample_scoreline_from_cdf
 
 
 @dataclass
@@ -50,6 +50,8 @@ def simulate_group(
     advance_count: int = 2,
     base: float = BASE_GOALS,
     beta: float = ELO_TO_GOALS_BETA,
+    *,
+    rho: float,
 ) -> dict[int, dict]:
     """Return {team_id: {qualification_prob, avg_points, avg_gd, avg_gf}}."""
     rng = np.random.default_rng(seed)
@@ -60,7 +62,7 @@ def simulate_group(
     base_points = {tid: 0 for tid in team_ids}
     base_gf = {tid: 0 for tid in team_ids}
     base_ga = {tid: 0 for tid in team_ids}
-    lams = []
+    sampled = []  # (home_id, away_id, cdf) for each unplayed fixture
     for fx in fixtures:
         if fx.score is not None:
             _apply_result(base_points, base_gf, base_ga,
@@ -70,7 +72,7 @@ def simulate_group(
                 team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
                 base=base, beta=beta,
             )
-            lams.append((fx.home_id, fx.away_id, lh, la))
+            sampled.append((fx.home_id, fx.away_id, score_cdf(lh, la, rho)))
 
     qualify = {tid: 0 for tid in team_ids}
     sum_points = {tid: 0 for tid in team_ids}
@@ -82,9 +84,8 @@ def simulate_group(
         gf = dict(base_gf)
         ga = dict(base_ga)
 
-        for home_id, away_id, lh, la in lams:
-            sh = int(rng.poisson(lh))
-            sa = int(rng.poisson(la))
+        for home_id, away_id, cdf in sampled:
+            sh, sa = sample_scoreline_from_cdf(rng, cdf)
             _apply_result(points, gf, ga, home_id, away_id, sh, sa)
 
         # Rank by points, then goal difference, then goals for, then a random

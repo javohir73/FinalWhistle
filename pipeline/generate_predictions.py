@@ -158,7 +158,7 @@ def _simulate_standings(
 
     results = simulate_group(
         team_elos, fixtures, n_sims=n_sims, seed=2026,
-        base=params.base, beta=params.beta,
+        base=params.base, beta=params.beta, rho=params.rho,
     )
     # Persist REAL tallies (finished matches only) — the table users see is the
     # actual league table; only qualification_prob comes from the simulation.

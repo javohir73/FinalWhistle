@@ -10,7 +10,7 @@ def _round_robin(ids: list[int]) -> list[GroupFixture]:
 
 def test_qualification_probs_in_range_and_two_advance_on_average():
     elos = {1: 2000, 2: 1800, 3: 1600, 4: 1400}
-    res = simulate_group(elos, _round_robin([1, 2, 3, 4]), n_sims=2000, seed=42)
+    res = simulate_group(elos, _round_robin([1, 2, 3, 4]), n_sims=2000, seed=42, rho=0.0)
     for tid, r in res.items():
         assert 0.0 <= r["qualification_prob"] <= 1.0
     # exactly two qualify each sim -> probabilities sum to ~2
@@ -19,7 +19,7 @@ def test_qualification_probs_in_range_and_two_advance_on_average():
 
 def test_stronger_team_more_likely_to_qualify():
     elos = {1: 2000, 2: 1800, 3: 1600, 4: 1400}
-    res = simulate_group(elos, _round_robin([1, 2, 3, 4]), n_sims=2000, seed=7)
+    res = simulate_group(elos, _round_robin([1, 2, 3, 4]), n_sims=2000, seed=7, rho=0.0)
     assert res[1]["qualification_prob"] > res[4]["qualification_prob"]
     assert res[1]["avg_points"] > res[4]["avg_points"]
 
@@ -27,8 +27,8 @@ def test_stronger_team_more_likely_to_qualify():
 def test_deterministic_with_seed():
     elos = {1: 1900, 2: 1850, 3: 1700, 4: 1500}
     fx = _round_robin([1, 2, 3, 4])
-    r1 = simulate_group(elos, fx, n_sims=1000, seed=123)
-    r2 = simulate_group(elos, fx, n_sims=1000, seed=123)
+    r1 = simulate_group(elos, fx, n_sims=1000, seed=123, rho=0.0)
+    r2 = simulate_group(elos, fx, n_sims=1000, seed=123, rho=0.0)
     assert r1 == r2
 
 
@@ -38,7 +38,7 @@ def test_finished_match_counts_as_fact_not_probability():
     elos = {1: 1400, 2: 2000, 3: 1600, 4: 1500}
     fx = _round_robin([1, 2, 3, 4])
     fx[0] = GroupFixture(1, 2, score=(2, 0))  # pair (1, 2) already played
-    res = simulate_group(elos, fx, n_sims=400, seed=11)
+    res = simulate_group(elos, fx, n_sims=400, seed=11, rho=0.0)
     assert res[1]["avg_points"] >= 3.0  # the win is locked in
     assert res[2]["avg_points"] <= 6.0  # only two games left to win
 
@@ -52,7 +52,7 @@ def test_fully_played_group_is_deterministic():
     # pairs: (1,2) (3,4) (1,3) (4,2) (4,1) (2,3)
     fx = [GroupFixture(f.home_id, f.away_id, score=s)
           for f, s in zip(_round_robin([1, 2, 3, 4]), scores)]
-    res = simulate_group(elos, fx, n_sims=200, seed=3)
+    res = simulate_group(elos, fx, n_sims=200, seed=3, rho=0.0)
     assert res[4] == {"qualification_prob": 1.0, "avg_points": 9.0, "avg_gd": 4.0, "avg_gf": 4.0}
     assert res[1]["qualification_prob"] == 0.0
     assert res[1]["avg_points"] == 0.0
