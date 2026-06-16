@@ -105,6 +105,7 @@ def test_refresh_live_routes_to_api_football_when_selected(db_session, monkeypat
     monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
     monkeypatch.setattr(af, "fetch_fixtures",
                         lambda *a, **k: [_fixture("2H", elapsed=55, gh=1, ga=0)])
+    monkeypatch.setattr(af, "fetch_events", lambda *a, **k: [])
 
     summary = refresh_live(db_session)  # default key path -> active_live_api_key
     assert summary["updated"] == 1
@@ -176,4 +177,24 @@ def test_attach_scorers_fetches_only_when_goal_total_changed(db_session, monkeyp
     af.attach_scorers(db_session, feed, "dummy-key")
     assert calls["n"] == 1
     assert feed[0]["scorers"] == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+
+
+def test_refresh_live_api_football_stores_scorers(db_session, monkeypatch):
+    from app.config import settings as app_settings
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    monkeypatch.setattr(app_settings, "live_provider", "api_football")
+    monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
+    monkeypatch.setattr(af, "fetch_fixtures",
+                        lambda *a, **k: [_fixture("2H", elapsed=55, gh=1, ga=0)])
+    monkeypatch.setattr(af, "fetch_events",
+                        lambda *a, **k: [_event("Normal Goal", "Mexico", "R. Jimenez", 30)])
+
+    refresh_live(db_session)
+    h = db_session.query(Team).filter_by(name="Mexico").one()
+    a = db_session.query(Team).filter_by(name="South Africa").one()
+    m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    assert m.goal_events == [
         {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
