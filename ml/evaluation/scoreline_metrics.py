@@ -130,6 +130,47 @@ def expected_calibration_error(
     return ece
 
 
+def _equal_count_ece(pairs: list[tuple[float, int]], bins: int) -> float:
+    """ECE over quantile (equal-count) bins of (predicted_prob, hit) pairs."""
+    n = len(pairs)
+    if n == 0:
+        return 0.0
+    pairs = sorted(pairs, key=lambda x: x[0])
+    bins = max(1, min(bins, n))
+    ece = 0.0
+    for b in range(bins):
+        lo = (b * n) // bins
+        hi = ((b + 1) * n) // bins
+        chunk = pairs[lo:hi]
+        if not chunk:
+            continue
+        mean_pred = sum(p for p, _ in chunk) / len(chunk)
+        freq = sum(h for _, h in chunk) / len(chunk)
+        ece += (len(chunk) / n) * abs(mean_pred - freq)
+    return ece
+
+
+def expected_calibration_error_equal_count(probs_list, labels, bins: int = 10) -> float:
+    """Like expected_calibration_error but with equal-COUNT (quantile) bins, so
+    sparse high-probability bins (where draws are under-predicted) aren't washed
+    out by equal-width pooling. Pools every class probability vs its hit (0/1)."""
+    pairs = [(probs[c], 1 if labels[i] == c else 0)
+             for i, probs in enumerate(probs_list) for c in range(3)]
+    return _equal_count_ece(pairs, bins)
+
+
+def per_class_calibration_error(probs_list, labels, bins: int = 10) -> dict:
+    """Equal-count ECE computed separately per outcome class. Returns
+    {"home": .., "draw": .., "away": ..}. Surfaces the draw-class pathology that
+    pooled ECE hides."""
+    names = {0: "home", 1: "draw", 2: "away"}
+    out = {}
+    for c, name in names.items():
+        pairs = [(probs[c], 1 if labels[i] == c else 0) for i, probs in enumerate(probs_list)]
+        out[name] = _equal_count_ece(pairs, bins)
+    return out
+
+
 def mean_ranked_probability_score(probs_list: list[Probs], labels: list[int]) -> float:
     """Average RPS over a set of predictions (lower is better)."""
     if not labels:
