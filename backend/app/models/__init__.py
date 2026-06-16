@@ -112,6 +112,10 @@ class Match(Base):
     # Feed's per-match version stamp (lastUpdated). A lagging cache node must not
     # overwrite a fresher record we already applied (see live_scores.update).
     provider_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Goal events for the live/actual scoreline: ordered list of
+    # {minute, side: "home"|"away", player, type: "goal"|"penalty"|"own_goal"}.
+    # Populated by the api_football provider only (football-data has no scorers).
+    goal_events: Mapped[list | None] = mapped_column(JSON)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
