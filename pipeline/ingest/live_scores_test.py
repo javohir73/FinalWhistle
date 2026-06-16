@@ -444,3 +444,21 @@ def test_unknown_feed_status_never_downgrades_known_state(db_session):
 
     m = _match_for(db_session, "Mexico", "South Africa")
     assert m.status == "in_play"
+
+
+def test_scorers_field_is_stored_as_goal_events(db_session):
+    load_structure(db_session)
+    feed = _feed("IN_PLAY", home=1, away=0, minute=30)
+    feed[0]["scorers"] = [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+    update_live_scores(db_session, feed)
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.goal_events == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+
+
+def test_absent_scorers_leaves_goal_events_untouched(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _feed("IN_PLAY", home=1, away=0, minute=30))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.goal_events is None  # football_data feed carries no scorers

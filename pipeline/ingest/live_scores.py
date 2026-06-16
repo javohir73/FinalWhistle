@@ -256,6 +256,8 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         elif status != "finished":
             match.penalty_home = match.penalty_away = None
 
+        if "scorers" in am:
+            match.goal_events = am["scorers"]
         if incoming_lu is not None:
             match.provider_last_updated = incoming_lu
         updated += 1
