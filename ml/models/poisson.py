@@ -15,6 +15,8 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
+import numpy as np
+
 BASE_GOALS = 1.35          # average international goals per team per match
 ELO_TO_GOALS_BETA = 0.0019  # goals sensitivity per Elo pt (tuned on pre-2018 WCs, task 4.6)
 MAX_GOALS = 10              # scoreline grid cap (0..10 each side)
@@ -79,6 +81,33 @@ def score_matrix(
             for a in range(min(2, max_goals + 1)):
                 matrix[h][a] = max(0.0, matrix[h][a] * _dixon_coles_tau(h, a, lam_home, lam_away, rho))
     return matrix
+
+
+def score_cdf(lam_home, lam_away, rho=0.0, max_goals=MAX_GOALS):
+    """Flattened, normalized CDF over the (max_goals+1)^2 Dixon-Coles grid.
+    Build ONCE per fixture; reuse across sims via sample_scoreline_from_cdf.
+    Guards against NaN/negative cells and raises on a degenerate (zero-mass) grid."""
+    flat = np.asarray(score_matrix(lam_home, lam_away, max_goals=max_goals, rho=rho),
+                      dtype=float).ravel()
+    flat[~np.isfinite(flat)] = 0.0
+    np.clip(flat, 0.0, None, out=flat)
+    total = flat.sum()
+    if total <= 0.0:
+        raise ValueError("degenerate score grid: non-positive total mass")
+    return np.cumsum(flat / total)
+
+
+def sample_scoreline_from_cdf(rng, cdf, max_goals=MAX_GOALS):
+    """One rng.random() + searchsorted into a prebuilt CDF -> (home, away)."""
+    idx = int(np.searchsorted(cdf, rng.random(), side="right"))
+    idx = min(idx, len(cdf) - 1)
+    width = max_goals + 1
+    return idx // width, idx % width
+
+
+def sample_scoreline(rng, lam_home, lam_away, rho=0.0, max_goals=MAX_GOALS):
+    """Convenience wrapper. NOT for per-sim loops (rebuilds the grid each call)."""
+    return sample_scoreline_from_cdf(rng, score_cdf(lam_home, lam_away, rho, max_goals), max_goals)
 
 
 def outcome_probabilities(matrix: list[list[float]]) -> tuple[float, float, float]:
