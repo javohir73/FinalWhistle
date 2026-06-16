@@ -75,8 +75,35 @@ ROUND_KEYS = [
     (6, "win_title"),
 ]
 
-# Penalty-shootout model: logistic on the Elo gap (stronger side slightly favoured).
-PK_BETA = 0.0025
+# Penalty shootout: near coin-flip. Strength enters via a small, capped logistic
+# (pk_beta loaded from model_params.json; default 0.0 = pure coin-flip). The win
+# probability is clamped to PK_BAND so no parameter drift can re-introduce a
+# large skill bias (shootouts are empirically close to random).
+PK_BAND = (0.45, 0.55)
+PK_PRIOR_WEIGHT = 200  # shrinkage strength for fit_pk_beta (samples are thin)
+
+
+def shootout_p(elo_h: float, elo_a: float, pk_beta: float) -> float:
+    """P(home wins the shootout), clamped to PK_BAND."""
+    p = 1.0 / (1.0 + math.exp(-pk_beta * (elo_h - elo_a)))
+    lo, hi = PK_BAND
+    return min(hi, max(lo, p))
+
+
+def fit_pk_beta(samples: list[tuple[float, bool]]) -> float:
+    """Fit a tiny logistic slope from historical penalty-decided knockouts, then
+    SHRINK toward 0 by n/(n+PK_PRIOR_WEIGHT). `samples` = (elo_gap favorite-minus-
+    underdog, favorite_won). Returns 0.0 when data is empty/thin (-> coin-flip)."""
+    n = len(samples)
+    if n == 0:
+        return 0.0
+    num = den = 0.0
+    for gap, won in samples:
+        p = 0.5  # logistic at beta=0
+        num += gap * ((1.0 if won else 0.0) - p)
+        den += (gap * gap) * p * (1.0 - p)
+    raw = (num / den) if den > 0 else 0.0
+    return raw * (n / (n + PK_PRIOR_WEIGHT))
 
 
 @dataclass
@@ -125,6 +152,7 @@ def simulate_tournament(
     beta: float = ELO_TO_GOALS_BETA,
     *,
     rho: float,
+    pk_beta: float = 0.0,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
     reach_final, win_title}} as probabilities over n_sims tournaments."""
@@ -170,8 +198,7 @@ def simulate_tournament(
             return h
         if sa > sh:
             return a
-        p_home = 1.0 / (1.0 + math.exp(-PK_BETA * (team_elos[h] - team_elos[a])))
-        return h if rng.random() < p_home else a
+        return h if rng.random() < shootout_p(team_elos[h], team_elos[a], pk_beta) else a
 
     for _ in range(n_sims):
         placement: dict[str, list[int]] = {}

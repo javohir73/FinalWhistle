@@ -28,6 +28,7 @@ class ModelParams:
     home_adv: float
     rho: float
     temperature: float
+    pk_beta: float = 0.0
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -41,6 +42,7 @@ DEFAULT_PARAMS = ModelParams(
     home_adv=HOME_ADVANTAGE,
     rho=0.0,
     temperature=1.0,
+    pk_beta=0.0,
 )
 
 
@@ -57,6 +59,7 @@ def load_params() -> ModelParams:
         home_adv=float(data["home_adv"]),
         rho=float(data["rho"]),
         temperature=float(data["temperature"]),
+        pk_beta=float(data.get("pk_beta", 0.0)),
     )
 
 

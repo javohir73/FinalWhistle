@@ -4,5 +4,6 @@
   "beta": 0.0021,
   "home_adv": 60.0,
   "rho": -0.06,
-  "temperature": 1.0
+  "temperature": 1.0,
+  "pk_beta": 0.0
 }
