@@ -114,7 +114,7 @@ export function MatchScoreboard({
         {liveProbs && (
           <div className="mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-loss sm:text-[11px]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-            Live win probability · updates with the score
+            Live win probability
           </div>
         )}
         <ProbabilityBar probabilities={shownProbs} homeLabel={home} awayLabel={away} />
