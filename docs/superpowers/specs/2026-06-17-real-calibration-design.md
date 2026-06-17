@@ -95,3 +95,35 @@ overall W/D/L (log-loss/RPS) regressing. If it doesn't clear, write `calibrator 
 If the calibrator ships, served W/D/L probabilities shift (draws lift, big-favorite
 over-confidence softens). Predicted-score and tournament sims are unaffected (sampler
 untouched). The methodology page's calibration section should be refreshed.
+
+## Gate result (2026-06-17) — DO NOT SHIP (production stays `calibrator: null`)
+
+Ran the gate over **53 major-tournament editions / 1843 matches** with a 2000×
+edition-clustered bootstrap (`pipeline.experiment_model_eval --since 2004 --boot 2000`).
+Walk-forward: the calibrator is fit on the 2-year window before each edition, then scored
+on that edition.
+
+`v0.1+vector-scaling` vs `v0.1 (served)`:
+
+| Ship condition | Result | Pass |
+| --- | --- | --- |
+| Log-loss delta CI excludes 0 (better) | d=+0.0017, CI[-0.0051,+0.0083] **ns** (point est. slightly worse) | ❌ |
+| Per-class draw ECE drops | 0.0408 → 0.0258 | ✅ |
+| No W/D/L (log-loss / RPS) regression | both marginally worse | ❌ |
+
+**Decision: the calibrator does not clear the gate**, so `model_params.json` keeps
+`"calibrator": null` (temperature-only fallback, guaranteed no regression). The
+infrastructure (transform, fitter, dispatcher, params blob, gate candidate) is built and
+tested; if a future regime produces a calibrator that clears, paste the fitted blob (fit
+on the served v0.2 engine, **not** the gate's v0.1-based candidate) into `model_params.json`.
+
+Two findings:
+- The motivating "**draw ECE = 0.41**" was a *segment-conditioning artifact* of the
+  `draw_vs_decisive` slice (ECE over only the matches that actually drew). The honest
+  **per-class** draw ECE for v0.1 is ~**0.04** — the draw class is far less miscalibrated
+  than the headline implied. This is itself a useful correction the honest gate (#4) surfaced.
+- **`v0.2 (full tune)` already gives the best draw calibration** (per-class draw ECE 0.0245,
+  the lowest of any candidate) by fixing the goal-param *shape* (rho/home_adv) at the source,
+  and is the only candidate that is significantly better out-of-sample (exact_nll
+  CI[-0.0284,-0.0049], top5 CI[+0.0109,+0.0410]). Post-hoc W/D/L calibration is not the lever
+  that helps here; the tuned engine is.
