@@ -67,6 +67,39 @@ def fit_temperature(
     return round(best_t, 3)
 
 
+def fit_vector_scaling(
+    probs_list: list[Probs],
+    labels: list[int],
+    t_lo: float = 0.5,
+    t_hi: float = 3.0,
+    t_steps: int = 26,
+    b_lo: float = -1.5,
+    b_hi: float = 1.5,
+    b_steps: int = 31,
+    passes: int = 3,
+) -> tuple[float, Probs]:
+    """Fit (T, b_draw, b_away) minimizing validation log-loss by coordinate
+    descent over bounded grids. b_home is fixed at 0 (softmax reference). A few
+    passes (default 3) converge the three coordinates; each grid needs >= 2
+    points. Returns (t, (0.0, b_draw, b_away))."""
+    if t_steps < 2 or b_steps < 2:
+        raise ValueError("t_steps and b_steps must each be >= 2")
+    t, b_draw, b_away = 1.0, 0.0, 0.0
+
+    def ll(tt: float, bd: float, ba: float) -> float:
+        scaled = [apply_vector_scaling(p, tt, (0.0, bd, ba)) for p in probs_list]
+        return _log_loss(scaled, labels)
+
+    def grid(lo: float, hi: float, steps: int) -> list[float]:
+        return [lo + (hi - lo) * i / (steps - 1) for i in range(steps)]
+
+    for _ in range(passes):
+        t = min(grid(t_lo, t_hi, t_steps), key=lambda x: ll(x, b_draw, b_away))
+        b_draw = min(grid(b_lo, b_hi, b_steps), key=lambda x: ll(t, x, b_away))
+        b_away = min(grid(b_lo, b_hi, b_steps), key=lambda x: ll(t, b_draw, x))
+    return round(t, 3), (0.0, round(b_draw, 3), round(b_away, 3))
+
+
 def reliability_curve(
     probs_list: list[Probs], labels: list[int], bins: int = 10
 ) -> list[dict]:
