@@ -179,21 +179,22 @@ def predict_match(
     calibrated via `calibrate`: a vector-scaling `calibrator` blob if present
     (which CAN reshape the triple — e.g. lift the under-predicted draw class),
     otherwise scalar `temperature` (a monotone rescaling: T>1 softens
-    over-confident calls, T<1 sharpens). The predicted
-    scoreline is chosen consistent with the CALIBRATED argmax outcome, so the
-    displayed winner and score never contradict each other even when calibration
-    reorders the classes.
+    over-confident calls, T<1 sharpens).
+
+    The predicted scoreline is the single most-likely EXACT score across the
+    whole grid. For evenly matched teams that is a draw (e.g. 1-1), so a draw can
+    be the headline prediction even though the draw is rarely the single highest
+    W/D/L bucket in football (it tops out near 29% at parity, below each side's
+    ~35%). The displayed outcome follows this scoreline, so winner and score stay
+    consistent.
     """
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
     p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature)
-    # Scoreline consistent with the predicted result (argmax W/D/L), so the
-    # displayed winner and scoreline never contradict each other.
-    outcome = max(
-        (("home", p_home), ("draw", p_draw), ("away", p_away)), key=lambda kv: kv[1]
-    )[0]
-    sh, sa, sp = most_likely_score(matrix, outcome)
+    # Headline scoreline = the single most-likely exact score across the grid
+    # (a draw such as 1-1 for evenly matched teams); the shown outcome follows it.
+    sh, sa, sp = most_likely_score(matrix)
     return MatchPrediction(
         prob_home_win=p_home,
         prob_draw=p_draw,

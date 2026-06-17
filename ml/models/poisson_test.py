@@ -33,15 +33,20 @@ def _result(pred):
     return "draw"
 
 
-def test_scoreline_consistent_with_predicted_winner():
-    # Strong home favorite: argmax W/D/L is a home win and the scoreline agrees.
+def test_predicted_score_is_global_modal_scoreline():
+    # The headline scoreline is the single most-likely EXACT score across the
+    # whole grid, and the displayed outcome follows that score.
+    # Strong home favorite -> a home-win scoreline.
     pred = predict_match(2100, 1500)
-    assert pred.prob_home_win == max(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)
     assert _result(pred) == "home"
-    # When a draw is the most likely outcome, the scoreline is a draw.
+    # Evenly matched -> the most-likely exact score is a DRAW (e.g. 1-1), so a
+    # draw can be the headline prediction for even matchups...
     even = predict_match(1700, 1700, home_adv=0)
-    if even.prob_draw >= max(even.prob_home_win, even.prob_away_win):
-        assert _result(even) == "draw"
+    assert _result(even) == "draw"
+    assert even.score_home == even.score_away
+    # ...even though the draw is never the single highest W/D/L bucket in football
+    # (this proves the scoreline is grid-modal, not restricted to the argmax outcome).
+    assert even.prob_draw < max(even.prob_home_win, even.prob_away_win)
 
 
 def test_stronger_team_favored():
