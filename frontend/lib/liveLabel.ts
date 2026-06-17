@@ -20,6 +20,17 @@ export function isLiveNow(
   return elapsedMin <= MAX_LIVE_MINUTES;
 }
 
+/** True when any of `matches` belongs to `groupName` and is live right now.
+ *  Used to flag group cards that have a match in progress. Reuses isLiveNow so
+ *  the group-level signal stays consistent with the per-match live badge. */
+export function groupHasLiveMatch(
+  groupName: string,
+  matches: Pick<MatchSummary, "group" | "status" | "kickoff_utc">[] | undefined,
+  now: Date = new Date(),
+): boolean {
+  return (matches ?? []).some((m) => m.group === groupName && isLiveNow(m, now));
+}
+
 /** Short scoreboard label for a match's live state. The pulsing dot beside it
  *  carries the "live" meaning, so the text is just the clock or phase:
  *

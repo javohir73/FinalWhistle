@@ -1,6 +1,6 @@
 "use client";
 
-import { getGroups } from "@/lib/api";
+import { getGroups, getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { GroupCard } from "@/components/GroupCard";
 import { ErrorState, Empty } from "@/components/States";
@@ -8,6 +8,10 @@ import type { Group } from "@/lib/types";
 
 export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
   const state = useFetch(getGroups, [], 30_000, initialGroups);
+  // Match feed drives the per-group LIVE badge. Polled alongside groups; if it
+  // fails or is still loading, matches stays empty and no badge shows.
+  const matchesState = useFetch(getUpcomingMatches, [], 30_000);
+  const matches = matchesState.status === "success" ? matchesState.data : undefined;
 
   return (
     <div>
@@ -40,7 +44,7 @@ export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
             {state.data.map((g, i) => (
-              <GroupCard key={g.id} group={g} index={i} />
+              <GroupCard key={g.id} group={g} index={i} matches={matches} />
             ))}
           </div>
         ))}

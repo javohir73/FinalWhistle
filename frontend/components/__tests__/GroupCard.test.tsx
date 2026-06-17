@@ -1,7 +1,8 @@
-/** GroupCard: whole-card navigation vs. team-link navigation. */
+/** GroupCard: whole-card navigation vs. team-link navigation, plus the LIVE
+ *  badge shown when one of the group's matches is in play. */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { GroupCard } from "@/components/GroupCard";
-import type { Group } from "@/lib/types";
+import type { Group, MatchSummary } from "@/lib/types";
 
 const push = jest.fn();
 jest.mock("next/navigation", () => ({
@@ -45,4 +46,30 @@ it("clicking a team name goes to the team, not the group", () => {
 it("shows the 'View matches' affordance", () => {
   render(<GroupCard group={group} />);
   expect(screen.getByText(/View matches/i)).toBeInTheDocument();
+});
+
+/** Only the group/status/kickoff fields drive the badge; the rest is irrelevant
+ *  here, so the cast keeps these fixtures focused on what matters. */
+const recentKickoff = new Date(Date.now() - 30 * 60_000).toISOString();
+const match = (over: Partial<MatchSummary>): MatchSummary =>
+  ({ group: "Group A", status: "in_play", kickoff_utc: recentKickoff, ...over } as MatchSummary);
+
+it("shows a LIVE badge when one of the group's matches is in play", () => {
+  render(<GroupCard group={group} matches={[match({ group: "Group A" })]} />);
+  expect(screen.getByText(/^Live$/i)).toBeInTheDocument();
+});
+
+it("shows no LIVE badge when none of the group's matches are live", () => {
+  render(<GroupCard group={group} matches={[match({ group: "Group A", status: "scheduled" })]} />);
+  expect(screen.queryByText(/^Live$/i)).not.toBeInTheDocument();
+});
+
+it("ignores live matches that belong to a different group", () => {
+  render(<GroupCard group={group} matches={[match({ group: "Group B" })]} />);
+  expect(screen.queryByText(/^Live$/i)).not.toBeInTheDocument();
+});
+
+it("shows no LIVE badge when no match data is available", () => {
+  render(<GroupCard group={group} />);
+  expect(screen.queryByText(/^Live$/i)).not.toBeInTheDocument();
 });
