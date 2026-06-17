@@ -26,7 +26,7 @@ from collections import defaultdict
 
 import numpy as np
 
-from ml.evaluation.calibration import fit_temperature
+from ml.evaluation.calibration import calibrate, fit_temperature, fit_vector_scaling
 from ml.evaluation.scoreline_metrics import (
     exact_score_nll,
     expected_calibration_error,
@@ -39,7 +39,6 @@ from ml.evaluation.tune import tune_params, validation_window, MIN_VAL_MATCHES
 from ml.models.baseline_logistic import result_label
 from ml.models.params import DEFAULT_PARAMS, ModelParams
 from ml.models.poisson import (
-    _apply_temperature,
     expected_goals_from_elo,
     outcome_probabilities,
     score_matrix,
@@ -123,8 +122,7 @@ def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: flo
             for h, row in enumerate(grid)
         ]
     wdl = outcome_probabilities(grid)
-    if params.temperature != 1.0:
-        wdl = _apply_temperature(wdl, params.temperature)
+    wdl = calibrate(wdl, params.calibrator, params.temperature)
     return wdl, grid
 
 
@@ -166,6 +164,22 @@ def candidate_temperature_only(val):
     return lambda r: wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], params)
 
 
+def candidate_vector_scaling(val):
+    # Keep v0.1 goals params; fit a vector-scaling calibrator (T + per-class bias)
+    # on the window — the lever that can lift the under-predicted draw class.
+    if val:
+        probs = [wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], DEFAULT_PARAMS)[0] for r in val]
+        labels = [_LABEL_INDEX[result_label(r["score_home"], r["score_away"])] for r in val]
+        t, b = fit_vector_scaling(probs, labels)
+        calibrator = {"method": "vector_scaling", "t": t, "b": list(b)}
+    else:
+        calibrator = None
+    params = ModelParams(version="v1+vecscale", base=DEFAULT_PARAMS.base, beta=DEFAULT_PARAMS.beta,
+                         home_adv=DEFAULT_PARAMS.home_adv, rho=DEFAULT_PARAMS.rho,
+                         temperature=1.0, calibrator=calibrator)
+    return lambda r: wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], params)
+
+
 def candidate_draw_inflation(val):
     # Tune a single close-match draw-inflation gamma on the window (min val log-loss).
     best_g, best_ll = 0.0, float("inf")
@@ -181,6 +195,7 @@ CANDIDATES = {
     "v0.2 (full tune)": candidate_v2_full_tune,
     "v0.1+temperature": candidate_temperature_only,
     "v0.1+draw-inflation": candidate_draw_inflation,
+    "v0.1+vector-scaling": candidate_vector_scaling,
 }
 
 

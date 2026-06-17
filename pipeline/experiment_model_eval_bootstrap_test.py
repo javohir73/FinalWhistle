@@ -96,3 +96,29 @@ def test_summary_includes_per_class_calibration():
     assert all(isinstance(served["per_class"][k], float) for k in served["per_class"])
     # ECE is a calibration error in [0, 1] by construction.
     assert all(0.0 <= served["per_class"][k] <= 1.0 for k in served["per_class"])
+
+
+def test_vector_scaling_candidate_is_scored_and_bootstrapped():
+    import pipeline.experiment_model_eval as ev
+    from datetime import datetime
+
+    def row(year, ph, pa, sh, sa):
+        return {"competition": "FIFA World Cup", "date": datetime(year, 6, 1),
+                "pre_home": ph, "pre_away": pa, "is_neutral": True,
+                "score_home": sh, "score_away": sa}
+    rows = []
+    for yr in (2014, 2018):
+        for _ in range(120):
+            rows += [row(yr, 1700, 1400, 2, 0), row(yr, 1500, 1500, 1, 1),
+                     row(yr, 1500, 1500, 0, 0)]
+    res = ev.run(rows, since_year=2010, n_boot=100, val_days=3650)
+    name = "v0.1+vector-scaling"
+    assert name in res["summary"]
+    assert "per_class" in res["summary"][name]
+    # The calibrator was actually fit + applied (not silently None) — its scored
+    # log-loss differs from the uncalibrated served v0.1 baseline.
+    assert res["summary"][name]["log_loss"] != res["summary"]["v0.1 (served)"]["log_loss"]
+    # gate inputs present: a clustered-CI delta vs v0.1 for log-loss.
+    assert "ll_ci" in res["bootstrap"][name]
+    lo, hi = res["bootstrap"][name]["ll_ci"]
+    assert lo <= hi
