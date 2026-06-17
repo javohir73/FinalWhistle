@@ -38,6 +38,34 @@ def test_payload_matches_prd_section_17_shape(db_session):
     assert payload["odds_comparison"] == {"available": False}
 
 
+def test_build_payload_applies_calibrator_blob_end_to_end(db_session):
+    """A vector-scaling blob with a positive draw bias must lift the served draw
+    probability through the whole card path: blob -> ModelParams.calibrator ->
+    calibrate() inside predict_match -> §17 payload. Guards the build_payload
+    forwarding line that wires production serving to the calibrator."""
+    from dataclasses import replace
+
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+
+    base_params = load_params()  # ships with calibrator=None (inert)
+    base = build_payload(db_session, match, "v", params=base_params)
+
+    blob = {"method": "vector_scaling", "t": 1.0, "b": [0.0, 1.0, 0.0]}
+    cal = build_payload(db_session, match, "v", params=replace(base_params, calibrator=blob))
+
+    assert cal["probabilities"]["draw"] > base["probabilities"]["draw"]
+    p = cal["probabilities"]
+    assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
+
+
 def test_generate_predictions_writes_rows(db_session):
     load_structure(db_session)
     _set_elos(db_session)
