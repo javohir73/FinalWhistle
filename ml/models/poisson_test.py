@@ -33,20 +33,23 @@ def _result(pred):
     return "draw"
 
 
-def test_predicted_score_is_global_modal_scoreline():
-    # The headline scoreline is the single most-likely EXACT score across the
-    # whole grid, and the displayed outcome follows that score.
+def test_predicted_score_shows_draw_only_for_even_games():
     # Strong home favorite -> a home-win scoreline.
-    pred = predict_match(2100, 1500)
-    assert _result(pred) == "home"
-    # Evenly matched -> the most-likely exact score is a DRAW (e.g. 1-1), so a
-    # draw can be the headline prediction for even matchups...
+    assert _result(predict_match(2100, 1500)) == "home"
+
+    # Genuine coin-flip (equal Elo) -> a draw scoreline (1-1), even though the
+    # draw is never the single highest W/D/L bucket in football.
     even = predict_match(1700, 1700, home_adv=0)
     assert _result(even) == "draw"
     assert even.score_home == even.score_away
-    # ...even though the draw is never the single highest W/D/L bucket in football
-    # (this proves the scoreline is grid-modal, not restricted to the argmax outcome).
     assert even.prob_draw < max(even.prob_home_win, even.prob_away_win)
+
+    # Moderate edge: 1-1 may be the single most-likely exact score, but one side
+    # is clearly ahead in the bar, so the draw headline is SUPPRESSED (avoids the
+    # odd "one side ~50% but predicted 1-1" case). Falls back to the favored score.
+    edge = predict_match(1750, 1650, home_adv=0)
+    assert abs(edge.prob_home_win - edge.prob_away_win) > 0.08
+    assert _result(edge) == "home"
 
 
 def test_stronger_team_favored():

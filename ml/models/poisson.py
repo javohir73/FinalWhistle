@@ -22,6 +22,10 @@ from ml.evaluation.calibration import apply_temperature, calibrate
 BASE_GOALS = 1.35          # average international goals per team per match
 ELO_TO_GOALS_BETA = 0.0019  # goals sensitivity per Elo pt (tuned on pre-2018 WCs, task 4.6)
 MAX_GOALS = 10              # scoreline grid cap (0..10 each side)
+# Headline draw band: only show the (grid-modal) draw scoreline when the two win
+# probabilities are within this gap — i.e. a genuine coin-flip. Outside it one
+# side is clearly favored, so we show their scoreline instead of an odd 1-1.
+DRAW_HEADLINE_BAND = 0.08
 
 
 def poisson_pmf(k: int, lam: float) -> float:
@@ -181,20 +185,27 @@ def predict_match(
     otherwise scalar `temperature` (a monotone rescaling: T>1 softens
     over-confident calls, T<1 sharpens).
 
-    The predicted scoreline is the single most-likely EXACT score across the
-    whole grid. For evenly matched teams that is a draw (e.g. 1-1), so a draw can
-    be the headline prediction even though the draw is rarely the single highest
-    W/D/L bucket in football (it tops out near 29% at parity, below each side's
-    ~35%). The displayed outcome follows this scoreline, so winner and score stay
-    consistent.
+    For a genuine coin-flip (the two win probabilities within DRAW_HEADLINE_BAND)
+    the predicted scoreline is the single most-likely EXACT score across the whole
+    grid — a draw (e.g. 1-1) for evenly matched teams — so draws can headline even
+    matchups even though the draw is rarely the single highest W/D/L bucket in
+    football (it tops out near 29% at parity, below each side's ~35%). When one
+    side is clearly favored we instead show that side's most-likely scoreline, to
+    avoid an odd "one side ~50% but predicted 1-1" headline. Either way the shown
+    outcome follows the scoreline, so winner and score stay consistent.
     """
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
     p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature)
-    # Headline scoreline = the single most-likely exact score across the grid
-    # (a draw such as 1-1 for evenly matched teams); the shown outcome follows it.
-    sh, sa, sp = most_likely_score(matrix)
+    if abs(p_home - p_away) <= DRAW_HEADLINE_BAND:
+        # Coin-flip: show the grid's single most-likely exact score (a draw for
+        # even teams).
+        sh, sa, sp = most_likely_score(matrix)
+    else:
+        # One side clearly favored: show that side's most-likely scoreline.
+        outcome = "home" if p_home > p_away else "away"
+        sh, sa, sp = most_likely_score(matrix, outcome)
     return MatchPrediction(
         prob_home_win=p_home,
         prob_draw=p_draw,
