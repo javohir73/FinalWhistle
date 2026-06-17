@@ -17,6 +17,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from ml.evaluation.calibration import apply_temperature, calibrate
+
 BASE_GOALS = 1.35          # average international goals per team per match
 ELO_TO_GOALS_BETA = 0.0019  # goals sensitivity per Elo pt (tuned on pre-2018 WCs, task 4.6)
 MAX_GOALS = 10              # scoreline grid cap (0..10 each side)
@@ -28,11 +30,10 @@ def poisson_pmf(k: int, lam: float) -> float:
 
 
 def _apply_temperature(probs: tuple[float, float, float], temperature: float):
-    """Temperature-scale a probability triple (see ml.evaluation.calibration)."""
-    eps = 1e-15
-    powered = [max(eps, p) ** (1.0 / temperature) for p in probs]
-    total = sum(powered)
-    return (powered[0] / total, powered[1] / total, powered[2] / total)
+    """Backwards-compatible shim — delegates to the canonical implementation in
+    ml.evaluation.calibration. Kept because the tuner and the eval harness import
+    this name; do not re-implement temperature scaling here (avoids divergence)."""
+    return apply_temperature(probs, temperature)
 
 
 def expected_goals_from_elo(
@@ -170,19 +171,23 @@ def predict_match(
     beta: float = ELO_TO_GOALS_BETA,
     rho: float = 0.0,
     temperature: float = 1.0,
+    calibrator: dict | None = None,
 ) -> MatchPrediction:
     """Full Poisson prediction for one match from the two Elo ratings.
 
-    `rho` applies the Dixon–Coles low-score correction; `temperature` calibrates
-    the W/D/L triple (T>1 softens over-confident calls). Temperature is a
-    monotone reshaping, so the argmax outcome — and thus the chosen scoreline —
-    is unchanged: the displayed winner and score never contradict each other.
+    `rho` applies the Dixon–Coles low-score correction. The W/D/L triple is then
+    calibrated via `calibrate`: a vector-scaling `calibrator` blob if present
+    (which CAN reshape the triple — e.g. lift the under-predicted draw class),
+    otherwise scalar `temperature` (a monotone rescaling: T>1 softens
+    over-confident calls, T<1 sharpens). The predicted
+    scoreline is chosen consistent with the CALIBRATED argmax outcome, so the
+    displayed winner and score never contradict each other even when calibration
+    reorders the classes.
     """
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
-    if temperature != 1.0:
-        p_home, p_draw, p_away = _apply_temperature((p_home, p_draw, p_away), temperature)
+    p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature)
     # Scoreline consistent with the predicted result (argmax W/D/L), so the
     # displayed winner and scoreline never contradict each other.
     outcome = max(

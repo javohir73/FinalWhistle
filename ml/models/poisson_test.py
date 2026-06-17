@@ -88,3 +88,26 @@ def test_temperature_softens_confident_predictions():
     # Temperature is monotone, so the predicted winner/scoreline are unchanged.
     assert (soft.score_home > soft.score_away) == (raw.score_home > raw.score_away)
     assert abs(soft.prob_home_win + soft.prob_draw + soft.prob_away_win - 1.0) < 1e-9
+
+
+def test_predict_match_calibrator_lifts_draw():
+    blob = {"method": "vector_scaling", "t": 1.0, "b": [0.0, 1.0, 0.0]}
+    base = predict_match(1700, 1700, home_adv=0)
+    cal = predict_match(1700, 1700, home_adv=0, calibrator=blob)
+    assert cal.prob_draw > base.prob_draw
+    assert abs(cal.prob_home_win + cal.prob_draw + cal.prob_away_win - 1.0) < 1e-9
+
+
+def test_predict_match_temperature_path_equals_apply_temperature():
+    # With no calibrator, the W/D/L triple must equal scalar temperature applied
+    # to the RAW (uncalibrated) outcome probabilities — proving the temperature
+    # fallback routes through calibrate() correctly (not a self-comparison).
+    from ml.evaluation.calibration import apply_temperature
+
+    lam_h, lam_a = expected_goals_from_elo(2100, 1500, 0.0)
+    raw = outcome_probabilities(score_matrix(lam_h, lam_a))
+    expected = apply_temperature(raw, 1.4)
+    pred = predict_match(2100, 1500, home_adv=0, temperature=1.4)
+    assert abs(pred.prob_home_win - expected[0]) < 1e-12
+    assert abs(pred.prob_draw - expected[1]) < 1e-12
+    assert abs(pred.prob_away_win - expected[2]) < 1e-12

@@ -59,7 +59,8 @@ def build_payload(
     feats.elo_diff = elo_home - elo_away
     pred = predict_match(
         elo_home, elo_away, home_adv=host_adv,
-        base=params.base, beta=params.beta, rho=params.rho, temperature=params.temperature,
+        base=params.base, beta=params.beta, rho=params.rho,
+        temperature=params.temperature, calibrator=params.calibrator,
     )
 
     cold_start = feats.strength_source_home != "elo" or feats.strength_source_away != "elo"
