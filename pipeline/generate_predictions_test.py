@@ -42,10 +42,16 @@ def test_build_payload_applies_calibrator_blob_end_to_end(db_session):
     """A vector-scaling blob with a positive draw bias must lift the served draw
     probability through the whole card path: blob -> ModelParams.calibrator ->
     calibrate() inside predict_match -> §17 payload. Guards the build_payload
-    forwarding line that wires production serving to the calibrator."""
+    forwarding line (calibrator=params.calibrator) that wires production serving
+    to the calibrator — if it were dropped, this is the only test that fails.
+
+    Both payloads use ModelParams built from the same base/beta/rho/home_adv/
+    temperature so ONLY the calibrator differs. The baseline is constructed with
+    calibrator=None rather than via load_params(), keeping the test hermetic from
+    whatever model_params.json happens to hold on disk."""
     from dataclasses import replace
 
-    from ml.models.params import load_params
+    from ml.models.params import DEFAULT_PARAMS, ModelParams
 
     load_structure(db_session)
     _set_elos(db_session)
@@ -55,11 +61,14 @@ def test_build_payload_applies_calibrator_blob_end_to_end(db_session):
         .first()
     )
 
-    base_params = load_params()  # ships with calibrator=None (inert)
-    base = build_payload(db_session, match, "v", params=base_params)
-
+    # Identical engine params for both; only the calibrator field differs.
+    baseline = replace(DEFAULT_PARAMS, version="poisson-elo-v0.1", calibrator=None)
+    assert isinstance(baseline, ModelParams) and baseline.calibrator is None
     blob = {"method": "vector_scaling", "t": 1.0, "b": [0.0, 1.0, 0.0]}
-    cal = build_payload(db_session, match, "v", params=replace(base_params, calibrator=blob))
+    lifted = replace(baseline, calibrator=blob)
+
+    base = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline)
+    cal = build_payload(db_session, match, "poisson-elo-v0.1", params=lifted)
 
     assert cal["probabilities"]["draw"] > base["probabilities"]["draw"]
     p = cal["probabilities"]
