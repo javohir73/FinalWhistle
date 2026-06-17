@@ -41,6 +41,18 @@ def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
     return (exps[0] / total, exps[1] / total, exps[2] / total)
 
 
+def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0) -> Probs:
+    """Apply the shipped calibrator to a W/D/L triple — the one shared helper for
+    the card path. `calibrator` is a vector-scaling blob
+    {"method": "vector_scaling", "t": float, "b": [b_home, b_draw, b_away]} or
+    None. When it is a vector-scaling blob we apply it; otherwise we fall back to
+    scalar `temperature` (so an un-shipped calibrator is a guaranteed no-regression
+    temperature path, and t=1 is the identity)."""
+    if calibrator and calibrator.get("method") == "vector_scaling":
+        return apply_vector_scaling(probs, calibrator["t"], tuple(calibrator["b"]))
+    return apply_temperature(probs, temperature)
+
+
 def _log_loss(probs_list: list[Probs], labels: list[int]) -> float:
     n = len(labels) or 1
     return -sum(

@@ -3,6 +3,7 @@ from ml.evaluation.calibration import (
     _log_loss,
     apply_temperature,
     apply_vector_scaling,
+    calibrate,
     fit_temperature,
     fit_vector_scaling,
     reliability_curve,
@@ -110,3 +111,29 @@ def test_fit_vector_scaling_rejects_degenerate_grid():
         fit_vector_scaling([(0.5, 0.3, 0.2)], [0], t_steps=1)
     with pytest.raises(ValueError):
         fit_vector_scaling([(0.5, 0.3, 0.2)], [0], b_steps=1)
+
+
+def test_calibrate_applies_vector_scaling_blob():
+    p = (0.6, 0.1, 0.3)
+    blob = {"method": "vector_scaling", "t": 1.0, "b": [0.0, 1.0, 0.0]}
+    out = calibrate(p, blob, temperature=1.0)
+    assert out == apply_vector_scaling(p, 1.0, (0.0, 1.0, 0.0))
+    assert out[1] > p[1]
+
+
+def test_calibrate_none_falls_back_to_temperature():
+    p = (0.8, 0.15, 0.05)
+    assert calibrate(p, None, temperature=1.4) == apply_temperature(p, 1.4)
+
+
+def test_calibrate_none_t1_is_identity():
+    p = (0.5, 0.3, 0.2)
+    out = calibrate(p, None, temperature=1.0)
+    assert all(abs(a - b) < 1e-9 for a, b in zip(out, p))
+
+
+def test_calibrate_unknown_method_falls_back_to_temperature():
+    # A blob with a method we don't recognize is treated as no calibrator.
+    p = (0.5, 0.3, 0.2)
+    blob = {"method": "future_method"}
+    assert calibrate(p, blob, temperature=1.4) == apply_temperature(p, 1.4)
