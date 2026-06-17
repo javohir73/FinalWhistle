@@ -29,6 +29,7 @@ class ModelParams:
     rho: float
     temperature: float
     pk_beta: float = 0.0
+    calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -60,6 +61,7 @@ def load_params() -> ModelParams:
         rho=float(data["rho"]),
         temperature=float(data["temperature"]),
         pk_beta=float(data.get("pk_beta", 0.0)),
+        calibrator=data.get("calibrator"),
     )
 
 
