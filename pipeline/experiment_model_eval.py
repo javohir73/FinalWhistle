@@ -31,6 +31,7 @@ from ml.evaluation.scoreline_metrics import (
     exact_score_nll,
     expected_calibration_error,
     expected_calibration_error_equal_count,
+    per_class_calibration_error,
     ranked_probability_score,
     top_k_scoreline_hit,
 )
@@ -239,6 +240,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
             "top3": float(np.mean(p["top3"])),
             "top5": float(np.mean(p["top5"])),
             "ece": expected_calibration_error(p["wdl"], p["labels"], bins=10),
+            "per_class": per_class_calibration_error(p["wdl"], p["labels"], bins=10),
         }
         return out
 
@@ -390,6 +392,11 @@ def main() -> int:
         if better_is_lower:
             return "BETTER" if hi < 0 else ("worse" if lo > 0 else "ns")
         return "BETTER" if lo > 0 else ("worse" if hi < 0 else "ns")
+
+    print("\nPer-class ECE (home / draw / away) — draw is the known pathology:")
+    for name, m in res["summary"].items():
+        pc = m["per_class"]
+        print(f"  {name:22s} home={pc['home']:.4f} draw={pc['draw']:.4f} away={pc['away']:.4f}")
 
     print("\nPaired bootstrap vs v0.1 (CI excluding 0 = significant):")
     for name, b in res["bootstrap"].items():

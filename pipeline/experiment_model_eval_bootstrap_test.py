@@ -76,3 +76,23 @@ def test_run_output_has_segment_tables():
     for table in seg.values():
         for cell in table.values():
             assert {"n", "log_loss", "ece"} <= set(cell)
+
+
+def test_summary_includes_per_class_calibration():
+    import pipeline.experiment_model_eval as ev
+    from datetime import datetime
+
+    def row(year, ph, pa, sh, sa):
+        return {"competition": "FIFA World Cup", "date": datetime(year, 6, 1),
+                "pre_home": ph, "pre_away": pa, "is_neutral": True,
+                "score_home": sh, "score_away": sa}
+    rows = []
+    for yr in (2014, 2018):
+        for _ in range(120):
+            rows += [row(yr, 1700, 1400, 2, 0), row(yr, 1500, 1500, 1, 1)]
+    res = ev.run(rows, since_year=2010, n_boot=100, val_days=3650)
+    served = res["summary"]["v0.1 (served)"]
+    assert set(served["per_class"]) == {"home", "draw", "away"}
+    assert all(isinstance(served["per_class"][k], float) for k in served["per_class"])
+    # ECE is a calibration error in [0, 1] by construction.
+    assert all(0.0 <= served["per_class"][k] <= 1.0 for k in served["per_class"])
