@@ -22,6 +22,25 @@ def apply_temperature(probs: Probs, temperature: float) -> Probs:
     return (powered[0] / total, powered[1] / total, powered[2] / total)
 
 
+def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
+    """Vector-scale a W/D/L triple in log-space.
+
+        z_c  = log(max(eps, p_c)) / t + b_c
+        p'_c = softmax(z)
+
+    `t` is a shared temperature; `b = (b_home, b_draw, b_away)` are per-class
+    biases (fix b_home = 0 as the softmax reference). Unlike scalar temperature
+    this can reshape the triple — e.g. b_draw > 0 lifts the under-predicted draw
+    class. At t = 1 and b = (0, 0, 0) it is the identity (softmax of logs of a
+    normalized triple returns the triple).
+    """
+    z = [math.log(max(_EPS, p)) / t + bc for p, bc in zip(probs, b)]
+    m = max(z)  # shift for numerical stability; softmax is shift-invariant
+    exps = [math.exp(zc - m) for zc in z]
+    total = sum(exps)
+    return (exps[0] / total, exps[1] / total, exps[2] / total)
+
+
 def _log_loss(probs_list: list[Probs], labels: list[int]) -> float:
     n = len(labels) or 1
     return -sum(

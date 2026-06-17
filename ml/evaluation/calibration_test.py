@@ -1,6 +1,7 @@
 """Tests for calibration (task 4.7)."""
 from ml.evaluation.calibration import (
     apply_temperature,
+    apply_vector_scaling,
     fit_temperature,
     reliability_curve,
 )
@@ -38,3 +39,25 @@ def test_reliability_curve_shape():
     labels = [0, 1]
     curve = reliability_curve(probs, labels, bins=10)
     assert all({"mean_predicted", "empirical_freq", "count"} <= set(b) for b in curve)
+
+
+def test_vector_scaling_identity_at_t1_b0():
+    p = (0.6, 0.3, 0.1)
+    out = apply_vector_scaling(p, 1.0, (0.0, 0.0, 0.0))
+    assert all(abs(a - b) < 1e-9 for a, b in zip(out, p))
+    assert abs(sum(out) - 1.0) < 1e-9
+
+
+def test_vector_scaling_b_draw_lifts_draw():
+    p = (0.6, 0.1, 0.3)
+    out = apply_vector_scaling(p, 1.0, (0.0, 1.0, 0.0))
+    assert out[1] > p[1]          # draw class lifted
+    assert out[0] < p[0]          # mass pulled from the others
+    assert abs(sum(out) - 1.0) < 1e-9
+
+
+def test_vector_scaling_handles_zero_probability():
+    # log(0) must not blow up — eps-clamped.
+    out = apply_vector_scaling((1.0, 0.0, 0.0), 1.0, (0.0, 0.5, 0.0))
+    assert abs(sum(out) - 1.0) < 1e-9
+    assert all(x >= 0.0 for x in out)
