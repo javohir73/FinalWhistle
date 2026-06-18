@@ -21,6 +21,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from collections import defaultdict
 from datetime import date
@@ -409,7 +410,7 @@ def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
     served = DEFAULT_PARAMS  # blend against the engine we actually serve
 
     def poisson_triple(fr: dict) -> tuple:
-        # is_neutral is the 0.0/1.0 feature; 0.0 is falsy → home_adv applies. Correct.
+        # feat["is_neutral"] is 1.0 (neutral → adv 0) or 0.0 (home side → adv applies). Correct.
         return wdl_and_grid(fr["pre_home"], fr["pre_away"], fr["is_neutral"], served)[0]
 
     def boost_triple(fr: dict) -> tuple:
@@ -528,7 +529,9 @@ def main() -> int:
     print(f"  weight={bg['weight']}  train_n={bg['train_n']} tail_n={bg['tail_n']} test_n={bg['test_n']}")
     print(f"  d_logloss={bg['delta_log_loss']:+.4f}  CI[{bg['ll_ci'][0]:+.4f},{bg['ll_ci'][1]:+.4f}]  -> {bg['verdict']}")
     if bg["verdict"] == "SHIP":
-        print(f"  SHIP blob: {{\"weight\": {bg['weight']}, \"calibrator\": {bg['calibrator']}}}")
+        # Valid JSON so it can be pasted straight into model_params.json's wdl_blend.
+        blob = json.dumps({"weight": bg["weight"], "calibrator": bg["calibrator"]})
+        print(f"  SHIP blob (paste into model_params.json -> wdl_blend): {blob}")
 
     return 0
 

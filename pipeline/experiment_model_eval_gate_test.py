@@ -26,3 +26,4 @@ def test_blend_gate_runs_and_reports_a_verdict():
     assert "ll_ci" in res and len(res["ll_ci"]) == 2
     assert "weight" in res
     assert res["test_n"] > 0
+    assert res["verdict"] in ("SHIP", "do-not-ship")
