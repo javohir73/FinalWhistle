@@ -134,3 +134,48 @@ def test_qualification_probs_sum_to_two_per_group(db_session):
         rows = db_session.query(Standing).filter_by(group_id=group.id).all()
         total = sum(r.qualification_prob for r in rows)
         assert abs(total - 2.0) < 0.05  # exactly 2 advance per group
+
+
+def test_blend_off_is_identical_to_poisson(db_session):
+    """wdl_blend=None (and no booster) ⇒ probabilities are exactly the Poisson card."""
+    from dataclasses import replace
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (db_session.query(Match)
+             .filter(Match.stage == "group", Match.team_home_id.isnot(None)).first())
+    params = replace(DEFAULT_PARAMS, wdl_blend=None)
+
+    base = build_payload(db_session, match, "v", params=params)
+    again = build_payload(db_session, match, "v", params=params, booster=None)
+    assert base["probabilities"] == again["probabilities"]
+
+
+class _StubBooster:
+    """Returns a fixed, strongly-home triple regardless of features."""
+    def predict_proba(self, feats):
+        return {"H": 0.90, "D": 0.06, "A": 0.04}
+
+
+def test_blend_shifts_probabilities_toward_booster(db_session):
+    from dataclasses import replace
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (db_session.query(Match)
+             .filter(Match.stage == "group", Match.team_home_id.isnot(None)).first())
+
+    off = build_payload(db_session, match, "v",
+                        params=replace(DEFAULT_PARAMS, wdl_blend=None))
+    # weight=1.0 ⇒ served triple becomes the booster's (then calibrated; calibrator None).
+    on = build_payload(db_session, match, "v",
+                       params=replace(DEFAULT_PARAMS, wdl_blend={"weight": 1.0, "calibrator": None}),
+                       booster=_StubBooster())
+
+    assert on["probabilities"]["home_win"] > off["probabilities"]["home_win"]
+    p = on["probabilities"]
+    assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
+    # Predicted SCORE stays Poisson's — the booster never touches it.
+    assert on["predicted_score"] == off["predicted_score"]
