@@ -136,8 +136,11 @@ def test_qualification_probs_sum_to_two_per_group(db_session):
         assert abs(total - 2.0) < 0.05  # exactly 2 advance per group
 
 
-def test_blend_off_is_identical_to_poisson(db_session):
-    """wdl_blend=None (and no booster) ⇒ probabilities are exactly the Poisson card."""
+def test_blend_off_ignores_the_booster_entirely(db_session):
+    """wdl_blend=None ⇒ the booster is never consulted, even if one is supplied:
+    probabilities equal the pure Poisson card. Guards against a future change that
+    blends regardless of the gate flag (the stub returns a strong-home triple, so
+    if it were used the probabilities would visibly diverge)."""
     from dataclasses import replace
     from ml.models.params import DEFAULT_PARAMS
 
@@ -147,9 +150,9 @@ def test_blend_off_is_identical_to_poisson(db_session):
              .filter(Match.stage == "group", Match.team_home_id.isnot(None)).first())
     params = replace(DEFAULT_PARAMS, wdl_blend=None)
 
-    base = build_payload(db_session, match, "v", params=params)
-    again = build_payload(db_session, match, "v", params=params, booster=None)
-    assert base["probabilities"] == again["probabilities"]
+    poisson = build_payload(db_session, match, "v", params=params)
+    with_stub = build_payload(db_session, match, "v", params=params, booster=_StubBooster())
+    assert with_stub["probabilities"] == poisson["probabilities"]
 
 
 class _StubBooster:

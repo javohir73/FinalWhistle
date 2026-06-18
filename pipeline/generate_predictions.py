@@ -14,11 +14,10 @@ from sqlalchemy.orm import Session
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team, TournamentOdds
 from ml.evaluation.calibration import calibrate
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
-from ml.features.build_features import build_match_features, estimate_strength, head_to_head
+from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.params import ModelParams, load_params
 from ml.models.poisson import predict_match
-from ml.models.wdl_boost import WdlBoost, blend_triples
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
@@ -53,12 +52,14 @@ def _recent_appearances(db: Session, team_id: int, limit: int = 10) -> list[tupl
 
 
 def _boost_features(db: Session, home: Team, away: Team,
-                    elo_home: float, elo_away: float, is_neutral: bool) -> dict:
+                    elo_home: float, elo_away: float, is_neutral: bool,
+                    h2h: dict) -> dict:
     """Assemble the booster's feature dict for an upcoming match — same schema and
-    reducer as training (leak-free: all of history precedes a scheduled fixture)."""
+    reducer as training (leak-free: all of history precedes a scheduled fixture).
+    `h2h` is reused from the caller's build_match_features (home perspective:
+    a_wins/matches) to avoid a duplicate head-to-head query."""
     form_h, gf_h, ga_h, n_h = window_stats(_recent_appearances(db, home.id))
     form_a, gf_a, ga_a, n_a = window_stats(_recent_appearances(db, away.id))
-    h2h = head_to_head(db, home.id, away.id)   # last-5, home perspective: a_wins/matches
     return assemble_features(
         elo_home=elo_home, elo_away=elo_away, is_neutral=is_neutral,
         form_home=form_h, form_away=form_a,
@@ -107,9 +108,14 @@ def build_payload(
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
     # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
     # Poisson's — the booster only refines the W/D/L triple (spec §1).
+    # NOTE: the argmax of the blended triple may disagree with the Poisson scoreline
+    # (e.g. bars lean draw while the score reads 1-0). That is intentional per the
+    # design boundary; the predicted score is a separate Poisson-derived signal.
     p_home, p_draw, p_away = pred.prob_home_win, pred.prob_draw, pred.prob_away_win
     if params.wdl_blend and booster is not None:
-        feats_v = _boost_features(db, home, away, elo_home, elo_away, match.is_neutral)
+        from ml.models.wdl_boost import blend_triples  # deferred: keeps sklearn off the blend-off path
+
+        feats_v = _boost_features(db, home, away, elo_home, elo_away, match.is_neutral, feats.h2h)
         b = booster.predict_proba(feats_v)
         p_home, p_draw, p_away = blend_triples(
             (p_home, p_draw, p_away), (b["H"], b["D"], b["A"]), params.wdl_blend["weight"]
@@ -331,6 +337,7 @@ def generate_predictions(
     if params.wdl_blend:
         from pipeline.backtest_data import build_enriched_rows
         from ml.features.training_rows import build_training_rows, training_weight
+        from ml.models.wdl_boost import WdlBoost  # deferred: sklearn loads only when the blend ships
 
         train_rows = build_training_rows(build_enriched_rows(db))
         if train_rows:
