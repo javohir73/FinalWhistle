@@ -21,12 +21,16 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import json
 import math
 from collections import defaultdict
+from datetime import date
 
 import numpy as np
 
 from ml.evaluation.calibration import calibrate, fit_temperature, fit_vector_scaling
+from ml.features.training_rows import build_training_rows, training_weight
+from ml.models.wdl_boost import WdlBoost, blend_triples
 from ml.evaluation.scoreline_metrics import (
     exact_score_nll,
     expected_calibration_error,
@@ -378,6 +382,86 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
     }
 
 
+def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
+                   test_since: int = 2018, n_boot: int = 2000) -> dict:
+    """Honest ship test for the booster blend.
+
+    1. Train ONE booster on leak-free history in [train_lo, test_since) minus a
+       held-out tail (recency + competition-tier weighted).
+    2. Fit the blend weight on the tail (the `tail_years` before the test cutoff),
+       minimizing log-loss; fit a vector-scaling calibrator on the blended tail probs.
+    3. Score blend vs Poisson-alone (served params) on test_since+ major finals with
+       the edition-clustered bootstrap. Promote only if the log-loss CI excludes 0
+       (better).
+    """
+    feat_rows = build_training_rows(rows)
+    test_start = date(test_since, 1, 1)
+    tail_start = date(test_since - tail_years, 1, 1)
+
+    train = [r for r in feat_rows if train_lo <= r["date"].year and r["date"] < tail_start]
+    tail = [r for r in feat_rows if tail_start <= r["date"] < test_start]
+    test = [r for r in feat_rows
+            if r["date"].year >= test_since and is_major_final(r["competition"])]
+
+    ref = max((r["date"] for r in train), default=test_start)
+    weights = [training_weight(r, ref) for r in train]
+    booster = WdlBoost().fit(train, sample_weight=weights)
+
+    served = DEFAULT_PARAMS  # blend against the engine we actually serve
+
+    def poisson_triple(fr: dict) -> tuple:
+        # feat["is_neutral"] is 1.0 (neutral → adv 0) or 0.0 (home side → adv applies). Correct.
+        return wdl_and_grid(fr["pre_home"], fr["pre_away"], fr["is_neutral"], served)[0]
+
+    def boost_triple(fr: dict) -> tuple:
+        b = booster.predict_proba(fr)   # fr has every FEATURE_NAMES key; extras ignored
+        return (b["H"], b["D"], b["A"])
+
+    # Precompute (poisson, boost, label_idx) for the tail once, then grid-search w.
+    tail_pb = [(poisson_triple(fr), boost_triple(fr), _LABEL_INDEX[fr["label"]]) for fr in tail]
+
+    def ll_for_weight(w: float) -> float:
+        if not tail_pb:
+            return float("inf")
+        s = 0.0
+        for pz, bz, idx in tail_pb:
+            tri = blend_triples(pz, bz, w)
+            s -= math.log(max(_EPS, min(1 - _EPS, tri[idx])))
+        return s / len(tail_pb)
+
+    weight = min((i / 20 for i in range(21)), key=ll_for_weight)  # grid 0.0..1.0 step .05
+
+    if tail_pb:
+        blended_tail = [blend_triples(pz, bz, weight) for pz, bz, _ in tail_pb]
+        labels_tail = [idx for _, _, idx in tail_pb]
+        t, b = fit_vector_scaling(blended_tail, labels_tail)
+        calibrator = {"method": "vector_scaling", "t": t, "b": list(b)}
+    else:
+        calibrator = None
+
+    base_ll, blend_ll, ed_keys = [], [], []
+    for fr in test:
+        idx = _LABEL_INDEX[fr["label"]]
+        pz = poisson_triple(fr)
+        tri = calibrate(blend_triples(pz, boost_triple(fr), weight), calibrator)
+        base_ll.append(-math.log(max(_EPS, min(1 - _EPS, pz[idx]))))
+        blend_ll.append(-math.log(max(_EPS, min(1 - _EPS, tri[idx]))))
+        ed_keys.append((fr["competition"], fr["date"].year))
+
+    rng = np.random.default_rng(2026)
+    d_ll = np.array(blend_ll) - np.array(base_ll)
+    ci = block_bootstrap_ci(d_ll, ed_keys, n_boot, rng) if len(d_ll) else (0.0, 0.0)
+
+    return {
+        "weight": round(weight, 3),
+        "calibrator": calibrator,
+        "train_n": len(train), "tail_n": len(tail), "test_n": len(test),
+        "delta_log_loss": float(d_ll.mean()) if len(d_ll) else 0.0,
+        "ll_ci": ci,
+        "verdict": "SHIP" if (ci[1] < 0) else "do-not-ship",
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", type=int, default=2004)
@@ -439,6 +523,15 @@ def main() -> int:
         d, c = g["delta"][k]
         print(f"  {k:10s} {g['v1'][k]:9.4f} {g['v2'][k]:12.4f} {d:+9.4f}  "
               f"CI[{c[0]:+.4f},{c[1]:+.4f}] {verdict(c, better_is_lower=lower)}")
+
+    print("\n==== Booster blend gate (HistGradientBoosting) ====")
+    bg = run_blend_gate(rows, n_boot=args.boot)
+    print(f"  weight={bg['weight']}  train_n={bg['train_n']} tail_n={bg['tail_n']} test_n={bg['test_n']}")
+    print(f"  d_logloss={bg['delta_log_loss']:+.4f}  CI[{bg['ll_ci'][0]:+.4f},{bg['ll_ci'][1]:+.4f}]  -> {bg['verdict']}")
+    if bg["verdict"] == "SHIP":
+        # Valid JSON so it can be pasted straight into model_params.json's wdl_blend.
+        blob = json.dumps({"weight": bg["weight"], "calibrator": bg["calibrator"]})
+        print(f"  SHIP blob (paste into model_params.json -> wdl_blend): {blob}")
 
     return 0
 

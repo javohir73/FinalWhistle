@@ -11,9 +11,11 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Group, GroupTeam, Match, Prediction, Standing, Team, TournamentOdds
+from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team, TournamentOdds
+from ml.evaluation.calibration import calibrate
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.features.build_features import build_match_features, estimate_strength
+from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.params import ModelParams, load_params
 from ml.models.poisson import predict_match
 from ml.ratings.elo import HOME_ADVANTAGE
@@ -28,10 +30,50 @@ def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) 
     return home_advantage if match.host_team_id == home.id else -home_advantage
 
 
+def _recent_appearances(db: Session, team_id: int, limit: int = 10) -> list[tuple[int, int]]:
+    """A team's most-recent (goals_for, goals_against) from played history."""
+    rows = (
+        db.query(HistoricalMatch)
+        .filter(
+            (HistoricalMatch.team_a_id == team_id) | (HistoricalMatch.team_b_id == team_id),
+            HistoricalMatch.score_a.isnot(None), HistoricalMatch.score_b.isnot(None),
+        )
+        .order_by(HistoricalMatch.date.desc())
+        .limit(limit)
+        .all()
+    )
+    out: list[tuple[int, int]] = []
+    for m in rows:
+        if m.team_a_id == team_id:
+            out.append((m.score_a, m.score_b))
+        else:
+            out.append((m.score_b, m.score_a))
+    return out
+
+
+def _boost_features(db: Session, home: Team, away: Team,
+                    elo_home: float, elo_away: float, is_neutral: bool,
+                    h2h: dict) -> dict:
+    """Assemble the booster's feature dict for an upcoming match — same schema and
+    reducer as training (leak-free: all of history precedes a scheduled fixture).
+    `h2h` is reused from the caller's build_match_features (home perspective:
+    a_wins/matches) to avoid a duplicate head-to-head query."""
+    form_h, gf_h, ga_h, n_h = window_stats(_recent_appearances(db, home.id))
+    form_a, gf_a, ga_a, n_a = window_stats(_recent_appearances(db, away.id))
+    return assemble_features(
+        elo_home=elo_home, elo_away=elo_away, is_neutral=is_neutral,
+        form_home=form_h, form_away=form_a,
+        gf_avg_home=gf_h, gf_avg_away=gf_a, ga_avg_home=ga_h, ga_avg_away=ga_a,
+        h2h_home_wins=h2h["a_wins"], h2h_matches=h2h["matches"],
+        data_points_home=n_h, data_points_away=n_a,
+    )
+
+
 def build_payload(
     db: Session, match: Match, model_version: str,
     strengths: dict[int, float] | None = None,
     params: ModelParams | None = None,
+    booster: "WdlBoost | None" = None,
 ) -> dict | None:
     """Build the PRD §17 prediction payload for a match (None if teams unknown).
 
@@ -63,14 +105,33 @@ def build_payload(
         temperature=params.temperature, calibrator=params.calibrator,
     )
 
+    # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
+    # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
+    # Poisson's — the booster only refines the W/D/L triple (spec §1).
+    # NOTE: the argmax of the blended triple may disagree with the Poisson scoreline
+    # (e.g. bars lean draw while the score reads 1-0). That is intentional per the
+    # design boundary; the predicted score is a separate Poisson-derived signal.
+    p_home, p_draw, p_away = pred.prob_home_win, pred.prob_draw, pred.prob_away_win
+    if params.wdl_blend and booster is not None:
+        from ml.models.wdl_boost import blend_triples  # deferred: keeps sklearn off the blend-off path
+
+        feats_v = _boost_features(db, home, away, elo_home, elo_away, match.is_neutral, feats.h2h)
+        b = booster.predict_proba(feats_v)
+        p_home, p_draw, p_away = blend_triples(
+            (p_home, p_draw, p_away), (b["H"], b["D"], b["A"]), params.wdl_blend["weight"]
+        )
+        p_home, p_draw, p_away = calibrate(
+            (p_home, p_draw, p_away), params.wdl_blend.get("calibrator")
+        )
+
     cold_start = feats.strength_source_home != "elo" or feats.strength_source_away != "elo"
     confidence = confidence_level(
-        pred.prob_home_win, pred.prob_draw, pred.prob_away_win,
+        p_home, p_draw, p_away,
         feats.data_points_home, feats.data_points_away, cold_start,
     )
     reasons = generate_reasons(
         feats, home.name, away.name,
-        pred.prob_home_win, pred.prob_draw, pred.prob_away_win,
+        p_home, p_draw, p_away,
     )
     factors = top_features(feats)
 
@@ -81,9 +142,9 @@ def build_payload(
         "teams": {"home": home.name, "away": away.name},
         "is_neutral": match.is_neutral,
         "probabilities": {
-            "home_win": round(pred.prob_home_win, 4),
-            "draw": round(pred.prob_draw, 4),
-            "away_win": round(pred.prob_away_win, 4),
+            "home_win": round(p_home, 4),
+            "draw": round(p_draw, 4),
+            "away_win": round(p_away, 4),
         },
         "predicted_score": {
             "home": pred.score_home,
@@ -272,6 +333,18 @@ def generate_predictions(
     active_model_version = model_version or params.version
     strengths = effective_elos(db)
 
+    booster = None
+    if params.wdl_blend:
+        from pipeline.backtest_data import build_enriched_rows
+        from ml.features.training_rows import build_training_rows, training_weight
+        from ml.models.wdl_boost import WdlBoost  # deferred: sklearn loads only when the blend ships
+
+        train_rows = build_training_rows(build_enriched_rows(db))
+        if train_rows:
+            ref = max(r["date"] for r in train_rows)
+            weights = [training_weight(r, ref) for r in train_rows]
+            booster = WdlBoost().fit(train_rows, sample_weight=weights)
+
     matches = (
         db.query(Match)
         .filter(Match.stage == "group", Match.status == "scheduled")
@@ -279,7 +352,8 @@ def generate_predictions(
     )
     predicted = 0
     for match in matches:
-        payload = build_payload(db, match, active_model_version, strengths=strengths, params=params)
+        payload = build_payload(db, match, active_model_version,
+                                strengths=strengths, params=params, booster=booster)
         if payload is None:
             continue
         _write_prediction(db, payload, active_model_version)
