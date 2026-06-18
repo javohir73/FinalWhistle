@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { SessionUser } from "@/lib/session";
 import { recordEngagement } from "@/lib/engagement";
+import { DeleteAccountModal } from "@/components/DeleteAccountModal";
 
 function initials(user: SessionUser): string {
   const name = (user.display_name || "").trim();
@@ -15,8 +16,17 @@ function initials(user: SessionUser): string {
 
 /** Signed-in indicator: a circular avatar with the user's initials (top-right),
  *  opening a small menu with their email + Sign out. */
-export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: () => void }) {
+export function AccountMenu({
+  user,
+  onLogout,
+  onDeleteAccount,
+}: {
+  user: SessionUser;
+  onLogout: () => void;
+  onDeleteAccount: (password: string) => Promise<void>;
+}) {
   const [open, setOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const label = user.display_name || user.email;
 
@@ -76,8 +86,25 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
           >
             Sign out
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              setDeleteOpen(true);
+            }}
+            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-loss/90 transition hover:bg-loss/10 hover:text-loss"
+          >
+            Delete account
+          </button>
         </div>
       )}
+
+      <DeleteAccountModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={onDeleteAccount}
+      />
     </div>
   );
 }

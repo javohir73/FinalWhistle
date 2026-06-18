@@ -80,6 +80,16 @@ export async function logout(): Promise<void> {
   }
 }
 
+/** Permanently delete (anonymize) the signed-in account. Requires the current
+ *  password as a re-auth check; the server revokes the session and clears the
+ *  cookie. Throws ApiError (e.g. 401 invalid_credentials) on failure. */
+export async function deleteAccount(password: string): Promise<void> {
+  await request<{ ok: boolean }>("/api/auth/delete-account", {
+    method: "POST",
+    body: JSON.stringify({ password }),
+  });
+}
+
 /** Current signed-in user, or null when there's no live session. */
 export async function getMe(): Promise<SessionUser | null> {
   try {

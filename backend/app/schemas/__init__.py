@@ -190,6 +190,10 @@ class ChangePasswordIn(BaseModel):
     new_password: str
 
 
+class DeleteAccountIn(BaseModel):
+    password: str
+
+
 class UserOut(BaseModel):
     id: int
     email: str
