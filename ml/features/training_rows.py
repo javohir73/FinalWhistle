@@ -35,7 +35,6 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
     are skipped.
     """
     recent: dict[int, deque] = defaultdict(lambda: deque(maxlen=WINDOW))   # team_id -> (gf, ga)
-    counts: dict[int, int] = defaultdict(int)                              # team_id -> matches seen
     h2h: dict[frozenset[int], deque] = defaultdict(lambda: deque(maxlen=H2H_WINDOW))  # pair -> winner_id|None
 
     out: list[dict] = []
@@ -45,8 +44,11 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
         h, a = r["home_id"], r["away_id"]
         sh, sa = r["score_home"], r["score_away"]
 
-        form_h, gf_h, ga_h, _ = window_stats(list(recent[h]))
-        form_a, gf_a, ga_a, _ = window_stats(list(recent[a]))
+        # n_h/n_a are the windowed appearance counts (capped at WINDOW) — the SAME
+        # quantity serving derives from _recent_appearances(limit=WINDOW), so
+        # data_points stays parity-safe for teams with more than WINDOW matches.
+        form_h, gf_h, ga_h, n_h = window_stats(list(recent[h]))
+        form_a, gf_a, ga_a, n_a = window_stats(list(recent[a]))
 
         pair = frozenset((h, a))
         meetings = list(h2h[pair])
@@ -57,7 +59,7 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
             form_home=form_h, form_away=form_a,
             gf_avg_home=gf_h, gf_avg_away=gf_a, ga_avg_home=ga_h, ga_avg_away=ga_a,
             h2h_home_wins=home_wins, h2h_matches=len(meetings),
-            data_points_home=counts[h], data_points_away=counts[a],
+            data_points_home=n_h, data_points_away=n_a,
         )
         out.append({**feats, "label": result_label(sh, sa),
                     "date": r["date"], "competition": r["competition"],
@@ -66,8 +68,6 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
         # Fold this match into the rolling state AFTER emitting (leak-free).
         recent[h].append((sh, sa))
         recent[a].append((sa, sh))
-        counts[h] += 1
-        counts[a] += 1
         winner = h if sh > sa else (a if sa > sh else None)
         h2h[pair].append(winner)
     return out

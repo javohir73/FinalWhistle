@@ -885,6 +885,7 @@ def test_serving_features_match_training_features(db_session):
     feature row — proving no train/serve skew."""
     from datetime import date
     from app.models import HistoricalMatch, Team
+    from ml.features.build_features import head_to_head
     from ml.features.training_rows import build_training_rows
     from ml.features.wdl_features import FEATURE_NAMES
     from pipeline.generate_predictions import _boost_features
@@ -904,9 +905,11 @@ def test_serving_features_match_training_features(db_session):
     db_session.add_all(hist); db_session.commit()
 
     # The "upcoming" match is home vs away — a 4th meeting. Serving features use all
-    # history (every played match precedes a scheduled fixture).
+    # history (every played match precedes a scheduled fixture). h2h is supplied the
+    # same way build_payload does it (from build_match_features' head_to_head).
     serving = _boost_features(db_session, home, away,
-                              elo_home=1500.0, elo_away=1500.0, is_neutral=True)
+                              elo_home=1500.0, elo_away=1500.0, is_neutral=True,
+                              h2h=head_to_head(db_session, home.id, away.id))
 
     # Training: append the same upcoming pairing as the LAST enriched row; its
     # feature row must equal the serving vector. (Elo pre-match = 1500 baseline here
