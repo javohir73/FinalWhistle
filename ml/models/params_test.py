@@ -46,3 +46,27 @@ def test_to_dict_includes_calibrator():
     p = ModelParams(version="v", base=1.2, beta=0.002, home_adv=60.0, rho=0.0,
                     temperature=1.0, calibrator=blob)
     assert p.to_dict()["calibrator"] == blob
+
+
+def test_default_params_have_no_wdl_blend():
+    assert DEFAULT_PARAMS.wdl_blend is None
+
+
+def test_wdl_blend_round_trips_through_save_load(tmp_path, monkeypatch):
+    f = tmp_path / "model_params.json"
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    blend = {"weight": 0.35, "calibrator": {"method": "vector_scaling", "t": 1.1, "b": [0.0, 0.2, 0.0]}}
+    p = ModelParams(version="v0.2+blend", base=1.2, beta=0.0021, home_adv=60.0,
+                    rho=-0.06, temperature=1.0, pk_beta=0.0, wdl_blend=blend)
+    save_params(p)
+    assert load_params().wdl_blend == blend
+
+
+def test_json_without_wdl_blend_loads_as_none(tmp_path, monkeypatch):
+    f = tmp_path / "model_params.json"
+    f.write_text(json.dumps({
+        "version": "v0.2", "base": 1.2, "beta": 0.0021, "home_adv": 60.0,
+        "rho": -0.06, "temperature": 1.0, "pk_beta": 0.0,
+    }))
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    assert load_params().wdl_blend is None
