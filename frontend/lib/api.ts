@@ -6,7 +6,6 @@ import type {
   MatchSummary,
   ModelRecord,
   Prediction,
-  PredictionWithHistory,
   Team,
   TeamProfile,
   TournamentOdds,
@@ -29,8 +28,6 @@ function resolveApiUrl(): string {
 }
 
 const API_URL = resolveApiUrl();
-/** Resolved backend base URL (absolute) — used by server-side fetchers. */
-export const API_BASE = API_URL;
 
 /** Client-side base. Browser calls are routed through a same-origin Next rewrite
  *  (`/backend-api/*` → backend, see next.config.mjs) so the session cookie is sent
@@ -56,16 +53,10 @@ async function getJson<T>(path: string): Promise<T> {
 export const getHealth = () => getJson<HealthResponse>("/api/health");
 export const getUpcomingMatches = () =>
   getJson<MatchSummary[]>("/api/matches/upcoming");
-export const getMatch = (id: number | string) =>
-  getJson<Prediction>(`/api/matches/${id}`);
-export const getPrediction = (matchId: number | string) =>
-  getJson<PredictionWithHistory>(`/api/predictions/${matchId}`);
 export const getTeams = () => getJson<Team[]>("/api/teams");
 export const getTeam = (id: number | string) =>
   getJson<TeamProfile>(`/api/teams/${id}`);
 export const getGroups = () => getJson<Group[]>("/api/groups");
-export const getGroup = (id: number | string) =>
-  getJson<Group>(`/api/groups/${id}`);
 export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
 export const getLeaderboard = () =>

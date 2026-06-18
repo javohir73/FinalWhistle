@@ -4,7 +4,7 @@
  *  `credentials: "include"`, so the HttpOnly session cookie is sent and received
  *  automatically — there is no token in JS and nothing in localStorage. */
 import { CLIENT_BASE } from "./api";
-import type { SavedBracket, SavedMatchPicks } from "./types";
+import type { SavedBracket } from "./types";
 
 export interface BracketPayload {
   group_picks: { match_id: number; pick: "home" | "draw" | "away" }[];
@@ -111,31 +111,6 @@ export async function getMyBracket(): Promise<SavedBracket | null> {
 
 export const joinLeaderboard = (body: { display_name: string; visibility: "public" | "private" }) =>
   request<SavedBracket>("/api/leaderboard/join", { method: "POST", body: JSON.stringify(body) });
-
-// ---- Per-match picks (cookie-authed account copy of the local picks) ----
-export interface MatchPicksPayload {
-  picks: { match_id: number; pick: "home" | "draw" | "away" }[];
-}
-
-export const saveMatchPicks = (body: MatchPicksPayload) =>
-  request<SavedMatchPicks>("/api/match-picks", {
-    method: "POST",
-    body: JSON.stringify(body),
-    // This call is also the sign-out / leave-page flush; keepalive lets it
-    // complete even while the page is being torn down.
-    keepalive: true,
-  });
-
-export async function getMyMatchPicks(): Promise<SavedMatchPicks | null> {
-  try {
-    return await request<SavedMatchPicks>("/api/match-picks/me");
-  } catch (e) {
-    // The endpoint returns an empty list rather than 404, but tolerate one
-    // (e.g. a not-yet-migrated backend) the same way getMyBracket does.
-    if (e instanceof ApiError && e.status === 404) return null;
-    throw e;
-  }
-}
 
 // ---- Display-only signed-in hint ----
 // A cached copy of the public user fields so the account indicator can render
