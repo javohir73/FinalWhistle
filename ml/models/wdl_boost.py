@@ -20,7 +20,10 @@ _SEED = 2026
 class WdlBoost:
     def __init__(self, **kwargs):
         # Conservative, fast defaults; international football is low-signal so we
-        # keep the model shallow to avoid overfitting.
+        # keep the model shallow to avoid overfitting. early_stopping=True holds out
+        # ~10% internally for validation — fine for the full-history training set we
+        # use at serve/gate time (tens of thousands of rows). If ever trained on a
+        # small corpus, pass early_stopping=False via kwargs.
         params = dict(
             loss="log_loss", learning_rate=0.05, max_iter=300,
             max_leaf_nodes=15, min_samples_leaf=50, l2_regularization=1.0,

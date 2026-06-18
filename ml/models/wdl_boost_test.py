@@ -38,6 +38,14 @@ def test_learns_home_edge():
     assert model.predict_proba(_feat(1900, 1500))["H"] > model.predict_proba(_feat(1500, 1900))["H"]
 
 
+def test_strong_home_favorite_is_labelled_home_not_away():
+    # Absolute direction (not just relative): a big home edge must put more mass on
+    # "H" than "A". Catches a label/class-order inversion that the relative test misses.
+    model = WdlBoost().fit(_training_rows())
+    probs = model.predict_proba(_feat(1900, 1500))
+    assert probs["H"] > probs["A"]
+
+
 def test_deterministic_under_fixed_seed():
     a = WdlBoost().fit(_training_rows()).predict_proba(_feat(1800, 1550))
     b = WdlBoost().fit(_training_rows()).predict_proba(_feat(1800, 1550))
