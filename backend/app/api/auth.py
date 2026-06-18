@@ -8,6 +8,7 @@ password reset (documented limitation).
 from __future__ import annotations
 
 import re
+import secrets
 from datetime import datetime, timezone
 from urllib.parse import unquote
 
@@ -17,7 +18,7 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.auth import get_current_user
 from app.db import get_db
-from app.models import AppUser, LoginAttempt, UserSession
+from app.models import AppUser, Bracket, LoginAttempt, MatchPick, UserSession
 from app.security import (
     SESSION_COOKIE,
     SESSION_TTL,
@@ -159,6 +160,47 @@ def logout(request: Request, response: Response, db: Session = Depends(get_db)):
 @router.get("/me", response_model=schemas.UserOut)
 def me(user: AppUser = Depends(get_current_user)):
     return _user_out(user)
+
+
+@router.post("/delete-account", dependencies=[Depends(require_same_origin)])
+def delete_account(payload: schemas.DeleteAccountIn, response: Response,
+                   user: AppUser = Depends(get_current_user),
+                   db: Session = Depends(get_db)):
+    """In-app account deletion (Apple Guideline 5.1.1(v)). Re-auth with the
+    current password, then *anonymize* rather than hard-delete: personal data is
+    wiped and every session revoked, but the user's public leaderboard entry is
+    kept (under "Deleted user") so standings/history stay intact. The real email
+    is released so it can be used to register a fresh account."""
+    if not verify_password(user.password_hash, payload.password):
+        raise HTTPException(status_code=401, detail={"code": "invalid_credentials",
+                                                     "message": "Current password is incorrect."})
+    old_email = user.email
+    # Anonymize the identity. The email becomes a unique tombstone (frees the
+    # real address) and the password hash an unguessable value (login is now
+    # impossible — there is no reset flow back into a deleted account).
+    user.email = f"deleted-{user.id}@deleted.finalwhistle.app"
+    user.password_hash = hash_password(secrets.token_urlsafe(32))
+    user.display_name = None
+    user.avatar_url = None
+    user.signup_country = None
+    user.signup_city = None
+    user.email_verified_at = None
+
+    # Keep the bracket (it carries the leaderboard score) but strip the only
+    # personal field on it — the public display name.
+    bracket = db.query(Bracket).filter_by(user_id=user.id).one_or_none()
+    if bracket is not None:
+        bracket.display_name = "Deleted user" if bracket.visibility == "public" else None
+
+    # Drop personal per-match picks and every session, plus stale login-attempt
+    # rows tied to the old email (they hold the real address).
+    db.query(MatchPick).filter_by(user_id=user.id).delete()
+    db.query(UserSession).filter_by(user_id=user.id).delete()
+    db.query(LoginAttempt).filter(LoginAttempt.email == old_email).delete()
+    db.commit()
+
+    clear_session_cookie(response)
+    return {"ok": True}
 
 
 @router.post("/change-password", dependencies=[Depends(require_same_origin)])

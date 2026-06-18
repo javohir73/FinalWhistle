@@ -144,6 +144,44 @@ def test_internal_stats_token_guarded(client):
         settings.recompute_token = ""
 
 
+def test_delete_account_anonymizes_and_keeps_leaderboard(client):
+    """In-app account deletion (Apple 5.1.1(v)): re-auth required, identity is
+    anonymized, the session is revoked and the email freed — but the public
+    leaderboard row survives under 'Deleted user' with its score intact."""
+    client.post("/api/auth/register",
+                json={"email": "del@example.com", "password": "supersecret", "display_name": "Deleter"})
+    assert client.post("/api/brackets", json={}).status_code == 200
+    assert client.post("/api/leaderboard/join",
+                       json={"display_name": "Deleter", "visibility": "public"}).status_code == 200
+    board = client.get("/api/leaderboard").json()
+    assert any(row["display_name"] == "Deleter" for row in board)
+
+    # Re-auth: a wrong password is rejected.
+    assert client.post("/api/auth/delete-account", json={"password": "wrongpass"}).status_code == 401
+
+    # Correct password anonymizes the account and revokes the session.
+    r = client.post("/api/auth/delete-account", json={"password": "supersecret"})
+    assert r.status_code == 200, r.text
+    assert client.get("/api/auth/me").status_code == 401
+
+    # Old credentials no longer work; the email is freed for a fresh signup.
+    assert client.post("/api/auth/login",
+                       json={"email": "del@example.com", "password": "supersecret"}).status_code == 401
+    fresh = TestClient(app, headers={"Origin": ALLOWED_ORIGIN})
+    assert fresh.post("/api/auth/register",
+                      json={"email": "del@example.com", "password": "supersecret"}).status_code == 200
+
+    # The leaderboard row survives, anonymized.
+    names = [row["display_name"] for row in client.get("/api/leaderboard").json()]
+    assert "Deleter" not in names
+    assert "Deleted user" in names
+
+
+def test_delete_account_requires_auth(client):
+    """Deletion is a state change behind the session + same-origin guards."""
+    assert client.post("/api/auth/delete-account", json={"password": "supersecret"}).status_code == 401
+
+
 def test_foreign_origin_rejected(client):
     """A foreign Origin is blocked on state-changing auth routes (CSRF guard)."""
     r = client.post("/api/auth/register",
