@@ -52,6 +52,21 @@ def test_form_reflects_only_earlier_matches():
     assert out[2]["data_points_home"] == 2.0
 
 
+def test_away_team_rolling_state_uses_its_own_perspective():
+    # Team 1 plays its first two matches as the AWAY side and wins both, then plays
+    # a third as home. Its form/goals must reflect its own perspective (the (sa, sh)
+    # reversal when recording away appearances), not the home team's.
+    rows = [
+        _row(2, 1, 0, 3, date(2020, 1, 1)),   # team 1 away, scores 3, wins
+        _row(3, 1, 0, 1, date(2020, 2, 1)),   # team 1 away, scores 1, wins
+        _row(1, 4, 0, 0, date(2020, 3, 1)),   # team 1 home; 2 prior away wins
+    ]
+    out = build_training_rows(rows)
+    assert out[2]["form_home"] == 6.0          # two wins from team 1's view
+    assert out[2]["data_points_home"] == 2.0
+    assert out[2]["gf_avg_home"] == 2.0        # team 1 scored 3 then 1 → mean 2.0
+
+
 def test_leakage_guard_later_matches_do_not_affect_earlier_features():
     early = [_row(1, 2, 2, 0, date(2020, 1, 1)), _row(1, 2, 1, 0, date(2020, 2, 1))]
     later = early + [_row(1, 2, 5, 0, date(2020, 3, 1))]

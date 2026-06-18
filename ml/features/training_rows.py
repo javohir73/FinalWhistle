@@ -31,11 +31,12 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
     Rolling state is read BEFORE each match is folded in, so features never see the
     match's own result or any later match. Each row also carries pre_home/pre_away
     (the gate's Poisson side reuses them) plus date/competition — none of these are
-    in FEATURE_NAMES, so the booster never sees them.
+    in FEATURE_NAMES, so the booster never sees them. Rows dated before DATE_FLOOR
+    are skipped.
     """
     recent: dict[int, deque] = defaultdict(lambda: deque(maxlen=WINDOW))   # team_id -> (gf, ga)
     counts: dict[int, int] = defaultdict(int)                              # team_id -> matches seen
-    h2h: dict[frozenset, deque] = defaultdict(lambda: deque(maxlen=H2H_WINDOW))  # pair -> winner_id|None
+    h2h: dict[frozenset[int], deque] = defaultdict(lambda: deque(maxlen=H2H_WINDOW))  # pair -> winner_id|None
 
     out: list[dict] = []
     for r in enriched_rows:
