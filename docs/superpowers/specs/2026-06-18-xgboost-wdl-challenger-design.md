@@ -181,9 +181,27 @@ If the blend ships, served W/D/L probabilities shift. Predicted-score and tourna
 unaffected (the booster never feeds the sampler/sims). Refresh the methodology page's model
 section to describe the blend.
 
-## Gate result (TBD)
+## Gate result (2026-06-18) — DO NOT SHIP (production stays `wdl_blend: null`)
 
-To be appended after running `pipeline.experiment_model_eval` over the major-tournament
-holdout — recording the bootstrap CI and the **ship / do-not-ship** decision, exactly like the
-calibrator spec. If it does not clear, `model_params.json` keeps `"wdl_blend": null` and this
-section documents why; the infrastructure stays in place for a future regime that clears.
+Ran `run_blend_gate` over the full leak-free history (49,403 replayed matches) with a 2000×
+edition-clustered bootstrap: booster trained on **11,604** rows (2004 → 2-years-before-2018,
+recency + tier weighted), blend weight + calibrator fit on the **1,844**-match held-out tail,
+scored on **750** held-out major-tournament-final matches (2018+).
+
+`blend (HGB + Poisson)` vs `Poisson alone` (served params):
+
+| Ship condition | Result | Pass |
+| --- | --- | --- |
+| Log-loss delta CI excludes 0 (better) | d = −0.0015, CI **[−0.0179, +0.0149]** (includes 0) | ❌ |
+
+Fitted-but-shelved values: blend `weight = 0.75`, calibrator
+`{"method": "vector_scaling", "t": 1.0, "b": [0.0, 0.1, −0.1]}`.
+
+**Decision: the blend does not clear the gate.** The point estimate is a hair better
+(−0.0015 log-loss) but the edition-clustered CI spans 0 — no reliable out-of-sample gain, the
+same verdict the calibrator and every other lever has earned on this data. `model_params.json`
+keeps `"wdl_blend": null` (pure Poisson, guaranteed no regression). The full pipeline
+(leak-free feature builder, `WdlBoost`, the params plumbing, the serving blend path, and the
+gate) is built and tested; if a future regime (e.g. richer features, or once in-play data exists)
+produces a blend that clears, paste the printed SHIP blob into `model_params.json` → `wdl_blend`
+and the serving path activates with zero further code changes.
