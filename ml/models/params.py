@@ -30,6 +30,7 @@ class ModelParams:
     temperature: float
     pk_beta: float = 0.0
     calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
+    wdl_blend: dict | None = None    # {"weight": float, "calibrator": dict|None} or None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -62,6 +63,7 @@ def load_params() -> ModelParams:
         temperature=float(data["temperature"]),
         pk_beta=float(data.get("pk_beta", 0.0)),
         calibrator=data.get("calibrator"),
+        wdl_blend=data.get("wdl_blend"),
     )
 
 

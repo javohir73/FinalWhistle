@@ -134,3 +134,146 @@ def test_qualification_probs_sum_to_two_per_group(db_session):
         rows = db_session.query(Standing).filter_by(group_id=group.id).all()
         total = sum(r.qualification_prob for r in rows)
         assert abs(total - 2.0) < 0.05  # exactly 2 advance per group
+
+
+def test_blend_off_ignores_the_booster_entirely(db_session):
+    """wdl_blend=None ⇒ the booster is never consulted, even if one is supplied:
+    probabilities equal the pure Poisson card. Guards against a future change that
+    blends regardless of the gate flag (the stub returns a strong-home triple, so
+    if it were used the probabilities would visibly diverge)."""
+    from dataclasses import replace
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (db_session.query(Match)
+             .filter(Match.stage == "group", Match.team_home_id.isnot(None)).first())
+    params = replace(DEFAULT_PARAMS, wdl_blend=None)
+
+    poisson = build_payload(db_session, match, "v", params=params)
+    with_stub = build_payload(db_session, match, "v", params=params, booster=_StubBooster())
+    assert with_stub["probabilities"] == poisson["probabilities"]
+
+
+class _StubBooster:
+    """Returns a fixed, strongly-home triple regardless of features."""
+    def predict_proba(self, feats):
+        return {"H": 0.90, "D": 0.06, "A": 0.04}
+
+
+def test_serving_features_match_training_features(db_session):
+    """For the same match history, the serving feature vector equals the training
+    feature row — proving no train/serve skew."""
+    from datetime import date
+    from app.models import HistoricalMatch, Team
+    from ml.features.build_features import head_to_head
+    from ml.features.training_rows import build_training_rows
+    from ml.features.wdl_features import FEATURE_NAMES
+    from pipeline.generate_predictions import _boost_features
+
+    home = Team(name="Alpha"); away = Team(name="Beta"); other = Team(name="Gamma")
+    db_session.add_all([home, away, other]); db_session.commit()
+
+    # Three prior played matches, oldest first.
+    hist = [
+        HistoricalMatch(team_a_id=home.id, team_b_id=other.id, score_a=2, score_b=0,
+                        competition="Friendly", is_neutral=False, date=date(2023, 1, 1)),
+        HistoricalMatch(team_a_id=away.id, team_b_id=other.id, score_a=1, score_b=1,
+                        competition="Friendly", is_neutral=False, date=date(2023, 2, 1)),
+        HistoricalMatch(team_a_id=home.id, team_b_id=away.id, score_a=0, score_b=1,
+                        competition="Friendly", is_neutral=True, date=date(2023, 3, 1)),
+    ]
+    db_session.add_all(hist); db_session.commit()
+
+    # The "upcoming" match is home vs away — a 4th meeting. Serving features use all
+    # history (every played match precedes a scheduled fixture). h2h is supplied the
+    # same way build_payload does it (from build_match_features' head_to_head).
+    serving = _boost_features(db_session, home, away,
+                              elo_home=1500.0, elo_away=1500.0, is_neutral=True,
+                              h2h=head_to_head(db_session, home.id, away.id))
+
+    # Training: append the same upcoming pairing as the LAST enriched row; its
+    # feature row must equal the serving vector. (Elo pre-match = 1500 baseline here
+    # since we don't replay Elo in this hermetic test — assemble uses what we pass.)
+    enriched = [
+        {"home_id": home.id, "away_id": other.id, "pre_home": 1500.0, "pre_away": 1500.0,
+         "is_neutral": False, "competition": "Friendly", "score_home": 2, "score_away": 0,
+         "date": date(2023, 1, 1)},
+        {"home_id": away.id, "away_id": other.id, "pre_home": 1500.0, "pre_away": 1500.0,
+         "is_neutral": False, "competition": "Friendly", "score_home": 1, "score_away": 1,
+         "date": date(2023, 2, 1)},
+        {"home_id": home.id, "away_id": away.id, "pre_home": 1500.0, "pre_away": 1500.0,
+         "is_neutral": True, "competition": "Friendly", "score_home": 0, "score_away": 1,
+         "date": date(2023, 3, 1)},
+        {"home_id": home.id, "away_id": away.id, "pre_home": 1500.0, "pre_away": 1500.0,
+         "is_neutral": True, "competition": "Friendly", "score_home": 0, "score_away": 0,
+         "date": date(2023, 4, 1)},
+    ]
+    train_row = build_training_rows(enriched)[-1]
+    for name in FEATURE_NAMES:
+        assert serving[name] == train_row[name], f"skew in {name}"
+
+
+def test_serving_and_training_data_points_cap_at_window(db_session):
+    """A team with MORE than WINDOW prior matches must report data_points capped at
+    the window size identically in training and serving. Regression guard: serving
+    counts via _recent_appearances(limit=WINDOW) (capped), so training must use the
+    windowed count too — not an unbounded cumulative counter."""
+    from datetime import date, timedelta
+    from app.models import HistoricalMatch, Team
+    from ml.features.build_features import head_to_head
+    from ml.features.training_rows import build_training_rows, WINDOW
+    from ml.features.wdl_features import FEATURE_NAMES
+    from pipeline.generate_predictions import _boost_features
+
+    home = Team(name="Home"); away = Team(name="Away")
+    opponents = [Team(name=f"Opp{i}") for i in range(WINDOW + 2)]   # 12 prior matches
+    db_session.add_all([home, away, *opponents]); db_session.commit()
+
+    base_day = date(2023, 1, 1)
+    hist, enriched = [], []
+    for i, opp in enumerate(opponents):
+        d = base_day + timedelta(days=i)
+        sh, sa = (2, 0) if i % 2 == 0 else (1, 1)   # mix of wins and draws
+        hist.append(HistoricalMatch(team_a_id=home.id, team_b_id=opp.id, score_a=sh,
+                                    score_b=sa, competition="Friendly", is_neutral=False, date=d))
+        enriched.append({"home_id": home.id, "away_id": opp.id, "pre_home": 1500.0,
+                         "pre_away": 1500.0, "is_neutral": False, "competition": "Friendly",
+                         "score_home": sh, "score_away": sa, "date": d})
+    db_session.add_all(hist); db_session.commit()
+
+    # Upcoming home vs away (away has no history).
+    enriched.append({"home_id": home.id, "away_id": away.id, "pre_home": 1500.0,
+                     "pre_away": 1500.0, "is_neutral": True, "competition": "Friendly",
+                     "score_home": 0, "score_away": 0, "date": base_day + timedelta(days=99)})
+
+    serving = _boost_features(db_session, home, away, elo_home=1500.0, elo_away=1500.0,
+                              is_neutral=True, h2h=head_to_head(db_session, home.id, away.id))
+    train_row = build_training_rows(enriched)[-1]
+
+    assert serving["data_points_home"] == float(WINDOW)   # capped at 10, not 12
+    for name in FEATURE_NAMES:
+        assert serving[name] == train_row[name], f"skew in {name}"
+
+
+def test_blend_shifts_probabilities_toward_booster(db_session):
+    from dataclasses import replace
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (db_session.query(Match)
+             .filter(Match.stage == "group", Match.team_home_id.isnot(None)).first())
+
+    off = build_payload(db_session, match, "v",
+                        params=replace(DEFAULT_PARAMS, wdl_blend=None))
+    # weight=1.0 ⇒ served triple becomes the booster's (then calibrated; calibrator None).
+    on = build_payload(db_session, match, "v",
+                       params=replace(DEFAULT_PARAMS, wdl_blend={"weight": 1.0, "calibrator": None}),
+                       booster=_StubBooster())
+
+    assert on["probabilities"]["home_win"] > off["probabilities"]["home_win"]
+    p = on["probabilities"]
+    assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
+    # Predicted SCORE stays Poisson's — the booster never touches it.
+    assert on["predicted_score"] == off["predicted_score"]
