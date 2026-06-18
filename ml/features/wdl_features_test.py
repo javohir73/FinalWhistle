@@ -57,3 +57,14 @@ def test_window_stats_counts_points_and_averages():
     assert gf == 1.0             # (2+1+0)/3
     assert ga == 4 / 3           # (0+1+3)/3
     assert n == 3
+
+
+def test_window_stats_all_losses_have_zero_form():
+    form, gf, ga, n = window_stats([(0, 1), (0, 2)])
+    assert form == 0.0
+    assert n == 2
+
+
+def test_non_neutral_is_encoded_as_zero():
+    feats = assemble_features(**_inputs(is_neutral=False))
+    assert feats["is_neutral"] == 0.0

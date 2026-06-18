@@ -35,7 +35,7 @@ def assemble_features(
     gf_avg_home: float, gf_avg_away: float, ga_avg_home: float, ga_avg_away: float,
     h2h_home_wins: int, h2h_matches: int,
     data_points_home: int, data_points_away: int,
-) -> dict:
+) -> dict[str, float]:
     """Build the ordered feature dict from raw, leak-free inputs."""
     winrate = h2h_home_wins / h2h_matches if h2h_matches else 0.5
     return {
@@ -72,7 +72,7 @@ def window_stats(appearances: list[tuple[int, int]]) -> tuple[float, float, floa
     n = len(appearances)
     if n == 0:
         return 0.0, DEFAULT_GOALS_AVG, DEFAULT_GOALS_AVG, 0
-    form = gf_sum = ga_sum = 0
+    form = gf_sum = ga_sum = 0.0
     for gf, ga in appearances:
         gf_sum += gf
         ga_sum += ga
