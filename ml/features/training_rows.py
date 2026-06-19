@@ -9,10 +9,17 @@ training and serving feature distributions match.
 from __future__ import annotations
 
 from collections import defaultdict, deque
-from datetime import date
+from datetime import date, datetime
 
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.baseline_logistic import result_label
+
+
+def _as_date(d):
+    """Coerce a value to a plain date. HistoricalMatch.date is a DateTime in prod
+    but tests pass plain dates; normalizing here keeps all downstream date math
+    (DATE_FLOOR check, gate window splits, recency weighting) on one type."""
+    return d.date() if isinstance(d, datetime) else d
 
 # Modern-era floor: pre-1994 international football is a different regime and dilutes
 # the booster. Rows older than this are dropped from training.
@@ -39,7 +46,8 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
 
     out: list[dict] = []
     for r in enriched_rows:
-        if r["date"] < DATE_FLOOR:
+        d = _as_date(r["date"])
+        if d < DATE_FLOOR:
             continue
         h, a = r["home_id"], r["away_id"]
         sh, sa = r["score_home"], r["score_away"]
@@ -62,7 +70,7 @@ def build_training_rows(enriched_rows: list[dict]) -> list[dict]:
             data_points_home=n_h, data_points_away=n_a,
         )
         out.append({**feats, "label": result_label(sh, sa),
-                    "date": r["date"], "competition": r["competition"],
+                    "date": d, "competition": r["competition"],
                     "pre_home": r["pre_home"], "pre_away": r["pre_away"]})
 
         # Fold this match into the rolling state AFTER emitting (leak-free).
