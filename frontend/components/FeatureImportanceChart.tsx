@@ -41,7 +41,7 @@ export function FeatureImportanceChart({ features }: { features: FeatureWeight[]
             axisLine={false}
             tickLine={false}
           />
-          <Bar dataKey="weight" radius={[0, 6, 6, 0]} barSize={18}>
+          <Bar dataKey="weight" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}>
             {data.map((_, i) => (
               <Cell key={i} fill="#8fd633" fillOpacity={1 - i * 0.14} />
             ))}

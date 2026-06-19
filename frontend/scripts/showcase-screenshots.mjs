@@ -15,6 +15,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const BASE = process.argv[2] ?? "https://fifa-wc26-prediction.vercel.app";
+const ONLY = process.argv[3]; // optional scene-slug filter, e.g. "match-detail"
 const OUT = resolve(import.meta.dirname, "../../.github/assets");
 
 const SCENES = [
@@ -34,6 +35,7 @@ mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ channel: "chrome", headless: true });
 
 for (const scene of SCENES) {
+  if (ONLY && scene.slug !== ONLY) continue;
   const size = scene.mode === "hero" ? HERO : PAGE;
   const ctx = await browser.newContext({
     viewport: { width: size.width, height: size.height },
@@ -53,6 +55,18 @@ for (const scene of SCENES) {
     content: "*, *::before, *::after { animation: none !important; transition: none !important; }",
   });
   await page.waitForTimeout(scene.settle); // client fetches paint in
+  if (scene.mode === "page") {
+    // The feature-importance chart renders with isAnimationActive=false, so its
+    // bars paint immediately. Just wait until they actually have width before
+    // capturing (belt-and-braces against any ResponsiveContainer measure lag).
+    await page
+      .waitForFunction(() => {
+        const r = document.querySelectorAll(".recharts-bar-rectangle path, .recharts-bar-rectangle rect");
+        return r.length > 0 && [...r].some((el) => el.getBoundingClientRect().width > 2);
+      }, { timeout: 8000 })
+      .catch(() => {});
+    await page.waitForTimeout(300);
+  }
   const file = `${OUT}/${scene.slug}.png`;
   await page.screenshot({ path: file, fullPage: scene.mode === "page" });
   console.log("wrote", file);

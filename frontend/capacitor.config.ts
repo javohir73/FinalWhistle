@@ -16,10 +16,12 @@ const config: CapacitorConfig = {
   },
   ios: {
     contentInset: "automatic",
-    backgroundColor: "#0a140e",
+    // Daylight theme background — matches the web --background token so there's
+    // no dark flash on launch or behind the safe-area insets / overscroll.
+    backgroundColor: "#f6f8f3",
   },
   android: {
-    backgroundColor: "#0a140e",
+    backgroundColor: "#f6f8f3",
   },
 };
 
