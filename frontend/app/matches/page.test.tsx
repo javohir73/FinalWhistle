@@ -138,7 +138,7 @@ it("shows an empty state when a search matches nothing, and recovers on clear", 
 const futureKickoff = new Date(Date.now() + 5 * 86_400_000).toISOString();
 const pastKickoff = new Date(Date.now() - 2 * 86_400_000).toISOString();
 
-it("shows every fixture under All, and only full-time ones under Finished", async () => {
+it("defaults to Upcoming (scheduled only) and shows results under Finished", async () => {
   mockGet.mockResolvedValue([
     match(1, "Mexico", "South Africa", "Group A", { kickoff_utc: futureKickoff }),
     match(2, "Qatar", "Switzerland", "Group B", {
@@ -149,10 +149,10 @@ it("shows every fixture under All, and only full-time ones under Finished", asyn
   // Query away-team names: the home team doubles as the predicted winner.
   await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
 
-  // Default (All) shows both the upcoming and the finished match.
+  // Default (Upcoming) shows the scheduled fixture, not the finished result.
+  expect(screen.getByRole("tab", { name: "Upcoming" })).toHaveAttribute("aria-selected", "true");
   expect(screen.getByText("South Africa")).toBeInTheDocument();
-  expect(screen.getByText("Switzerland")).toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
+  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
 
   // Switching to Finished keeps the played one and drops the upcoming.
   fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
@@ -180,7 +180,7 @@ it("narrows to in-play games under the Live filter", async () => {
   expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
 });
 
-it("keeps the live match pinned when switching to the Today filter", async () => {
+it("pins live on the default view but drops it under the Finished filter", async () => {
   mockGet.mockResolvedValue([
     match(1, "Brazil", "Morocco", "Group C", {
       status: "in_play", period: "second_half", minute: 70, score_home: 1, score_away: 1,
@@ -191,13 +191,13 @@ it("keeps the live match pinned when switching to the Today filter", async () =>
     }),
   ]);
   render(<MatchesPage />);
+  // Live game is pinned on the default (Upcoming) view so it's never buried.
   await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
   expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
 
-  // The live match kicked off today, so it stays under Today (and pinned);
-  // the older finished result drops away.
-  fireEvent.click(screen.getByRole("tab", { name: "Today" }));
-  expect(screen.getByText("Live now")).toBeInTheDocument();
-  expect(screen.getByText("Morocco")).toBeInTheDocument();
-  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
+  // Under Finished the live pin drops and the full-time result shows instead.
+  fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
+  expect(screen.queryByText("Live now")).not.toBeInTheDocument();
+  expect(screen.getByText("Switzerland")).toBeInTheDocument();
+  expect(screen.queryByText("Morocco")).not.toBeInTheDocument();
 });

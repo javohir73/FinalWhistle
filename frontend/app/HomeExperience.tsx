@@ -11,8 +11,8 @@ import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
 import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
-import { pct } from "@/lib/format";
-import { prematchCall } from "@/lib/verdict";
+import { pct, formatScore } from "@/lib/format";
+import { prematchCall, predictionVerdict } from "@/lib/verdict";
 import { isLiveNow, liveLabel } from "@/lib/liveLabel";
 import { kickoffTime, relativeDayLabel } from "@/lib/datetime";
 import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
@@ -167,16 +167,26 @@ function HomeDashboard({
     [groups, team.id],
   );
 
-  // The single best-billed fixture: a live game first, else the highest-
-  // confidence one of today's slate (fall back to the soonest fixture overall).
+  // The single best-billed fixture — always something genuinely relevant, never
+  // a past kickoff dressed up as an upcoming prediction:
+  //   1. a live game, 2. the soonest fixture still to come, 3. the most recent
+  //   result to recap, 4. (fallback) the highest-confidence of today's slate.
   const matchOfDay = useMemo(() => {
-    const pool = today.length > 0 ? today : matches.filter((m) => m.status !== "finished");
-    if (pool.length === 0) return null;
-    const live = pool.find((m) => isLiveNow(m));
+    const ts = (m: MatchSummary) => (m.kickoff_utc ? Date.parse(m.kickoff_utc) : NaN);
+    const now = Date.now();
+    const live = matches.find((m) => isLiveNow(m));
     if (live) return live;
+    const upcoming = matches
+      .filter((m) => m.status !== "finished" && !Number.isNaN(ts(m)) && ts(m) > now)
+      .sort((a, b) => ts(a) - ts(b));
+    if (upcoming.length) return upcoming[0];
+    const recent = matches
+      .filter((m) => m.status === "finished" && m.score_home != null && !Number.isNaN(ts(m)))
+      .sort((a, b) => ts(b) - ts(a));
+    if (recent.length) return recent[0];
     const rank = (c: MatchSummary["confidence"]) =>
       c === "High" ? 3 : c === "Medium" ? 2 : c === "Low" ? 1 : 0;
-    return [...pool].sort((a, b) => rank(b.confidence) - rank(a.confidence))[0];
+    return [...today].sort((a, b) => rank(b.confidence) - rank(a.confidence))[0] ?? null;
   }, [today, matches]);
 
   const alsoToday = useMemo(
@@ -316,16 +326,22 @@ function HomeDashboard({
   );
 }
 
-/** The big "Match of the day" card: matchup, AI scoreline, W/D/L bar and a
- *  plain-language verdict that links into the full match page. */
+/** The big "Match of the day" card. Before kickoff it shows the AI scoreline +
+ *  W/D/L bar + plain verdict; once live or finished it promotes the ACTUAL score
+ *  and (at full time) how the model's call did. Links to the full match page. */
 function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
   const { teams, probabilities, predicted_score } = match;
   const live = isLiveNow(match);
+  const finished = match.status === "finished" || (match.status === "in_play" && !live);
+  const hasScore = match.score_home != null && match.score_away != null;
+  const showActual = (live || finished) && hasScore;
   const call = prematchCall(probabilities, teams);
-  const score =
+  const verdict = finished ? predictionVerdict(match) : null;
+  const predScore =
     predicted_score && predicted_score.home != null && predicted_score.away != null
       ? `${predicted_score.home}–${predicted_score.away}`
       : null;
+  const shownProbs = (live ? match.live_probabilities : null) ?? probabilities;
 
   return (
     <Link
@@ -333,20 +349,22 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
       className={`card-hover glass group block rounded-2xl p-5 ${live ? "ring-1 ring-loss/40" : ""}`}
     >
       <div className="mb-4 flex items-center justify-between">
-        {match.kickoff_utc ? (
-          live ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-loss">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-              {liveLabel(match)}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2.5 py-1 text-[11px] font-semibold text-[#9a730f]">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
-              </svg>
-              {kickoffTime(match.kickoff_utc, tz)}
-            </span>
-          )
+        {live ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-loss">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+            {liveLabel(match)}
+          </span>
+        ) : finished ? (
+          <span className="inline-flex items-center rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-muted">
+            Full time
+          </span>
+        ) : match.kickoff_utc ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2.5 py-1 text-[11px] font-semibold text-[#9a730f]">
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
+            </svg>
+            {kickoffTime(match.kickoff_utc, tz)}
+          </span>
         ) : (
           <span />
         )}
@@ -361,9 +379,11 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
           <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.home}</span>
         </div>
         <div className="shrink-0 text-center">
-          <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">AI predicts</p>
+          <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">
+            {showActual ? (live ? "Live" : "Final") : "AI predicts"}
+          </p>
           <p className="mt-0.5 font-display text-3xl font-extrabold tabular-nums tracking-tight">
-            {score ?? "—"}
+            {showActual ? formatScore(match.score_home, match.score_away) : (predScore ?? "—")}
           </p>
         </div>
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
@@ -374,7 +394,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
 
       {probabilities ? (
         <ProbabilityBar
-          probabilities={probabilities}
+          probabilities={shownProbs ?? probabilities}
           homeLabel={teams.home}
           awayLabel={teams.away}
         />
@@ -383,23 +403,46 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
       )}
 
       <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-surface-2 px-3.5 py-3">
-        <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
-          <path d="M13 2 4.5 13H11l-1 9 9.5-12H13l0-8Z" strokeLinejoin="round" />
-        </svg>
-        <span className="text-[13px] font-medium text-foreground">
-          {call ? `${call.label}.` : "AI prediction ready."}{" "}
-          <span className="font-semibold text-lime-deep">See why →</span>
-        </span>
+        {verdict ? (
+          <>
+            <span aria-hidden className={`mt-0.5 text-sm font-bold ${verdict.kind === "miss" ? "text-loss" : "text-lime-deep"}`}>
+              {verdict.kind === "miss" ? "✕" : "✓"}
+            </span>
+            <span className="text-[13px] font-medium text-foreground">
+              {verdict.kind === "miss"
+                ? "Upset — we missed it."
+                : verdict.kind === "exact"
+                  ? "Exact score — called it!"
+                  : "Called it."}{" "}
+              <span className="font-semibold text-lime-deep">See the result →</span>
+            </span>
+          </>
+        ) : (
+          <>
+            <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M13 2 4.5 13H11l-1 9 9.5-12H13l0-8Z" strokeLinejoin="round" />
+            </svg>
+            <span className="text-[13px] font-medium text-foreground">
+              {live ? "In play now." : call ? `${call.label}.` : "AI prediction ready."}{" "}
+              <span className="font-semibold text-lime-deep">See why →</span>
+            </span>
+          </>
+        )}
       </div>
     </Link>
   );
 }
 
-/** Compact "Also today" row: paired flags, matchup, kickoff + pick, fav star. */
+/** Compact "Also today" row: paired flags, matchup, then either the kickoff +
+ *  pick (upcoming) or the live/final score + how the call did (live/finished). */
 function AlsoTodayRow({ match, tz }: { match: MatchSummary; tz: string }) {
   const { teams, probabilities } = match;
   const live = isLiveNow(match);
+  const finished = match.status === "finished" || (match.status === "in_play" && !live);
+  const hasScore = match.score_home != null && match.score_away != null;
+  const showActual = (live || finished) && hasScore;
   const call = prematchCall(probabilities, teams);
+  const verdict = finished ? predictionVerdict(match) : null;
 
   return (
     <Link
@@ -415,22 +458,35 @@ function AlsoTodayRow({ match, tz }: { match: MatchSummary; tz: string }) {
           {teams.home} v {teams.away}
         </p>
         <p className="mt-0.5 truncate text-xs text-muted">
-          {match.kickoff_utc &&
-            (live ? (
-              <span className="font-semibold text-loss">{liveLabel(match)}</span>
-            ) : (
-              kickoffTime(match.kickoff_utc, tz)
-            ))}
-          {call && (
+          {live ? (
+            <span className="font-semibold text-loss">{liveLabel(match)}</span>
+          ) : finished ? (
+            <span className="font-semibold">Full time</span>
+          ) : match.kickoff_utc ? (
+            kickoffTime(match.kickoff_utc, tz)
+          ) : null}
+          {verdict ? (
             <>
-              {match.kickoff_utc ? " · " : ""}
+              {" · "}
+              <span className={`font-semibold ${verdict.kind === "miss" ? "text-loss" : "text-lime-deep"}`}>
+                {verdict.kind === "miss" ? "Upset" : "Called it"}
+              </span>
+            </>
+          ) : call ? (
+            <>
+              {(live || match.kickoff_utc) ? " · " : ""}
               <span className={`font-semibold ${call.tone === "draw" ? "text-[#9a730f]" : "text-lime-deep"}`}>
                 {call.label}
               </span>
             </>
-          )}
+          ) : null}
         </p>
       </div>
+      {showActual && (
+        <span className="shrink-0 font-display text-base font-extrabold tabular-nums">
+          {formatScore(match.score_home, match.score_away)}
+        </span>
+      )}
       <FavoriteStar team={teams.home} />
     </Link>
   );

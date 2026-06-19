@@ -14,12 +14,12 @@ import { cn } from "@/lib/utils";
 
 const TBC = "tbc";
 
-// The segmented control maps onto the live fixture data: All = everything, Live =
-// in-play right now, Today = kicks off today in the viewer's timezone (live games
-// included — they kicked off today), Finished = a real full-time result or an
-// in_play the feed stranded past the live window (rendered as FT by the card).
-type Filter = "All" | "Live" | "Today" | "Finished";
-const FILTERS: Filter[] = ["All", "Live", "Today", "Finished"];
+// The segmented control maps onto the live fixture data: Upcoming = still to be
+// played (scheduled, not yet live or final), Live = in-play right now, Finished =
+// a real full-time result or an in_play the feed stranded past the live window
+// (rendered as FT by the card). Finished is shown most-recent-first.
+type Filter = "Upcoming" | "Live" | "Finished";
+const FILTERS: Filter[] = ["Upcoming", "Live", "Finished"];
 
 const isFinished = (m: MatchSummary) =>
   m.status === "finished" || (m.status === "in_play" && !isLiveNow(m));
@@ -30,7 +30,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   const state = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
   const { tz } = useTimezone();
   const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<Filter>("All");
+  const [filter, setFilter] = useState<Filter>("Upcoming");
 
   const matches = state.status === "success" ? state.data : [];
 
@@ -44,21 +44,17 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
     );
   });
 
-  const isToday = (m: MatchSummary) =>
-    !!m.kickoff_utc && relativeDayLabel(m.kickoff_utc, tz) === "Today";
-
   const filtered = searched.filter((m) => {
     if (filter === "Live") return isLiveNow(m);
-    if (filter === "Today") return isToday(m);
     if (filter === "Finished") return isFinished(m);
-    return true; // All
+    return !isLiveNow(m) && !isFinished(m); // Upcoming = still to be played
   });
 
-  // Live games are pinned to the top so you never scroll to find the current
-  // match. isLiveNow (not a bare status check) keeps a match the feed left stuck
+  // Live games are pinned to the top on every view except Finished, so the
+  // current match is never buried — even while you're browsing Upcoming.
+  // isLiveNow (not a bare status check) keeps a match the feed left stuck
   // `in_play` from being pinned as "LIVE" forever — it falls into its day group.
-  const liveMatches = filtered
-    .filter((m) => isLiveNow(m))
+  const liveMatches = (filter === "Finished" ? [] : searched.filter((m) => isLiveNow(m)))
     .sort((a, b) => (a.kickoff_utc ?? "").localeCompare(b.kickoff_utc ?? ""));
   const rest = filtered.filter((m) => !isLiveNow(m));
 
@@ -73,12 +69,14 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       if (!arr) byDay.set(key, (arr = []));
       arr.push(m);
     }
+    // Soonest-first, except Finished — there you want the latest results on top.
+    const dir = filter === "Finished" ? -1 : 1;
     return Array.from(byDay.entries()).sort(([a], [b]) => {
       if (a === TBC) return 1;
       if (b === TBC) return -1;
-      return a < b ? -1 : 1;
+      return a < b ? -dir : dir;
     });
-  }, [rest, tz]);
+  }, [rest, tz, filter]);
 
   return (
     <div>
@@ -117,7 +115,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
         />
       </div>
 
-      {/* Segmented control: All / Live / Today / Finished */}
+      {/* Segmented control: Upcoming / Live / Finished */}
       <div
         role="tablist"
         aria-label="Filter fixtures"
@@ -148,7 +146,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       {state.status === "loading" && <Loading label="Loading predictions…" />}
       {state.status === "error" && <ErrorState message={state.message} />}
       {state.status === "success" &&
-        (filtered.length === 0 ? (
+        (filtered.length === 0 && liveMatches.length === 0 ? (
           <Empty label="No fixtures here yet." />
         ) : (
           <div className="space-y-9">
