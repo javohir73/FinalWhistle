@@ -181,27 +181,38 @@ If the blend ships, served W/D/L probabilities shift. Predicted-score and tourna
 unaffected (the booster never feeds the sampler/sims). Refresh the methodology page's model
 section to describe the blend.
 
-## Gate result (2026-06-18) — DO NOT SHIP (production stays `wdl_blend: null`)
+## Gate result — DO NOT SHIP (production stays `wdl_blend: null`)
 
-Ran `run_blend_gate` over the full leak-free history (49,403 replayed matches) with a 2000×
+**2026-06-19 correction.** The original 2026-06-18 run scored the booster against the v0.1
+`DEFAULT_PARAMS` constant, not the shipped v0.2 engine this design (§4) specifies. The
+implementation had drifted from the design — `run_blend_gate` hardcoded `served = DEFAULT_PARAMS`
+— so the booster's lift was measured against an engine we no longer ship. `run_blend_gate` now
+defaults its Poisson leg to `load_params()` (the tuned v0.2 `model_params.json`). The numbers
+below are the corrected v0.2-baseline run; the v0.1 row is kept to show why the earlier estimate
+looked rosier.
+
+Ran `run_blend_gate` over the full leak-free history (49,427 replayed matches) with a 2000×
 edition-clustered bootstrap: booster trained on **11,604** rows (2004 → 2-years-before-2018,
 recency + tier weighted), blend weight + calibrator fit on the **1,844**-match held-out tail,
-scored on **750** held-out major-tournament-final matches (2018+).
+scored on **774** held-out major-tournament-final matches (2018+).
 
-`blend (HGB + Poisson)` vs `Poisson alone` (served params):
+`blend (HGB + Poisson)` vs `Poisson alone`:
 
-| Ship condition | Result | Pass |
-| --- | --- | --- |
-| Log-loss delta CI excludes 0 (better) | d = −0.0015, CI **[−0.0179, +0.0149]** (includes 0) | ❌ |
+| Baseline (Poisson leg) | base log-loss | blend log-loss | Δ log-loss | 95% CI | Ship? |
+| --- | ---: | ---: | ---: | ---: | --- |
+| **shipped v0.2 (authoritative)** | 0.9304 | 0.9294 | **−0.0010** | **[−0.0117, +0.0098]** (includes 0) | ❌ |
+| v0.1 `DEFAULT_PARAMS` (old run) | 0.9363 | 0.9326 | −0.0037 | [−0.0204, +0.0125] (includes 0) | ❌ |
 
-Fitted-but-shelved values: blend `weight = 0.75`, calibrator
-`{"method": "vector_scaling", "t": 1.0, "b": [0.0, 0.1, −0.1]}`.
+Fitted-but-shelved values (v0.2 run): blend `weight = 0.65`, calibrator
+`{"method": "vector_scaling", "t": 1.0, "b": [0.0, 0.1, 0.0]}`.
 
-**Decision: the blend does not clear the gate.** The point estimate is a hair better
-(−0.0015 log-loss) but the edition-clustered CI spans 0 — no reliable out-of-sample gain, the
-same verdict the calibrator and every other lever has earned on this data. `model_params.json`
-keeps `"wdl_blend": null` (pure Poisson, guaranteed no regression). The full pipeline
-(leak-free feature builder, `WdlBoost`, the params plumbing, the serving blend path, and the
-gate) is built and tested; if a future regime (e.g. richer features, or once in-play data exists)
-produces a blend that clears, paste the printed SHIP blob into `model_params.json` → `wdl_blend`
-and the serving path activates with zero further code changes.
+**Decision: the blend does not clear the gate.** Against the honest v0.2 baseline the booster's
+edge collapses to −0.0010 log-loss — roughly a third of the v0.1-baseline estimate — and the
+edition-clustered CI still spans 0. v0.2 is already the stronger engine, so there is less left
+for the booster to add; correcting the baseline makes the "no reliable out-of-sample gain"
+verdict *cleaner* (smaller point estimate, tighter CI), not weaker. `model_params.json` keeps
+`"wdl_blend": null` (pure Poisson, guaranteed no regression). The full pipeline (leak-free
+feature builder, `WdlBoost`, the params plumbing, the serving blend path, and the gate) is built
+and tested; if a future regime (e.g. richer features, or once in-play data exists) produces a
+blend that clears, paste the printed SHIP blob into `model_params.json` → `wdl_blend` and the
+serving path activates with zero further code changes.
