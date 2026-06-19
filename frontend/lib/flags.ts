@@ -52,7 +52,19 @@ const NAME_TO_ISO2: Record<string, string> = {
   Panama: "pa",
 };
 
-export function flagUrl(teamName: string, width: 40 | 80 | 160 = 80): string | null {
+/** Self-hosted flag for the in-app flag chips. The PNGs live in
+ *  `public/flags/<iso>.png` (flagcdn w320, ~0.2–5 KB each, ~200 KB total) so
+ *  they render crisp on retina at every chip size (≤88px → ≥3× headroom) and
+ *  load fast from our own origin instead of firing ~48 requests at a free CDN. */
+export function localFlag(teamName: string): string | null {
+  const iso = NAME_TO_ISO2[teamName];
+  return iso ? `/flags/${iso}.png` : null;
+}
+
+/** Absolute flagcdn URL. Used only by the server-rendered OG-image routes, whose
+ *  image renderer needs an absolute URL (a relative `/flags/...` path won't
+ *  resolve there). In-app chips use `localFlag` above. */
+export function flagUrl(teamName: string, width: 40 | 80 | 160 | 320 = 80): string | null {
   const iso = NAME_TO_ISO2[teamName];
   return iso ? `https://flagcdn.com/w${width}/${iso}.png` : null;
 }

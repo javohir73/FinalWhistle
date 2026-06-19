@@ -1,6 +1,6 @@
-/** Flag chip: shows the flag image, recovers a transient CDN failure with one
- *  retry, and falls back to a clean initials chip instead of the browser's
- *  broken-image "?" when the flag truly can't load. */
+/** Flag chip: shows the self-hosted flag image, and falls back to a clean
+ *  initials chip instead of the browser's broken-image "?" when a flag can't
+ *  load (unmapped team or a stray error). */
 import { render, screen, fireEvent } from "@testing-library/react";
 import { Flag } from "@/components/Flag";
 
@@ -8,29 +8,21 @@ function flagImg(): HTMLImageElement | null {
   return document.querySelector("img");
 }
 
-it("renders the flag image for a known team", () => {
+it("renders the self-hosted flag image for a known team", () => {
   render(<Flag team="Brazil" />);
   const img = flagImg();
   expect(img).not.toBeNull();
-  expect(img!.getAttribute("src")).toBe("https://flagcdn.com/w80/br.png");
+  expect(img!.getAttribute("src")).toBe("/flags/br.png");
 });
 
-it("retries once (cache-busted) before giving up", () => {
-  render(<Flag team="Argentina" />);
-  const img = flagImg()!;
-  expect(img.getAttribute("src")).toBe("https://flagcdn.com/w80/ar.png");
-
-  // First failure → cache-busted retry, still an <img> (the flag may load now).
-  fireEvent.error(img);
-  const retry = flagImg();
-  expect(retry).not.toBeNull();
-  expect(retry!.getAttribute("src")).toBe("https://flagcdn.com/w80/ar.png?r=1");
+it("uses the flagcdn subdivision codes for England/Scotland", () => {
+  render(<Flag team="England" />);
+  expect(flagImg()!.getAttribute("src")).toBe("/flags/gb-eng.png");
 });
 
-it("falls back to initials after both attempts fail — never a broken image", () => {
+it("falls back to initials if the flag errors — never a broken image", () => {
   render(<Flag team="South Korea" />);
-  fireEvent.error(flagImg()!); // attempt 0 fails → retry
-  fireEvent.error(flagImg()!); // retry fails → fallback
+  fireEvent.error(flagImg()!); // image load fails → typographic fallback
 
   expect(flagImg()).toBeNull(); // no broken <img> left behind
   expect(screen.getByText("SK")).toBeInTheDocument(); // typographic chip
