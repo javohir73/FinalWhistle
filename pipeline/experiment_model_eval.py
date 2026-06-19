@@ -631,6 +631,17 @@ def main() -> int:
         blob = json.dumps({"weight": bg["weight"], "calibrator": bg["calibrator"]})
         print(f"  SHIP blob (paste into model_params.json -> wdl_blend): {blob}")
 
+    print("\n==== Segmented draw-calibration gate ====")
+    dg = run_draw_cal_gate(rows, n_boot=args.boot)
+    print(f"  served={dg['served_version']}  tail_n={dg['tail_n']} test_n={dg['test_n']}")
+    print(f"  bucket_counts={dg['bucket_counts']}")
+    print(f"  base_logloss={dg['base_log_loss']:.4f}  cal_logloss={dg['cal_log_loss']:.4f}")
+    print(f"  d_logloss={dg['delta_log_loss']:+.4f}  CI[{dg['ll_ci'][0]:+.4f},{dg['ll_ci'][1]:+.4f}]"
+          f"  d_rps={dg['delta_rps']:+.5f} (tol {dg['rps_tol']})  -> {dg['verdict']}")
+    if dg["verdict"] == "SHIP":
+        blob = json.dumps(dg["calibrator"])
+        print(f"  SHIP blob (paste into model_params.json -> calibrator): {blob}")
+
     return 0
 
 
