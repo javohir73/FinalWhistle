@@ -48,6 +48,21 @@ def test_gate_honors_served_params():
     assert res_strong["base_log_loss"] < res_weak["base_log_loss"]
 
 
+def test_draw_cal_gate_runs_and_reports_a_verdict():
+    from pipeline.experiment_model_eval import run_draw_cal_gate
+    res = run_draw_cal_gate(_rows(), tail_years=2, test_since=2018, n_boot=50, min_bucket=20)
+    assert res["served_version"] == "poisson-elo-v0.2"
+    assert "base_log_loss" in res and "cal_log_loss" in res
+    assert "delta_log_loss" in res and "ll_ci" in res and len(res["ll_ci"]) == 2
+    assert "delta_rps" in res
+    assert "bucket_counts" in res and set(res["bucket_counts"]) <= {"0-50", "50-150", "150-300", "300+"}
+    assert res["test_n"] > 0
+    assert res["verdict"] in ("SHIP", "do-not-ship")
+    # Mechanical ship rule: SHIP iff log-loss CI upper < 0 AND rps not worse than tol.
+    expect_ship = res["ll_ci"][1] < 0 and res["delta_rps"] <= res["rps_tol"]
+    assert (res["verdict"] == "SHIP") == expect_ship
+
+
 def test_wdl_and_grid_threads_eff_gap():
     from dataclasses import replace
     from pipeline.experiment_model_eval import wdl_and_grid

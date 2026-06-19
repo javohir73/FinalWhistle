@@ -24,6 +24,7 @@ import argparse
 import json
 import math
 from collections import defaultdict
+from dataclasses import replace
 from datetime import date
 
 import numpy as np
@@ -478,6 +479,77 @@ def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
         "delta_log_loss": float(d_ll.mean()) if len(d_ll) else 0.0,
         "ll_ci": ci,
         "verdict": "SHIP" if (ci[1] < 0) else "do-not-ship",
+    }
+
+
+_RPS_TOL = 1e-4  # RPS may not get worse than this on the point estimate (do-no-harm guardrail)
+
+
+def run_draw_cal_gate(rows: list[dict], tail_years: int = 2, test_since: int = 2018,
+                      n_boot: int = 2000, min_bucket: int = 200,
+                      served_params: ModelParams | None = None) -> dict:
+    """Honest ship test for the segment-conditional draw calibrator.
+
+    Fit per-effective-gap vector scaling on the held-out tail (all competitions,
+    uncalibrated v0.2 triples — no calibrator stacking), then score the
+    segmented-calibrated engine vs v0.2-alone on test_since+ major finals with the
+    edition-clustered bootstrap. SHIP only if the log-loss CI excludes 0 (better)
+    AND RPS does not regress beyond _RPS_TOL.
+    """
+    served = served_params if served_params is not None else load_params()
+    base_params = replace(served, calibrator=None)   # uncalibrated triples for FITTING
+
+    test_start = date(test_since, 1, 1)
+    tail_start = date(test_since - tail_years, 1, 1)
+    tail = [r for r in rows if tail_start <= r["date"] < test_start]
+    test = [r for r in rows
+            if r["date"].year >= test_since and is_major_final(r["competition"])]
+
+    # Fit on uncalibrated tail triples, bucketed by the same effective gap the
+    # engine uses (via _eval_adv -> effective_gap), so fit and serve agree.
+    tail_probs, tail_labels, tail_gaps = [], [], []
+    bucket_counts: dict[str, int] = {b: 0 for b in ("0-50", "50-150", "150-300", "300+")}
+    for r in tail:
+        wdl, _ = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], base_params)
+        g = effective_gap(r["pre_home"], r["pre_away"], _eval_adv(r["is_neutral"], base_params))
+        tail_probs.append(wdl)
+        tail_labels.append(_LABEL_INDEX[result_label(r["score_home"], r["score_away"])])
+        tail_gaps.append(g)
+        bucket_counts[gap_bucket(g)] += 1
+
+    blob = (fit_segmented_vector_scaling(tail_probs, tail_labels, tail_gaps, min_bucket=min_bucket)
+            if tail_probs else None)
+    cand_params = replace(served, calibrator=blob)
+
+    base_ll, cal_ll, base_rps, cal_rps, ed_keys = [], [], [], [], []
+    for r in test:
+        idx = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
+        b_wdl, _ = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], served)
+        c_wdl, _ = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], cand_params)
+        base_ll.append(-math.log(max(_EPS, min(1 - _EPS, b_wdl[idx]))))
+        cal_ll.append(-math.log(max(_EPS, min(1 - _EPS, c_wdl[idx]))))
+        base_rps.append(ranked_probability_score(b_wdl, idx))
+        cal_rps.append(ranked_probability_score(c_wdl, idx))
+        ed_keys.append((r["competition"], r["date"].year))
+
+    rng = np.random.default_rng(2026)
+    d_ll = np.array(cal_ll) - np.array(base_ll)
+    ci = block_bootstrap_ci(d_ll, ed_keys, n_boot, rng) if len(d_ll) else (0.0, 0.0)
+    d_rps = float(np.mean(cal_rps) - np.mean(base_rps)) if cal_rps else 0.0
+
+    ship = bool(len(d_ll) and ci[1] < 0 and d_rps <= _RPS_TOL)
+    return {
+        "served_version": served.version,
+        "calibrator": blob,
+        "tail_n": len(tail), "test_n": len(test),
+        "bucket_counts": bucket_counts,
+        "base_log_loss": float(np.mean(base_ll)) if base_ll else 0.0,
+        "cal_log_loss": float(np.mean(cal_ll)) if cal_ll else 0.0,
+        "delta_log_loss": float(d_ll.mean()) if len(d_ll) else 0.0,
+        "ll_ci": ci,
+        "delta_rps": d_rps,
+        "rps_tol": _RPS_TOL,
+        "verdict": "SHIP" if ship else "do-not-ship",
     }
 
 
