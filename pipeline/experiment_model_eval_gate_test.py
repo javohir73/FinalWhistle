@@ -63,6 +63,32 @@ def test_draw_cal_gate_runs_and_reports_a_verdict():
     assert (res["verdict"] == "SHIP") == expect_ship
 
 
+def test_draw_cal_gate_accepts_datetime_dates():
+    """Regression: run_draw_cal_gate must not raise TypeError when row['date']
+    is a datetime.datetime (as returned by the DB) rather than a plain date.
+    The synthetic _rows() helper uses date objects, masking this in CI; this
+    test mirrors production by using datetime objects instead."""
+    from datetime import datetime
+    from pipeline.experiment_model_eval import run_draw_cal_gate
+
+    def _dt_rows():
+        rows = []
+        for yr in range(2004, 2024):
+            comp = "FIFA World Cup" if yr % 4 == 2 else "Friendly"
+            for i in range(30):
+                rows.append({
+                    "home_id": 1 + (i % 8), "away_id": 1 + ((i + 3) % 8),
+                    "pre_home": 1800.0, "pre_away": 1500.0, "is_neutral": True,
+                    "competition": comp, "score_home": 2, "score_away": 0,
+                    "date": datetime(yr, 6, 1 + (i % 20), 15, 30),
+                })
+        return rows
+
+    res = run_draw_cal_gate(_dt_rows(), tail_years=2, test_since=2018, n_boot=50, min_bucket=20)
+    assert "verdict" in res and res["verdict"] in ("SHIP", "do-not-ship")
+    assert res["test_n"] > 0
+
+
 def test_wdl_and_grid_threads_eff_gap():
     from dataclasses import replace
     from pipeline.experiment_model_eval import wdl_and_grid

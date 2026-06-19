@@ -33,7 +33,7 @@ from ml.evaluation.calibration import (
     calibrate, effective_gap, fit_segmented_vector_scaling, fit_temperature,
     fit_vector_scaling, gap_bucket,
 )
-from ml.features.training_rows import build_training_rows, training_weight
+from ml.features.training_rows import _as_date, build_training_rows, training_weight
 from ml.models.wdl_boost import WdlBoost, blend_triples
 from ml.evaluation.scoreline_metrics import (
     exact_score_nll,
@@ -506,9 +506,9 @@ def run_draw_cal_gate(rows: list[dict], tail_years: int = 2, test_since: int = 2
 
     test_start = date(test_since, 1, 1)
     tail_start = date(test_since - tail_years, 1, 1)
-    tail = [r for r in rows if tail_start <= r["date"] < test_start]
+    tail = [r for r in rows if tail_start <= _as_date(r["date"]) < test_start]
     test = [r for r in rows
-            if r["date"].year >= test_since and is_major_final(r["competition"])]
+            if _as_date(r["date"]).year >= test_since and is_major_final(r["competition"])]
 
     # Fit on uncalibrated tail triples, bucketed by the same effective gap the
     # engine uses (via _eval_adv -> effective_gap), so fit and serve agree.
