@@ -46,3 +46,24 @@ def test_gate_honors_served_params():
     res_strong = run_blend_gate(_rows(), served_params=strong, n_boot=50)
 
     assert res_strong["base_log_loss"] < res_weak["base_log_loss"]
+
+
+def test_wdl_and_grid_threads_eff_gap():
+    from dataclasses import replace
+    from pipeline.experiment_model_eval import wdl_and_grid
+    from ml.models.params import load_params
+    blob = {
+        "method": "vector_scaling_segmented", "by": "effective_elo_gap",
+        "buckets": {"0-50": {"t": 1.0, "b": [0.0, 1.0, 0.0]}},
+        "default": {"t": 1.0, "b": [0.0, 0.0, 0.0]},
+    }
+    params = replace(load_params(), calibrator=blob)
+    # Non-neutral so home_adv applies: 1450 vs 1500 + adv pulls eff gap into 0-50.
+    # The 0-50 bucket lifts draws (b_draw=1.0), so it should be much higher.
+    close, _ = wdl_and_grid(1450.0, 1500.0, False, params)
+    # Neutral (adv 0): eff gap 50 -> outside 0-50 -> default identity (b_draw=0.0).
+    far, _ = wdl_and_grid(1450.0, 1500.0, True, params)
+    # With eff_gap threaded, close should have draw ~0.52, far should have draw ~0.29.
+    assert close[1] > 0.5  # draw lifted significantly in 0-50 bucket
+    assert far[1] < 0.3    # draw unchanged by default (identity)
+    assert close[1] > far[1]  # close should have much higher draw

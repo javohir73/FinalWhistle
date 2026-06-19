@@ -28,7 +28,10 @@ from datetime import date
 
 import numpy as np
 
-from ml.evaluation.calibration import calibrate, fit_temperature, fit_vector_scaling
+from ml.evaluation.calibration import (
+    calibrate, effective_gap, fit_segmented_vector_scaling, fit_temperature,
+    fit_vector_scaling, gap_bucket,
+)
 from ml.features.training_rows import build_training_rows, training_weight
 from ml.models.wdl_boost import WdlBoost, blend_triples
 from ml.evaluation.scoreline_metrics import (
@@ -107,6 +110,12 @@ def tournament_editions(rows: list[dict], since_year: int) -> list[tuple[str, in
 
 # --- per-match scoring -------------------------------------------------------
 
+def _eval_adv(is_neutral, params: ModelParams) -> float:
+    """The home advantage the eval engine applies — 0 at a neutral site, else the
+    params' home_adv. Single source so bucketing matches the engine exactly."""
+    return 0.0 if is_neutral else params.home_adv
+
+
 def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: float = 0.0):
     """Return (wdl_triple, normalized_grid) for one match under given params.
 
@@ -114,7 +123,7 @@ def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: flo
     multiplied by exp(gamma * closeness), where closeness decays with the Elo gap,
     then the grid is renormalized (Codex's sharper alternative to global Dixon-Coles).
     """
-    adv = 0.0 if is_neutral else params.home_adv
+    adv = _eval_adv(is_neutral, params)
     lam_h, lam_a = expected_goals_from_elo(pre_home, pre_away, adv, params.base, params.beta)
     grid = score_matrix(lam_h, lam_a, rho=params.rho)
     if gamma > 0.0:
@@ -126,7 +135,8 @@ def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: flo
             for h, row in enumerate(grid)
         ]
     wdl = outcome_probabilities(grid)
-    wdl = calibrate(wdl, params.calibrator, params.temperature)
+    eff_gap = effective_gap(pre_home, pre_away, adv)
+    wdl = calibrate(wdl, params.calibrator, params.temperature, eff_gap=eff_gap)
     return wdl, grid
 
 
