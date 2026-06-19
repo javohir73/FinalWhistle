@@ -236,3 +236,37 @@ If the segmented calibrator ships, served W/D/L probabilities shift (mostly draw
 matches). Predicted scorelines and tournament sims are unaffected (calibration never feeds the
 sampler/sims). Refresh the methodology page's calibration section to describe the segmented
 calibrator and show the per-bucket reliability.
+
+## Gate result (2026-06-19) — DO NOT SHIP (production stays `calibrator: null`)
+
+Ran `run_draw_cal_gate` over the full leak-free history (49,427 replayed matches) with a 2000×
+edition-clustered bootstrap, scored against shipped **v0.2**. Calibrator fit on the **1,844**-match
+held-out tail (all competitions, 2016–2017, untempered triples — no stacking); scored on **774**
+held-out major-tournament-final matches (2018+).
+
+All four effective-gap buckets cleared `MIN_BUCKET = 200`, so each was fit individually (no global
+fallback):
+
+| Bucket (effective Elo gap) | Tail matches |
+| --- | ---: |
+| 0-50 | 281 |
+| 50-150 | 573 |
+| 150-300 | 575 |
+| 300+ | 415 |
+
+`segmented-calibrated v0.2` vs `v0.2 alone`:
+
+| Ship condition | Result | Pass |
+| --- | --- | --- |
+| Log-loss Δ CI excludes 0 (better) | base 0.9304 → cal 0.9300, **Δ = −0.00044**, CI **[−0.0083, +0.0080]** (includes 0) | ❌ |
+| RPS does not regress (Δ ≤ 1e-4) | **Δ RPS = +0.00039** (worse) | ❌ |
+
+**Decision: the segmented calibrator does not clear the gate** — and fails on *both* criteria. The
+point estimate is a hair better on log-loss (−0.00044) but the edition-clustered CI spans 0 (no
+reliable out-of-sample gain), and the RPS do-no-harm guardrail catches a small regression
+(+0.00039 > 1e-4). `model_params.json` keeps `"calibrator": null` (pure Poisson, guaranteed no
+regression) — the same verdict global calibration, the booster, and every other lever has earned
+on this data. The infrastructure (effective-gap helpers, segmented `calibrate`/fitter, the gate)
+is built and tested; if a future regime produces a segmented calibrator that clears, the gate
+prints a SHIP blob to paste into `model_params.json` → `calibrator`, and the serving path activates
+with zero further code changes. **No `model_params.json` change was made.**
