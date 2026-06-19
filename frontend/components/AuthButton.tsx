@@ -8,9 +8,10 @@ import { AccountMenu } from "@/components/AccountMenu";
  *  modal. While the very first session check is still pending (and no cached
  *  user), render nothing to avoid flashing the wrong state. */
 export function AuthButton() {
-  const { user, loading, openSignIn, logout } = useAuth();
+  const { user, loading, openSignIn, logout, deleteAccount } = useAuth();
 
-  if (user) return <AccountMenu user={user} onLogout={() => void logout()} />;
+  if (user)
+    return <AccountMenu user={user} onLogout={() => void logout()} onDeleteAccount={deleteAccount} />;
   if (loading) return null;
 
   return (

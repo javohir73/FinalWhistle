@@ -70,3 +70,16 @@ def test_json_without_wdl_blend_loads_as_none(tmp_path, monkeypatch):
     }))
     monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
     assert load_params().wdl_blend is None
+
+
+def test_segmented_calibrator_round_trips(tmp_path, monkeypatch):
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", tmp_path / "model_params.json")
+    blob = {
+        "method": "vector_scaling_segmented", "by": "effective_elo_gap",
+        "buckets": {"0-50": {"t": 1.1, "b": [0.0, 0.4, -0.1]}},
+        "default": {"t": 1.0, "b": [0.0, 0.0, 0.0]},
+    }
+    params = ModelParams(version="t", base=1.2, beta=0.0021, home_adv=60.0,
+                         rho=-0.06, temperature=1.0, calibrator=blob)
+    save_params(params)
+    assert load_params().calibrator == blob

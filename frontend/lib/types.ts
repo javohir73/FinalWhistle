@@ -152,19 +152,6 @@ export interface TeamProfile {
   weaknesses: string[];
 }
 
-export interface PredictionHistoryPoint {
-  generated_at: string | null;
-  model_version: string;
-  home_win: number;
-  draw: number;
-  away_win: number;
-}
-
-export interface PredictionWithHistory {
-  current: Prediction;
-  history: PredictionHistoryPoint[];
-}
-
 // ---- Accounts / leaderboard ----
 export interface LeaderboardRow {
   rank: number | null;
@@ -193,12 +180,6 @@ export interface SavedBracket {
   knockout_picks: { match_no: number; picked_team_id: number }[];
   score: SavedBracketScore | null;
   submitted_at: string | null;
-  updated_at: string | null;
-}
-
-/** The account copy of the device-local per-match predictions. */
-export interface SavedMatchPicks {
-  picks: { match_id: number; pick: "home" | "draw" | "away" }[];
   updated_at: string | null;
 }
 

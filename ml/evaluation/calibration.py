@@ -14,6 +14,27 @@ import math
 Probs = tuple[float, float, float]
 _EPS = 1e-15
 
+# Effective-Elo-gap segmentation for draw-aware calibration. The probability
+# engine responds to (elo_home + home_adv) - elo_away (see poisson.py
+# expected_goals_from_elo), so the calibrator buckets on that, NOT the raw gap —
+# otherwise a host-boosted close match is mis-bucketed. Both the gate (fit) and
+# the serving path bucket through these two helpers, so they cannot drift.
+_GAP_EDGES = (50.0, 150.0, 300.0)
+_GAP_BUCKETS = ("0-50", "50-150", "150-300", "300+")
+
+
+def effective_gap(elo_home: float, elo_away: float, home_adv: float) -> float:
+    """Absolute effective Elo gap the engine actually responds to."""
+    return abs((elo_home + home_adv) - elo_away)
+
+
+def gap_bucket(eff_gap: float) -> str:
+    """Map an effective gap to one of the four coarse buckets."""
+    for edge, name in zip(_GAP_EDGES, _GAP_BUCKETS):
+        if eff_gap < edge:
+            return name
+    return _GAP_BUCKETS[-1]
+
 
 def apply_temperature(probs: Probs, temperature: float) -> Probs:
     """Soften/sharpen a probability triple by temperature T."""
@@ -41,13 +62,22 @@ def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
     return (exps[0] / total, exps[1] / total, exps[2] / total)
 
 
-def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0) -> Probs:
+def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0,
+              *, eff_gap: float | None = None) -> Probs:
     """Apply the shipped calibrator to a W/D/L triple — the one shared helper for
-    the card path. `calibrator` is a vector-scaling blob
-    {"method": "vector_scaling", "t": float, "b": [b_home, b_draw, b_away]} or
-    None. When it is a vector-scaling blob we apply it; otherwise we fall back to
-    scalar `temperature` (so an un-shipped calibrator is a guaranteed no-regression
-    temperature path, and t=1 is the identity)."""
+    the card path. `calibrator` is one of:
+      - None: scalar `temperature` fallback (t=1 is the identity);
+      - {"method": "vector_scaling", "t", "b"}: one global vector scaling;
+      - {"method": "vector_scaling_segmented", "buckets": {bucket: {t,b}}, "default": {t,b}}:
+        per effective-Elo-gap bucket. `eff_gap` selects the bucket via gap_bucket();
+        a missing bucket or a None eff_gap falls back to "default".
+    The global and None paths ignore `eff_gap`, so existing callers are unchanged."""
+    if calibrator and calibrator.get("method") == "vector_scaling_segmented":
+        key = gap_bucket(eff_gap) if eff_gap is not None else None
+        cell = calibrator["buckets"].get(key) if key is not None else None
+        if cell is None:
+            cell = calibrator["default"]
+        return apply_vector_scaling(probs, cell["t"], tuple(cell["b"]))
     if calibrator and calibrator.get("method") == "vector_scaling":
         return apply_vector_scaling(probs, calibrator["t"], tuple(calibrator["b"]))
     return apply_temperature(probs, temperature)
@@ -110,6 +140,40 @@ def fit_vector_scaling(
         b_draw = min(grid(b_lo, b_hi, b_steps), key=lambda x: ll(t, x, b_away))
         b_away = min(grid(b_lo, b_hi, b_steps), key=lambda x: ll(t, b_draw, x))
     return round(t, 3), (0.0, round(b_draw, 3), round(b_away, 3))
+
+
+def fit_segmented_vector_scaling(
+    probs_list: list[Probs],
+    labels: list[int],
+    eff_gaps: list[float],
+    min_bucket: int = 200,
+) -> dict:
+    """Fit one vector-scaling (t, b_draw, b_away) per effective-gap bucket.
+
+    A global fit over all rows is always computed and stored as "default"; any
+    bucket with fewer than `min_bucket` rows inherits it (sparse buckets degrade
+    gracefully instead of over-fitting). Returns a vector_scaling_segmented blob."""
+    gt, gb = fit_vector_scaling(probs_list, labels)
+    default = {"t": gt, "b": list(gb)}
+
+    by_bucket: dict[str, list[int]] = {}
+    for i, g in enumerate(eff_gaps):
+        by_bucket.setdefault(gap_bucket(g), []).append(i)
+
+    buckets: dict[str, dict] = {}
+    for name in _GAP_BUCKETS:
+        ix = by_bucket.get(name, [])
+        if len(ix) >= min_bucket:
+            t, b = fit_vector_scaling([probs_list[i] for i in ix], [labels[i] for i in ix])
+            buckets[name] = {"t": t, "b": list(b)}
+        else:
+            buckets[name] = {"t": default["t"], "b": list(default["b"])}
+    return {
+        "method": "vector_scaling_segmented",
+        "by": "effective_elo_gap",
+        "buckets": buckets,
+        "default": default,
+    }
 
 
 def reliability_curve(
