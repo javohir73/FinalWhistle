@@ -497,7 +497,12 @@ def run_draw_cal_gate(rows: list[dict], tail_years: int = 2, test_since: int = 2
     AND RPS does not regress beyond _RPS_TOL.
     """
     served = served_params if served_params is not None else load_params()
-    base_params = replace(served, calibrator=None)   # uncalibrated triples for FITTING
+    # Also neutralize temperature: the segmented calibrate() path ignores scalar
+    # temperature entirely (mutually-exclusive dispatch in calibrate()), so the fit
+    # must use untempered (temperature=1.0) triples to match what the candidate
+    # serves — otherwise a served engine with temperature != 1.0 would silently
+    # skew fit vs serve.
+    base_params = replace(served, calibrator=None, temperature=1.0)   # uncalibrated, untempered triples for FITTING
 
     test_start = date(test_since, 1, 1)
     tail_start = date(test_since - tail_years, 1, 1)
