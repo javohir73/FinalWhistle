@@ -100,6 +100,20 @@ def test_training_weight_decays_with_age_and_downweights_friendlies():
     assert training_weight(friendly, ref) < training_weight(recent, ref)
 
 
+def test_accepts_datetime_dates_like_production():
+    # HistoricalMatch.date is a DateTime in production, not a plain date. The floor
+    # filter and emitted date must handle datetime inputs and normalize to date.
+    from datetime import datetime
+    rows = [
+        _row(1, 2, 1, 0, datetime(1980, 1, 1, 12, 0)),     # before floor → dropped
+        _row(1, 2, 2, 0, datetime(2020, 5, 1, 18, 30)),
+    ]
+    out = build_training_rows(rows)
+    assert len(out) == 1
+    assert out[0]["date"] == date(2020, 5, 1)
+    assert type(out[0]["date"]) is date          # normalized to a plain date
+
+
 def test_rows_before_date_floor_are_dropped():
     rows = [
         _row(1, 2, 1, 0, date(1980, 1, 1)),       # before floor
