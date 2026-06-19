@@ -47,11 +47,11 @@ export function CountryOnboarding({
     const name = selectedTeam?.name ?? selection.team;
     return (
       <section className="mx-auto max-w-xl py-16 text-center sm:py-24">
-        <p className="font-display text-sm font-bold uppercase tracking-[0.2em] text-win">
+        <p className="font-display text-sm font-bold uppercase tracking-[0.2em] text-lime-deep">
           Your team
         </p>
         <div className="mt-6 flex flex-col items-center gap-4">
-          <span className="grid place-items-center rounded-full bg-win/10 p-3 ring-1 ring-win/30">
+          <span className="grid place-items-center rounded-2xl bg-win/10 p-3.5">
             <Flag team={name} size={88} />
           </span>
           <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
@@ -79,7 +79,7 @@ export function CountryOnboarding({
           <button
             type="button"
             onClick={onPredict}
-            className="group inline-flex items-center gap-2 rounded-xl bg-win px-7 py-3.5 font-display text-lg font-bold text-background transition hover:brightness-110"
+            className="group inline-flex items-center gap-2 rounded-xl bg-win px-7 py-3.5 font-display text-lg font-bold text-pitch transition hover:brightness-105"
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2">
               <path d="M5 3l14 9-14 9V3z" strokeLinejoin="round" />
@@ -103,11 +103,11 @@ export function CountryOnboarding({
     <section className="mx-auto max-w-2xl py-12 sm:py-16">
       <div className="text-center">
         <div className="mb-5 inline-flex items-center gap-2 rounded-full chip px-3 py-1 text-xs font-medium text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-win shadow-[0_0_8px_hsl(var(--win))]" />
+          <span className="h-1.5 w-1.5 rounded-full bg-win" />
           FIFA World Cup 2026 · USA · Canada · Mexico
         </div>
-        <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight sm:text-6xl">
-          Choose your <span className="text-gradient">World Cup team</span>
+        <h1 className="font-display text-4xl font-extrabold leading-[1.05] tracking-tight text-foreground sm:text-6xl">
+          Choose your <span className="text-lime-deep">World Cup team</span>
         </h1>
         <p className="mx-auto mt-4 max-w-md text-lg text-muted">
           Follow their matches, make your predictions, and compare your picks with the AI.
@@ -129,12 +129,12 @@ export function CountryOnboarding({
                 key={t.id}
                 type="button"
                 onClick={() => onSelect(t)}
-                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-3 py-1.5 text-sm font-medium transition hover:border-win/40 hover:bg-surface-2/60"
+                className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-sm font-medium transition hover:bg-surface-2"
               >
                 <Flag team={t.name} size={20} />
                 {t.name}
                 {t.is_host && (
-                  <span className="rounded bg-gold/15 px-1 text-[9px] font-bold uppercase text-gold">Host</span>
+                  <span className="rounded bg-gold/15 px-1 text-[9px] font-bold uppercase tracking-wide text-gold">Host</span>
                 )}
               </button>
             ))}
@@ -144,11 +144,11 @@ export function CountryOnboarding({
 
       <p className="mt-9 text-center text-sm text-muted">
         Just browsing?{" "}
-        <Link href="/matches" className="font-medium text-win underline-offset-2 hover:underline">
+        <Link href="/matches" className="font-medium text-lime-deep underline-offset-2 hover:underline">
           Explore all matches
         </Link>
         {" · "}
-        <Link href="/brackets" className="font-medium text-win underline-offset-2 hover:underline">
+        <Link href="/brackets" className="font-medium text-lime-deep underline-offset-2 hover:underline">
           Road to the final
         </Link>
       </p>

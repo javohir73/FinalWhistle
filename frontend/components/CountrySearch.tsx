@@ -68,14 +68,14 @@ export function CountrySearch({
           placeholder="Search 48 nations…"
           aria-label="Search for a country"
           autoComplete="off"
-          className="w-full rounded-xl border border-border bg-surface/60 py-3 pl-10 pr-3 text-base outline-none transition placeholder:text-muted/60 focus:border-win/50 focus:ring-2 focus:ring-win/20"
+          className="w-full rounded-xl border border-border bg-surface py-3 pl-10 pr-3 text-base transition placeholder:text-muted/60 focus:border-lime-deep/40"
         />
       </div>
 
       <ul
         ref={listRef}
         onKeyDown={onListKeyDown}
-        className="mt-4 grid max-h-[44vh] grid-cols-2 gap-2 overflow-y-auto pr-1 sm:grid-cols-3"
+        className="mt-4 grid max-h-[44vh] grid-cols-2 gap-2 overflow-y-auto pr-1"
         role="listbox"
         aria-label="Countries"
       >
@@ -92,7 +92,7 @@ export function CountrySearch({
                   "flex w-full items-center gap-2.5 rounded-xl border px-3 py-2.5 text-left text-sm transition",
                   active
                     ? "border-win/50 bg-win/10 text-foreground"
-                    : "border-border bg-surface/50 text-foreground hover:border-win/40 hover:bg-surface-2/60",
+                    : "border-border bg-surface text-foreground hover:bg-surface-2",
                 )}
               >
                 <Flag team={t.name} size={26} />

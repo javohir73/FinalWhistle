@@ -34,8 +34,8 @@ export function GroupTable({
           <tr
             key={row.team_id}
             className={cn(
-              "border-t border-border/50",
-              i < 2 && "bg-win/[0.04]",
+              "border-t border-border",
+              i < 2 && "bg-win/[0.06]",
               row.team_id === highlightTeamId && "bg-win/10",
             )}
           >
@@ -43,7 +43,7 @@ export function GroupTable({
               <Link
                 href={`/team/${row.team_id}`}
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-2 hover:text-win sm:gap-2.5"
+                className="flex items-center gap-2 hover:text-lime-deep sm:gap-2.5"
               >
                 <span className="w-4 shrink-0 text-center text-xs font-semibold text-muted">
                   {i + 1}

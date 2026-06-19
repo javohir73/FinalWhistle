@@ -23,9 +23,9 @@ export function AuthToast({
     <div
       role="status"
       aria-live="polite"
-      className="fade-up fixed bottom-6 left-1/2 z-[120] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-win/30 bg-surface/95 px-4 py-3 text-sm font-medium shadow-lg backdrop-blur"
+      className="glass fade-up fixed bottom-6 left-1/2 z-[120] flex -translate-x-1/2 items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium text-foreground shadow-lg"
     >
-      <span className="grid h-5 w-5 place-items-center rounded-full bg-win/20 text-win" aria-hidden>
+      <span className="grid h-5 w-5 place-items-center rounded-full bg-win text-pitch" aria-hidden>
         ✓
       </span>
       {message}

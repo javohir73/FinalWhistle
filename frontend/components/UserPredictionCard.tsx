@@ -33,8 +33,8 @@ function verdict(pick: Outcome, p: { home_win: number; draw: number; away_win: n
 }
 
 const TONE: Record<"win" | "draw" | "loss", string> = {
-  win: "border-win/40 bg-win/10 text-win",
-  draw: "border-draw/40 bg-draw/10 text-draw",
+  win: "border-win/40 bg-win/10 text-lime-deep",
+  draw: "border-draw/40 bg-draw/10 text-[#9a730f]",
   loss: "border-loss/40 bg-loss/10 text-loss",
 };
 
@@ -103,8 +103,8 @@ export function UserPredictionCard({
   return (
     <div
       className={cn(
-        "rounded-2xl border bg-surface/50 p-4",
-        live ? "border-loss/40 ring-1 ring-loss/30" : "border-border",
+        "glass rounded-2xl p-4",
+        live ? "border-loss/40 ring-1 ring-loss/30" : "",
       )}
     >
       {/* Matchup header — live/final score shown in the middle when available */}
@@ -166,7 +166,7 @@ export function UserPredictionCard({
       {matchVerdict && (
         <div className="mt-1.5 flex items-center justify-center gap-1 text-xs font-semibold">
           <span aria-hidden>{matchVerdict.kind === "miss" ? "✗" : "✓"}</span>
-          <span className={matchVerdict.kind === "miss" ? "text-loss" : "text-win"}>
+          <span className={matchVerdict.kind === "miss" ? "text-loss" : "text-lime-deep"}>
             {matchVerdict.label}
           </span>
         </div>
@@ -237,7 +237,7 @@ export function UserPredictionCard({
           </div>
           <Link
             href={`/match/${match.match_id}`}
-            className="inline-block text-[11px] font-medium text-win underline-offset-2 hover:underline"
+            className="inline-block text-[11px] font-medium text-lime-deep underline-offset-2 hover:underline"
           >
             See full match analysis →
           </Link>

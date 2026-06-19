@@ -67,7 +67,7 @@ export function AccountPanel({
     });
 
   const btn =
-    "rounded-lg border border-border px-3 py-1.5 text-sm font-medium transition hover:text-foreground disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50";
+    "rounded-lg border border-border bg-surface px-3 py-1.5 text-sm font-medium text-foreground transition hover:bg-surface-2 disabled:opacity-50";
 
   return (
     <section className="glass rounded-2xl p-5">
@@ -77,7 +77,7 @@ export function AccountPanel({
 
       {!user ? (
         <>
-          <p className="text-sm text-foreground/90">
+          <p className="text-sm text-foreground">
             Save your bracket across devices and join the leaderboard — free, and your picks
             stay yours.
           </p>
@@ -85,7 +85,7 @@ export function AccountPanel({
             <button
               type="button"
               onClick={() => openSignIn({ onSuccess: save })}
-              className="rounded-lg bg-win/15 px-4 py-2 text-sm font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/25"
+              className="rounded-lg bg-win px-4 py-2 text-sm font-bold text-pitch transition hover:brightness-110"
             >
               Save across devices →
             </button>
@@ -100,7 +100,7 @@ export function AccountPanel({
             <button type="button" onClick={() => setShowJoin((v) => !v)} disabled={busy} className={btn}>
               Join leaderboard
             </button>
-            <Link href="/leaderboard" className="text-sm font-semibold text-win underline-offset-2 hover:underline">
+            <Link href="/leaderboard" className="text-sm font-semibold text-lime-deep underline-offset-2 hover:underline">
               View leaderboard →
             </Link>
           </div>
@@ -112,7 +112,7 @@ export function AccountPanel({
                 maxLength={40}
                 placeholder="Display name (public)"
                 aria-label="Leaderboard display name"
-                className="rounded-lg border border-border bg-surface/60 px-3 py-1.5 text-sm outline-none focus:border-win/50 focus:ring-2 focus:ring-win/20"
+                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-foreground outline-none focus:border-win"
               />
               <button type="button" onClick={join} disabled={busy || !name.trim()} className={btn}>
                 Publish to leaderboard
@@ -122,7 +122,7 @@ export function AccountPanel({
         </>
       )}
 
-      {status && <p className="mt-3 text-sm text-win">{status}</p>}
+      {status && <p className="mt-3 text-sm font-medium text-lime-deep">{status}</p>}
     </section>
   );
 }

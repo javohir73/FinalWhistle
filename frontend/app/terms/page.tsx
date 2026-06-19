@@ -43,7 +43,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
         leaderboard. You are responsible for keeping your password safe;
         password reset is not yet self-serve — contact support if you&apos;re
         locked out. You can request account deletion at any time (see{" "}
-        <Link className="text-win underline-offset-2 hover:underline" href="/privacy">privacy policy</Link>).
+        <Link className="text-lime-deep underline-offset-2 hover:underline" href="/privacy">privacy policy</Link>).
       </p>
     ),
   },
@@ -63,7 +63,7 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
     body: (
       <p>
         Bugs, questions, account help:{" "}
-        <a className="text-win underline-offset-2 hover:underline" href="mailto:javohirazizov48@gmail.com">
+        <a className="text-lime-deep underline-offset-2 hover:underline" href="mailto:javohirazizov48@gmail.com">
           javohirazizov48@gmail.com
         </a>
         . We read everything.

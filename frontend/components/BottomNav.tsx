@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -28,16 +27,10 @@ const TABS: Tab[] = [
     activePrefixes: ["/matches", "/match"],
     icon: (
       <>
-        <rect x="3" y="5" width="18" height="16" rx="2" />
+        <rect x="3" y="5" width="18" height="16" rx="3" />
         <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
       </>
     ),
-  },
-  {
-    href: "/my-bracket",
-    label: "My Bracket",
-    activePrefixes: ["/my-bracket"],
-    icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
   },
   {
     href: "/groups",
@@ -52,16 +45,26 @@ const TABS: Tab[] = [
       </>
     ),
   },
+  {
+    href: "/brackets",
+    label: "Bracket",
+    // The bracket tab is a hub: AI bracket (/brackets) + your picks (/my-bracket).
+    activePrefixes: ["/my-bracket"],
+    icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
+  },
+  {
+    href: "/leaderboard",
+    label: "You",
+    // The You hub also houses the relocated info/settings pages.
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+    icon: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
+      </>
+    ),
+  },
 ];
-
-const MORE_LINKS = [
-  { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/brackets", label: "AI Bracket" },
-  { href: "/about", label: "How it works" },
-  { href: "/methodology", label: "Methodology" },
-];
-
-const MORE_PREFIXES = MORE_LINKS.map((l) => l.href);
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
   if (href === "/") return pathname === "/" || prefixes.some((p) => hit(pathname, p));
@@ -71,100 +74,44 @@ function matches(pathname: string, prefixes: string[], href: string): boolean {
 const hit = (pathname: string, prefix: string) =>
   pathname === prefix || pathname.startsWith(prefix + "/");
 
-/** Mobile-only sticky bottom tab bar: the core loop (Home, Matches, My Bracket,
- *  Groups) one tap away, the leaderboard and the rest under More. */
+/** Mobile-only sticky bottom tab bar. Exactly five destinations — Home,
+ *  Matches, Groups, Bracket and You — each one tap away, no overflow sheet. */
 export function BottomNav() {
   const pathname = usePathname();
-  const [moreOpen, setMoreOpen] = useState(false);
-
-  // Close the sheet on navigation.
-  useEffect(() => {
-    setMoreOpen(false);
-  }, [pathname]);
-
-  const moreActive = MORE_PREFIXES.some((p) => hit(pathname, p));
 
   return (
-    <>
-      {/* Tap-away backdrop for the More sheet */}
-      {moreOpen && (
-        <button
-          type="button"
-          aria-label="Close menu"
-          onClick={() => setMoreOpen(false)}
-          className="fixed inset-0 z-40 cursor-default bg-background/40 backdrop-blur-[2px] sm:hidden"
-        />
-      )}
-
-      <nav
-        aria-label="Primary"
-        className="safe-x safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-border/60 bg-background/90 backdrop-blur-xl sm:hidden"
-      >
-        {/* More sheet sits on top of the bar, inside the nav for focus flow */}
-        {moreOpen && (
-          <div
-            id="bottom-nav-more"
-            className="absolute inset-x-3 bottom-full mb-2 overflow-hidden rounded-2xl border border-border/80 bg-background/95 shadow-xl backdrop-blur-xl"
-          >
-            {MORE_LINKS.map((l) => {
-              const active = hit(pathname, l.href);
-              return (
-                <Link
-                  key={l.href}
-                  href={l.href}
-                  aria-current={active ? "page" : undefined}
-                  onClick={() => setMoreOpen(false)}
-                  className={cn(
-                    "block border-b border-border/40 px-4 py-3 text-sm font-medium last:border-b-0",
-                    active ? "text-win" : "text-foreground hover:bg-surface-2/60",
-                  )}
-                >
-                  {l.label}
-                </Link>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="mx-auto flex max-w-md items-stretch justify-around">
-          {TABS.map((tab) => {
-            const active = !moreOpen && matches(pathname, tab.activePrefixes, tab.href);
-            return (
-              <Link
-                key={tab.href}
-                href={tab.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition",
-                  active ? "text-win" : "text-muted hover:text-foreground",
-                )}
+    <nav
+      aria-label="Primary"
+      className="safe-x safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface/90 backdrop-blur-xl sm:hidden"
+    >
+      <div className="mx-auto flex max-w-md items-stretch justify-around">
+        {TABS.map((tab) => {
+          const active = matches(pathname, tab.activePrefixes, tab.href);
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition",
+                active ? "text-lime-deep" : "text-muted hover:text-foreground",
+              )}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-[23px] w-[23px]"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={active ? 2.4 : 2}
+                aria-hidden="true"
               >
-                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  {tab.icon}
-                </svg>
-                {tab.label}
-              </Link>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setMoreOpen((v) => !v)}
-            aria-expanded={moreOpen}
-            aria-controls="bottom-nav-more"
-            className={cn(
-              "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition",
-              moreOpen || moreActive ? "text-win" : "text-muted hover:text-foreground",
-            )}
-          >
-            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-              <circle cx="5" cy="12" r="1.2" />
-              <circle cx="12" cy="12" r="1.2" />
-              <circle cx="19" cy="12" r="1.2" />
-            </svg>
-            More
-          </button>
-        </div>
-      </nav>
-    </>
+                {tab.icon}
+              </svg>
+              {tab.label}
+            </Link>
+          );
+        })}
+      </div>
+    </nav>
   );
 }

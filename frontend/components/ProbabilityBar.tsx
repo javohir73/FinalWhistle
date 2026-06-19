@@ -21,23 +21,17 @@ export function ProbabilityBar({
   return (
     <div>
       <div
-        className="flex h-2.5 w-full gap-0.5 overflow-hidden rounded-full"
+        className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full"
         role="img"
         aria-label={`${homeLabel} win ${pct(home_win)}, draw ${pct(draw)}, ${awayLabel} win ${pct(away_win)}`}
       >
-        <div
-          className="rounded-l-full bg-gradient-to-r from-win/70 to-win"
-          style={seg(home_win)}
-        />
-        <div className="bg-draw/80" style={seg(draw)} />
-        <div
-          className="rounded-r-full bg-gradient-to-r from-loss to-loss/70"
-          style={seg(away_win)}
-        />
+        <div className="rounded-l-full bg-win" style={seg(home_win)} />
+        <div className="bg-draw" style={seg(draw)} />
+        <div className="rounded-r-full bg-loss" style={seg(away_win)} />
       </div>
       {showLabels && (
-        <div className="mt-2 flex justify-between text-[11px] font-medium tabular-nums">
-          <span className="text-win">{pct(home_win)}</span>
+        <div className="mt-2 flex justify-between text-[11px] font-semibold tabular-nums">
+          <span className="text-lime-deep">{pct(home_win)}</span>
           <span className="text-draw">{pct(draw)} draw</span>
           <span className="text-loss">{pct(away_win)}</span>
         </div>

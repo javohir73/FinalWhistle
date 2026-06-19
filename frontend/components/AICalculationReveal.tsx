@@ -90,7 +90,7 @@ export function AICalculationReveal({
 
         {/* HUD rings — each layer rotates independently */}
         <span aria-hidden className="ai-spin-cw absolute inset-0">
-          <svg viewBox="0 0 200 200" className="h-full w-full text-win" fill="none">
+          <svg viewBox="0 0 200 200" className="h-full w-full text-lime-deep" fill="none">
             <circle cx="100" cy="100" r="95" stroke="currentColor" strokeOpacity="0.14" strokeWidth="1" />
             <circle
               cx="100" cy="100" r="86"
@@ -100,7 +100,7 @@ export function AICalculationReveal({
           </svg>
         </span>
         <span aria-hidden className="ai-spin-ccw absolute inset-0">
-          <svg viewBox="0 0 200 200" className="h-full w-full text-win" fill="none">
+          <svg viewBox="0 0 200 200" className="h-full w-full text-lime-deep" fill="none">
             {/* Two bright arcs, like a targeting reticle */}
             <circle
               cx="100" cy="100" r="74"
@@ -115,13 +115,13 @@ export function AICalculationReveal({
           </svg>
         </span>
         <span aria-hidden className="ai-spin-cw-fast absolute inset-0">
-          <svg viewBox="0 0 200 200" className="h-full w-full text-win" fill="none">
+          <svg viewBox="0 0 200 200" className="h-full w-full text-lime-deep" fill="none">
             <circle cx="100" cy="100" r="62" stroke="currentColor" strokeOpacity="0.22" strokeWidth="1" strokeDasharray="1 7" />
           </svg>
         </span>
 
         {/* Core — the flag in a glowing disc */}
-        <span className="relative grid place-items-center rounded-full bg-surface/85 p-3 ring-1 ring-win/40 shadow-[0_0_36px_-6px_hsl(var(--win)/0.7)]">
+        <span className="relative grid place-items-center rounded-full bg-surface p-3 ring-1 ring-win/50 shadow-[0_0_36px_-6px_hsl(var(--win)/0.55)]">
           <Flag team={team} size={80} />
         </span>
       </div>

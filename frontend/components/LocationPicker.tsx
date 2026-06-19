@@ -70,7 +70,7 @@ function Select({
       aria-label="Choose your timezone"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2/80 px-2.5 py-1.5 text-sm font-medium text-foreground outline-none transition focus:border-win/50 sm:flex-none"
+      className="min-w-0 flex-1 rounded-lg border border-border bg-surface-2 px-2.5 py-1.5 text-sm font-medium text-foreground outline-none transition focus:border-win sm:flex-none"
     >
       {extras.length > 0 && (
         <optgroup label="Detected">
@@ -109,7 +109,7 @@ export function LocationPicker() {
     return (
       <div className="glass flex flex-col gap-3 rounded-xl px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2.5 text-sm">
-          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-win/15 text-win ring-1 ring-win/30">
+          <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-win/15 text-lime-deep">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
               <circle cx="12" cy="10" r="2.5" />
@@ -124,7 +124,7 @@ export function LocationPicker() {
           <Select value={tz} onChange={setTimezone} />
           <button
             onClick={confirm}
-            className="shrink-0 rounded-lg bg-win px-3.5 py-1.5 text-sm font-display font-bold text-background transition hover:brightness-110"
+            className="shrink-0 rounded-lg bg-win px-3.5 py-1.5 text-sm font-display font-bold text-pitch transition hover:brightness-110"
           >
             Use this
           </button>
@@ -135,7 +135,7 @@ export function LocationPicker() {
 
   return (
     <div className="flex items-center gap-2 text-sm text-muted">
-      <svg viewBox="0 0 24 24" className="h-4 w-4 text-win" fill="none" stroke="currentColor" strokeWidth="2">
+      <svg viewBox="0 0 24 24" className="h-4 w-4 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
         <circle cx="12" cy="10" r="2.5" />
       </svg>
@@ -155,7 +155,7 @@ export function LocationPicker() {
           </span>
           <button
             onClick={() => setEditing(true)}
-            className="rounded-md px-2 py-0.5 text-xs font-medium text-win underline-offset-2 transition hover:bg-win/10 hover:underline"
+            className="rounded-md px-2 py-0.5 text-xs font-medium text-lime-deep underline-offset-2 transition hover:bg-win/10 hover:underline"
           >
             Change
           </button>

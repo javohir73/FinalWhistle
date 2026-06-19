@@ -11,7 +11,7 @@ const mockGet = getUpcomingMatches as jest.MockedFunction<typeof getUpcomingMatc
 const mockHealth = getHealth as jest.MockedFunction<typeof getHealth>;
 
 beforeEach(() => {
-  // The live-status badge fetches health; keep it resolved so it never crashes.
+  // Kept resolved for any incidental health fetch; harmless for this surface.
   mockHealth.mockResolvedValue({
     status: "ok", app: "FinalWhistle", model_version: "poisson-elo-v0.1", live_updates: "inactive",
   });
@@ -41,9 +41,6 @@ function match(
 
 afterEach(() => {
   jest.resetAllMocks();
-  // The Upcoming/Past tab and country-focus both persist in sessionStorage; wipe
-  // it between tests so a click in one test doesn't change another's default tab.
-  sessionStorage.clear();
 });
 
 it("shows loading then the match cards", async () => {
@@ -72,7 +69,7 @@ it("filters matches by team search", async () => {
   expect(screen.getByText("Uruguay")).toBeInTheDocument();
 });
 
-it("groups matches by date and shows venue + a day heading", async () => {
+it("groups matches by date under a day heading", async () => {
   mockGet.mockResolvedValue([
     match(1, "Mexico", "South Africa", "Group A", {
       kickoff_utc: "2026-06-11T19:00:00+00:00",
@@ -82,35 +79,9 @@ it("groups matches by date and shows venue + a day heading", async () => {
     }),
   ]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText(/Estadio Azteca/)).toBeInTheDocument());
-  // A day heading derived from the kickoff date should appear.
+  await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
+  // A day heading derived from the kickoff date should appear (year included).
   expect(screen.getByText(/2026/)).toBeInTheDocument();
-});
-
-it("remembers 'Show all matches' across remounts (back from a match page)", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
-  mockGet.mockResolvedValue([
-    match(1, "Brazil", "Scotland", "Group C"),
-    match(2, "Spain", "Uruguay", "Group H"),
-  ]);
-
-  // First visit: focused on Brazil → flip to all matches.
-  const first = render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
-  expect(screen.queryByText("Uruguay")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Show all matches" }));
-  expect(screen.getByText("Uruguay")).toBeInTheDocument();
-  first.unmount();
-
-  // Remount (user opened a match and came back): still showing all matches.
-  render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Uruguay")).toBeInTheDocument());
-
-  localStorage.removeItem("finalwhistle:selected-country:v1");
-  sessionStorage.clear();
 });
 
 it("pins live (in-play) matches in a 'Live now' section at the top", async () => {
@@ -132,14 +103,19 @@ it("pins live (in-play) matches in a 'Live now' section at the top", async () =>
   expect(live.compareDocumentPosition(scheduledTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-it("offers a location/timezone control", async () => {
+it("offers a location chip linking to the You hub", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
   await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
-  expect(screen.getByLabelText("Choose your timezone")).toBeInTheDocument();
+  // The big timezone card is gone; a compact location chip links to the You hub.
+  // Its label is the viewer's timezone city, which varies by environment, so
+  // select it by destination rather than by name.
+  const links = screen.getAllByRole("link");
+  const chip = links.find((el) => el.getAttribute("href") === "/leaderboard");
+  expect(chip).toBeTruthy();
 });
 
-it("offers a 'Clear filters' escape when filters yield zero matches", async () => {
+it("shows an empty state when a search matches nothing, and recovers on clear", async () => {
   mockGet.mockResolvedValue([
     match(1, "Brazil", "Scotland", "Group C"),
     match(2, "Spain", "Uruguay", "Group H"),
@@ -147,38 +123,22 @@ it("offers a 'Clear filters' escape when filters yield zero matches", async () =
   render(<MatchesPage />);
   await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
 
-  // Search for something no team matches → the empty state appears with a recovery action.
+  // Search for something no team matches → the empty state appears.
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "zzz" } });
-  expect(screen.getByText("No matches match your filters.")).toBeInTheDocument();
-  const clear = screen.getByRole("button", { name: /clear filters/i });
-  expect(clear).toBeInTheDocument();
+  expect(screen.getByText("No fixtures here yet.")).toBeInTheDocument();
 
-  // Clicking it resets the filters and the teams reappear.
-  fireEvent.click(clear);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  // Clearing the search restores the fixtures.
+  fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "" } });
+  expect(screen.getByText("Scotland")).toBeInTheDocument();
   expect(screen.getByText("Uruguay")).toBeInTheDocument();
 });
 
-it("does not offer 'Clear filters' for the empty favorites feed", async () => {
-  mockGet.mockResolvedValue([
-    match(1, "Brazil", "Scotland", "Group C"),
-    match(2, "Spain", "Uruguay", "Group H"),
-  ]);
-  render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
-
-  // Favorites-only with no starred teams is its own empty state — guidance, not a clear button.
-  fireEvent.click(screen.getByRole("button", { name: /Favorites/ }));
-  expect(screen.getByText("Star a team to build your favorites feed.")).toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: /clear filters/i })).not.toBeInTheDocument();
-});
-
-// A finished match has been played; a scheduled one has not. The kickoff dates are
-// relative so the partition is decided by status, not the wall clock at test time.
+// A finished match has been played; a scheduled one has not. Kickoffs are relative
+// so the partition is decided by status, not the wall clock at test time.
 const futureKickoff = new Date(Date.now() + 5 * 86_400_000).toISOString();
 const pastKickoff = new Date(Date.now() - 2 * 86_400_000).toISOString();
 
-it("keeps played matches behind a 'Past matches' tab, showing upcoming by default", async () => {
+it("shows every fixture under All, and only full-time ones under Finished", async () => {
   mockGet.mockResolvedValue([
     match(1, "Mexico", "South Africa", "Group A", { kickoff_utc: futureKickoff }),
     match(2, "Qatar", "Switzerland", "Group B", {
@@ -189,31 +149,38 @@ it("keeps played matches behind a 'Past matches' tab, showing upcoming by defaul
   // Query away-team names: the home team doubles as the predicted winner.
   await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
 
-  // Default (Upcoming) tab hides the finished match.
-  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
-  expect(screen.getByRole("tab", { name: /Upcoming/ })).toHaveAttribute("aria-selected", "true");
+  // Default (All) shows both the upcoming and the finished match.
+  expect(screen.getByText("South Africa")).toBeInTheDocument();
+  expect(screen.getByText("Switzerland")).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "All" })).toHaveAttribute("aria-selected", "true");
 
-  // Switching to Past matches reveals the played one and hides the upcoming.
-  fireEvent.click(screen.getByRole("tab", { name: /Past matches/ }));
-  await waitFor(() => expect(screen.getByText("Switzerland")).toBeInTheDocument());
+  // Switching to Finished keeps the played one and drops the upcoming.
+  fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
+  expect(screen.getByText("Switzerland")).toBeInTheDocument();
   expect(screen.queryByText("South Africa")).not.toBeInTheDocument();
 });
 
-it("offers a way back when a tab is empty", async () => {
+it("narrows to in-play games under the Live filter", async () => {
   mockGet.mockResolvedValue([
-    match(1, "Qatar", "Switzerland", "Group B", {
+    match(1, "Brazil", "Morocco", "Group C", {
+      status: "in_play", period: "second_half", minute: 70, score_home: 1, score_away: 1,
+      kickoff_utc: new Date(Date.now() - 60 * 60_000).toISOString(),
+    }),
+    match(2, "Qatar", "Switzerland", "Group B", {
       status: "finished", score_home: 1, score_away: 1, kickoff_utc: pastKickoff,
     }),
   ]);
   render(<MatchesPage />);
-  // Only a played match exists, so the default Upcoming tab is empty…
-  await waitFor(() => expect(screen.getByText("No upcoming matches.")).toBeInTheDocument());
-  // …with a shortcut into the populated Past tab.
-  fireEvent.click(screen.getByRole("button", { name: /View past matches/i }));
-  expect(screen.getByText("Switzerland")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole("tab", { name: "Live" }));
+  // Only the live match remains; the finished one is filtered out.
+  expect(screen.getByText("Live now")).toBeInTheDocument();
+  expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
+  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
 });
 
-it("keeps the live match pinned regardless of the selected tab", async () => {
+it("keeps the live match pinned when switching to the Today filter", async () => {
   mockGet.mockResolvedValue([
     match(1, "Brazil", "Morocco", "Group C", {
       status: "in_play", period: "second_half", minute: 70, score_home: 1, score_away: 1,
@@ -227,9 +194,10 @@ it("keeps the live match pinned regardless of the selected tab", async () => {
   await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
   expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
 
-  fireEvent.click(screen.getByRole("tab", { name: /Past matches/ }));
-  // Live stays pinned; the past result also appears.
+  // The live match kicked off today, so it stays under Today (and pinned);
+  // the older finished result drops away.
+  fireEvent.click(screen.getByRole("tab", { name: "Today" }));
   expect(screen.getByText("Live now")).toBeInTheDocument();
   expect(screen.getByText("Morocco")).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByText("Switzerland")).toBeInTheDocument());
+  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
 });

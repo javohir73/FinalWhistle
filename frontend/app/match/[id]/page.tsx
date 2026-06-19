@@ -3,12 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getMatchServer, getMatchSummaryServer, getModelRecordServer } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
-import { pct, formatScore } from "@/lib/format";
-import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+import { pct, formatScore, topOutcome } from "@/lib/format";
+import { prematchCall } from "@/lib/verdict";
 import { ReasonsList } from "@/components/ReasonsList";
 import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { MatchScoreboard } from "@/components/MatchScoreboard";
-import { OddsCompare } from "@/components/OddsCompare";
+import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
 
@@ -42,92 +42,69 @@ export default async function MatchDetailPage({ params }: { params: { id: string
 
   const { home, away } = p.teams;
   const venue = [p.venue, p.venue_city, p.venue_country].filter(Boolean).join(", ");
+  const call = prematchCall(p.probabilities, p.teams);
+  // The model's favoured side (for the "Why {winner}?" heading and the AI's-call
+  // headline); a draw lean has no single side, so fall back to the generic
+  // heading / "Too close to call" sentence.
+  const topSide = topOutcome(p.probabilities);
+  const predictedWinner = topSide === "home" ? home : topSide === "away" ? away : null;
 
   return (
-    <div className="fade-up mx-auto max-w-3xl space-y-6">
+    <div className="fade-up mx-auto max-w-2xl space-y-6">
       <div className="flex items-center justify-between gap-3">
         <Link href="/matches" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <span aria-hidden>←</span> All matches
         </Link>
+        {p.group && (
+          <span className="font-display text-[13px] font-semibold text-muted">{p.group}</span>
+        )}
         <ShareButton title={`${home} vs ${away} — World Cup 2026 prediction`} />
       </div>
 
-      {/* Headline matchup (server-rendered) */}
-      <section className="glass rounded-2xl p-6">
-        <div className="mb-5 flex items-center justify-between">
-          <span className="font-display text-xs font-semibold uppercase tracking-wider text-muted">
-            World Cup 2026
-          </span>
-          <ConfidenceBadge level={p.confidence} />
-        </div>
+      <LocalKickoff iso={p.kickoff_utc} venue={venue || null} />
 
-        <LocalKickoff iso={p.kickoff_utc} venue={venue || null} />
-
-        <MatchScoreboard
-          matchId={p.match_id}
-          home={home}
-          away={away}
-          homeTeamId={p.home_team_id}
-          awayTeamId={p.away_team_id}
-          probabilities={p.probabilities}
-          predicted={p.predicted_score}
-          initialSummary={summary}
-        />
-      </section>
+      {/* Bare matchup + the AI's call card (the scoreboard hydrates and promotes
+          the actual score once a match is live or final). */}
+      <MatchScoreboard
+        matchId={p.match_id}
+        home={home}
+        away={away}
+        homeTeamId={p.home_team_id}
+        awayTeamId={p.away_team_id}
+        probabilities={p.probabilities}
+        predicted={p.predicted_score}
+        initialSummary={summary}
+        confidence={p.confidence}
+        predictedWinner={predictedWinner}
+        caveat={call?.label ?? null}
+      />
 
       {/* Why (server-rendered reasons; chart hydrates client-side) */}
       <section className="glass rounded-2xl p-6">
-        <h2 className="mb-4 font-display text-lg font-bold">Why this prediction</h2>
+        <h2 className="mb-4 font-display text-lg font-bold text-foreground">
+          {predictedWinner ? `Why ${predictedWinner}?` : "Why this prediction"}
+        </h2>
         <ReasonsList reasons={p.reasons} />
         {p.top_features.length > 0 && (
           <>
             <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted">
-              Most important factors
+              What drove this prediction
             </h3>
             <FeatureImportanceChart features={p.top_features} />
           </>
         )}
       </section>
 
-      <section className="glass rounded-2xl p-6">
-        <h2 className="mb-3 font-display text-lg font-bold">Head-to-head</h2>
-        {p.head_to_head.matches > 0 ? (
-          <p className="text-sm text-foreground/90">
-            Last {p.head_to_head.matches} meetings — {home}:{" "}
-            <strong>{p.head_to_head.home_wins}W</strong>, {p.head_to_head.draws}D,{" "}
-            {away}: <strong>{p.head_to_head.away_wins}W</strong>.
-          </p>
-        ) : (
-          <p className="text-sm text-muted">No recent meetings on record.</p>
-        )}
-      </section>
-
-      <section>
-        <h2 className="mb-3 font-display text-lg font-bold">Odds comparison</h2>
-        <OddsCompare available={p.odds_comparison.available} />
-      </section>
-
-      {/* Explore — turn the match page into a navigation hub */}
-      <section>
-        <h2 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted">
-          Explore
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {p.home_team_id && <HubLink href={`/team/${p.home_team_id}`} label={`${home} profile`} sub="Form, strengths, group" />}
-          {p.away_team_id && <HubLink href={`/team/${p.away_team_id}`} label={`${away} profile`} sub="Form, strengths, group" />}
-          {p.group_id && <HubLink href={`/groups/${p.group_id}`} label={`${p.group ?? "Group"} table`} sub="Live standings & qualification" />}
-          <HubLink href="/brackets" label="Tournament odds" sub="Title & round-by-round chances" />
-        </div>
-      </section>
-
-      {record && record.evaluated_matches > 0 && (
-        <p className="text-center text-xs text-muted">
-          AI record so far: {record.winners_correct}/{record.evaluated_matches} winners ·{" "}
-          {record.exact_score_hits} exact score{record.exact_score_hits !== 1 ? "s" : ""} ·{" "}
-          predictions update automatically after each final whistle
-        </p>
+      {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).
+          Needs the live match summary; rendered only when it's available. */}
+      {summary && (
+        <section>
+          <h2 className="mb-3 font-display text-lg font-bold">Your prediction</h2>
+          <MatchUserPrediction match={summary} />
+        </section>
       )}
-      <p className="text-center text-xs text-muted">
+
+      <p className="text-center text-xs leading-relaxed text-muted">
         {(() => {
           // Prefer record.last_updated when it's non-null and newer than
           // p.generated_at. Compare numerically — the two timestamps come from
@@ -162,19 +139,4 @@ function fmtUpdated(iso: string): string {
   } catch {
     return iso.slice(0, 10);
   }
-}
-
-function HubLink({ href, label, sub }: { href: string; label: string; sub: string }) {
-  return (
-    <Link
-      href={href}
-      className="card-hover glass flex items-center justify-between gap-2 rounded-xl px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
-    >
-      <span className="min-w-0">
-        <span className="block truncate font-display text-sm font-bold">{label}</span>
-        <span className="block truncate text-xs text-muted">{sub}</span>
-      </span>
-      <span className="shrink-0 text-win" aria-hidden>→</span>
-    </Link>
-  );
 }

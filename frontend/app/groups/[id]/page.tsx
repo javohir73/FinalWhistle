@@ -72,7 +72,7 @@ export default async function GroupDetailPage({ params }: { params: { id: string
 
       {/* Explore */}
       <section>
-        <h2 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted">
+        <h2 className="mb-3 font-display text-xs font-semibold uppercase tracking-wider text-muted">
           Explore
         </h2>
         <div className="grid gap-3 sm:grid-cols-2">
@@ -88,13 +88,13 @@ function ExploreLink({ href, label, sub }: { href: string; label: string; sub: s
   return (
     <Link
       href={href}
-      className="card-hover glass flex items-center justify-between gap-2 rounded-xl px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+      className="card-hover glass flex items-center justify-between gap-2 rounded-xl px-4 py-3"
     >
       <span className="min-w-0">
         <span className="block truncate font-display text-sm font-bold">{label}</span>
         <span className="block truncate text-xs text-muted">{sub}</span>
       </span>
-      <span className="shrink-0 text-win" aria-hidden>→</span>
+      <span className="shrink-0 text-lime-deep" aria-hidden>→</span>
     </Link>
   );
 }

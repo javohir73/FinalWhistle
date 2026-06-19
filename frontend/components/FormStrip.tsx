@@ -2,9 +2,9 @@ import type { FormResult } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 const COLOR: Record<string, string> = {
-  W: "bg-win/15 text-win ring-win/30",
-  D: "bg-draw/15 text-draw ring-draw/30",
-  L: "bg-loss/15 text-loss ring-loss/30",
+  W: "bg-win/15 text-lime-deep",
+  D: "bg-draw/15 text-[#9a730f]",
+  L: "bg-loss/15 text-loss",
 };
 
 /** Colored W/D/L chips of a team's recent results (most recent first). */
@@ -19,7 +19,7 @@ export function FormStrip({ form }: { form: FormResult[] }) {
           key={i}
           title={`${f.result} vs ${f.opponent} ${f.score_for}–${f.score_against}`}
           className={cn(
-            "grid h-8 w-8 place-items-center rounded-lg text-xs font-bold ring-1",
+            "grid h-8 w-8 place-items-center rounded-lg font-display text-xs font-extrabold",
             COLOR[f.result],
           )}
         >

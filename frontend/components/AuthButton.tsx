@@ -17,7 +17,7 @@ export function AuthButton() {
     <button
       type="button"
       onClick={() => openSignIn()}
-      className="rounded-lg bg-win/15 px-3 py-1.5 text-sm font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+      className="rounded-lg bg-win/15 px-3 py-1.5 text-sm font-semibold text-lime-deep ring-1 ring-win/30 transition hover:bg-win/25"
     >
       Sign in
     </button>

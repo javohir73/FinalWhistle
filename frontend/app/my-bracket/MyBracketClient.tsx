@@ -86,12 +86,13 @@ export function MyBracketClient({
     <div className="space-y-8">
       <header className="fade-up">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Build your bracket
+          Make your <span className="text-lime-deep">picks</span>
         </h1>
         <p className="mt-2 max-w-xl text-muted">
           Pick every group game, watch the tables update, then play out the knockouts to
           your champion. Saved on this device — come back any time.
         </p>
+        <BracketSeg active="picks" />
       </header>
 
       {error && <ErrorState message={error} />}
@@ -99,24 +100,28 @@ export function MyBracketClient({
 
       {!loading && !error && b.model.length > 0 && (
         <>
-          {/* Progress + reset */}
+          {/* Progress + reset/share — prototype status row */}
           <div className="glass flex flex-wrap items-center justify-between gap-3 rounded-2xl p-4">
             <div className="text-sm">
-              <span className="font-display font-bold">
-                {b.progress.groupsPicked}/{b.progress.totalGroupFixtures}
-              </span>{" "}
-              <span className="text-muted">group games picked</span>
-              {b.champion && (
-                <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
-              )}
-              {sync.signedIn && sync.status !== "idle" && (
-                <span className={cn("ml-2 text-xs", sync.status === "offline" ? "text-draw" : "text-win")}>
-                  {sync.status === "saving"
-                    ? "· Saving…"
-                    : sync.status === "offline"
-                      ? "· Offline — will save when online"
-                      : "· Saved to your account ✓"}
+              <div>
+                <span className="font-display text-xl font-extrabold tabular-nums">
+                  {b.progress.groupsPicked}
                 </span>
+                <span className="text-muted"> / {b.progress.totalGroupFixtures} picked</span>
+                {b.champion && (
+                  <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
+                )}
+              </div>
+              {sync.signedIn && sync.status !== "idle" ? (
+                <span className={cn("mt-0.5 block text-xs", sync.status === "offline" ? "text-[#9a730f]" : "text-lime-deep")}>
+                  {sync.status === "saving"
+                    ? "Saving…"
+                    : sync.status === "offline"
+                      ? "Offline — will save when online"
+                      : "Saved to your account ✓"}
+                </span>
+              ) : (
+                <span className="mt-0.5 block text-xs text-muted">Saved on device</span>
               )}
             </div>
             <div className="flex items-center gap-2">
@@ -131,7 +136,7 @@ export function MyBracketClient({
               <button
                 type="button"
                 onClick={() => { b.reset(); trackEvent("my_bracket_reset"); }}
-                className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted transition hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition hover:text-foreground"
               >
                 Reset
               </button>
@@ -179,18 +184,24 @@ export function MyBracketClient({
             ) : (
               <>
                 {b.champion && (
-                  <div className="glass mb-5 rounded-2xl border-gold/30 bg-gold/[0.06] p-5 text-center">
-                    <div className="text-[11px] font-bold uppercase tracking-[0.2em] text-gold">Your champion</div>
+                  <div className="panel-pitch mb-5 rounded-2xl p-5 text-center">
+                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.2em] text-white">
+                      <svg viewBox="0 0 24 24" className="h-4 w-4 text-win" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                        <path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z" strokeLinecap="round" strokeLinejoin="round" />
+                        <path d="M17 5h2.5a1.5 1.5 0 0 1 0 5H17M7 5H4.5a1.5 1.5 0 0 0 0 5H7" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      Your champion
+                    </div>
                     <div className="mt-2 flex items-center justify-center gap-3">
                       <Flag team={b.champion} size={40} />
-                      <span className="font-display text-2xl font-extrabold tracking-tight">{b.champion}</span>
+                      <span className="font-display text-2xl font-extrabold tracking-tight text-white">{b.champion}</span>
                     </div>
                     {modelTop && (
-                      <p className="mt-2.5 text-xs text-muted">
+                      <p className="mt-2.5 text-xs text-[#a9c7b4]">
                         {b.champion === modelTop ? (
-                          <>You agree with the model — it makes <span className="text-foreground/80">{modelTop}</span> the title favourite too.</>
+                          <>You agree with the model — it makes <span className="font-semibold text-white">{modelTop}</span> the title favourite too.</>
                         ) : (
-                          <>The model&apos;s favourite is <span className="text-foreground/80">{modelTop}</span> — you&apos;re backing a different winner.</>
+                          <>The model&apos;s favourite is <span className="font-semibold text-white">{modelTop}</span> — you&apos;re backing a different winner.</>
                         )}
                       </p>
                     )}
@@ -244,12 +255,47 @@ export function MyBracketClient({
             third-placed team fills is approximated (not the full FIFA pairing table).
             Picks are saved in this browser — use Share to send your full bracket as a
             link.{" "}
-            <Link href="/brackets" className="text-win underline underline-offset-2">
+            <Link href="/brackets" className="text-lime-deep underline underline-offset-2">
               See the model&apos;s projected bracket →
             </Link>
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/** Prototype ".seg" segmented control linking the two bracket surfaces: My picks
+ *  (/my-bracket) and AI bracket (/brackets). Track is a soft inset; the active
+ *  segment is a raised white card, inactive segments are muted. */
+function BracketSeg({ active }: { active: "picks" | "ai" }) {
+  const base =
+    "flex-1 rounded-[11px] px-3 py-2 text-center text-sm font-semibold transition";
+  const on =
+    "bg-surface text-foreground shadow-[0_1px_3px_rgba(18,40,25,0.1)]";
+  const off = "text-muted hover:text-foreground";
+  return (
+    <div
+      role="tablist"
+      aria-label="Bracket views"
+      className="mt-5 flex max-w-md gap-1 rounded-[14px] bg-surface-2 p-1"
+    >
+      <Link
+        href="/my-bracket"
+        role="tab"
+        aria-selected={active === "picks"}
+        className={cn(base, active === "picks" ? on : off)}
+      >
+        My picks
+      </Link>
+      <Link
+        href="/brackets"
+        role="tab"
+        aria-selected={active === "ai"}
+        className={cn(base, active === "ai" ? on : off)}
+      >
+        AI bracket
+      </Link>
     </div>
   );
 }
@@ -264,14 +310,19 @@ function PickButton({
       aria-pressed={active}
       aria-label={ariaLabel}
       className={cn(
-        "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs transition focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50",
+        "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition",
         align === "right" && "flex-row-reverse text-right",
         align === "center" && "justify-center",
-        active ? "border-win/50 bg-win/10 text-foreground" : "border-border text-muted hover:text-foreground",
+        active
+          ? "border-win bg-win/10 text-foreground"
+          : "border-border text-muted hover:text-foreground",
       )}
     >
       {teamName && <Flag team={teamName} size={16} />}
       <span className="truncate">{label}</span>
+      {active && (
+        <span className="shrink-0 text-lime-deep" aria-hidden>✓</span>
+      )}
     </button>
   );
 }
@@ -306,7 +357,7 @@ function MiniTable({ rows, teamId }: { rows: TableRow[]; teamId: Record<string, 
             <td className="py-1.5">
               <Link
                 href={teamId[r.name] ? `/team/${teamId[r.name]}` : "#"}
-                className="flex items-center gap-2 hover:text-win"
+                className="flex items-center gap-2 hover:text-lime-deep"
               >
                 <Flag team={r.name} size={18} />
                 <span className="min-w-0 truncate font-medium">{r.name}</span>
@@ -329,9 +380,9 @@ function TieCard({
 }) {
   const isUpset = !!picked && !!favourite && picked !== favourite;
   return (
-    <div className={cn("glass rounded-xl p-2", isFinal && "border-gold/30")}>
+    <div className={cn("glass rounded-xl p-2", isFinal && "border-gold/40")}>
       {isUpset && (
-        <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-draw">
+        <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-[#9a730f]">
           ⚡ Upset pick
         </div>
       )}
@@ -346,14 +397,16 @@ function TieCard({
           aria-pressed={!!team && picked === team}
           aria-label={team ? `Pick ${team} to beat ${other ?? "TBD"}` : "Match not yet decided"}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50",
-            !team && "cursor-not-allowed text-muted/50",
-            team && picked === team ? "bg-win/15 font-semibold text-foreground" : team ? "text-foreground/90 hover:bg-surface-2/60" : "",
+            "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition",
+            !team && "cursor-not-allowed border-transparent text-muted/50",
+            team && picked === team
+              ? "border-win bg-win/10 font-semibold text-foreground"
+              : team ? "border-transparent text-foreground/90 hover:bg-surface-2/60" : "",
           )}
         >
           {team ? <Flag team={team} size={20} /> : <span className="h-5 w-5 rounded-full bg-surface-2" />}
           <span className="min-w-0 flex-1 truncate">{team ?? "To be decided"}</span>
-          {team && picked === team && <span className="shrink-0 text-win" aria-hidden>✓</span>}
+          {team && picked === team && <span className="shrink-0 text-lime-deep" aria-hidden>✓</span>}
         </button>
         );
       })}

@@ -31,13 +31,13 @@ export default function GlobalError({
           gap: "1rem",
           padding: "2rem",
           textAlign: "center",
-          background: "#0a0f0a",
-          color: "#e8efe8",
+          background: "#f6f8f3",
+          color: "#0f2117",
           fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
         }}
       >
         <h1 style={{ fontSize: "1.5rem", fontWeight: 800, margin: 0 }}>Something went wrong</h1>
-        <p style={{ fontSize: "0.875rem", color: "#9fb0a0", maxWidth: "28rem" }}>
+        <p style={{ fontSize: "0.875rem", color: "#6b7c71", maxWidth: "28rem" }}>
           The app hit an unexpected error. Please try again.
         </p>
         <button
@@ -45,10 +45,10 @@ export default function GlobalError({
           onClick={reset}
           style={{
             cursor: "pointer",
-            borderRadius: "0.5rem",
+            borderRadius: "0.75rem",
             border: "none",
-            background: "#84cc16",
-            color: "#0a0f0a",
+            background: "#8fd633",
+            color: "#123723",
             fontWeight: 700,
             padding: "0.5rem 1rem",
             fontSize: "0.875rem",

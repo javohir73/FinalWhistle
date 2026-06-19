@@ -22,7 +22,7 @@ export function OfflineBanner() {
   return (
     <div
       role="status"
-      className="border-b border-draw/30 bg-draw/15 px-4 py-1.5 text-center text-xs font-medium text-draw"
+      className="border-b border-draw/30 bg-draw/15 px-4 py-1.5 text-center text-xs font-medium text-[#9a730f]"
     >
       You&apos;re offline — live scores and standings are paused. Your picks stay
       saved on this device.

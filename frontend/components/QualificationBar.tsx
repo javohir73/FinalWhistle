@@ -11,13 +11,11 @@ export function QualificationBar({ prob }: { prob: number | null }) {
           className="h-full rounded-full transition-all"
           style={{
             width: `${value * 100}%`,
-            background: strong
-              ? "linear-gradient(90deg, hsl(var(--win)/0.7), hsl(var(--win)))"
-              : "hsl(var(--muted) / 0.6)",
+            background: strong ? "hsl(var(--win))" : "hsl(var(--draw))",
           }}
         />
       </div>
-      <span className="w-9 text-right text-xs font-semibold tabular-nums text-foreground/80">
+      <span className="w-9 text-right text-xs font-bold tabular-nums text-foreground">
         {pct(prob)}
       </span>
     </div>

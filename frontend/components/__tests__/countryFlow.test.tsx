@@ -1,6 +1,8 @@
 /** Country-first home flow: choose a country → "Predict my team" → AI reveal,
- *  and a returning user (reveal already done) lands straight on the hub. The
- *  whole flow is anonymous and persisted in localStorage. */
+ *  and a returning user (reveal already done) lands on the Daylight home
+ *  DASHBOARD — greeting, a your-team hero that taps through to the /team hub,
+ *  and today's match-of-the-day. The detailed team hub now lives on /team/[id];
+ *  this surface is the lightweight landing. Whole flow is anonymous + local. */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HomeExperience } from "@/app/HomeExperience";
 import * as api from "@/lib/api";
@@ -12,6 +14,10 @@ const teams: Team[] = [
   { id: 1, name: "Brazil", country_code: "BR", confederation: "CONMEBOL", fifa_rank: 3, elo_rating: 2042, is_host: false },
   { id: 2, name: "Mexico", country_code: "MX", confederation: "CONCACAF", fifa_rank: 14, elo_rating: 1885, is_host: true },
 ];
+
+const REVEALED = JSON.stringify({
+  team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true,
+});
 
 beforeEach(() => {
   localStorage.clear();
@@ -85,13 +91,9 @@ it("supports arrow-key navigation between country options (listbox contract)", a
   expect(brazil).toHaveFocus();
 });
 
-it("sends a returning user straight to the personalized hub", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
+it("sends a returning user to their Daylight home dashboard (hero taps through to the hub)", async () => {
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
-  // /api/groups serves the LIVE table (real results) — names come prefixed.
   const groups = [{
     id: 3,
     name: "Group C",
@@ -102,37 +104,21 @@ it("sends a returning user straight to the personalized hub", async () => {
   }];
   (api.getGroups as jest.Mock).mockResolvedValue(groups);
 
-  render(<HomeExperience initialTeams={teams} initialGroups={groups} initialMatches={[]} initialOdds={[]} />);
-
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
-  );
-  expect(screen.getByText("Brazil's upcoming matches")).toBeInTheDocument();
-
-  // The "More about" drawer still carries the LIVE group table: real points
-  // (3 after a win, not a simulated average) and the projected-finish line uses
-  // the already-prefixed group name (no doubled "Group Group C").
-  expect(screen.getByText(/Projected to finish in Group C/)).toBeInTheDocument();
-  expect(screen.queryByText(/Group Group/)).not.toBeInTheDocument();
-  const cells = screen.getAllByRole("cell").map((c) => c.textContent);
-  expect(cells).toContain("3"); // Brazil's live points
-
-  // Strengths come from the per-team profile fetch.
-  await waitFor(() =>
-    expect(screen.getByText("Elite attacking depth")).toBeInTheDocument(),
+  const { container } = render(
+    <HomeExperience initialTeams={teams} initialGroups={groups} initialMatches={[]} initialOdds={[]} />,
   );
 
-  // Model record line appears once the record has loaded (evaluated_matches > 0).
-  await waitFor(() =>
-    expect(screen.getByText(/AI record so far/)).toBeInTheDocument(),
-  );
+  // The your-team hero greets the returning user…
+  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
+  expect(screen.getByText("Brazil")).toBeInTheDocument();
+  // …and links through to the detailed team hub at /team/[id].
+  expect(container.querySelector('a[href="/team/1"]')).not.toBeNull();
+  // Empty slate still gives a clear "no matches today" headline.
+  expect(screen.getByText("No matches today")).toBeInTheDocument();
 });
 
-it("keeps the first view simple — advanced detail and the pick game stay collapsed", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
+it("features an upcoming fixture as a clickable match-of-the-day card", async () => {
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const fixture: MatchSummary = {
     match_id: 101, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
@@ -152,47 +138,15 @@ it("keeps the first view simple — advanced detail and the pick game stay colla
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
   );
 
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
-  );
-
-  // Both advanced drawers render COLLAPSED by default — the first view is the
-  // payoff, not a dashboard. (jsdom keeps <details> content in the DOM even
-  // when closed, so we assert the `open` attribute, not element presence.)
-  const drawers = container.querySelectorAll("details");
-  expect(drawers).toHaveLength(2);
-  drawers.forEach((d) => expect(d).not.toHaveAttribute("open"));
-  expect(screen.getByText("More about Brazil")).toBeInTheDocument();
-  expect(screen.getByText("Make your own call")).toBeInTheDocument();
-
-  // The default view shows the read-only AI prediction card (a link to the
-  // match detail), outside any drawer.
-  const matchLink = container.querySelector('a[href^="/match/"]');
-  expect(matchLink).not.toBeNull();
-  expect(matchLink?.closest("details")).toBeNull();
-
-  // The hub isn't grouped under day headers, so each card must show the kickoff
-  // DATE (a month name), not just the time.
-  expect(matchLink?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
-
-  // The interactive pick game lives ONLY inside the collapsed "Make your own
-  // call" drawer — there are no pick buttons in the default first view.
-  const helper = screen.getByText(/Think the AI.s got it wrong/);
-  const pickDrawer = helper.closest("details");
-  expect(pickDrawer).not.toBeNull();
-  expect(pickDrawer).not.toHaveAttribute("open");
-  expect(pickDrawer?.querySelector("summary")?.textContent).toContain("Make your own call");
-  expect(pickDrawer?.querySelectorAll('button[aria-pressed]').length ?? 0).toBeGreaterThan(0);
+  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
+  expect(screen.getByText("Match of the day")).toBeInTheDocument();
+  // The card carries the AI scoreline and links into the full match page.
+  expect(container.querySelector('a[href="/match/101"]')).not.toBeNull();
 });
 
-it("shows the kickoff date on already-played (finished) hub matches too", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
+it("a finished-only slate falls back to the no-matches-today state without crashing", async () => {
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
-  // A finished fixture (FT) — the card carries a result, but the kickoff date
-  // must still be shown since the hub isn't grouped under day headers.
   const finished: MatchSummary = {
     match_id: 202, stage: "group", group: "C", kickoff_utc: "2026-06-14T18:00:00Z",
     venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
@@ -207,70 +161,30 @@ it("shows the kickoff date on already-played (finished) hub matches too", async 
   };
   (api.getUpcomingMatches as jest.Mock).mockResolvedValue([finished]);
 
-  const { container } = render(
+  render(
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[finished]} initialOdds={[]} />,
   );
 
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
-  );
-
-  const card = container.querySelector('a[href^="/match/"]');
-  expect(card).not.toBeNull();
-  // Even with an FT result, the kickoff DATE (a month name) is present.
-  expect(card?.textContent).toMatch(/\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/);
+  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
+  expect(screen.getByText("No matches today")).toBeInTheDocument();
 });
 
-it("tells a returning user why their team is showing and lets them switch back to the chooser", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
+it("lets a returning user switch teams from the hero (routes back to the chooser)", async () => {
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
 
-  // The hub renders for the returning user...
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
-  );
+  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
 
-  // ...and it now explains WHY the team is showing, instead of silently restoring.
-  expect(screen.getByText("Showing your team")).toBeInTheDocument();
-
-  // The change control is framed to pair with that cue, and clicking it routes
-  // back to the country chooser (mirrors the onChangeCountry path).
-  fireEvent.click(screen.getByRole("button", { name: /Not your team\? Change/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Change/ }));
   await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
 });
 
-it("gives both drawer summaries a hover + focus-visible affordance so they read as interactive", async () => {
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
-
-  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
-
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil" })).toBeInTheDocument(),
-  );
-
-  for (const label of ["More about Brazil", "Make your own call"]) {
-    const summary = screen.getByText(label).closest("summary");
-    expect(summary).not.toBeNull();
-    expect(summary?.className).toMatch(/focus-visible:ring/);
-    expect(summary?.className).toMatch(/hover:/);
-  }
-});
-
-it("survives a corrupted stored timezone without crashing the hub", async () => {
+it("survives a corrupted stored timezone without crashing the dashboard", async () => {
   // A stale/garbage zone (e.g. left by an older build) must NOT reach
   // Intl.DateTimeFormat and throw — useTimezone should reject it and fall back.
   localStorage.setItem("pp:timezone", JSON.stringify({ tz: "Not/AReal_Zone", confirmed: true }));
-  localStorage.setItem(
-    "finalwhistle:selected-country:v1",
-    JSON.stringify({ team_id: 1, team: "Brazil", selected_at: "2026-06-01T00:00:00Z", prediction_revealed: true }),
-  );
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const fixture: MatchSummary = {
     match_id: 303, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
@@ -290,9 +204,7 @@ it("survives a corrupted stored timezone without crashing the hub", async () => 
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
   );
 
-  // The hub renders the fixture card without the bad zone crashing the tree.
-  await waitFor(() =>
-    expect(screen.getByRole("heading", { name: "Brazil's upcoming matches" })).toBeInTheDocument(),
-  );
+  // The dashboard renders the fixture card without the bad zone crashing the tree.
+  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
   expect(container.querySelector('a[href^="/match/"]')).not.toBeNull();
 });

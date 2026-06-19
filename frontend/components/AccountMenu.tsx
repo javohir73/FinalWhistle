@@ -48,7 +48,7 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
         aria-expanded={open}
         aria-label={`Account: ${label}`}
         title={label}
-        className="grid h-9 w-9 place-items-center rounded-full bg-win/15 text-sm font-bold text-win ring-1 ring-win/30 transition hover:bg-win/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/60"
+        className="grid h-9 w-9 place-items-center rounded-full bg-pitch text-sm font-bold text-[#d6f5a8] transition hover:brightness-110"
       >
         {initials(user)}
       </button>
@@ -56,15 +56,14 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
       {open && (
         <div
           role="menu"
-          // Near-opaque (unlike decorative .glass cards): page content showing
-          // through a dropdown makes the name/email hard to read.
-          className="absolute right-0 z-50 mt-2 w-56 rounded-xl border border-border/70 bg-surface/95 p-1.5 shadow-xl backdrop-blur-xl"
+          // Solid white card so the name/email stay legible over page content.
+          className="glass absolute right-0 z-50 mt-2 w-56 rounded-xl p-1.5 shadow-xl"
         >
           <div className="px-3 py-2">
             <div className="truncate text-sm font-semibold">{user.display_name || "Signed in"}</div>
             <div className="truncate text-xs text-muted">{user.email}</div>
           </div>
-          <div className="my-1 border-t border-border/60" />
+          <div className="my-1 border-t border-border" />
           <button
             type="button"
             role="menuitem"
@@ -72,7 +71,7 @@ export function AccountMenu({ user, onLogout }: { user: SessionUser; onLogout: (
               setOpen(false);
               onLogout();
             }}
-            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-muted transition hover:bg-surface-2/60 hover:text-foreground"
+            className="w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-muted transition hover:bg-surface-2 hover:text-foreground"
           >
             Sign out
           </button>

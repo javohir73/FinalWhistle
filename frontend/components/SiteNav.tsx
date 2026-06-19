@@ -1,111 +1,82 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
-import { cn } from "@/lib/utils";
-import { recordEngagement } from "@/lib/engagement";
 import { AuthButton } from "@/components/AuthButton";
+import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/matches", label: "Matches" },
-  { href: "/groups", label: "Groups" },
-  { href: "/brackets", label: "Brackets" },
-  { href: "/my-bracket", label: "My Bracket" },
-  { href: "/leaderboard", label: "Leaderboard" },
-  { href: "/about", label: "How it works" },
+/** Desktop primary nav links — the same five destinations as the bottom tab
+ *  bar. `activePrefixes` mirrors BottomNav exactly so active detection matches
+ *  across both surfaces (e.g. /match/[id] belongs to Matches, /team to Home). */
+interface NavLink {
+  href: string;
+  label: string;
+  activePrefixes: string[];
+}
+
+const LINKS: NavLink[] = [
+  { href: "/", label: "Home", activePrefixes: ["/team"] },
+  { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
+  { href: "/groups", label: "Groups", activePrefixes: [] },
+  { href: "/brackets", label: "Bracket", activePrefixes: ["/my-bracket"] },
+  {
+    href: "/leaderboard",
+    label: "You",
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+  },
 ];
 
+function matches(pathname: string, prefixes: string[], href: string): boolean {
+  if (href === "/") return pathname === "/" || prefixes.some((p) => hit(pathname, p));
+  return hit(pathname, href) || prefixes.some((p) => hit(pathname, p));
+}
+
+const hit = (pathname: string, prefix: string) =>
+  pathname === prefix || pathname.startsWith(prefix + "/");
+
+/** Top bar (Daylight): brand lockup on the left, a desktop-only primary link
+ *  row in the middle/right, and the account / sign-in control on the right.
+ *  The link row is hidden on mobile (`hidden sm:flex`) — there the bottom tab
+ *  bar handles navigation. */
 export function SiteNav() {
-  const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(href + "/");
 
   return (
-    <header className="border-b border-border/60 bg-background/70 backdrop-blur-xl">
+    <header className="border-b border-border bg-background/80 backdrop-blur-xl">
       <nav className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
         <Link
           href="/"
-          onClick={() => setOpen(false)}
           aria-label="FinalWhistle home"
           className="group flex shrink-0 items-center gap-2.5"
         >
-          <BrandMark className="h-7 w-auto shrink-0 text-win transition group-hover:opacity-90" />
+          <BrandMark className="h-7 w-auto shrink-0 text-lime-deep transition group-hover:opacity-90" />
           <Wordmark className="text-lg font-extrabold" />
         </Link>
 
-        <div className="flex items-center gap-2">
-          {/* Desktop links */}
-          <div className="hidden items-center gap-1 text-sm sm:flex">
-            {NAV.map((n) => (
+        <div className="ml-auto mr-2 hidden items-center gap-1 sm:flex">
+          {LINKS.map((link) => {
+            const active = matches(pathname, link.activePrefixes, link.href);
+            return (
               <Link
-                key={n.href}
-                href={n.href}
-                aria-current={isActive(n.href) ? "page" : undefined}
+                key={link.href}
+                href={link.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
-                  "rounded-lg px-3 py-1.5 transition",
-                  isActive(n.href)
-                    ? "bg-surface-2/70 text-foreground"
-                    : "text-muted hover:bg-surface-2/60 hover:text-foreground",
+                  "rounded-lg px-3 py-1.5 text-sm transition",
+                  active
+                    ? "bg-win/10 font-semibold text-lime-deep"
+                    : "text-muted hover:bg-surface-2 hover:text-foreground",
                 )}
               >
-                {n.label}
+                {link.label}
               </Link>
-            ))}
-          </div>
-
-          <AuthButton />
-
-          {/* Mobile hamburger */}
-          <button
-          type="button"
-          onClick={() =>
-            setOpen((v) => {
-              if (!v) recordEngagement("menu-open"); // gates the install prompt
-              return !v;
-            })
-          }
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="mobile-menu"
-          className="grid h-9 w-9 place-items-center rounded-lg text-foreground transition hover:bg-surface-2/60 sm:hidden"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
-            {open ? (
-              <path d="M6 6l12 12M18 6L6 18" />
-            ) : (
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            )}
-          </svg>
-          </button>
+            );
+          })}
         </div>
+
+        <AuthButton />
       </nav>
-
-      {/* Mobile dropdown panel */}
-      {open && (
-        <div id="mobile-menu" className="border-t border-border/60 bg-background/95 backdrop-blur-xl sm:hidden">
-          <div className="mx-auto flex max-w-6xl flex-col px-3 py-2">
-            {NAV.map((n) => (
-              <Link
-                key={n.href}
-                href={n.href}
-                onClick={() => setOpen(false)}
-                aria-current={isActive(n.href) ? "page" : undefined}
-                className={cn(
-                  "rounded-lg px-3 py-2.5 text-sm transition",
-                  isActive(n.href)
-                    ? "bg-surface-2/70 text-foreground"
-                    : "text-muted hover:bg-surface-2/60 hover:text-foreground",
-                )}
-              >
-                {n.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
     </header>
   );
 }

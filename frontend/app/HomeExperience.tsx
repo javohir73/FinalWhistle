@@ -1,12 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Link from "next/link";
 import { CountryOnboarding } from "@/components/CountryOnboarding";
 import { AICalculationReveal } from "@/components/AICalculationReveal";
-import { PersonalizedCountryHome } from "@/components/PersonalizedCountryHome";
+import { Flag } from "@/components/Flag";
+import { FavoriteStar } from "@/components/FavoriteStar";
+import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
-import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
+import { useTimezone } from "@/lib/useTimezone";
+import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
+import { pct } from "@/lib/format";
+import { prematchCall } from "@/lib/verdict";
+import { isLiveNow, liveLabel } from "@/lib/liveLabel";
+import { kickoffTime, relativeDayLabel } from "@/lib/datetime";
 import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
 
 /** Country-first home. Decides between the chooser, the AI-forecast reveal, and
@@ -43,10 +51,11 @@ export function HomeExperience({
   // has been read (matches the server render, which can't know the selection).
   if (!hydrated) {
     return (
-      <div className="mx-auto max-w-2xl py-16 sm:py-24" aria-hidden>
-        <div className="mx-auto h-7 w-44 rounded-full skeleton" />
-        <div className="mx-auto mt-5 h-12 w-3/4 rounded-2xl skeleton" />
-        <div className="mt-9 h-40 rounded-2xl skeleton" />
+      <div className="mx-auto max-w-2xl py-10 sm:py-12" aria-hidden>
+        <div className="h-5 w-40 rounded-full skeleton" />
+        <div className="mt-3 h-9 w-3/5 rounded-xl skeleton" />
+        <div className="mt-7 h-32 rounded-2xl skeleton" />
+        <div className="mt-6 h-60 rounded-2xl skeleton" />
       </div>
     );
   }
@@ -65,9 +74,11 @@ export function HomeExperience({
     );
   }
 
+  // Returning user with a revealed forecast: the Daylight home dashboard —
+  // greeting, your-team hero, match of the day, and the rest of today.
   if (!changing && selection?.prediction_revealed && selectedTeam) {
     return (
-      <PersonalizedCountryHome
+      <HomeDashboard
         team={selectedTeam}
         groups={groups}
         odds={odds}
@@ -88,5 +99,339 @@ export function HomeExperience({
       onPredict={() => setCalculating(true)}
       onChangeCountry={() => setChanging(true)}
     />
+  );
+}
+
+/** Time-of-day greeting in the viewer's local clock, optionally personalised
+ *  with the viewer's first name ("Good evening, Javohir"). Purely presentational. */
+function greeting(name?: string | null): string {
+  const h = new Date().getHours();
+  const part = h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
+  const first = name?.trim().split(/\s+/)[0];
+  return first ? `${part}, ${first}` : part;
+}
+
+/**
+ * The returning-user landing. A friendly greeting + today's count, a deep-green
+ * your-team hero (tap → team hub, "Change" → chooser), the headline "Match of
+ * the day", and compact "Also today" rows. All real, already-loaded data.
+ */
+function HomeDashboard({
+  team,
+  groups,
+  odds,
+  matches,
+  onChangeCountry,
+}: {
+  team: Team;
+  groups: Group[];
+  odds: TournamentOdds[];
+  matches: MatchSummary[];
+  onChangeCountry: () => void;
+}) {
+  const { tz } = useTimezone();
+
+  // The model's verified track record, for the honest footer line. Background
+  // fetch — only rendered once at least one match has been scored.
+  const recordState = useFetch(getModelRecord, []);
+  const record = recordState.status === "success" ? recordState.data : null;
+
+  // Today's fixtures, in the viewer's timezone, earliest first.
+  const today = useMemo(
+    () =>
+      matches
+        .filter((m) => m.kickoff_utc && relativeDayLabel(m.kickoff_utc, tz) === "Today")
+        .sort((a, b) => (a.kickoff_utc ?? "z").localeCompare(b.kickoff_utc ?? "z")),
+    [matches, tz],
+  );
+
+  // The team's own next fixture (today or upcoming) for the hero subline.
+  const nextForTeam = useMemo(
+    () =>
+      matches
+        .filter(
+          (m) =>
+            (m.teams.home === team.name || m.teams.away === team.name) &&
+            m.status !== "finished",
+        )
+        .sort((a, b) => (a.kickoff_utc ?? "z").localeCompare(b.kickoff_utc ?? "z"))[0] ?? null,
+    [matches, team.name],
+  );
+
+  const teamOdds = useMemo(
+    () => odds.find((o) => o.team_id === team.id) ?? null,
+    [odds, team.id],
+  );
+  const group = useMemo(
+    () => groups.find((g) => g.standings.some((s) => s.team_id === team.id)) ?? null,
+    [groups, team.id],
+  );
+
+  // The single best-billed fixture: a live game first, else the highest-
+  // confidence one of today's slate (fall back to the soonest fixture overall).
+  const matchOfDay = useMemo(() => {
+    const pool = today.length > 0 ? today : matches.filter((m) => m.status !== "finished");
+    if (pool.length === 0) return null;
+    const live = pool.find((m) => isLiveNow(m));
+    if (live) return live;
+    const rank = (c: MatchSummary["confidence"]) =>
+      c === "High" ? 3 : c === "Medium" ? 2 : c === "Low" ? 1 : 0;
+    return [...pool].sort((a, b) => rank(b.confidence) - rank(a.confidence))[0];
+  }, [today, matches]);
+
+  const alsoToday = useMemo(
+    () => today.filter((m) => m.match_id !== matchOfDay?.match_id),
+    [today, matchOfDay],
+  );
+
+  // The hero's headline stat: prefer the deepest meaningful tournament odd.
+  const heroStat = useMemo(() => {
+    if (!teamOdds) return null;
+    if (teamOdds.win_title != null && teamOdds.win_title >= 0.01)
+      return { value: pct(teamOdds.win_title), label: "to win it all" };
+    if (teamOdds.reach_sf != null && teamOdds.reach_sf >= 0.03)
+      return { value: pct(teamOdds.reach_sf), label: "to reach the semis" };
+    if (teamOdds.reach_final != null && teamOdds.reach_final >= 0.03)
+      return { value: pct(teamOdds.reach_final), label: "to reach the final" };
+    if (teamOdds.make_knockout != null)
+      return { value: pct(teamOdds.make_knockout), label: "to reach the knockouts" };
+    return null;
+  }, [teamOdds]);
+
+  const heroSub = useMemo(() => {
+    if (!nextForTeam) return group ? group.name : "Following this tournament";
+    const opp = nextForTeam.teams.home === team.name ? nextForTeam.teams.away : nextForTeam.teams.home;
+    const when =
+      nextForTeam.kickoff_utc &&
+      (relativeDayLabel(nextForTeam.kickoff_utc, tz) ?? "").toLowerCase();
+    const time = nextForTeam.kickoff_utc ? kickoffTime(nextForTeam.kickoff_utc, tz) : null;
+    const tail = [when, time].filter(Boolean).join(" ");
+    return `Next: vs ${opp}${tail ? ` · ${tail}` : ""}`;
+  }, [nextForTeam, team.name, tz, group]);
+
+  return (
+    <div className="mx-auto max-w-2xl py-8 sm:py-10">
+      {/* ===== Greeting ===== */}
+      <p className="text-sm font-semibold text-muted">{greeting()}</p>
+      <h1 className="mt-1 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+        {today.length > 0
+          ? `${today.length} ${today.length === 1 ? "match" : "matches"} today`
+          : "No matches today"}
+      </h1>
+
+      {/* ===== Your-team hero (deep-green pitch panel) ===== */}
+      <Link
+        href={`/team/${team.id}`}
+        className="card-hover panel-pitch group mt-6 block rounded-2xl p-5"
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <span className="font-display text-[11px] font-bold uppercase tracking-wider text-[#a9c7b4]">
+            Your team
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onChangeCountry();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#bdf08a] transition hover:bg-white/15"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" strokeLinejoin="round" />
+            </svg>
+            Change
+          </button>
+        </div>
+        <div className="flex items-center gap-3.5">
+          <Flag team={team.name} size={46} />
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-display text-xl font-extrabold tracking-tight text-white sm:text-2xl">
+              {team.name}
+            </p>
+            <p className="mt-0.5 truncate text-[13px] text-[#a9c7b4]">{heroSub}</p>
+          </div>
+          {heroStat && (
+            <div className="shrink-0 text-right">
+              <p className="font-display text-2xl font-extrabold tabular-nums text-win">
+                {heroStat.value}
+              </p>
+              <p className="text-[11px] text-[#a9c7b4]">{heroStat.label}</p>
+            </div>
+          )}
+        </div>
+      </Link>
+
+      {/* ===== Match of the day ===== */}
+      {matchOfDay && (
+        <section className="mt-7">
+          <p className="mb-2.5 font-display text-[11px] font-bold uppercase tracking-wider text-muted">
+            Match of the day
+          </p>
+          <MatchOfDayCard match={matchOfDay} tz={tz} />
+        </section>
+      )}
+
+      {/* ===== Also today ===== */}
+      {alsoToday.length > 0 && (
+        <section className="mt-7">
+          <p className="mb-2.5 font-display text-[11px] font-bold uppercase tracking-wider text-muted">
+            Also today
+          </p>
+          <div className="space-y-2.5">
+            {alsoToday.map((m) => (
+              <AlsoTodayRow key={m.match_id} match={m} tz={tz} />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Empty-today state: still give returning users a way forward. */}
+      {matches.length === 0 && (
+        <p className="mt-7 rounded-2xl border border-border bg-surface px-4 py-6 text-center text-sm text-muted">
+          No fixtures to show right now — check back as the schedule firms up.
+        </p>
+      )}
+
+      {/* ===== AI record so far (real, verified track record) ===== */}
+      {record && record.evaluated_matches > 0 && (
+        <p className="mt-8 text-center text-sm text-muted">
+          AI record so far: {record.winners_correct}/{record.evaluated_matches} winners
+          {" · "}
+          {record.exact_score_hits} exact score{record.exact_score_hits === 1 ? "" : "s"}
+        </p>
+      )}
+
+      <p className="mt-8 text-center text-sm text-muted">
+        Looking for more?{" "}
+        <Link href="/matches" className="font-semibold text-lime-deep underline-offset-2 hover:underline">
+          All matches
+        </Link>
+        {" · "}
+        <Link href="/brackets" className="font-semibold text-lime-deep underline-offset-2 hover:underline">
+          Road to the final
+        </Link>
+      </p>
+    </div>
+  );
+}
+
+/** The big "Match of the day" card: matchup, AI scoreline, W/D/L bar and a
+ *  plain-language verdict that links into the full match page. */
+function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
+  const { teams, probabilities, predicted_score } = match;
+  const live = isLiveNow(match);
+  const call = prematchCall(probabilities, teams);
+  const score =
+    predicted_score && predicted_score.home != null && predicted_score.away != null
+      ? `${predicted_score.home}–${predicted_score.away}`
+      : null;
+
+  return (
+    <Link
+      href={`/match/${match.match_id}`}
+      className={`card-hover glass group block rounded-2xl p-5 ${live ? "ring-1 ring-loss/40" : ""}`}
+    >
+      <div className="mb-4 flex items-center justify-between">
+        {match.kickoff_utc ? (
+          live ? (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-loss">
+              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+              {liveLabel(match)}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2.5 py-1 text-[11px] font-semibold text-[#9a730f]">
+              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
+              </svg>
+              {kickoffTime(match.kickoff_utc, tz)}
+            </span>
+          )
+        ) : (
+          <span />
+        )}
+        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          {match.group ?? match.stage}
+        </span>
+      </div>
+
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+          <Flag team={teams.home} size={52} />
+          <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.home}</span>
+        </div>
+        <div className="shrink-0 text-center">
+          <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">AI predicts</p>
+          <p className="mt-0.5 font-display text-3xl font-extrabold tabular-nums tracking-tight">
+            {score ?? "—"}
+          </p>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
+          <Flag team={teams.away} size={52} />
+          <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.away}</span>
+        </div>
+      </div>
+
+      {probabilities ? (
+        <ProbabilityBar
+          probabilities={probabilities}
+          homeLabel={teams.home}
+          awayLabel={teams.away}
+        />
+      ) : (
+        <p className="text-sm text-muted">Prediction pending…</p>
+      )}
+
+      <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-surface-2 px-3.5 py-3">
+        <svg viewBox="0 0 24 24" className="mt-0.5 h-4 w-4 shrink-0 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
+          <path d="M13 2 4.5 13H11l-1 9 9.5-12H13l0-8Z" strokeLinejoin="round" />
+        </svg>
+        <span className="text-[13px] font-medium text-foreground">
+          {call ? `${call.label}.` : "AI prediction ready."}{" "}
+          <span className="font-semibold text-lime-deep">See why →</span>
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+/** Compact "Also today" row: paired flags, matchup, kickoff + pick, fav star. */
+function AlsoTodayRow({ match, tz }: { match: MatchSummary; tz: string }) {
+  const { teams, probabilities } = match;
+  const live = isLiveNow(match);
+  const call = prematchCall(probabilities, teams);
+
+  return (
+    <Link
+      href={`/match/${match.match_id}`}
+      className="card-hover glass group flex items-center gap-3 rounded-2xl p-3.5"
+    >
+      <div className="flex shrink-0 -space-x-1.5">
+        <Flag team={teams.home} size={32} />
+        <Flag team={teams.away} size={32} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate font-display text-sm font-bold tracking-tight">
+          {teams.home} v {teams.away}
+        </p>
+        <p className="mt-0.5 truncate text-xs text-muted">
+          {match.kickoff_utc &&
+            (live ? (
+              <span className="font-semibold text-loss">{liveLabel(match)}</span>
+            ) : (
+              kickoffTime(match.kickoff_utc, tz)
+            ))}
+          {call && (
+            <>
+              {match.kickoff_utc ? " · " : ""}
+              <span className={`font-semibold ${call.tone === "draw" ? "text-[#9a730f]" : "text-lime-deep"}`}>
+                {call.label}
+              </span>
+            </>
+          )}
+        </p>
+      </div>
+      <FavoriteStar team={teams.home} />
+    </Link>
   );
 }

@@ -15,7 +15,7 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
               <div className="skeleton h-4 w-24 rounded" />
             </div>
             <div className="skeleton h-2.5 w-full rounded-full" />
-            <div className="mt-4 flex justify-between border-t border-border/60 pt-3">
+            <div className="mt-4 flex justify-between border-t border-border pt-3">
               <div className="skeleton h-4 w-24 rounded" />
               <div className="skeleton h-5 w-10 rounded" />
             </div>

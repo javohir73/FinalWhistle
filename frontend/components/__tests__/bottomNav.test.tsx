@@ -1,8 +1,7 @@
-/** Bottom nav (PRD FR 4.5): My Bracket + Groups are first-class tabs, the
- *  leaderboard and the rest live under the More sheet, and every key route
- *  lights its tab — including detail pages like /match/[id] that don't share
- *  the tab's prefix. */
-import { render, screen, fireEvent } from "@testing-library/react";
+/** Bottom nav (Daylight IA): exactly five first-class tabs — Home, Matches,
+ *  Groups, Bracket, You — no overflow sheet. Every key route lights its tab,
+ *  including detail pages like /match/[id] that don't share the tab's prefix. */
+import { render, screen } from "@testing-library/react";
 import { BottomNav } from "@/components/BottomNav";
 
 let mockPath = "/";
@@ -25,12 +24,14 @@ afterEach(() => {
   mockPath = "/";
 });
 
-it("exposes the core loop as first-class tabs", () => {
+it("exposes exactly the five Daylight tabs", () => {
   renderAt("/");
-  for (const label of ["Home", "Matches", "My Bracket", "Groups"]) {
+  for (const label of ["Home", "Matches", "Groups", "Bracket", "You"]) {
     expect(screen.getByRole("link", { name: new RegExp(label) })).toBeInTheDocument();
   }
-  expect(screen.getByRole("button", { name: /More/ })).toBeInTheDocument();
+  expect(screen.getAllByRole("link")).toHaveLength(5);
+  // The old "More" overflow control is gone.
+  expect(screen.queryByRole("button", { name: /More/ })).not.toBeInTheDocument();
 });
 
 it.each([
@@ -38,31 +39,27 @@ it.each([
   ["/team/3", "Home"], // team profiles open from the home hub
   ["/matches", "Matches"],
   ["/match/12", "Matches"], // singular detail route still lights Matches
-  ["/my-bracket", "My Bracket"],
   ["/groups", "Groups"],
   ["/groups/2", "Groups"], // group detail still lights Groups
+  ["/brackets", "Bracket"],
+  ["/my-bracket", "Bracket"], // your picks live under the Bracket tab
+  ["/leaderboard", "You"],
+  ["/about", "You"], // relocated info pages light the You hub
+  ["/methodology", "You"],
 ])("marks the right tab active on %s", (path, label) => {
   renderAt(path);
   expect(current()).toContain(label);
 });
 
-it("does not false-match prefix collisions (/my-bracket is not Brackets)", () => {
+it("does not false-match prefix collisions (/my-bracket is not Brackets href)", () => {
   renderAt("/my-bracket");
-  expect(current()).toEqual(["My Bracket"]);
+  expect(current()).toEqual(["Bracket"]);
 });
 
-it("More opens a sheet with the secondary destinations", () => {
+it("uses the deep lime for the active tab on the light canvas", () => {
   renderAt("/");
-  fireEvent.click(screen.getByRole("button", { name: /More/ }));
-  for (const label of ["Leaderboard", "AI Bracket", "How it works", "Methodology"]) {
-    expect(screen.getByRole("link", { name: label })).toBeInTheDocument();
-  }
-});
-
-it("highlights More when on a sheet destination", () => {
-  renderAt("/leaderboard");
-  const more = screen.getByRole("button", { name: /More/ });
-  expect(more.className).toContain("text-win");
+  const home = screen.getByRole("link", { name: /Home/ });
+  expect(home.className).toContain("text-lime-deep");
 });
 
 it("keeps the safe-area inset on the fixed bar", () => {

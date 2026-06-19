@@ -34,13 +34,13 @@ export default function Error({
         <button
           type="button"
           onClick={reset}
-          className="rounded-lg bg-win px-4 py-2 text-sm font-display font-bold text-background transition hover:brightness-110"
+          className="rounded-xl bg-win px-4 py-2 text-sm font-display font-bold text-pitch transition hover:brightness-105"
         >
           Try again
         </button>
         <Link
           href="/"
-          className="rounded-lg border border-border bg-surface/60 px-4 py-2 text-sm font-medium text-muted transition hover:border-win/40 hover:text-foreground"
+          className="rounded-xl border border-border bg-surface px-4 py-2 text-sm font-medium text-muted transition hover:border-win/40 hover:text-foreground"
         >
           Go home
         </Link>

@@ -47,9 +47,9 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
     getKnockoutOddsServer(),
   ]);
 
-  const standings = group?.standings ?? [];
-  const rank = standings.findIndex((r) => r.team_id === team.id);
-  const standingRow = rank >= 0 ? standings[rank] : null;
+  // `group` is fetched above so the group table link resolves; the AI-outlook
+  // card reads from the tournament odds rather than the live standings row.
+  void group;
   const teamOdds = odds?.find((o) => o.team_id === team.id) ?? null;
   const fixtures = (allMatches ?? []).filter(
     (m) => m.teams.home === team.name || m.teams.away === team.name,
@@ -64,177 +64,148 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
         <ShareButton title={`${team.name} — World Cup 2026 profile`} />
       </div>
 
-      {/* Hero */}
-      <header className="glass rounded-2xl p-6">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+      {/* Header — flag tile + name + group/rank/elo subtitle */}
+      <header className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <span className="grid shrink-0 place-items-center rounded-2xl bg-win/10 p-2.5">
             <Flag team={team.name} size={56} />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-display text-3xl font-extrabold tracking-tight">
-                  {team.name}
-                </h1>
-                <FavoriteStar team={team.name} size={22} />
-              </div>
-              {team.is_host && (
-                <span className="mt-1 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gold ring-1 ring-gold/30">
-                  Tournament host
-                </span>
-              )}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-3xl font-extrabold tracking-tight">
+                {team.name}
+              </h1>
+              <FavoriteStar team={team.name} size={22} />
             </div>
-          </div>
-          <div className="flex gap-5">
-            <Stat label="Confederation" value={team.confederation ?? "—"} />
-            <Stat label="FIFA rank" value={team.fifa_rank != null ? `#${team.fifa_rank}` : "—"} />
-            <Stat label="Elo" value={team.elo_rating != null ? String(Math.round(team.elo_rating)) : "—"} />
+            <p className="mt-1 text-sm text-muted">
+              {[
+                group_name
+                  ? /^group\b/i.test(group_name)
+                    ? group_name
+                    : `Group ${group_name}`
+                  : null,
+                team.fifa_rank != null ? `FIFA #${team.fifa_rank}` : null,
+                team.elo_rating != null ? `Elo ${Math.round(team.elo_rating)}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+            {team.is_host && (
+              <span className="mt-1.5 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gold ring-1 ring-gold/30">
+                Tournament host
+              </span>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Tournament outlook — live group position + run-deep odds */}
-      {(standingRow || teamOdds) && (
+      {/* AI outlook — plain-language read + run-deep odds tiles */}
+      {teamOdds && (
         <section className="glass rounded-2xl p-6">
-          <h2 className="mb-4 font-display text-lg font-bold">Tournament outlook</h2>
-          {standingRow && (
-            <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-2">
-              <Outlook label="Group position" value={`${ordinal(rank + 1)}${group_name ? ` · ${group_name}` : ""}`} />
-              <Outlook label="Points" value={String(standingRow.projected_points)} />
-              <Outlook
-                label="Finish top 2"
-                value={pct(standingRow.qualification_prob)}
-                accent
-              />
-            </div>
-          )}
-          {teamOdds && (
-            <div className="space-y-2.5">
-              {([
-                ["Reach knockouts", teamOdds.make_knockout, "incl. best 3rd-place"],
-                ["Round of 16", teamOdds.reach_r16, null],
-                ["Quarter-final", teamOdds.reach_qf, null],
-                ["Semi-final", teamOdds.reach_sf, null],
-                ["Final", teamOdds.reach_final, null],
-                ["Win the title", teamOdds.win_title, null],
-              ] as const).map(([label, value, hint]) => (
-                <OddsRow key={label} label={label} value={value} hint={hint} />
-              ))}
-            </div>
-          )}
+          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-lime-deep">
+            AI outlook
+          </span>
+          <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
+            {outlookSentence(teamOdds.make_knockout, teamOdds.reach_final, teamOdds.win_title)}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            <OutlookTile label="Reach KO" value={teamOdds.make_knockout} />
+            <OutlookTile label="Reach final" value={teamOdds.reach_final} />
+            <OutlookTile label="Win title" value={teamOdds.win_title} />
+          </div>
         </section>
       )}
 
+      {/* Recent form — form chips + 2-col strengths / weak points */}
+      <section className="glass rounded-2xl p-6">
+        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          Recent form
+        </span>
+        <div className="mb-5 mt-3">
+          <FormStrip form={recent_form} />
+        </div>
+        <div className="grid gap-5 sm:grid-cols-2">
+          <div>
+            <p className="mb-2 text-xs font-bold text-lime-deep">↑ Strengths</p>
+            <ul className="space-y-1.5 text-sm">
+              {strengths.map((s, i) => (
+                <li key={i} className="flex gap-2 text-foreground/90">
+                  <span className="text-muted" aria-hidden>•</span>
+                  <span>{s}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <p className="mb-2 text-xs font-bold text-loss">↓ Weak points</p>
+            <ul className="space-y-1.5 text-sm">
+              {weaknesses.map((w, i) => (
+                <li key={i} className="flex gap-2 text-foreground/90">
+                  <span className="text-muted" aria-hidden>•</span>
+                  <span>{w}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Fixtures */}
       {fixtures.length > 0 && (
-        <section className="glass rounded-2xl p-6">
-          <h2 className="mb-3 font-display text-lg font-bold">Fixtures</h2>
+        <section>
+          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+            Fixtures
+          </h2>
           <TeamFixtures matches={fixtures} teamName={team.name} />
         </section>
       )}
 
-      <section className="glass rounded-2xl p-6">
-        <h2 className="mb-3 font-display text-lg font-bold">Recent form</h2>
-        <FormStrip form={recent_form} />
-      </section>
-
-      <div className="grid gap-5 sm:grid-cols-2">
-        <section className="glass rounded-2xl p-6">
-          <h2 className="mb-3 font-display text-lg font-bold text-win">Strengths</h2>
-          <ul className="space-y-2 text-sm">
-            {strengths.map((s, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-win" aria-hidden>↗</span>
-                <span className="text-foreground/90">{s}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="glass rounded-2xl p-6">
-          <h2 className="mb-3 font-display text-lg font-bold text-loss">Weaknesses</h2>
-          <ul className="space-y-2 text-sm">
-            {weaknesses.map((w, i) => (
-              <li key={i} className="flex gap-2">
-                <span className="text-loss" aria-hidden>↘</span>
-                <span className="text-foreground/90">{w}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      </div>
-
-      {/* Explore — connect the team into the rest of the app */}
-      <section>
-        <h2 className="mb-3 font-display text-xs font-bold uppercase tracking-[0.2em] text-muted">
-          Explore
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {group_id && (
-            <HubLink href={`/groups/${group_id}`} label={group_name ?? "Group"} sub="Live table & odds" />
-          )}
-          <HubLink href="/brackets" label="Title odds" sub="Run to the final" />
-          <HubLink href="/matches" label="All fixtures" sub="Every match prediction" />
-        </div>
-      </section>
+      {/* Primary CTA — group table */}
+      {group_id && (
+        <Link
+          href={`/groups/${group_id}`}
+          className="card-hover flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-3 font-display text-sm font-bold text-foreground"
+        >
+          View group table <span aria-hidden>→</span>
+        </Link>
+      )}
     </div>
   );
 }
 
-function HubLink({ href, label, sub }: { href: string; label: string; sub: string }) {
+function OutlookTile({ label, value }: { label: string; value: number | null }) {
   return (
-    <Link
-      href={href}
-      className="card-hover glass flex items-center justify-between gap-2 rounded-xl px-4 py-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
-    >
-      <span className="min-w-0">
-        <span className="block truncate font-display text-sm font-bold">{label}</span>
-        <span className="block truncate text-xs text-muted">{sub}</span>
-      </span>
-      <span className="shrink-0 text-win" aria-hidden>→</span>
-    </Link>
-  );
-}
-
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="text-right">
-      <div className="font-display text-xl font-extrabold tabular-nums">{value}</div>
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
-    </div>
-  );
-}
-
-function Outlook({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
-  return (
-    <div>
-      <div className={`font-display text-2xl font-extrabold tabular-nums ${accent ? "text-win" : ""}`}>
-        {value}
-      </div>
-      <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
-    </div>
-  );
-}
-
-function OddsRow({ label, value, hint }: { label: string; value: number | null; hint?: string | null }) {
-  const v = value ?? 0;
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-32 shrink-0 text-sm text-foreground/90">
-        {label}
-        {hint && <span className="mt-0.5 block text-[10px] leading-tight text-muted">{hint}</span>}
-      </span>
-      <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
-        <div
-          className="h-full rounded-full bg-gradient-to-r from-win/70 to-win"
-          style={{ width: `${Math.max(0, Math.min(1, v)) * 100}%` }}
-        />
-      </div>
-      <span className="w-10 shrink-0 text-right text-xs font-semibold tabular-nums text-foreground/80">
+    <div className="rounded-2xl bg-win/[0.06] px-2 py-3 text-center">
+      <p className="font-display text-xl font-extrabold tabular-nums text-lime-deep">
         {pct(value)}
-      </span>
+      </p>
+      <p className="mt-0.5 text-[11px] font-semibold text-muted">{label}</p>
     </div>
   );
 }
 
-function ordinal(n: number): string {
-  const s = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+/** One plain-language sentence summarising the model's read on the team. */
+function outlookSentence(
+  knockout: number | null,
+  final: number | null,
+  title: number | null,
+): string {
+  const ko = knockout ?? 0;
+  const fin = final ?? 0;
+  const win = title ?? 0;
+  const knockoutClause =
+    ko >= 0.75
+      ? "A strong chance to reach the knockouts"
+      : ko >= 0.4
+        ? "A solid shot at the knockouts"
+        : "An outside chance of the knockouts";
+  const deepClause =
+    win >= 0.1
+      ? " — and a real shot at the trophy."
+      : fin >= 0.15
+        ? " — with the run to the final firmly in reach."
+        : fin >= 0.05
+          ? " — though a deep run looks a stretch."
+          : ".";
+  return knockoutClause + deepClause;
 }

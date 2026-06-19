@@ -124,7 +124,7 @@ export function AuthModal({
       aria-label={m === "signin" ? "Switch to sign in" : "Switch to create account"}
       onClick={() => setMode(m)}
       className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition ${
-        mode === m ? "bg-win/15 text-win ring-1 ring-win/30" : "text-muted hover:text-foreground"
+        mode === m ? "bg-surface text-foreground shadow-sm" : "text-muted hover:text-foreground"
       }`}
     >
       {label}
@@ -132,11 +132,11 @@ export function AuthModal({
   );
 
   const field =
-    "w-full rounded-lg border border-border bg-surface/60 px-3 py-2 text-sm outline-none focus:border-win/50 focus:ring-2 focus:ring-win/20";
+    "w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win";
 
   return (
     <div
-      className="fixed inset-0 z-[100] grid place-items-center bg-black/60 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-[100] grid place-items-end bg-pitch/45 backdrop-blur-sm sm:place-items-center sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label={mode === "signup" ? "Create account" : "Sign in"}
@@ -144,9 +144,11 @@ export function AuthModal({
     >
       <div
         ref={card}
-        className="glass w-full max-w-sm rounded-2xl p-6"
+        className="glass w-full max-w-sm rounded-t-3xl px-5 pb-7 pt-3 sm:rounded-2xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Grab handle (mobile bottom-sheet affordance) */}
+        <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-extrabold tracking-tight">
             {mode === "signup" ? "Create your account" : "Welcome back"}
@@ -155,7 +157,7 @@ export function AuthModal({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="grid h-8 w-8 place-items-center rounded-lg text-muted transition hover:bg-surface-2/60 hover:text-foreground"
+            className="grid h-9 w-9 place-items-center rounded-lg text-muted transition hover:bg-surface-2 hover:text-foreground"
           >
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />
@@ -166,7 +168,7 @@ export function AuthModal({
         <div
           role="tablist"
           aria-label="Authentication mode"
-          className="mb-4 flex gap-1 rounded-xl bg-surface-2/40 p-1"
+          className="mb-4 flex gap-1 rounded-xl bg-surface-2 p-1"
         >
           {tab("signin", "Sign in")}
           {tab("signup", "Create account")}
@@ -211,7 +213,7 @@ export function AuthModal({
           <button
             type="submit"
             disabled={busy}
-            className="w-full rounded-lg bg-win/15 px-4 py-2.5 text-sm font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/25 disabled:opacity-50"
+            className="w-full rounded-xl bg-win px-4 py-3 text-sm font-bold text-pitch transition hover:brightness-110 disabled:opacity-50"
           >
             {busy ? "Please wait…" : mode === "signup" ? "Create account" : "Sign in"}
           </button>

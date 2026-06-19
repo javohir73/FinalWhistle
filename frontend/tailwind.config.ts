@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-// Premium dark design system. Color tokens are CSS variables (see globals.css).
+// "Daylight" light design system. Color tokens are CSS variables (see globals.css).
 const config: Config = {
   darkMode: ["class"],
   content: [
@@ -22,14 +22,17 @@ const config: Config = {
         loss: "hsl(var(--loss))",
         gold: "hsl(var(--gold))",
         accent: "hsl(var(--accent))",
+        "lime-deep": "hsl(var(--lime-deep))",
+        pitch: "hsl(var(--pitch))",
       },
       fontFamily: {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
       },
       borderRadius: {
-        xl: "0.875rem",
+        xl: "1rem",
         "2xl": "1.25rem",
+        "3xl": "1.5rem",
       },
     },
   },

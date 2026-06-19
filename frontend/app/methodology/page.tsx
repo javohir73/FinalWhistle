@@ -36,7 +36,7 @@ export default function MethodologyPage() {
     <article className="fade-up mx-auto max-w-2xl space-y-10">
       <header>
         <h1 className="font-display text-4xl font-extrabold tracking-tight">
-          Methodology &amp; accuracy
+          Methodology &amp; <span className="text-lime-deep">accuracy</span>
         </h1>
         <p className="mt-3 text-muted">
           In plain terms: how the forecasts are made, and how well they&apos;ve actually
@@ -164,13 +164,13 @@ export default function MethodologyPage() {
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">How the forecast is built</h2>
         <ol className="mt-3 space-y-2 text-sm text-foreground/90">
-          <li><strong className="text-win">1. Elo ratings</strong> — a strength score per nation, updated after every international since 1872 (hosts get a home bump).</li>
-          <li><strong className="text-win">2. Poisson goals</strong> — the Elo gap becomes expected goals, then the probability of every scoreline, giving win/draw/loss odds and a likely result.</li>
-          <li><strong className="text-win">3. Monte-Carlo</strong> — groups and the full knockout bracket are simulated thousands of times for qualification and title odds.</li>
+          <li><strong className="text-lime-deep">1. Elo ratings</strong> — a strength score per nation, updated after every international since 1872 (hosts get a home bump).</li>
+          <li><strong className="text-lime-deep">2. Poisson goals</strong> — the Elo gap becomes expected goals, then the probability of every scoreline, giving win/draw/loss odds and a likely result.</li>
+          <li><strong className="text-lime-deep">3. Monte-Carlo</strong> — groups and the full knockout bracket are simulated thousands of times for qualification and title odds.</li>
         </ol>
         <p className="mt-3 text-sm text-muted">
           More on the step-by-step approach on the{" "}
-          <Link href="/about" className="text-win underline-offset-2 hover:underline">How it works</Link> page.
+          <Link href="/about" className="text-lime-deep underline-offset-2 hover:underline">How it works</Link> page.
         </p>
       </section>
 
@@ -189,7 +189,7 @@ export default function MethodologyPage() {
                 <span
                   className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                     c.status === "current"
-                      ? "bg-win/15 text-win ring-1 ring-win/30"
+                      ? "bg-win/15 text-lime-deep ring-1 ring-win/30"
                       : "chip text-muted"
                   }`}
                 >
@@ -223,8 +223,8 @@ export default function MethodologyPage() {
 
 function Stat({ big, label }: { big: string; label: string }) {
   return (
-    <div className="glass rounded-2xl p-5 text-center">
-      <div className="font-display text-2xl font-extrabold tracking-tight text-win">{big}</div>
+    <div className="glass rounded-2xl bg-win/[0.06] p-5 text-center">
+      <div className="font-display text-2xl font-extrabold tracking-tight text-lime-deep">{big}</div>
       <div className="mt-1.5 text-xs text-muted">{label}</div>
     </div>
   );
@@ -241,7 +241,7 @@ function Row({
 }) {
   return (
     <tr className={`border-t border-border/50 ${highlight ? "bg-win/[0.06]" : ""}`}>
-      <td className={`px-2 py-2.5 font-medium ${highlight ? "text-win" : ""}`}>{label}</td>
+      <td className={`px-2 py-2.5 font-medium ${highlight ? "text-lime-deep" : ""}`}>{label}</td>
       <td className="px-2 text-right tabular-nums">{fmt(m.log_loss)}</td>
       <td className="px-2 text-right tabular-nums text-muted">{fmt(m.brier)}</td>
       <td className="px-2 text-right tabular-nums text-muted">{Math.round(m.accuracy * 100)}%</td>

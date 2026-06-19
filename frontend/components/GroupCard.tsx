@@ -36,7 +36,7 @@ export function GroupCard({
         }
       }}
       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
-      className="glass card-hover fade-up group cursor-pointer rounded-2xl p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 sm:p-5"
+      className="glass card-hover fade-up group cursor-pointer rounded-2xl p-4 sm:p-5"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -51,7 +51,7 @@ export function GroupCard({
             </span>
           )}
         </div>
-        <span className="shrink-0 text-xs font-semibold text-muted transition group-hover:text-win">
+        <span className="shrink-0 text-xs font-semibold text-muted transition group-hover:text-lime-deep">
           View matches <span aria-hidden>→</span>
         </span>
       </div>

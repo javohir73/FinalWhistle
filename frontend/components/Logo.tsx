@@ -22,12 +22,13 @@ export function BrandMark({ className }: { className?: string }) {
 }
 
 /** FinalWhistle wordmark with the brand two-tone split: "Final" in the
- *  foreground color, "Whistle" in lime. Mirrors APP_NAME ("FinalWhistle"). */
+ *  foreground ink, "Whistle" in the deep lime (the bright lime fails contrast on
+ *  the light canvas). Mirrors APP_NAME ("FinalWhistle"). */
 export function Wordmark({ className }: { className?: string }) {
   return (
     <span className={cn("font-display tracking-tight", className)}>
       <span className="text-foreground">Final</span>
-      <span className="text-win">Whistle</span>
+      <span className="text-lime-deep">Whistle</span>
     </span>
   );
 }

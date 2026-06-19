@@ -2,24 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ============ Premium "broadcast terminal" design system ============ */
+/* ============ "Daylight" design system ============ */
+/* Light, warm, friendly canvas. Same token names as the previous dark theme so
+   every Tailwind utility and component keeps working — only the values change. */
 :root {
-  /* Canvas — deep pitch-black green */
-  --background: 156 30% 5%;
-  --surface: 156 22% 9%;
-  --surface-2: 156 18% 12%;
-  --foreground: 150 20% 96%;
-  /* 64% L keeps muted text >= 4.5:1 (AA) on the near-black canvas even at the
-     reduced opacities (/70, /60) used for footnotes and disclaimers. */
-  --muted: 150 9% 64%;
-  --border: 153 18% 18%;
+  /* Canvas — soft warm daylight */
+  --background: 96 23% 96%; /* #f6f8f3  page canvas */
+  --surface: 0 0% 100%; /* #ffffff  cards */
+  --surface-2: 94 18% 93%; /* #eef1ea  insets / track / hover */
+  --foreground: 150 38% 9%; /* #0f2117  primary ink (deep green-black) */
+  --muted: 140 7% 45%; /* #6b7c71  secondary text (AA on white) */
+  --border: 84 20% 90%; /* #e6eae0  hairlines */
 
   /* Data accents */
-  --win: 84 78% 55%;   /* electric pitch lime */
-  --draw: 41 96% 60%;  /* amber */
-  --loss: 351 90% 65%; /* rose */
-  --gold: 43 74% 62%;  /* premium gold accent */
-  --accent: 84 78% 55%;
+  --win: 84 66% 52%; /* #8fd633  lime — FILLS only (bars, toggles, buttons) */
+  --draw: 41 78% 51%; /* #e3a51f  amber */
+  --loss: 350 84% 62%; /* #ef4d68  rose */
+  --gold: 42 62% 48%; /* #c79a2e  gold */
+  --accent: 84 66% 52%; /* = win */
+
+  /* Daylight additions */
+  --lime-deep: 108 56% 27%; /* #2f6b1e  accessible lime for TEXT/icons/links on light */
+  --pitch: 151 51% 14%; /* #123723  solid deep-green hero/accent panels */
 }
 
 * {
@@ -33,9 +37,11 @@ html {
 
 /* ============ Keyboard focus ============ */
 /* A single, consistent, high-contrast focus ring for every interactive element.
-   :focus-visible only shows it for keyboard/AT users, not mouse clicks. */
+   Uses the deep lime so the ring keeps >= 3:1 contrast against the light canvas
+   (the bright --win fails non-text contrast on white). :focus-visible only shows
+   it for keyboard/AT users, not mouse clicks. */
 :focus-visible {
-  outline: 2px solid hsl(var(--win));
+  outline: 2px solid hsl(var(--lime-deep));
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -57,36 +63,6 @@ body {
   background-color: hsl(var(--background));
   font-feature-settings: "ss01", "cv01", "tnum";
   -webkit-font-smoothing: antialiased;
-}
-
-/* Layered atmosphere on a fixed layer (avoids the iOS `background-attachment:
-   fixed` bug that mis-scales the background when zooming). */
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background-image:
-    radial-gradient(60rem 40rem at 80% -10%, hsl(84 78% 55% / 0.10), transparent 60%),
-    radial-gradient(50rem 40rem at -10% 10%, hsl(43 74% 62% / 0.06), transparent 55%),
-    radial-gradient(40rem 30rem at 50% 120%, hsl(156 40% 20% / 0.5), transparent 60%);
-}
-
-/* Fine grain overlay for texture (also fixed, paints over the atmosphere). */
-body::after {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.035;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-}
-
-body > * {
-  position: relative;
-  z-index: 1;
 }
 
 /* ============ Installed-app (PWA) safe areas ============ */
@@ -120,12 +96,21 @@ body > * {
 
 /* ============ Reusable utilities ============ */
 @layer components {
+  /* Solid light card — the daylight replacement for the old translucent glass.
+     Kept under the `.glass` name so every existing consumer becomes a clean
+     white card with a hairline border and a whisper of elevation. */
   .glass {
-    background:
-      linear-gradient(160deg, hsl(var(--surface) / 0.9), hsl(var(--surface-2) / 0.75));
-    border: 1px solid hsl(var(--border) / 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: hsl(var(--surface));
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 1px 2px rgba(18, 40, 25, 0.04);
+  }
+
+  /* Hero / accent surface: solid deep-green panel for the your-team card,
+     sign-in prompt and champion card. */
+  .panel-pitch {
+    background: hsl(var(--pitch));
+    border: 1px solid hsl(var(--pitch));
+    color: #fff;
   }
 
   .card-hover {
@@ -134,16 +119,8 @@ body > * {
   }
   .card-hover:hover {
     transform: translateY(-3px);
-    border-color: hsl(var(--win) / 0.5);
-    box-shadow: 0 0 0 1px hsl(var(--win) / 0.2),
-      0 18px 50px -12px hsl(84 78% 30% / 0.45);
-  }
-
-  .text-gradient {
-    background: linear-gradient(120deg, hsl(var(--foreground)), hsl(var(--win)));
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    border-color: hsl(var(--win) / 0.4);
+    box-shadow: 0 6px 20px -8px rgba(18, 40, 25, 0.12);
   }
 
   .chip {
@@ -269,9 +246,9 @@ body > * {
   }
 }
 
-/* Custom selection + scrollbar for the premium feel */
+/* Custom selection + scrollbar for the daylight feel */
 ::selection {
-  background: hsl(var(--win) / 0.25);
+  background: hsl(var(--win) / 0.3);
   color: hsl(var(--foreground));
 }
 ::-webkit-scrollbar {

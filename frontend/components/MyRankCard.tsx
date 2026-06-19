@@ -38,14 +38,14 @@ export function MyRankCard() {
 
   const score = bracket?.score;
   return (
-    <div className="glass sticky top-20 z-10 mb-5 rounded-2xl border-win/30 bg-win/[0.05] p-4">
+    <div className="glass mb-5 rounded-2xl bg-win/[0.06] p-4 ring-1 ring-win/25">
       {!bracket ? (
         <p className="text-sm text-muted">
           Save a bracket and join the leaderboard to get ranked.
         </p>
       ) : score?.rank ? (
         <p className="text-sm">
-          <span className="font-display font-bold">You are #{score.rank}</span>{" "}
+          <span className="font-display font-bold text-lime-deep">You are #{score.rank}</span>{" "}
           <span className="text-muted">· {score.total_points} pts</span>
         </p>
       ) : (

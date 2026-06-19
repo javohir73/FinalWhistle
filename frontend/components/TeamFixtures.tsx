@@ -50,7 +50,7 @@ export function TeamFixtures({
           <li key={m.match_id}>
             <Link
               href={`/match/${m.match_id}`}
-              className="flex items-center gap-3 py-3 transition hover:text-win focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50"
+              className="flex items-center gap-3 py-3 transition hover:text-lime-deep"
             >
               <span className="w-20 shrink-0 text-xs text-muted">
                 {m.kickoff_utc ? (
@@ -76,12 +76,12 @@ export function TeamFixtures({
                     : formatScore(m.score_away, m.score_home)}
                 </span>
               ) : teamWin != null ? (
-                <span className="shrink-0 text-xs font-semibold tabular-nums text-win">
+                <span className="shrink-0 text-xs font-semibold tabular-nums text-lime-deep">
                   {pct(teamWin)} win
                 </span>
               ) : null}
               {m.match_id === nextId && !finished && (
-                <span className="shrink-0 rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-win ring-1 ring-win/30">
+                <span className="shrink-0 rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep">
                   Next
                 </span>
               )}

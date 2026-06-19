@@ -27,7 +27,7 @@ export function InstallAppPrompt() {
     <div
       role="complementary"
       aria-label="Install FinalWhistle"
-      className="glass safe-x fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-2xl border border-win/25 p-4 shadow-xl sm:inset-x-auto sm:bottom-6 sm:right-6"
+      className="glass safe-x fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto max-w-md rounded-2xl p-4 shadow-xl sm:inset-x-auto sm:bottom-6 sm:right-6"
     >
       <div className="flex items-start gap-3">
         <Image
@@ -61,7 +61,7 @@ export function InstallAppPrompt() {
             <button
               type="button"
               onClick={() => void promptInstall()}
-              className="mt-2.5 rounded-lg bg-win/15 px-3.5 py-1.5 text-xs font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/25"
+              className="mt-2.5 rounded-lg bg-win px-3.5 py-1.5 text-xs font-bold text-pitch transition hover:brightness-110"
             >
               Install app
             </button>

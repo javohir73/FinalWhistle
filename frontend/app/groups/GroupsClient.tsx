@@ -17,11 +17,10 @@ export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
     <div>
       <header className="fade-up mb-8">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Group standings
+          Group <span className="text-lime-deep">tables</span>
         </h1>
         <p className="mt-2 max-w-xl text-muted">
-          Predicted final tables from thousands of Monte-Carlo simulations. The top
-          two of each group (highlighted) advance directly.
+          Live standings with each team&apos;s chance of finishing top two.
         </p>
       </header>
 

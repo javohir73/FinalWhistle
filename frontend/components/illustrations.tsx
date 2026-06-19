@@ -24,11 +24,11 @@ export function SoccerBall({ className }: { className?: string }) {
 export function PitchLines({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 400 260" className={className} aria-hidden fill="none"
-      stroke="hsl(var(--win))" strokeWidth="1.5" opacity="0.5">
+      stroke="hsl(var(--lime-deep))" strokeWidth="1.5" opacity="0.45">
       <rect x="6" y="6" width="388" height="248" rx="4" />
       <line x1="200" y1="6" x2="200" y2="254" />
       <circle cx="200" cy="130" r="46" />
-      <circle cx="200" cy="130" r="3" fill="hsl(var(--win))" />
+      <circle cx="200" cy="130" r="3" fill="hsl(var(--lime-deep))" />
       {/* left box */}
       <rect x="6" y="70" width="58" height="120" />
       <rect x="6" y="104" width="24" height="52" />

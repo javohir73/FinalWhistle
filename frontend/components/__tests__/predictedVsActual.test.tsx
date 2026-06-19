@@ -56,28 +56,40 @@ beforeEach(() => mockGetMatchSummary.mockResolvedValue(finished));
 afterEach(() => jest.resetAllMocks());
 
 describe("MatchCard", () => {
-  it("shows the predicted winner row before kickoff (no verdict)", () => {
+  it("shows a plain-language call before kickoff (no result yet)", () => {
     render(<MatchCard match={base} />);
-    expect(screen.getByText("Winner")).toBeInTheDocument();
-    expect(screen.queryByText(/Predicted$/)).not.toBeInTheDocument();
+    // home_win 0.6 clears 55% → "Mexico favoured".
+    expect(screen.getByText("Mexico favoured")).toBeInTheDocument();
+    // AI-labelled predicted scoreline, no promoted actual score.
+    expect(screen.getByText("AI")).toBeInTheDocument();
     expect(screen.getByText("1–0")).toBeInTheDocument();
   });
 
-  it("at full time shows actual score, labelled prediction, and a verdict", () => {
+  it("at full time shows actual score, AI-labelled prediction, and a verdict", () => {
     render(<MatchCard match={finished} />);
     // Actual score per team row…
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("0")).toBeInTheDocument();
-    // …prediction explicitly labelled…
-    expect(screen.getByText("Predicted")).toBeInTheDocument();
+    // …a "Full time" status pill (not a confidence badge)…
+    expect(screen.getByText("Full time")).toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+    // …prediction explicitly labelled as the AI's call…
+    expect(screen.getByText("AI")).toBeInTheDocument();
     expect(screen.getByText("1–0")).toBeInTheDocument();
-    // …and the model's scorecard.
-    expect(screen.getByText("Result predicted right")).toBeInTheDocument();
+    // …and the plain-language scorecard.
+    expect(screen.getByText("Called it")).toBeInTheDocument();
+  });
+
+  it("shows an amber kickoff-time pill (not a confidence badge) before kickoff", () => {
+    // tz is required for the time pill to render in the user's local time.
+    render(<MatchCard match={base} tz="UTC" />);
+    expect(screen.getByText("7:00 PM")).toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
 
   it("calls out a miss when the favoured side lost", () => {
     render(<MatchCard match={{ ...finished, score_home: 0, score_away: 2 }} />);
-    expect(screen.getByText("Model missed this one")).toBeInTheDocument();
+    expect(screen.getByText("Upset — we missed it")).toBeInTheDocument();
   });
 });
 
@@ -93,20 +105,23 @@ describe("MatchScoreboard", () => {
         probabilities={base.probabilities!}
         predicted={base.predicted_score!}
         initialSummary={initialSummary}
+        confidence="High"
+        predictedWinner="Mexico"
+        caveat="Mexico favoured"
       />,
     );
 
-  it("shows the predicted score as headline before kickoff", () => {
+  it("shows a bare 'vs' matchup and the AI's call before kickoff", () => {
     mockGetMatchSummary.mockResolvedValue(base);
     renderBoard(base);
-    expect(screen.getByText("1–0")).toBeInTheDocument();
-    expect(screen.getByText("predicted")).toBeInTheDocument();
+    expect(screen.getByText("vs")).toBeInTheDocument(); // no actual score yet
+    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
   });
 
-  it("promotes the live score to the headline with the minute", () => {
+  it("promotes the live score to the matchup with the minute", () => {
     mockGetMatchSummary.mockResolvedValue(live);
     renderBoard(live);
-    expect(screen.getByText("1–0")).toBeInTheDocument(); // actual (1–0 at 63')
+    expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1); // actual (1–0 at 63')
     expect(screen.getByText("63'")).toBeInTheDocument();
     expect(screen.getByText(/Model predicted/)).toBeInTheDocument();
   });
@@ -115,7 +130,8 @@ describe("MatchScoreboard", () => {
     mockGetMatchSummary.mockResolvedValue(halfTime);
     renderBoard(halfTime);
     expect(screen.getByText("HT")).toBeInTheDocument();
-    expect(screen.queryByText(/'/)).not.toBeInTheDocument(); // no minute shown
+    // No minute (a digit + apostrophe); the "The AI's call" eyebrow apostrophe is fine.
+    expect(screen.queryByText(/\d+'/)).not.toBeInTheDocument();
   });
 
   it("shows PENS and the shootout tally during a penalty shootout", () => {
@@ -136,7 +152,7 @@ describe("MatchScoreboard", () => {
   it("falls back to prediction-only when no summary is available", () => {
     mockGetMatchSummary.mockRejectedValue(new Error("offline"));
     renderBoard(null);
-    expect(screen.getByText("1–0")).toBeInTheDocument();
-    expect(screen.getByText("predicted")).toBeInTheDocument();
+    expect(screen.getByText("vs")).toBeInTheDocument();
+    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
   });
 });

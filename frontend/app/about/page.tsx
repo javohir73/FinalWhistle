@@ -23,7 +23,7 @@ export default function AboutPage() {
     <article className="fade-up mx-auto max-w-2xl space-y-8">
       <header>
         <h1 className="font-display text-4xl font-extrabold tracking-tight">
-          How {APP_NAME} works
+          How {APP_NAME} <span className="text-lime-deep">works</span>
         </h1>
         <p className="mt-3 text-muted">
           Transparent, calibrated predictions — built in public, honest about both
@@ -34,8 +34,8 @@ export default function AboutPage() {
       <section className="grid gap-4 sm:grid-cols-3">
         {STEPS.map((s, i) => (
           <div key={s.title} className="glass rounded-2xl p-5">
-            <div className="mb-2 font-display text-2xl font-extrabold text-win">
-              0{i + 1}
+            <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-win/15 font-display text-base font-extrabold text-lime-deep">
+              {i + 1}
             </div>
             <h2 className="font-display font-bold">{s.title}</h2>
             <p className="mt-1.5 text-sm text-muted">{s.body}</p>
@@ -53,7 +53,7 @@ export default function AboutPage() {
         </p>
         <Link
           href="/methodology"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-win/10 px-3.5 py-2 text-sm font-display font-semibold text-win ring-1 ring-win/30 transition hover:bg-win/20"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-win/15 px-3.5 py-2 text-sm font-display font-semibold text-lime-deep ring-1 ring-win/30 transition hover:bg-win/20"
         >
           See the calibration curve &amp; full metrics →
         </Link>

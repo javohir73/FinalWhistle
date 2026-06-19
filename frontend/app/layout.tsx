@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     title: APP_NAME,
-    statusBarStyle: "black-translucent",
+    statusBarStyle: "default",
   },
   other: { "mobile-web-app-capable": "yes" },
   icons: {
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0a140e",
+  themeColor: "#f6f8f3",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

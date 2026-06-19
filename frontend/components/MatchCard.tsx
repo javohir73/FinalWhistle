@@ -4,18 +4,19 @@ import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
 import { liveLabel, isLiveNow } from "@/lib/liveLabel";
-import { predictionVerdict } from "@/lib/verdict";
-import { kickoffDate, kickoffTime, tzAbbrev } from "@/lib/datetime";
+import { predictionVerdict, prematchCall } from "@/lib/verdict";
+import { kickoffDate, kickoffTime } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
-import { ConfidenceBadge } from "./ConfidenceBadge";
 import { Flag } from "./Flag";
 import { FavoriteStar } from "./FavoriteStar";
 
 /** The core dashboard card: matchup, predicted winner, W/D/L bar, score.
- *  When `tz` is given, kickoff time is shown in the user's local timezone.
- *  Set `showDate` when the card isn't inside a day-grouped list (e.g. the
- *  personalized country hub) so the local date is shown alongside the time. */
+ *  The status pill (top-right) carries the time/state: an amber kickoff-time
+ *  pill before kickoff, a rose live-minute pill in play, a muted "Full time"
+ *  pill once over. When `tz` is given the kickoff time is shown in the user's
+ *  local timezone. Set `showDate` when the card isn't inside a day-grouped list
+ *  (e.g. the personalized country hub) so the local date leads the time pill. */
 export function MatchCard({
   match,
   tz,
@@ -25,24 +26,30 @@ export function MatchCard({
   tz?: string;
   showDate?: boolean;
 }) {
-  const { teams, probabilities, predicted_score, confidence, predicted_winner } = match;
-  const venue = [match.venue, match.venue_city].filter(Boolean).join(" · ");
+  const { teams, probabilities, predicted_score, predicted_winner } = match;
   const live = isLiveNow(match);
   // A match the feed left stuck `in_play` past the live window is treated as
   // over (show its last score as a result) rather than perpetually "live".
   const finished = match.status === "finished" || (match.status === "in_play" && !live);
   const hasScore = match.score_home != null && match.score_away != null;
   const verdict = predictionVerdict(match);
+  const call = prematchCall(probabilities, teams);
+  const kickoffPill =
+    match.kickoff_utc && tz
+      ? showDate
+        ? `${kickoffDate(match.kickoff_utc, tz)} · ${kickoffTime(match.kickoff_utc, tz)}`
+        : kickoffTime(match.kickoff_utc, tz)
+      : null;
 
   return (
     <Link
       href={`/match/${match.match_id}`}
       onClick={() => trackEvent("match_card_click", { match_id: match.match_id })}
-      className={`card-hover glass group block rounded-2xl p-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-win/50 ${
+      className={`card-hover glass group block rounded-2xl p-4 ${
         live ? "ring-1 ring-loss/40" : ""
       }`}
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
           {match.group ?? match.stage}
         </span>
@@ -56,37 +63,19 @@ export function MatchCard({
           </span>
         ) : finished ? (
           <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-            FT
+            Full time
           </span>
         ) : (
-          confidence && <ConfidenceBadge level={confidence} />
-        )}
-      </div>
-
-      {(match.kickoff_utc || venue) && (showDate || (!live && !finished)) && (
-        <div className="mb-3.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
-          {match.kickoff_utc && tz && (
-            <span className="inline-flex items-center gap-1.5 font-semibold text-win">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
+          kickoffPill && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#9a730f]">
+              <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
               </svg>
-              {showDate
-                ? `${kickoffDate(match.kickoff_utc, tz)} · ${kickoffTime(match.kickoff_utc, tz)}`
-                : kickoffTime(match.kickoff_utc, tz)}
-              <span className="font-medium text-muted">{tzAbbrev(match.kickoff_utc, tz)}</span>
+              {kickoffPill}
             </span>
-          )}
-          {venue && (
-            <span className="inline-flex min-w-0 items-center gap-1.5">
-              <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-              <span className="truncate">{venue}</span>
-            </span>
-          )}
-        </div>
-      )}
+          )
+        )}
+      </div>
 
       <div className="mb-4 space-y-2.5">
         <TeamRow name={teams.home} score={hasScore ? match.score_home : null} live={live || finished} />
@@ -103,15 +92,27 @@ export function MatchCard({
         <p className="text-sm text-muted">Prediction pending…</p>
       )}
 
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border/60 pt-3 text-sm">
-        {verdict ? (
+      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+        {finished && verdict ? (
           <span
-            className={`inline-flex items-center gap-1 text-xs font-semibold ${
-              verdict.kind === "miss" ? "text-loss" : "text-win"
+            className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
+              verdict.kind === "miss" ? "text-loss" : "text-lime-deep"
             }`}
           >
-            <span aria-hidden>{verdict.kind === "miss" ? "✗" : "✓"}</span>
-            {verdict.label}
+            <span aria-hidden>{verdict.kind === "miss" ? "✕" : "✓"}</span>
+            {verdict.kind === "miss"
+              ? "Upset — we missed it"
+              : verdict.kind === "exact"
+                ? "Exact score!"
+                : "Called it"}
+          </span>
+        ) : call ? (
+          <span
+            className={`text-xs font-semibold ${
+              call.tone === "draw" ? "text-draw" : "text-lime-deep"
+            }`}
+          >
+            {call.label}
           </span>
         ) : (
           <span className="text-muted">
@@ -122,12 +123,10 @@ export function MatchCard({
           </span>
         )}
         {predicted_score && (
-          <span className="chip rounded-md px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
-            {(live || finished) && (
-              <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
-                Predicted
-              </span>
-            )}
+          <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
+            <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
+              AI
+            </span>
             {formatScore(predicted_score.home, predicted_score.away)}
           </span>
         )}

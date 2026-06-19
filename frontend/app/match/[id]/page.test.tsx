@@ -60,7 +60,8 @@ it("server-renders teams, probabilities, reasons and odds stub", async () => {
   expect(screen.getByText("Serbia")).toBeInTheDocument();
   expect(screen.getAllByText("62%").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
-  expect(screen.getByText(/coming in a later release/i)).toBeInTheDocument();
+  // The AI's call leads with the plain verdict sentence.
+  expect(screen.getByText(/to win/)).toBeInTheDocument();
 });
 
 it("calls notFound() for a missing match", async () => {

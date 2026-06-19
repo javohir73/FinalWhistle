@@ -37,19 +37,19 @@ export function FeatureImportanceChart({ features }: { features: FeatureWeight[]
             type="category"
             dataKey="name"
             width={104}
-            tick={{ fontSize: 12, fill: "hsl(150 8% 70%)" }}
+            tick={{ fontSize: 12, fill: "#6b7c71" }}
             axisLine={false}
             tickLine={false}
           />
           <Bar dataKey="weight" radius={[0, 6, 6, 0]} barSize={18}>
             {data.map((_, i) => (
-              <Cell key={i} fill="hsl(84 78% 55%)" fillOpacity={1 - i * 0.16} />
+              <Cell key={i} fill="#8fd633" fillOpacity={1 - i * 0.14} />
             ))}
             <LabelList
               dataKey="weight"
               position="right"
               formatter={(v: number) => `${v}%`}
-              style={{ fill: "hsl(150 8% 70%)", fontSize: 11, fontWeight: 600 }}
+              style={{ fill: "#6b7c71", fontSize: 11, fontWeight: 600 }}
             />
           </Bar>
         </BarChart>

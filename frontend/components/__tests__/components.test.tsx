@@ -90,6 +90,9 @@ describe("MatchCard", () => {
     expect(screen.getByText("South Africa")).toBeInTheDocument();
     expect(screen.getByText("2–0")).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/match/7");
+    // The card carries a status pill now, not a confidence badge — even though
+    // this fixture has a confidence level, no "… confidence" badge is rendered.
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
 
   it("shows a LIVE badge, minute and the running score when in play", () => {
