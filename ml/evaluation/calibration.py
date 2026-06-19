@@ -14,6 +14,27 @@ import math
 Probs = tuple[float, float, float]
 _EPS = 1e-15
 
+# Effective-Elo-gap segmentation for draw-aware calibration. The probability
+# engine responds to (elo_home + home_adv) - elo_away (see poisson.py
+# expected_goals_from_elo), so the calibrator buckets on that, NOT the raw gap —
+# otherwise a host-boosted close match is mis-bucketed. Both the gate (fit) and
+# the serving path bucket through these two helpers, so they cannot drift.
+_GAP_EDGES = (50.0, 150.0, 300.0)
+_GAP_BUCKETS = ("0-50", "50-150", "150-300", "300+")
+
+
+def effective_gap(elo_home: float, elo_away: float, home_adv: float) -> float:
+    """Absolute effective Elo gap the engine actually responds to."""
+    return abs((elo_home + home_adv) - elo_away)
+
+
+def gap_bucket(eff_gap: float) -> str:
+    """Map an effective gap to one of the four coarse buckets."""
+    for edge, name in zip(_GAP_EDGES, _GAP_BUCKETS):
+        if eff_gap < edge:
+            return name
+    return _GAP_BUCKETS[-1]
+
 
 def apply_temperature(probs: Probs, temperature: float) -> Probs:
     """Soften/sharpen a probability triple by temperature T."""

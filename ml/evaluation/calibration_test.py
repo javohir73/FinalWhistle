@@ -4,8 +4,10 @@ from ml.evaluation.calibration import (
     apply_temperature,
     apply_vector_scaling,
     calibrate,
+    effective_gap,
     fit_temperature,
     fit_vector_scaling,
+    gap_bucket,
     reliability_curve,
 )
 from ml.evaluation.scoreline_metrics import per_class_calibration_error
@@ -137,3 +139,23 @@ def test_calibrate_unknown_method_falls_back_to_temperature():
     p = (0.5, 0.3, 0.2)
     blob = {"method": "future_method"}
     assert calibrate(p, blob, temperature=1.4) == apply_temperature(p, 1.4)
+
+
+def test_effective_gap_uses_home_adv():
+    # The engine responds to (elo_home + home_adv) - elo_away, so the gap must too.
+    # Home 50 below away, but +60 home_adv -> effectively +10, a *close* match.
+    assert effective_gap(1450.0, 1500.0, 60.0) == 10.0
+    # Neutral (adv 0) -> raw gap.
+    assert effective_gap(1450.0, 1500.0, 0.0) == 50.0
+    # Away is host (signed -adv) widens an already-away-favored gap.
+    assert effective_gap(1500.0, 1450.0, -60.0) == 10.0
+
+
+def test_gap_bucket_boundaries():
+    assert gap_bucket(0.0) == "0-50"
+    assert gap_bucket(50.0) == "50-150"      # lower edge is exclusive of prior bucket
+    assert gap_bucket(149.9) == "50-150"
+    assert gap_bucket(150.0) == "150-300"
+    assert gap_bucket(299.9) == "150-300"
+    assert gap_bucket(300.0) == "300+"
+    assert gap_bucket(9999.0) == "300+"
