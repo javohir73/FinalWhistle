@@ -27,3 +27,22 @@ def test_blend_gate_runs_and_reports_a_verdict():
     assert "weight" in res
     assert res["test_n"] > 0
     assert res["verdict"] in ("SHIP", "do-not-ship")
+
+
+def test_gate_honors_served_params():
+    """The booster must be scored against the engine actually served, not a
+    hardcoded constant. Regression lock for the v0.1-vs-shipped-v0.2 bug: the
+    gate's Poisson baseline must reflect the served params it is given. The rows
+    are neutral-site favorites that always win, so a stronger elo→goals beta makes
+    the favorite more confident and lowers the baseline log-loss."""
+    from ml.models.params import ModelParams
+
+    weak = ModelParams(version="weak", base=1.2, beta=0.0005,
+                       home_adv=60.0, rho=-0.06, temperature=1.0)
+    strong = ModelParams(version="strong", base=1.2, beta=0.0030,
+                         home_adv=60.0, rho=-0.06, temperature=1.0)
+
+    res_weak = run_blend_gate(_rows(), served_params=weak, n_boot=50)
+    res_strong = run_blend_gate(_rows(), served_params=strong, n_boot=50)
+
+    assert res_strong["base_log_loss"] < res_weak["base_log_loss"]

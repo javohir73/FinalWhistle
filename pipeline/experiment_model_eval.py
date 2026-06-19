@@ -41,7 +41,7 @@ from ml.evaluation.scoreline_metrics import (
 )
 from ml.evaluation.tune import tune_params, validation_window, MIN_VAL_MATCHES
 from ml.models.baseline_logistic import result_label
-from ml.models.params import DEFAULT_PARAMS, ModelParams
+from ml.models.params import DEFAULT_PARAMS, ModelParams, load_params
 from ml.models.poisson import (
     expected_goals_from_elo,
     outcome_probabilities,
@@ -383,16 +383,22 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
 
 
 def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
-                   test_since: int = 2018, n_boot: int = 2000) -> dict:
+                   test_since: int = 2018, n_boot: int = 2000,
+                   served_params: ModelParams | None = None) -> dict:
     """Honest ship test for the booster blend.
 
     1. Train ONE booster on leak-free history in [train_lo, test_since) minus a
        held-out tail (recency + competition-tier weighted).
     2. Fit the blend weight on the tail (the `tail_years` before the test cutoff),
        minimizing log-loss; fit a vector-scaling calibrator on the blended tail probs.
-    3. Score blend vs Poisson-alone (served params) on test_since+ major finals with
-       the edition-clustered bootstrap. Promote only if the log-loss CI excludes 0
+    3. Score blend vs Poisson-alone on test_since+ major finals with the
+       edition-clustered bootstrap. Promote only if the log-loss CI excludes 0
        (better).
+
+    The Poisson leg uses the params actually served (load_params(), i.e. the tuned
+    model_params.json), not the v0.1 DEFAULT_PARAMS constant — otherwise the gate
+    would measure the booster's lift against an engine we no longer ship. Pass
+    `served_params` to score against a specific engine (used by tests).
     """
     feat_rows = build_training_rows(rows)
     test_start = date(test_since, 1, 1)
@@ -407,7 +413,7 @@ def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
     weights = [training_weight(r, ref) for r in train]
     booster = WdlBoost().fit(train, sample_weight=weights)
 
-    served = DEFAULT_PARAMS  # blend against the engine we actually serve
+    served = served_params if served_params is not None else load_params()
 
     def poisson_triple(fr: dict) -> tuple:
         # feat["is_neutral"] is 1.0 (neutral → adv 0) or 0.0 (home side → adv applies). Correct.
@@ -453,9 +459,12 @@ def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
     ci = block_bootstrap_ci(d_ll, ed_keys, n_boot, rng) if len(d_ll) else (0.0, 0.0)
 
     return {
+        "served_version": served.version,
         "weight": round(weight, 3),
         "calibrator": calibrator,
         "train_n": len(train), "tail_n": len(tail), "test_n": len(test),
+        "base_log_loss": float(np.mean(base_ll)) if base_ll else 0.0,
+        "blend_log_loss": float(np.mean(blend_ll)) if blend_ll else 0.0,
         "delta_log_loss": float(d_ll.mean()) if len(d_ll) else 0.0,
         "ll_ci": ci,
         "verdict": "SHIP" if (ci[1] < 0) else "do-not-ship",
@@ -526,7 +535,9 @@ def main() -> int:
 
     print("\n==== Booster blend gate (HistGradientBoosting) ====")
     bg = run_blend_gate(rows, n_boot=args.boot)
-    print(f"  weight={bg['weight']}  train_n={bg['train_n']} tail_n={bg['tail_n']} test_n={bg['test_n']}")
+    print(f"  served={bg['served_version']}  weight={bg['weight']}  "
+          f"train_n={bg['train_n']} tail_n={bg['tail_n']} test_n={bg['test_n']}")
+    print(f"  base_logloss={bg['base_log_loss']:.4f}  blend_logloss={bg['blend_log_loss']:.4f}")
     print(f"  d_logloss={bg['delta_log_loss']:+.4f}  CI[{bg['ll_ci'][0]:+.4f},{bg['ll_ci'][1]:+.4f}]  -> {bg['verdict']}")
     if bg["verdict"] == "SHIP":
         # Valid JSON so it can be pasted straight into model_params.json's wdl_blend.
