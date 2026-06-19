@@ -122,6 +122,7 @@ def test_predict_match_temperature_path_equals_apply_temperature():
 
 
 def test_predict_match_threads_eff_gap_to_segmented_calibrator():
+    import pytest
     # Segmented blob: lift draw only in the 0-50 bucket, identity elsewhere.
     blob = {
         "method": "vector_scaling_segmented", "by": "effective_elo_gap",
@@ -133,10 +134,18 @@ def test_predict_match_threads_eff_gap_to_segmented_calibrator():
     close = predict_match(1450.0, 1500.0, home_adv=60.0, calibrator=blob)   # eff gap 10
     # Without eff_gap threaded, close will use default (no change to raw draw prob).
     # So the test detects threading by checking draw is visibly lifted vs the raw baseline.
-    from ml.models.poisson import expected_goals_from_elo, outcome_probabilities, score_matrix
     lam_h, lam_a = expected_goals_from_elo(1450.0, 1500.0, 60.0)
     raw = outcome_probabilities(score_matrix(lam_h, lam_a))
     # With eff_gap=10 threaded, calibrate picks 0-50 bucket which lifts draw.
     # Without threading, calibrate uses default which is identity (no lift).
     # So close.prob_draw MUST be > raw[1] if eff_gap is threaded.
     assert close.prob_draw > raw[1]
+
+    # Boundary case: home_adv=0 gives eff_gap = |1450-1500| = 50, which buckets
+    # to "50-150", NOT "0-50", so segmented calibrator falls back to identity default
+    # (no lift). Assert far match's draw equals its raw uncalibrated baseline.
+    far = predict_match(1450.0, 1500.0, home_adv=0.0, calibrator=blob)   # eff gap 50
+    lam_h_far, lam_a_far = expected_goals_from_elo(1450.0, 1500.0, 0.0)
+    raw_far = outcome_probabilities(score_matrix(lam_h_far, lam_a_far))
+    # With eff_gap=50, far matches the "50-150" bucket which is identity (no lift).
+    assert far.prob_draw == pytest.approx(raw_far[1])
