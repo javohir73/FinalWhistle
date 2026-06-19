@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from ml.evaluation.calibration import apply_temperature, calibrate
+from ml.evaluation.calibration import apply_temperature, calibrate, effective_gap
 
 BASE_GOALS = 1.35          # average international goals per team per match
 ELO_TO_GOALS_BETA = 0.0019  # goals sensitivity per Elo pt (tuned on pre-2018 WCs, task 4.6)
@@ -197,7 +197,8 @@ def predict_match(
     lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
-    p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature)
+    eff_gap = effective_gap(elo_home, elo_away, home_adv)
+    p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature, eff_gap=eff_gap)
     if abs(p_home - p_away) <= DRAW_HEADLINE_BAND:
         # Coin-flip: show the grid's single most-likely exact score (a draw for
         # even teams).
