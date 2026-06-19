@@ -108,8 +108,9 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
           <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
             {outlookSentence(teamOdds.make_knockout, teamOdds.reach_final, teamOdds.win_title)}
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <OutlookTile label="Reach KO" value={teamOdds.make_knockout} />
+            <OutlookTile label="Reach semis" value={teamOdds.reach_sf} />
             <OutlookTile label="Reach final" value={teamOdds.reach_final} />
             <OutlookTile label="Win title" value={teamOdds.win_title} />
           </div>

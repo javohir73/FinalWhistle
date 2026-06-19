@@ -10,6 +10,7 @@ import type { MatchSummary, PredictedScore, Probabilities, GoalEvent } from "@/l
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
+import { FavoriteStar } from "@/components/FavoriteStar";
 
 /** Match-page headline, prototype "Match" layout: a bare matchup (flags + names
  *  + "vs") on the canvas, then a distinct "The AI's call" card holding the plain
@@ -202,6 +203,7 @@ function TeamHead({ name, teamId }: { name: string; teamId?: number | null }) {
       ) : (
         <div className="flex flex-col items-center">{inner}</div>
       )}
+      <FavoriteStar team={name} size={18} className="mt-1.5" />
     </div>
   );
 }
