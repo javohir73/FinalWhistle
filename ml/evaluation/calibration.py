@@ -167,7 +167,7 @@ def fit_segmented_vector_scaling(
             t, b = fit_vector_scaling([probs_list[i] for i in ix], [labels[i] for i in ix])
             buckets[name] = {"t": t, "b": list(b)}
         else:
-            buckets[name] = default
+            buckets[name] = {"t": default["t"], "b": list(default["b"])}
     return {
         "method": "vector_scaling_segmented",
         "by": "effective_elo_gap",

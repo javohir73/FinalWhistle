@@ -1,4 +1,5 @@
 """Tests for the Poisson goals model (task 3.3)."""
+import pytest
 from ml.models.poisson import (
     expected_goals_from_elo,
     most_likely_score,
@@ -122,7 +123,6 @@ def test_predict_match_temperature_path_equals_apply_temperature():
 
 
 def test_predict_match_threads_eff_gap_to_segmented_calibrator():
-    import pytest
     # Segmented blob: lift draw only in the 0-50 bucket, identity elsewhere.
     blob = {
         "method": "vector_scaling_segmented", "by": "effective_elo_gap",

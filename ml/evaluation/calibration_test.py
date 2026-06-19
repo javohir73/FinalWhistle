@@ -147,7 +147,7 @@ def test_effective_gap_uses_home_adv():
     assert effective_gap(1450.0, 1500.0, 60.0) == 10.0
     # Neutral (adv 0) -> raw gap.
     assert effective_gap(1450.0, 1500.0, 0.0) == 50.0
-    # Away is host (signed -adv) widens an already-away-favored gap.
+    # Away is host (signed -adv) narrows an already-away-favored gap.
     assert effective_gap(1500.0, 1450.0, -60.0) == 10.0
 
 

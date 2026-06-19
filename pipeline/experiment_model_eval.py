@@ -111,7 +111,7 @@ def tournament_editions(rows: list[dict], since_year: int) -> list[tuple[str, in
 
 # --- per-match scoring -------------------------------------------------------
 
-def _eval_adv(is_neutral, params: ModelParams) -> float:
+def _eval_adv(is_neutral: bool, params: ModelParams) -> float:
     """The home advantage the eval engine applies — 0 at a neutral site, else the
     params' home_adv. Single source so bucketing matches the engine exactly."""
     return 0.0 if is_neutral else params.home_adv
