@@ -65,6 +65,21 @@ A train/serve parity test locks this (see Testing #6).
 cross with match-type**, to keep enough matches per cell (the test set is small; segmentation is
 overfit-tempting territory).
 
+**Shared helpers (single source of truth — prevents train/serve drift):** add two pure functions
+to `ml/evaluation/calibration.py`, imported by *both* the gate (fit) and the engine (serve):
+
+```python
+def effective_gap(elo_home: float, elo_away: float, home_adv: float) -> float:
+    return abs((elo_home + home_adv) - elo_away)
+
+def gap_bucket(eff_gap: float) -> str:        # -> "0-50" | "50-150" | "150-300" | "300+"
+    ...
+```
+
+Neither the gate nor the serving path may inline this logic; both call the helpers. The host
+parity test (#6) asserts the two call sites land in the same bucket for the same inputs — which is
+trivially true once both go through `gap_bucket(effective_gap(...))`.
+
 ### 3. Calibrator blob — backward-compatible extension
 
 Reuse the `ModelParams.calibrator` field (already a nullable dict that `load/save_params`
@@ -95,9 +110,9 @@ Extend the single shared helper:
 calibrate(probs, calibrator, temperature=1.0, *, eff_gap: float | None = None) -> Probs
 ```
 
-- `method == "vector_scaling_segmented"`: pick the bucket from `eff_gap`; if `eff_gap is None`
-  **or** the bucket key is absent, use `"default"`. Apply `apply_vector_scaling` with that
-  bucket's `(t, b)`.
+- `method == "vector_scaling_segmented"`: pick the bucket via `gap_bucket(eff_gap)`; if
+  `eff_gap is None` **or** the resulting key is absent from `buckets`, use `"default"`. Apply
+  `apply_vector_scaling` with that bucket's `(t, b)`.
 - `method == "vector_scaling"` and `None`: **exactly today's behavior**; the new `eff_gap` arg is
   ignored. All existing call sites that don't pass `eff_gap` are unaffected.
 
@@ -110,9 +125,22 @@ Thread `eff_gap` from [poisson.py:200](../../../ml/models/poisson.py) using the 
 
 - Build on the **served v0.2** engine (`load_params()`), not v0.1 — consistent with the booster
   gate fix.
+- **No calibrator stacking.** Fit the segmented calibrator on the engine's **uncalibrated** v0.2
+  triples — i.e. derive the base params as `replace(load_params(), calibrator=None)` so an
+  existing (or future) shipped calibrator is *not* applied underneath the candidate. The candidate
+  engine is `replace(v0.2, calibrator=<segmented blob>)` (calibrator **replaced, never stacked**),
+  and the baseline is v0.2 exactly as shipped. Today v0.2 is `calibrator: null`, so base ==
+  uncalibrated already; the `replace(..., calibrator=None)` makes that invariant explicit and
+  future-proof.
 - Fit on the held-out **tail** — the same tail/test split the booster gate uses (the years before
   the 2018 test cutoff), **all competitions** (calibration of the W/D/L mapping is general, not
   finals-only), and **never** overlapping the test set.
+- **Domain-mismatch guard (the biggest subtle risk).** The tail is all-competitions but the test
+  target is major finals. Emit diagnostics that (a) report per-bucket **counts and competition-tier
+  composition** of the tail vs the test, and (b) if the finals-only tail clears `MIN_BUCKET` per
+  bucket, **also** report the fit/performance restricted to finals as a sensitivity check. If the
+  all-competitions and finals-only fits disagree sharply, prefer the more conservative outcome and
+  flag it in the verdict rather than silently shipping the broader fit.
 - Compute each tail row's `eff_gap` (reusing the engine's `home_adv`), partition into the four
   buckets.
 - **Per bucket:** if it has `>= MIN_BUCKET` rows, fit `(t, b_draw, b_away)` with the existing
@@ -128,9 +156,16 @@ Add a gate candidate `"v0.2 + segmented-draw-cal"` that scores **segmented-cal-o
 **v0.2-alone** on 2018+ major finals with the existing **edition-clustered bootstrap**
 (`block_bootstrap_ci`).
 
-**Ship rule (exactly as agreed):**
-- log-loss delta CI **excludes 0** on the better side, **and**
-- **no RPS regression**.
+**Ship rule (mechanically gateable).** All deltas are `Δ = calibrated − v0.2-alone`, lower is
+better for both metrics; both computed on the same paired test set with the edition-clustered
+bootstrap.
+- **Primary (must pass):** `logloss_delta_ci_upper < 0` — the 95% CI for Δlog-loss lies entirely
+  below 0 (significantly better).
+- **RPS guardrail (must pass):** `rps_delta <= RPS_TOL` with **`RPS_TOL = 1e-4`** — the RPS **point
+  estimate** must not get meaningfully worse. (RPS is a do-no-harm guardrail, not a second
+  objective; we don't require it to *improve*, only to not regress beyond float noise.) The RPS
+  delta **CI is reported** for transparency but the gate is the point estimate vs `RPS_TOL`.
+- Verdict is `SHIP` only if **both** pass; otherwise `do-not-ship` and `calibrator` stays `null`.
 
 **Secondary (watch, not gate):** draw per-class ECE — report it so we can confirm the close-match
 draw-lift behaves as intended, but it does **not** decide the ship.
@@ -142,8 +177,10 @@ discipline as the calibrator and booster before it.
 
 - The gate prints, per bucket: `n`, fitted `(t, b_draw, b_away)` (or "→ global fallback"),
   base vs calibrated log-loss, and draw ECE.
-- **Serving/eval surfaces the chosen bucket name** for a prediction (e.g. in the eval row /
-  debug output) so we can inspect that close matches actually receive the larger draw-lift.
+- The chosen bucket name is surfaced in **eval/debug output only** (gate logs, the offline eval
+  row) so we can inspect that close matches actually receive the larger draw-lift. **It does NOT
+  change any API payload, DB schema, or the prediction card contract** — those are untouched unless
+  we later decide, as a separate explicit task, to ship the bucket as public metadata.
 
 ### 8. Overfitting guards (the real risk)
 
@@ -164,14 +201,28 @@ discipline as the calibrator and booster before it.
 4. **Sparse fallback** — a bucket with `< MIN_BUCKET` rows inherits the global/`default` fit.
 5. **Gate wiring** — the `v0.2 + segmented-draw-cal` candidate runs end-to-end, produces an
    edition-clustered CI, and yields `SHIP` only when the CI excludes 0 **and** RPS doesn't regress.
-6. **Train/serve parity** — for a host match (non-neutral, `host_team` set), the `eff_gap`/bucket
-   used at serve equals the one the gate would assign for the same `(elo_home, elo_away,
-   home_adv)`; a raw-gap implementation would pick a different bucket (guard test).
+6. **Train/serve parity** — both the gate and the serving path bucket via the shared
+   `gap_bucket(effective_gap(...))`; for a host match (non-neutral, `host_team` set) they land in
+   the same bucket for the same `(elo_home, elo_away, home_adv)`, and a raw-`abs(elo_home -
+   elo_away)` bucketing would pick a *different* bucket (guard test proving the host correction
+   matters).
 7. **No-regression** — with `calibrator: null`, `generate_predictions` output is byte-identical
    (reuse the existing golden comparison).
+8. **No calibrator stacking** — the candidate built from a v0.2 that *already* carries a (global)
+   calibrator fits on the **uncalibrated** triples (`replace(..., calibrator=None)`) and replaces
+   the calibrator; the fitted blob is identical to the one fit from a `calibrator: null` v0.2
+   (i.e. the existing calibrator is not applied underneath).
 
 ## Non-goals (YAGNI)
 
+- **Segmented calibration inside `wdl_blend.calibrator`.** This project fits & gates a segmented
+  calibrator for **`ModelParams.calibrator` only** — the pre-blend W/D/L path. The booster's own
+  `wdl_blend.calibrator` stays **global-only** and is out of scope (production is `wdl_blend: null`
+  anyway, so the blend path is dormant). The shared `calibrate()` helper is generic, so the blend
+  path *can* pass `eff_gap` and a future segmented blend-calibrator could be fit later — but we do
+  **not** fit or gate one here. Stacking order is unchanged: `ModelParams.calibrator` (now possibly
+  segmented) applies to the Poisson triple; the blend, when enabled, applies its own calibrator
+  afterward as today.
 - **Match-type / neutral-host as additional segmentation axes** — Elo-gap only for v1 (data
   budget per cell). Effective-gap already folds in the host effect via `home_adv`.
 - **Grid-level draw-inflation** (per-segment `gamma`) and a **standalone draw-residual model** —
