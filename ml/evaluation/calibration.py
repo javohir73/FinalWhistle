@@ -142,6 +142,40 @@ def fit_vector_scaling(
     return round(t, 3), (0.0, round(b_draw, 3), round(b_away, 3))
 
 
+def fit_segmented_vector_scaling(
+    probs_list: list[Probs],
+    labels: list[int],
+    eff_gaps: list[float],
+    min_bucket: int = 200,
+) -> dict:
+    """Fit one vector-scaling (t, b_draw, b_away) per effective-gap bucket.
+
+    A global fit over all rows is always computed and stored as "default"; any
+    bucket with fewer than `min_bucket` rows inherits it (sparse buckets degrade
+    gracefully instead of over-fitting). Returns a vector_scaling_segmented blob."""
+    gt, gb = fit_vector_scaling(probs_list, labels)
+    default = {"t": gt, "b": list(gb)}
+
+    by_bucket: dict[str, list[int]] = {}
+    for i, g in enumerate(eff_gaps):
+        by_bucket.setdefault(gap_bucket(g), []).append(i)
+
+    buckets: dict[str, dict] = {}
+    for name in _GAP_BUCKETS:
+        ix = by_bucket.get(name, [])
+        if len(ix) >= min_bucket:
+            t, b = fit_vector_scaling([probs_list[i] for i in ix], [labels[i] for i in ix])
+            buckets[name] = {"t": t, "b": list(b)}
+        else:
+            buckets[name] = default
+    return {
+        "method": "vector_scaling_segmented",
+        "by": "effective_elo_gap",
+        "buckets": buckets,
+        "default": default,
+    }
+
+
 def reliability_curve(
     probs_list: list[Probs], labels: list[int], bins: int = 10
 ) -> list[dict]:

@@ -198,3 +198,39 @@ def test_global_and_none_ignore_eff_gap():
     glob = {"method": "vector_scaling", "t": 1.2, "b": [0.0, 0.3, -0.1]}
     assert calibrate(p, glob) == calibrate(p, glob, eff_gap=10.0)
     assert calibrate(p, None) == calibrate(p, None, eff_gap=10.0)
+
+
+def _draw_varying_dataset():
+    """Synthetic: close matches (gap ~10) draw far more often than blowouts
+    (gap ~400). Uncalibrated probs under-state the draw in close matches."""
+    probs, labels, gaps = [], [], []
+    for _ in range(600):
+        probs.append((0.40, 0.20, 0.40)); labels.append(1); gaps.append(10.0)   # close -> draw
+    for _ in range(600):
+        probs.append((0.40, 0.20, 0.40)); labels.append(0); gaps.append(10.0)   # close -> home
+    for _ in range(600):
+        probs.append((0.80, 0.12, 0.08)); labels.append(0); gaps.append(400.0)  # blowout -> home
+    return probs, labels, gaps
+
+
+def test_fit_segmented_beats_global_logloss():
+    from ml.evaluation.calibration import fit_segmented_vector_scaling, _log_loss
+    probs, labels, gaps = _draw_varying_dataset()
+    blob = fit_segmented_vector_scaling(probs, labels, gaps, min_bucket=200)
+    assert blob["method"] == "vector_scaling_segmented"
+    seg = [calibrate(p, blob, eff_gap=g) for p, g in zip(probs, gaps)]
+    t, b = fit_vector_scaling(probs, labels)
+    glob_blob = {"method": "vector_scaling", "t": t, "b": list(b)}
+    glob = [calibrate(p, glob_blob) for p in probs]
+    assert _log_loss(seg, labels) < _log_loss(glob, labels)
+
+
+def test_fit_segmented_sparse_bucket_uses_default():
+    from ml.evaluation.calibration import fit_segmented_vector_scaling
+    probs, labels, gaps = _draw_varying_dataset()
+    # Add 5 mid-gap rows -> "50-150" is below min_bucket and must equal default.
+    probs += [(0.5, 0.2, 0.3)] * 5
+    labels += [1] * 5
+    gaps += [100.0] * 5
+    blob = fit_segmented_vector_scaling(probs, labels, gaps, min_bucket=200)
+    assert blob["buckets"].get("50-150", blob["default"]) == blob["default"]
