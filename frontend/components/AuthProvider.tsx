@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import {
   getMe,
   logout as apiLogout,
+  deleteAccount as apiDeleteAccount,
   loadUserHint,
   saveUserHint,
   clearUserHint,
@@ -21,6 +22,9 @@ interface AuthContextValue {
   loading: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
+  /** Anonymize + delete the account, then drop local auth state. Rejects (with
+   *  the backend ApiError) on a wrong password so the caller can surface it. */
+  deleteAccount: (password: string) => Promise<void>;
   openSignIn: (opts?: SignInOptions) => void;
   /** Register work that must complete BEFORE logout revokes the session (e.g.
    *  saving unsynced bracket picks). Returns an unregister function. */
@@ -86,6 +90,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   }, []);
 
+  const deleteAccount = useCallback(async (password: string) => {
+    // Let a wrong-password error propagate to the confirm dialog; only drop
+    // local state once the server has actually deleted the account.
+    await apiDeleteAccount(password);
+    generationRef.current++; // an in-flight /me must not resurrect the session UI
+    clearUserHint();
+    setUser(null);
+  }, []);
+
   const openSignIn = useCallback((opts?: SignInOptions) => {
     onSuccessRef.current = opts?.onSuccess;
     setModalOpen(true);
@@ -109,7 +122,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, loading, refresh, logout, openSignIn, registerLogoutFlush }}
+      value={{ user, loading, refresh, logout, deleteAccount, openSignIn, registerLogoutFlush }}
     >
       {children}
       <AuthModal
