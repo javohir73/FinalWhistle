@@ -62,13 +62,22 @@ def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
     return (exps[0] / total, exps[1] / total, exps[2] / total)
 
 
-def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0) -> Probs:
+def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0,
+              *, eff_gap: float | None = None) -> Probs:
     """Apply the shipped calibrator to a W/D/L triple — the one shared helper for
-    the card path. `calibrator` is a vector-scaling blob
-    {"method": "vector_scaling", "t": float, "b": [b_home, b_draw, b_away]} or
-    None. When it is a vector-scaling blob we apply it; otherwise we fall back to
-    scalar `temperature` (so an un-shipped calibrator is a guaranteed no-regression
-    temperature path, and t=1 is the identity)."""
+    the card path. `calibrator` is one of:
+      - None: scalar `temperature` fallback (t=1 is the identity);
+      - {"method": "vector_scaling", "t", "b"}: one global vector scaling;
+      - {"method": "vector_scaling_segmented", "buckets": {bucket: {t,b}}, "default": {t,b}}:
+        per effective-Elo-gap bucket. `eff_gap` selects the bucket via gap_bucket();
+        a missing bucket or a None eff_gap falls back to "default".
+    The global and None paths ignore `eff_gap`, so existing callers are unchanged."""
+    if calibrator and calibrator.get("method") == "vector_scaling_segmented":
+        key = gap_bucket(eff_gap) if eff_gap is not None else None
+        cell = calibrator["buckets"].get(key) if key is not None else None
+        if cell is None:
+            cell = calibrator["default"]
+        return apply_vector_scaling(probs, cell["t"], tuple(cell["b"]))
     if calibrator and calibrator.get("method") == "vector_scaling":
         return apply_vector_scaling(probs, calibrator["t"], tuple(calibrator["b"]))
     return apply_temperature(probs, temperature)

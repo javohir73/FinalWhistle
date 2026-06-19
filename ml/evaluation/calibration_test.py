@@ -159,3 +159,42 @@ def test_gap_bucket_boundaries():
     assert gap_bucket(299.9) == "150-300"
     assert gap_bucket(300.0) == "300+"
     assert gap_bucket(9999.0) == "300+"
+
+
+def _segmented_blob():
+    # Big draw lift in close matches, identity in blowouts.
+    return {
+        "method": "vector_scaling_segmented",
+        "by": "effective_elo_gap",
+        "buckets": {
+            "0-50":   {"t": 1.0, "b": [0.0, 1.0, 0.0]},   # lift draw strongly
+            "300+":   {"t": 1.0, "b": [0.0, 0.0, 0.0]},   # identity
+        },
+        "default": {"t": 1.0, "b": [0.0, 0.0, 0.0]},      # identity
+    }
+
+
+def test_segmented_picks_bucket_by_eff_gap():
+    p = (0.45, 0.20, 0.35)
+    close = calibrate(p, _segmented_blob(), eff_gap=10.0)    # -> 0-50 bucket
+    blowout = calibrate(p, _segmented_blob(), eff_gap=500.0)  # -> 300+ (identity)
+    assert close[1] > p[1]                       # draw lifted in close match
+    assert all(abs(a - b) < 1e-9 for a, b in zip(blowout, p))  # identity in blowout
+
+
+def test_segmented_falls_back_to_default():
+    p = (0.45, 0.20, 0.35)
+    # Bucket "50-150" is absent from the blob -> use default (identity).
+    mid = calibrate(p, _segmented_blob(), eff_gap=100.0)
+    assert all(abs(a - b) < 1e-9 for a, b in zip(mid, p))
+    # eff_gap omitted entirely -> also default.
+    none_gap = calibrate(p, _segmented_blob())
+    assert all(abs(a - b) < 1e-9 for a, b in zip(none_gap, p))
+
+
+def test_global_and_none_ignore_eff_gap():
+    # Backward-compat: passing eff_gap must not change global/None behavior.
+    p = (0.6, 0.25, 0.15)
+    glob = {"method": "vector_scaling", "t": 1.2, "b": [0.0, 0.3, -0.1]}
+    assert calibrate(p, glob) == calibrate(p, glob, eff_gap=10.0)
+    assert calibrate(p, None) == calibrate(p, None, eff_gap=10.0)
