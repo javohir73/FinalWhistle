@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getGroups, getUpcomingMatches, getKnockoutOdds } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
@@ -13,7 +13,8 @@ import { AccountPanel } from "@/components/AccountPanel";
 import { ROUNDS } from "@/lib/bracketStructure";
 import { trackEvent } from "@/lib/analytics";
 import { recordEngagement } from "@/lib/engagement";
-import type { BFixture, Outcome, TableRow } from "@/lib/myBracket";
+import { predictedOutcome } from "@/lib/verdict";
+import type { BFixture, GroupPicks, Outcome, TableRow } from "@/lib/myBracket";
 import type { Group, MatchSummary, TournamentOdds } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +83,60 @@ export function MyBracketClient({
     recordEngagement("my-bracket-visit");
   }, []);
 
+  // Reset wipes up to 72 group picks + every knockout pick with no undo, so it's
+  // gated behind a two-tap confirm: the first tap arms a distinct "Tap again to
+  // clear" state that disarms itself after 3s if the second tap doesn't land.
+  const [confirmReset, setConfirmReset] = useState(false);
+  const resetTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (resetTimer.current) clearTimeout(resetTimer.current);
+  }, []);
+  const handleReset = () => {
+    if (confirmReset) {
+      if (resetTimer.current) clearTimeout(resetTimer.current);
+      setConfirmReset(false);
+      b.reset();
+      trackEvent("my_bracket_reset");
+    } else {
+      setConfirmReset(true);
+      resetTimer.current = setTimeout(() => setConfirmReset(false), 3000);
+    }
+  };
+
+  // The 72-pick group stage is a steep cold start, so "Start from AI" seeds every
+  // still-unpicked group game from the model's own call — instantly reaching a
+  // complete, fully-editable bracket that unlocks the knockouts.
+  const startFromAI = () => {
+    const byId = new Map((matches ?? []).map((m) => [m.match_id, m] as const));
+    const picks: GroupPicks = {};
+    for (const g of b.model) {
+      for (const fx of g.fixtures) {
+        const o = byId.has(fx.matchId) ? predictedOutcome(byId.get(fx.matchId)!) : null;
+        if (o) picks[fx.matchId] = o;
+      }
+    }
+    b.prefillGroupPicks(picks);
+    trackEvent("my_bracket_prefill_ai");
+  };
+
+  // Once some — but not all — group games are picked, help the user find what's
+  // left rather than hunting through 12 groups for the last gap.
+  const highlightUnpicked = b.progress.groupsPicked > 0 && !b.complete;
+  const firstUnpickedId = useMemo(() => {
+    for (const g of b.model) {
+      for (const fx of g.fixtures) {
+        if (!b.groupPicks[fx.matchId]) return fx.matchId;
+      }
+    }
+    return null;
+  }, [b.model, b.groupPicks]);
+  const jumpToUnpicked = () => {
+    if (firstUnpickedId == null) return;
+    document
+      .getElementById(`fixture-${firstUnpickedId}`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
+
   return (
     <div className="space-y-8">
       <header className="fade-up">
@@ -95,7 +150,16 @@ export function MyBracketClient({
         <BracketSeg active="picks" />
       </header>
 
-      {error && <ErrorState message={error} />}
+      {error && (
+        <ErrorState
+          message={error}
+          onRetry={() => {
+            groupsState.retry();
+            matchesState.retry();
+            oddsState.retry();
+          }}
+        />
+      )}
       {loading && <Loading label="Loading fixtures…" />}
 
       {!loading && !error && b.model.length > 0 && (
@@ -123,8 +187,26 @@ export function MyBracketClient({
               ) : (
                 <span className="mt-0.5 block text-xs text-muted">Saved on device</span>
               )}
+              {highlightUnpicked && firstUnpickedId != null && (
+                <button
+                  type="button"
+                  onClick={jumpToUnpicked}
+                  className="mt-1.5 inline-block text-xs font-semibold text-lime-deep underline-offset-2 transition hover:underline"
+                >
+                  Jump to next unpicked →
+                </button>
+              )}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {!b.complete && (
+                <button
+                  type="button"
+                  onClick={startFromAI}
+                  className="rounded-lg bg-win px-3 py-1.5 text-sm font-bold text-pitch transition hover:brightness-110"
+                >
+                  Start from AI
+                </button>
+              )}
               <ShareButton
                 title={b.champion ? `My World Cup 2026 bracket — champion: ${b.champion}` : "My World Cup 2026 bracket"}
                 url={
@@ -135,10 +217,16 @@ export function MyBracketClient({
               />
               <button
                 type="button"
-                onClick={() => { b.reset(); trackEvent("my_bracket_reset"); }}
-                className="rounded-lg border border-border bg-surface px-3 py-1.5 text-sm text-muted transition hover:text-foreground"
+                onClick={handleReset}
+                aria-label={confirmReset ? "Tap again to clear all your picks" : "Reset bracket"}
+                className={cn(
+                  "rounded-lg border px-3 py-1.5 text-sm transition",
+                  confirmReset
+                    ? "border-loss bg-loss/10 font-semibold text-loss"
+                    : "border-border bg-surface text-muted hover:text-foreground",
+                )}
               >
-                Reset
+                {confirmReset ? "Tap again to clear" : "Reset"}
               </button>
             </div>
           </div>
@@ -161,6 +249,7 @@ export function MyBracketClient({
                         fixture={fx}
                         pick={b.groupPicks[fx.matchId]}
                         onPick={(o) => b.setGroupPick(fx.matchId, o)}
+                        highlight={highlightUnpicked && !b.groupPicks[fx.matchId]}
                       />
                     ))}
                   </div>
@@ -328,10 +417,16 @@ function PickButton({
 }
 
 function FixtureRow({
-  fixture, pick, onPick,
-}: { fixture: BFixture; pick?: Outcome; onPick: (o: Outcome) => void }) {
+  fixture, pick, onPick, highlight,
+}: { fixture: BFixture; pick?: Outcome; onPick: (o: Outcome) => void; highlight?: boolean }) {
   return (
-    <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5">
+    <div
+      id={`fixture-${fixture.matchId}`}
+      className={cn(
+        "-mx-1 grid scroll-mt-24 grid-cols-[1fr_auto_1fr] items-center gap-1.5 rounded-lg px-1 py-1 transition",
+        highlight && "ring-1 ring-inset ring-win/40",
+      )}
+    >
       <PickButton label={fixture.home} teamName={fixture.home} active={pick === "home"} onClick={() => onPick("home")} ariaLabel={`Pick ${fixture.home} to beat ${fixture.away}`} />
       <PickButton label="Draw" active={pick === "draw"} onClick={() => onPick("draw")} align="center" ariaLabel={`Predict a draw between ${fixture.home} and ${fixture.away}`} />
       <PickButton label={fixture.away} teamName={fixture.away} active={pick === "away"} onClick={() => onPick("away")} align="right" ariaLabel={`Pick ${fixture.away} to beat ${fixture.home}`} />

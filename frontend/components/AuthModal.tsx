@@ -25,6 +25,7 @@ export function AuthModal({
   const [busy, setBusy] = useState(false);
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
@@ -40,6 +41,7 @@ export function AuthModal({
     if (open) {
       setError(null);
       setPassword("");
+      setShowPassword(false);
       setTimeout(() => firstField.current?.focus(), 0);
     }
   }, [open, mode]);
@@ -196,17 +198,39 @@ export function AuthModal({
             aria-label="Email address"
             className={field}
           />
-          <input
-            type="password"
-            required
-            minLength={8}
-            autoComplete={mode === "signup" ? "new-password" : "current-password"}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Password (8+ characters)"
-            aria-label="Password"
-            className={field}
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              minLength={8}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Password (8+ characters)"
+              aria-label="Password"
+              className={`${field} pr-11`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Hide password" : "Show password"}
+              aria-pressed={showPassword}
+              className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-muted transition hover:text-foreground"
+            >
+              {showPassword ? (
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M3 3l18 18" />
+                  <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
+                  <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.9 3.7M6.2 6.2A17.5 17.5 0 0 0 2 12s3.5 7 10 7a10.4 10.4 0 0 0 3.4-.6" />
+                </svg>
+              ) : (
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          </div>
 
           {error && <p className="text-sm text-loss">{error}</p>}
 

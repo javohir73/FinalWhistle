@@ -138,6 +138,25 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     setKoPicks({});
   }, []);
 
+  // Fill group picks from a model-derived map (the "Start from AI" prefill). The
+  // user's own picks win over the supplied ones, so this only fills gaps — it
+  // never overwrites a choice already made — then re-seeds the knockouts if the
+  // group stage is thereby completed.
+  const prefillGroupPicks = useCallback((picks: GroupPicks) => {
+    if (model.length === 0) return;
+    recordEngagement("pick");
+    setGroupPicks((prev) => {
+      const next = { ...picks, ...prev };
+      if (groups && matches) {
+        const m = buildGroups(groups, matches);
+        if (groupStageComplete(m, next)) {
+          setKoPicks((ko) => pruneKnockoutPicks(seedKnockouts(m, next), ko));
+        }
+      }
+      return next;
+    });
+  }, [groups, matches, model.length]);
+
   const sidesFor = useCallback(
     (no: number) => (seeding ? matchSides(no, seeding, koPicks) : {}),
     [seeding, koPicks],
@@ -195,7 +214,7 @@ export function useMyBracket(groups: Group[] | null, matches: MatchSummary[] | n
     model, tables, teamId,
     groupPicks, koPicks,
     complete, seeding,
-    setGroupPick, setKoPick, reset,
+    setGroupPick, setKoPick, reset, prefillGroupPicks,
     sidesFor,
     champion: champion(koPicks),
     shareCode,

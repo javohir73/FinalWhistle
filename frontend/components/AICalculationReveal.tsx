@@ -1,7 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Flag } from "@/components/Flag";
+
+// Records that the full reveal has played once on this device; later predictions
+// then use the quick path so a returning user never re-watches the long version.
+const REVEAL_SEEN_KEY = "finalwhistle:reveal-seen:v1";
 
 const STAGES = [
   "Reading group fixtures…",
@@ -33,28 +37,46 @@ export function AICalculationReveal({
   const [progress, setProgress] = useState(0);
   const done = useRef(false);
 
+  // Skip / tap-to-continue: completes immediately, guarded with done.current so
+  // it can't double-fire with the timeout. Also marks the reveal as seen so the
+  // next prediction on this device plays the quick version.
+  const finish = useCallback(() => {
+    if (done.current) return;
+    done.current = true;
+    try {
+      localStorage.setItem(REVEAL_SEEN_KEY, "1");
+    } catch {
+      /* storage unavailable (private mode / quota) — non-fatal */
+    }
+    onComplete();
+  }, [onComplete]);
+
   useEffect(() => {
     const reduce =
       typeof window !== "undefined" &&
       window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    const duration = reduce ? 900 : 3400;
+    let seen = false;
+    try {
+      seen = localStorage.getItem(REVEAL_SEEN_KEY) === "1";
+    } catch {
+      /* ignore — treat as first run */
+    }
+    // Full ~3.4s reveal once per device; quick 900ms path thereafter (and always
+    // for reduced-motion).
+    const duration = reduce || seen ? 900 : 3400;
     const step = 60; // ms per tick
 
     const id = setInterval(() => {
       setProgress((p) => Math.min(100, p + (100 * step) / duration));
     }, step);
 
-    const finish = setTimeout(() => {
-      if (done.current) return;
-      done.current = true;
-      onComplete();
-    }, duration + 120);
+    const timer = setTimeout(finish, duration + 120);
 
     return () => {
       clearInterval(id);
-      clearTimeout(finish);
+      clearTimeout(timer);
     };
-  }, [onComplete]);
+  }, [finish]);
 
   const stageIdx = Math.min(STAGES.length - 1, Math.floor((progress / 100) * STAGES.length));
   const ready = progress >= 100;
@@ -65,6 +87,7 @@ export function AICalculationReveal({
       role="status"
       aria-live="polite"
       aria-label="Preparing your AI forecast"
+      onClick={finish}
     >
       {/* ===== Thinking orb ===== */}
       <div className="relative grid h-56 w-56 place-items-center sm:h-64 sm:w-64">
@@ -185,6 +208,19 @@ export function AICalculationReveal({
       <p className="mt-8 text-xs text-muted/70">
         Forecasts are precomputed from 49,000 historical results — this is your view being assembled.
       </p>
+
+      {/* Always-available skip — the forecast is precomputed, so a returning user
+          re-running a prediction never has to sit through the full reveal. */}
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          finish();
+        }}
+        className="mt-6 rounded-lg px-4 py-2 text-sm font-semibold text-muted transition hover:bg-surface-2 hover:text-foreground"
+      >
+        {ready ? "Continue →" : "Skip"}
+      </button>
     </section>
   );
 }

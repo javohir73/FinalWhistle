@@ -26,7 +26,13 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
   );
 }
 
-export function ErrorState({ message }: { message: string }) {
+export function ErrorState({
+  message,
+  onRetry,
+}: {
+  message: string;
+  onRetry?: () => void;
+}) {
   return (
     <div
       role="alert"
@@ -37,6 +43,15 @@ export function ErrorState({ message }: { message: string }) {
       <p className="mt-3 text-sm text-muted/80">
         The prediction service may be waking up — try again in a moment.
       </p>
+      {onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          className="mt-4 rounded-lg bg-win px-4 py-2 text-sm font-bold text-pitch transition hover:brightness-110"
+        >
+          Try again
+        </button>
+      )}
     </div>
   );
 }

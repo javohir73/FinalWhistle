@@ -270,6 +270,22 @@ function HomeDashboard({
             </div>
           )}
         </div>
+        {/* Affordance: make it obvious the whole card opens the team page. */}
+        <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-3">
+          <span className="font-display text-[13px] font-semibold text-[#bdf08a]">
+            View full forecast
+          </span>
+          <svg
+            viewBox="0 0 24 24"
+            className="h-4 w-4 shrink-0 text-[#bdf08a] transition-transform group-hover:translate-x-0.5"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
+          >
+            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
       </Link>
 
       {/* ===== Match of the day ===== */}

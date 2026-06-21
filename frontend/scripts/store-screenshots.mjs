@@ -4,7 +4,10 @@
  * (playwright-core channel:"chrome" — no browser download). Animations are
  * frozen so captures are deterministic.
  *
- *   node scripts/store-screenshots.mjs [baseUrl]
+ *   node scripts/store-screenshots.mjs [baseUrl] [sceneSlug]
+ *
+ * Pass an optional scene-slug (e.g. "04-leaderboard") to regenerate just that
+ * scene for both device sizes, leaving the other store assets untouched.
  *
  * Output: ../store-assets/
  *   appstore-67-*.png  1290×2796 (430×932 @3x — iPhone 6.7")
@@ -15,6 +18,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const BASE = process.argv[2] ?? "https://fifa-wc26-prediction.vercel.app";
+const ONLY = process.argv[3]; // optional scene-slug filter, e.g. "04-leaderboard"
 const OUT = resolve(import.meta.dirname, "../../store-assets");
 
 const SCENES = [
@@ -42,6 +46,7 @@ for (const size of SIZES) {
       "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1",
   });
   for (const scene of SCENES) {
+    if (ONLY && scene.slug !== ONLY) continue;
     const page = await ctx.newPage();
     await page.goto(BASE + scene.path, { waitUntil: "networkidle", timeout: 45000 });
     await page.addStyleTag({

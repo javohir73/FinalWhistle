@@ -1,5 +1,5 @@
 /** predictionVerdict: exact-score hit > right result > miss; null until FT. */
-import { predictionVerdict } from "./verdict";
+import { predictionVerdict, predictedOutcome } from "./verdict";
 import type { MatchSummary } from "./types";
 
 const base: MatchSummary = {
@@ -52,4 +52,22 @@ it("handles a predicted draw correctly", () => {
     predictionVerdict({ ...base, probabilities: drawFavoured, score_home: 1, score_away: 1,
                         predicted_score: { home: 0, away: 0, probability: 0.2 } })?.kind,
   ).toBe("winner");
+});
+
+describe("predictedOutcome (AI prefill mapping)", () => {
+  it("returns the argmax of the pre-match probabilities", () => {
+    expect(predictedOutcome(base)).toBe("home"); // 0.60 / 0.25 / 0.15
+    expect(predictedOutcome({ ...base, probabilities: { home_win: 0.2, draw: 0.5, away_win: 0.3 } })).toBe("draw");
+    expect(predictedOutcome({ ...base, probabilities: { home_win: 0.1, draw: 0.3, away_win: 0.6 } })).toBe("away");
+  });
+
+  it("falls back to the named predicted_winner when probabilities are missing", () => {
+    expect(predictedOutcome({ ...base, probabilities: null, predicted_winner: "Mexico" })).toBe("home");
+    expect(predictedOutcome({ ...base, probabilities: null, predicted_winner: "South Africa" })).toBe("away");
+  });
+
+  it("is null when the model has no usable call", () => {
+    expect(predictedOutcome({ ...base, probabilities: null, predicted_winner: null })).toBeNull();
+    expect(predictedOutcome({ ...base, probabilities: null, predicted_winner: "Nowhere" })).toBeNull();
+  });
 });

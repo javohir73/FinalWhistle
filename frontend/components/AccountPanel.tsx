@@ -7,6 +7,25 @@ import { saveBracket, getMyBracket, joinLeaderboard, type BracketPayload } from 
 import { trackEvent } from "@/lib/analytics";
 import type { SavedBracket } from "@/lib/types";
 
+/** Order-independent fingerprint of a bracket's picks. Both the local payload
+ *  and the saved bracket share these field shapes, so comparing signatures tells
+ *  us whether a restore would actually overwrite different in-progress picks. */
+function bracketSignature(b: {
+  group_picks: { match_id: number; pick: string }[];
+  knockout_picks: { match_no: number; picked_team_id: number }[];
+  champion_team_id: number | null;
+}): string {
+  const g = [...b.group_picks]
+    .sort((x, y) => x.match_id - y.match_id)
+    .map((p) => `${p.match_id}:${p.pick}`)
+    .join(",");
+  const k = [...b.knockout_picks]
+    .sort((x, y) => x.match_no - y.match_no)
+    .map((p) => `${p.match_no}:${p.picked_team_id}`)
+    .join(",");
+  return `${g}|${k}|${b.champion_team_id ?? ""}`;
+}
+
 /** Account actions on the My Bracket page. Sign-in gates save/publish only —
  *  never playing. Anonymous players keep their bracket on this device. */
 export function AccountPanel({
@@ -21,6 +40,9 @@ export function AccountPanel({
   const [busy, setBusy] = useState(false);
   const [showJoin, setShowJoin] = useState(false);
   const [name, setName] = useState("");
+  // The saved bracket fetched by "Load saved", held pending an explicit confirm
+  // because restoring it would discard different picks already made on this device.
+  const [pendingRestore, setPendingRestore] = useState<SavedBracket | null>(null);
 
   const run = async (fn: () => Promise<void>) => {
     setBusy(true);
@@ -48,14 +70,30 @@ export function AccountPanel({
 
   const load = () =>
     run(async () => {
-      const b = await getMyBracket();
-      if (b) {
-        onRestore(b);
-        setStatus("Loaded your saved bracket.");
-      } else {
+      const saved = await getMyBracket();
+      if (!saved) {
         setStatus("No saved bracket on your account yet.");
+        return;
       }
+      const local = getPayload();
+      const localHasPicks =
+        local.group_picks.length > 0 || local.knockout_picks.length > 0;
+      // Only ask first when restoring would actually discard different local
+      // picks; an empty or already-identical local bracket restores straight away.
+      if (localHasPicks && bracketSignature(local) !== bracketSignature(saved)) {
+        setPendingRestore(saved);
+        return;
+      }
+      onRestore(saved);
+      setStatus("Loaded your saved bracket.");
     });
+
+  const confirmRestore = () => {
+    if (!pendingRestore) return;
+    onRestore(pendingRestore);
+    setPendingRestore(null);
+    setStatus("Loaded your saved bracket.");
+  };
 
   const join = () =>
     run(async () => {
@@ -95,8 +133,8 @@ export function AccountPanel({
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" onClick={save} disabled={busy} className={btn}>Save now</button>
-            <button type="button" onClick={load} disabled={busy} className={btn}>Load saved</button>
+            <button type="button" onClick={save} disabled={busy} className={btn}>Sync now</button>
+            <button type="button" onClick={load} disabled={busy} className={btn}>Restore from cloud</button>
             <button type="button" onClick={() => setShowJoin((v) => !v)} disabled={busy} className={btn}>
               Join leaderboard
             </button>
@@ -120,6 +158,27 @@ export function AccountPanel({
             </div>
           )}
         </>
+      )}
+
+      {pendingRestore && (
+        <div className="mt-3 rounded-xl border border-loss/40 bg-loss/[0.06] p-3.5">
+          <p className="text-sm font-medium text-foreground">
+            Replace your current picks with your saved bracket? The changes you&apos;ve made on
+            this device will be lost.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={confirmRestore}
+              className="rounded-lg border border-loss bg-loss/10 px-3 py-1.5 text-sm font-bold text-loss transition hover:bg-loss/15"
+            >
+              Replace my picks
+            </button>
+            <button type="button" onClick={() => setPendingRestore(null)} className={btn}>
+              Keep current
+            </button>
+          </div>
+        </div>
       )}
 
       {status && <p className="mt-3 text-sm font-medium text-lime-deep">{status}</p>}

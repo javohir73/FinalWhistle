@@ -36,7 +36,7 @@ export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
           ))}
         </div>
       )}
-      {state.status === "error" && <ErrorState message={state.message} />}
+      {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
       {state.status === "success" &&
         (state.data.length === 0 ? (
           <Empty />
