@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
 import { dayKey, dayHeading, relativeDayLabel, tzCityLabel } from "@/lib/datetime";
 import { isLiveNow } from "@/lib/liveLabel";
 import { MatchCard } from "@/components/MatchCard";
+import { LocationPicker } from "@/components/LocationPicker";
 import { Loading, ErrorState, Empty } from "@/components/States";
 import type { MatchSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,23 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   const { tz } = useTimezone();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("Upcoming");
+
+  // Timezone pill → inline popover (no more jump to the full profile page).
+  const [tzOpen, setTzOpen] = useState(false);
+  const tzRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!tzOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (tzRef.current && !tzRef.current.contains(e.target as Node)) setTzOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setTzOpen(false);
+    window.addEventListener("mousedown", onClick);
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("mousedown", onClick);
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [tzOpen]);
 
   const matches = state.status === "success" ? state.data : [];
 
@@ -80,23 +97,35 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
 
   return (
     <div>
-      <header className="mb-5 flex items-center justify-between gap-3">
-        <span className="font-display text-lg font-extrabold tracking-tight">Matches</span>
-        <Link
-          href="/leaderboard"
-          className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-win/40"
-        >
-          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
-            <circle cx="12" cy="10" r="2.5" />
-          </svg>
-          {tzCityLabel(tz)}
-        </Link>
+      <header className="mb-4 flex items-center justify-between gap-3">
+        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+          All <span className="text-lime-deep">fixtures</span>
+        </h1>
+        <div className="relative shrink-0" ref={tzRef}>
+          <button
+            type="button"
+            onClick={() => setTzOpen((v) => !v)}
+            aria-haspopup="dialog"
+            aria-expanded={tzOpen}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-win/40"
+          >
+            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
+              <circle cx="12" cy="10" r="2.5" />
+            </svg>
+            {tzCityLabel(tz)}
+          </button>
+          {tzOpen && (
+            <div
+              role="dialog"
+              aria-label="Choose your timezone"
+              className="glass absolute right-0 z-50 mt-2 w-72 rounded-xl p-3 shadow-xl"
+            >
+              <LocationPicker />
+            </div>
+          )}
+        </div>
       </header>
-
-      <h1 className="mb-4 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-        All <span className="text-lime-deep">fixtures</span>
-      </h1>
 
       <div className="relative mb-3">
         <svg
@@ -144,7 +173,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       </div>
 
       {state.status === "loading" && <Loading label="Loading predictions…" />}
-      {state.status === "error" && <ErrorState message={state.message} />}
+      {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
       {state.status === "success" &&
         (filtered.length === 0 && liveMatches.length === 0 ? (
           <Empty label="No fixtures here yet." />

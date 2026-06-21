@@ -11,7 +11,6 @@ import { Loading, ErrorState, Empty } from "@/components/States";
 import { Flag } from "@/components/Flag";
 import { MyRankCard } from "@/components/MyRankCard";
 import { LocationPicker } from "@/components/LocationPicker";
-import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 import { useInstallPrompt } from "@/lib/useInstallPrompt";
 import type { LeaderboardRow, SavedBracket } from "@/lib/types";
 
@@ -144,7 +143,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
         <MyRankCard />
 
         {state.status === "loading" && <Loading label="Loading leaderboard…" />}
-        {state.status === "error" && <ErrorState message={state.message} />}
+        {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
         {state.status === "success" &&
           (rows.length === 0 ? (
             <Empty label="No public brackets yet — be the first to join from My Bracket." />
@@ -280,9 +279,6 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
           </Link>
         </p>
       </footer>
-
-      {/* Engagement-gated install card (self-managing visibility) */}
-      <InstallAppPrompt />
     </div>
   );
 }

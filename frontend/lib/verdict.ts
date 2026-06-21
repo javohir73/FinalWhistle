@@ -1,7 +1,7 @@
 /** How did the model's call compare with the real result?
  *  Only meaningful for finished matches with a known score. */
 import type { MatchSummary, Probabilities } from "./types";
-import { topOutcome } from "./format";
+import { topOutcome, type Outcome } from "./format";
 
 export type Verdict = {
   kind: "exact" | "winner" | "miss";
@@ -9,6 +9,17 @@ export type Verdict = {
 };
 
 export type Call = { label: string; tone: "win" | "draw" };
+
+/** The model's group-stage call for a fixture as a home/draw/away pick — the
+ *  argmax of the pre-match probabilities, falling back to the named
+ *  predicted_winner when probabilities are missing. Null when the model has no
+ *  usable call. Used to prefill the My Bracket group stage from AI predictions. */
+export function predictedOutcome(m: MatchSummary): Outcome | null {
+  if (m.probabilities) return topOutcome(m.probabilities);
+  if (m.predicted_winner && m.predicted_winner === m.teams.home) return "home";
+  if (m.predicted_winner && m.predicted_winner === m.teams.away) return "away";
+  return null;
+}
 
 /** Plain-language pre-match read of a prediction — the friendly one-liner that
  *  sits with the raw probabilities. "{Team} favoured" when a side clears 55%,

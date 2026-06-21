@@ -56,7 +56,7 @@ export function BracketsClient({
       </header>
 
       {/* AI bracket: the model's most-likely path, round by round */}
-      {oddsState.status === "error" && <ErrorState message={oddsState.message} />}
+      {oddsState.status === "error" && <ErrorState message={oddsState.message} onRetry={oddsState.retry} />}
       {oddsState.status === "loading" && <SkeletonRounds />}
       {oddsState.status === "success" &&
         (oddsState.data.length === 0 ? <NotReady /> : <AIBracket odds={oddsState.data} />)}

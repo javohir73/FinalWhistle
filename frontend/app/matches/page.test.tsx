@@ -103,16 +103,24 @@ it("pins live (in-play) matches in a 'Live now' section at the top", async () =>
   expect(live.compareDocumentPosition(scheduledTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
-it("offers a location chip linking to the You hub", async () => {
+it("opens an inline timezone picker from the location chip instead of navigating", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
   await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
-  // The big timezone card is gone; a compact location chip links to the You hub.
-  // Its label is the viewer's timezone city, which varies by environment, so
-  // select it by destination rather than by name.
-  const links = screen.getAllByRole("link");
-  const chip = links.find((el) => el.getAttribute("href") === "/leaderboard");
+
+  // The chip no longer jumps to the profile page…
+  const toLeaderboard = screen
+    .queryAllByRole("link")
+    .find((el) => el.getAttribute("href") === "/leaderboard");
+  expect(toLeaderboard).toBeFalsy();
+
+  // …it's a popover trigger that reveals the timezone picker inline.
+  const chip = document.querySelector('button[aria-haspopup="dialog"]') as HTMLElement;
   expect(chip).toBeTruthy();
+  expect(chip).toHaveAttribute("aria-expanded", "false");
+  fireEvent.click(chip);
+  expect(screen.getByRole("dialog", { name: "Choose your timezone" })).toBeInTheDocument();
+  expect(chip).toHaveAttribute("aria-expanded", "true");
 });
 
 it("shows an empty state when a search matches nothing, and recovers on clear", async () => {
