@@ -10,6 +10,12 @@ import type { MatchSummary, Team } from "@/lib/types";
 
 jest.mock("@/lib/api");
 
+// Relative kickoffs so the match-of-the-day assertions don't time-bomb: a fixed
+// future date eventually becomes "yesterday" and (in UTC CI) falls out of the
+// upcoming/today window. Anchor to "now" instead.
+const hoursFromNow = (h: number) => new Date(Date.now() + h * 3_600_000).toISOString();
+const daysAgo = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString();
+
 const teams: Team[] = [
   { id: 1, name: "Brazil", country_code: "BR", confederation: "CONMEBOL", fifa_rank: 3, elo_rating: 2042, is_host: false },
   { id: 2, name: "Mexico", country_code: "MX", confederation: "CONCACAF", fifa_rank: 14, elo_rating: 1885, is_host: true },
@@ -121,7 +127,7 @@ it("features an upcoming fixture as a clickable match-of-the-day card", async ()
   localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const fixture: MatchSummary = {
-    match_id: 101, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
+    match_id: 101, stage: "group", group: "C", kickoff_utc: hoursFromNow(3),
     venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
     status: "scheduled", score_home: null, score_away: null, minute: null,
     period: null, injury_time: null, penalty_home: null, penalty_away: null,
@@ -148,7 +154,7 @@ it("a finished-only slate falls back to the no-matches-today state without crash
   localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const finished: MatchSummary = {
-    match_id: 202, stage: "group", group: "C", kickoff_utc: "2026-06-14T18:00:00Z",
+    match_id: 202, stage: "group", group: "C", kickoff_utc: daysAgo(7),
     venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
     status: "finished", score_home: 4, score_away: 1, minute: null,
     period: null, injury_time: null, penalty_home: null, penalty_away: null,
@@ -187,7 +193,7 @@ it("survives a corrupted stored timezone without crashing the dashboard", async 
   localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const fixture: MatchSummary = {
-    match_id: 303, stage: "group", group: "C", kickoff_utc: "2026-06-20T18:00:00Z",
+    match_id: 303, stage: "group", group: "C", kickoff_utc: hoursFromNow(3),
     venue: "Estadio Test", venue_city: "Test City", venue_country: "Testland", is_neutral: true,
     status: "scheduled", score_home: null, score_away: null, minute: null,
     period: null, injury_time: null, penalty_home: null, penalty_away: null,
