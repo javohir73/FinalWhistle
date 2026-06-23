@@ -104,7 +104,7 @@ export function PlayerShirt({
     .join(" ");
 
   return (
-    <div className="flex min-w-0 flex-col items-center">
+    <div className="flex min-w-0 flex-1 flex-col items-center">
       <button
         type="button"
         onClick={onToggle}
@@ -120,7 +120,7 @@ export function PlayerShirt({
       </button>
       <span
         className={
-          "mt-1 max-w-[72px] truncate text-center text-[10px] leading-tight text-white " +
+          "mt-1 w-full max-w-full truncate px-0.5 text-center text-[10px] leading-tight text-white " +
           (open || showName ? "" : "sr-only")
         }
       >
@@ -142,30 +142,45 @@ export function PlayerShirt({
  *  single-team pitch). Pass `false` for a team attacking DOWNWARD (the top half
  *  of the shared match pitch): emits row 1 first, putting the GK at the top. */
 export function layoutRows(players: LineupPlayer[], attackingUp = true): LineupPlayer[][] {
-  const byRow = new Map<number, { col: number; player: LineupPlayer }[]>();
-  const unpositioned: LineupPlayer[] = [];
+  const parsed = players.map((p) => ({ p, g: parseGrid(p.grid) }));
+  const distinctRows = new Set(parsed.filter((x) => x.g).map((x) => x.g!.row)).size;
 
-  for (const p of players) {
-    const parsed = parseGrid(p.grid);
-    if (!parsed) {
-      unpositioned.push(p);
-      continue;
+  // Prefer the provider's grid when it actually describes a shape (every player
+  // positioned across ≥2 lines). API-Football frequently returns null grids — in
+  // that case fall back to grouping by position so a formation still forms,
+  // instead of cramming all eleven into one row.
+  if (parsed.every((x) => x.g) && distinctRows >= 2) {
+    const byRow = new Map<number, { col: number; player: LineupPlayer }[]>();
+    for (const { p, g } of parsed) {
+      const bucket = byRow.get(g!.row) ?? [];
+      bucket.push({ col: g!.col, player: p });
+      byRow.set(g!.row, bucket);
     }
-    const bucket = byRow.get(parsed.row) ?? [];
-    bucket.push({ col: parsed.col, player: p });
-    byRow.set(parsed.row, bucket);
+    const orderedRows = Array.from(byRow.keys()).sort((a, b) => (attackingUp ? b - a : a - b));
+    return orderedRows.map((r) =>
+      byRow
+        .get(r)!
+        .sort((a, b) => a.col - b.col)
+        .map((x) => x.player),
+    );
   }
 
-  const orderedRows = Array.from(byRow.keys()).sort((a, b) => (attackingUp ? b - a : a - b));
-  const rows = orderedRows.map((r) =>
-    byRow
-      .get(r)!
-      .sort((a, b) => a.col - b.col)
-      .map((x) => x.player),
-  );
+  return positionRows(players, attackingUp);
+}
 
-  if (unpositioned.length > 0) rows.push(unpositioned);
-  return rows;
+/** Fallback layout when the provider gives no usable grid: group the XI into
+ *  lines by position (GK → defence → midfield → attack), so it still renders as
+ *  a formation rather than one packed row. Unknown positions sit nearest the
+ *  centre line. */
+function positionRows(players: LineupPlayer[], attackingUp: boolean): LineupPlayer[][] {
+  const lines: Record<string, LineupPlayer[]> = { G: [], D: [], M: [], F: [], X: [] };
+  for (const p of players) {
+    const k = p.position && "GDMF".includes(p.position) ? p.position : "X";
+    lines[k].push(p);
+  }
+  // Defence → attack, with unknowns at the attacking end (nearest the centre).
+  const rows = ["G", "D", "M", "F", "X"].map((k) => lines[k]).filter((line) => line.length > 0);
+  return attackingUp ? rows.reverse() : rows;
 }
 
 /** Parse an API-Football grid string "row:col" into numbers, or null if absent
