@@ -48,18 +48,20 @@ describe("FormationPitch", () => {
     expect(screen.getByText(/Tite/)).toBeInTheDocument();
   });
 
-  it("reveals the player's name + position when a shirt is tapped (toggles)", () => {
+  it("shows player names by default (not sr-only) and toggles detail on tap", () => {
     render(<FormationPitch lineup={lineup} />);
     const vini = screen.getByRole("button", { name: /Vinicius Junior/ });
-    expect(vini).toHaveAttribute("aria-pressed", "false");
+    const cell = vini.parentElement as HTMLElement;
 
+    // The name is visible without tapping (team-details Last XI shows names).
+    const nameEl = within(cell).getByText("Junior");
+    expect(nameEl).toBeVisible();
+    expect(nameEl.className).not.toContain("sr-only");
+
+    // Tapping toggles the pressed state (reveals the position line).
+    expect(vini).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(vini);
     expect(vini).toHaveAttribute("aria-pressed", "true");
-    // The revealed label shows the last name; it lives next to the shirt.
-    const cell = vini.parentElement as HTMLElement;
-    expect(within(cell).getByText("Junior")).toBeVisible();
-
-    // Tapping again closes it.
     fireEvent.click(vini);
     expect(vini).toHaveAttribute("aria-pressed", "false");
   });
