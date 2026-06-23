@@ -323,6 +323,26 @@ def test_unknown_match_404(env):
     assert res.json()["error"]["code"] == "match_not_found"
 
 
+def test_missing_tables_degrade_to_placeholder_never_500(env, monkeypatch):
+    """Prod safety: before the Alembic migration is applied the lineups tables
+    don't exist, and the very first match.lineups read would raise. The endpoint
+    must still return a clean placeholder, never a 500 (regression for the prod
+    500 seen when the migration lagged the deploy)."""
+    from sqlalchemy import text
+
+    client, Session = env
+    monkeypatch.setattr(settings, "api_football_api_key", "test-key")
+    s = Session()
+    s.execute(text("DROP TABLE lineup_players"))
+    s.execute(text("DROP TABLE match_lineups"))
+    s.commit()
+    s.close()
+
+    res = client.get("/api/matches/1/lineups")  # match 1 is in window + key set
+    assert res.status_code == 200  # never a 5xx, even with the tables missing
+    assert res.json()["available"] is False
+
+
 # ---- Partial-cache completeness (team sheets drop a few minutes apart) ----
 
 def test_partial_cache_refetches_missing_side(env, monkeypatch):
