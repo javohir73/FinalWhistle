@@ -248,11 +248,9 @@ def _persist(db: Session, match: Match, parsed: list[dict]) -> None:
     db.commit()
 
 
-def get_match_lineups(db: Session, match: Match) -> schemas.MatchLineupsOut:
-    """Resolve a match's lineups: stored -> fetch-on-window -> placeholder.
-
-    Never raises on a provider/network/key problem — those degrade to
-    ``available: false`` so the page is never broken by a 5xx."""
+def _resolve_lineups(db: Session, match: Match) -> schemas.MatchLineupsOut:
+    """Core resolution: stored -> fetch-on-window -> placeholder. May raise;
+    get_match_lineups wraps this so the page never 5xxes."""
     # 1. Both sides already cached -> authoritative, return as-is (no external
     #    call). A PARTIAL cache (one side) is NOT authoritative: team sheets drop
     #    a few minutes apart, so we try to fill the missing side below.
@@ -274,22 +272,35 @@ def get_match_lineups(db: Session, match: Match) -> schemas.MatchLineupsOut:
 
     # 3. In window + key set -> resolve fixture id and (re)fetch to fill missing
     #    side(s); _persist is idempotent so the already-stored side is untouched.
-    try:
-        fixture_id = _resolve_fixture_id(db, match, api_key)
-        if fixture_id is None:
-            return _serialize_stored(db, match) or _unavailable(_placeholder_message(match))
-        from pipeline.ingest.api_football import fetch_lineups, parse_lineups
-
-        parsed = parse_lineups(fetch_lineups(api_key, fixture_id))
-        if not parsed:
-            # Provider has no lineup yet (e.g. just inside the window) — serve any
-            # partial cache, else a placeholder.
-            return _serialize_stored(db, match) or _unavailable(_placeholder_message(match))
-        _persist(db, match, parsed)
-    except Exception as exc:  # noqa: BLE001 — a feed/DB hiccup must never 5xx the page
-        log.warning("lineups fetch failed for match %s: %s", match.id, exc)
-        db.rollback()
+    fixture_id = _resolve_fixture_id(db, match, api_key)
+    if fixture_id is None:
         return _serialize_stored(db, match) or _unavailable(_placeholder_message(match))
+    from pipeline.ingest.api_football import fetch_lineups, parse_lineups
 
+    parsed = parse_lineups(fetch_lineups(api_key, fixture_id))
+    if not parsed:
+        # Provider has no lineup yet (e.g. just inside the window) — serve any
+        # partial cache, else a placeholder.
+        return _serialize_stored(db, match) or _unavailable(_placeholder_message(match))
+    _persist(db, match, parsed)
     db.refresh(match)
     return _serialize_stored(db, match) or _unavailable(_placeholder_message(match))
+
+
+def get_match_lineups(db: Session, match: Match) -> schemas.MatchLineupsOut:
+    """Resolve a match's lineups: stored -> fetch-on-window -> placeholder.
+
+    Never raises. ANY error — a provider/network/key problem, a DB hiccup, or the
+    lineups tables not existing yet (prod before the migration is applied) —
+    degrades to ``available: false`` so the page is never broken by a 5xx. The
+    guard wraps the whole resolution, including the first ``match.lineups`` read,
+    precisely so a missing table can't escape as a 500."""
+    try:
+        return _resolve_lineups(db, match)
+    except Exception as exc:  # noqa: BLE001 — display-only; must never 5xx the page
+        log.warning("lineups unavailable for match %s: %s", match.id, exc)
+        try:
+            db.rollback()
+        except Exception:  # noqa: BLE001 — rollback on a broken session is best-effort
+            pass
+        return _unavailable(_placeholder_message(match))
