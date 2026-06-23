@@ -21,7 +21,7 @@ export function MatchPitch({ home, away }: { home: TeamLineup; away: TeamLineup 
 
   return (
     <div>
-      <TeamHeader team={home} />
+      <TeamHeader team={home} tone="home" />
       <div
         className="panel-pitch relative overflow-hidden rounded-2xl px-2 py-3"
         role="group"
@@ -35,15 +35,15 @@ export function MatchPitch({ home, away }: { home: TeamLineup; away: TeamLineup 
 
         <div className="relative flex flex-col gap-3">
           {homeRows.map((row, i) => (
-            <PitchRow key={`h-${i}`} row={row} side="h" rowIdx={i} openKey={openKey} onToggle={toggle} />
+            <PitchRow key={`h-${i}`} row={row} side="h" tone="home" rowIdx={i} openKey={openKey} onToggle={toggle} />
           ))}
           <div aria-hidden className="h-2" /> {/* breathing room across halfway */}
           {awayRows.map((row, i) => (
-            <PitchRow key={`a-${i}`} row={row} side="a" rowIdx={i} openKey={openKey} onToggle={toggle} />
+            <PitchRow key={`a-${i}`} row={row} side="a" tone="away" rowIdx={i} openKey={openKey} onToggle={toggle} />
           ))}
         </div>
       </div>
-      <TeamHeader team={away} />
+      <TeamHeader team={away} tone="away" />
     </div>
   );
 }
@@ -51,12 +51,14 @@ export function MatchPitch({ home, away }: { home: TeamLineup; away: TeamLineup 
 function PitchRow({
   row,
   side,
+  tone,
   rowIdx,
   openKey,
   onToggle,
 }: {
   row: LineupPlayer[];
   side: "h" | "a";
+  tone: "home" | "away";
   rowIdx: number;
   openKey: string | null;
   onToggle: (key: string) => void;
@@ -69,6 +71,7 @@ function PitchRow({
           <PlayerShirt
             key={key}
             player={p}
+            tone={tone}
             open={openKey === key}
             onToggle={() => onToggle(key)}
             showName
@@ -79,10 +82,18 @@ function PitchRow({
   );
 }
 
-function TeamHeader({ team }: { team: TeamLineup }) {
+function TeamHeader({ team, tone }: { team: TeamLineup; tone: "home" | "away" }) {
   return (
     <div className="flex items-center justify-between gap-2 px-1 py-2">
       <span className="flex min-w-0 items-center gap-2">
+        {/* Colour key: matches this team's shirt colour on the pitch. */}
+        <span
+          aria-hidden
+          className={
+            "h-2.5 w-2.5 shrink-0 rounded-full ring-1 " +
+            (tone === "away" ? "bg-win ring-win/50" : "bg-white ring-border")
+          }
+        />
         <Flag team={team.team} size={20} />
         <span className="truncate font-display text-sm font-bold text-foreground">{team.team}</span>
       </span>

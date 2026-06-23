@@ -54,6 +54,14 @@ it("places the home GK at the top and the away GK at the bottom (mirrored halves
   );
 });
 
+it("colours the two teams' shirts differently so they're identifiable", () => {
+  render(<MatchPitch home={home} away={away} />);
+  const homeShirt = screen.getByRole("button", { name: /Alisson/ });
+  const awayShirt = screen.getByRole("button", { name: /Livakovic/ });
+  expect(homeShirt.className).toContain("bg-white"); // home = white
+  expect(awayShirt.className).toContain("bg-win"); // away = lime
+});
+
 it("toggles a player's detail on tap", () => {
   render(<MatchPitch home={home} away={away} />);
   const btn = screen.getByRole("button", { name: /#10 Vinicius Junior \(F\)/ });
