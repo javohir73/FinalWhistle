@@ -89,14 +89,27 @@ describe("layoutRows", () => {
     expect(rows.flat()).toHaveLength(11);
   });
 
-  it("keeps players whose grid is missing/malformed in a trailing row", () => {
+  it("falls back to grouping by position when the provider gives no grid", () => {
+    // API-Football often returns null grids; the XI must still form lines by
+    // position rather than collapsing into one packed row.
     const players: LineupPlayer[] = [
-      { name: "Keeper", number: 1, position: "G", grid: "1:1", is_starter: true },
+      { name: "Keeper", number: 1, position: "G", grid: null, is_starter: true },
+      { name: "Back", number: 2, position: "D", grid: null, is_starter: true },
+      { name: "Mid", number: 8, position: "M", grid: null, is_starter: true },
+      { name: "Striker", number: 9, position: "F", grid: null, is_starter: true },
       { name: "Mystery", number: 99, position: null, grid: null, is_starter: true },
     ];
-    const rows = layoutRows(players);
-    expect(rows.flat()).toHaveLength(2);
-    // The unpositioned player is appended last, never dropped.
-    expect(rows[rows.length - 1].map((p) => p.name)).toContain("Mystery");
+    const rows = layoutRows(players); // attackingUp default → GK at the bottom
+    expect(rows.flat()).toHaveLength(5); // nobody dropped
+    expect(rows.length).toBeGreaterThanOrEqual(4); // distinct position lines, not one row
+    // GK line renders last (bottom of the column).
+    expect(rows[rows.length - 1].map((p) => p.name)).toEqual(["Keeper"]);
+    // Unknown-position player sits at the attacking end (first line here).
+    expect(rows[0].map((p) => p.name)).toContain("Mystery");
+  });
+
+  it("still uses the grid when every player is positioned across ≥2 lines", () => {
+    const rows = layoutRows(start_xi);
+    expect(rows).toHaveLength(4); // 4-3-3 → four grid lines
   });
 });
