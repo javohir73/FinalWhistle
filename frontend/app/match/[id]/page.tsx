@@ -8,6 +8,7 @@ import { prematchCall } from "@/lib/verdict";
 import { ReasonsList } from "@/components/ReasonsList";
 import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { MatchScoreboard } from "@/components/MatchScoreboard";
+import { MatchLineups } from "@/components/MatchLineups";
 import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
@@ -78,6 +79,13 @@ export default async function MatchDetailPage({ params }: { params: { id: string
         predictedWinner={predictedWinner}
         caveat={call?.label ?? null}
       />
+
+      {/* Lineups — official starting XI + bench, lazily fetched client-side.
+          Display-only; degrades to a placeholder when none are announced yet. */}
+      <section>
+        <h2 className="mb-3 font-display text-lg font-bold">Lineups</h2>
+        <MatchLineups matchId={p.match_id} />
+      </section>
 
       {/* Why (server-rendered reasons; chart hydrates client-side) */}
       <section className="glass rounded-2xl p-6">

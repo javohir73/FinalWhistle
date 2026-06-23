@@ -29,9 +29,13 @@ export function Loading({ label = "Loading…" }: { label?: string }) {
 export function ErrorState({
   message,
   onRetry,
+  hint = "The prediction service may be waking up — try again in a moment.",
 }: {
   message: string;
   onRetry?: () => void;
+  /** Secondary line under the message. Defaults to the prediction cold-start
+   *  hint; pass a different string (or null) for non-prediction surfaces. */
+  hint?: string | null;
 }) {
   return (
     <div
@@ -40,9 +44,7 @@ export function ErrorState({
     >
       <p className="font-display text-lg font-bold text-loss">Something went wrong</p>
       <p className="mt-1 text-sm text-muted">{message}</p>
-      <p className="mt-3 text-sm text-muted/80">
-        The prediction service may be waking up — try again in a moment.
-      </p>
+      {hint && <p className="mt-3 text-sm text-muted/80">{hint}</p>}
       {onRetry && (
         <button
           type="button"

@@ -215,3 +215,28 @@ export interface ModelRecord {
   model_version: string;
   disclaimer: string;
 }
+
+// ---- Match lineups (display-only; never feeds the prediction model) ----
+export interface LineupPlayer {
+  name: string;
+  number: number | null;
+  position: string | null;
+  grid: string | null;
+  is_starter: boolean;
+}
+
+export interface TeamLineup {
+  team: string;
+  formation: string | null;
+  coach: string | null;
+  start_xi: LineupPlayer[];
+  bench: LineupPlayer[];
+}
+
+export interface MatchLineups {
+  available: boolean;
+  message: string | null;
+  home: TeamLineup | null;
+  away: TeamLineup | null;
+  fetched_at: string | null;
+}

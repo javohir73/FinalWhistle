@@ -1,0 +1,102 @@
+/** FormationPitch: lays out the starting XI from each player's grid ("row:col"),
+ *  renders all eleven shirts, stacks defence→attack (GK at the bottom), and
+ *  reveals a player's name + position on tap/Enter (keyboard accessible). */
+import { render, screen, fireEvent, within } from "@testing-library/react";
+import { FormationPitch, layoutRows } from "@/components/FormationPitch";
+import type { LineupPlayer, TeamLineup } from "@/lib/types";
+
+// A canonical 4-3-3: GK (row 1), back four (row 2), midfield three (row 3),
+// front three (row 4). cols run left→right within each line.
+const start_xi: LineupPlayer[] = [
+  { name: "Alisson", number: 1, position: "G", grid: "1:1", is_starter: true },
+  { name: "Dani Alves", number: 2, position: "D", grid: "2:4", is_starter: true },
+  { name: "Marquinhos", number: 4, position: "D", grid: "2:3", is_starter: true },
+  { name: "Thiago Silva", number: 3, position: "D", grid: "2:2", is_starter: true },
+  { name: "Alex Sandro", number: 6, position: "D", grid: "2:1", is_starter: true },
+  { name: "Casemiro", number: 5, position: "M", grid: "3:3", is_starter: true },
+  { name: "Fred", number: 8, position: "M", grid: "3:2", is_starter: true },
+  { name: "Paqueta", number: 7, position: "M", grid: "3:1", is_starter: true },
+  { name: "Raphinha", number: 11, position: "F", grid: "4:3", is_starter: true },
+  { name: "Richarlison", number: 9, position: "F", grid: "4:2", is_starter: true },
+  { name: "Vinicius Junior", number: 10, position: "F", grid: "4:1", is_starter: true },
+];
+
+const lineup: TeamLineup = {
+  team: "Brazil",
+  formation: "4-3-3",
+  coach: "Tite",
+  start_xi,
+  bench: [],
+};
+
+describe("FormationPitch", () => {
+  it("renders all eleven starters as shirt buttons", () => {
+    render(<FormationPitch lineup={lineup} />);
+    const shirts = screen.getAllByRole("button");
+    expect(shirts).toHaveLength(11);
+    // Each shirt's accessible name carries the number, name and position.
+    expect(
+      screen.getByRole("button", { name: /#10 Vinicius Junior \(F\)/ }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /#1 Alisson \(G\)/ })).toBeInTheDocument();
+  });
+
+  it("shows the team name and formation", () => {
+    render(<FormationPitch lineup={lineup} />);
+    expect(screen.getByText("Brazil")).toBeInTheDocument();
+    expect(screen.getByText("4-3-3")).toBeInTheDocument();
+    expect(screen.getByText(/Tite/)).toBeInTheDocument();
+  });
+
+  it("reveals the player's name + position when a shirt is tapped (toggles)", () => {
+    render(<FormationPitch lineup={lineup} />);
+    const vini = screen.getByRole("button", { name: /Vinicius Junior/ });
+    expect(vini).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(vini);
+    expect(vini).toHaveAttribute("aria-pressed", "true");
+    // The revealed label shows the last name; it lives next to the shirt.
+    const cell = vini.parentElement as HTMLElement;
+    expect(within(cell).getByText("Junior")).toBeVisible();
+
+    // Tapping again closes it.
+    fireEvent.click(vini);
+    expect(vini).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("exposes an accessible group label for the XI", () => {
+    render(<FormationPitch lineup={lineup} />);
+    expect(
+      screen.getByRole("group", { name: /Brazil starting eleven, 4-3-3/ }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe("layoutRows", () => {
+  it("groups by grid row, orders each line left→right, and stacks attack→defence", () => {
+    const rows = layoutRows(start_xi);
+    // 4 lines: forwards, midfield, defence, GK (emitted attack-first so the GK
+    // renders at the bottom of the column).
+    expect(rows).toHaveLength(4);
+    expect(rows[0].map((p) => p.name)).toEqual([
+      "Vinicius Junior", // 4:1
+      "Richarlison", // 4:2
+      "Raphinha", // 4:3
+    ]);
+    // Last emitted line is the GK line (row 1) → rendered at the bottom.
+    expect(rows[rows.length - 1].map((p) => p.name)).toEqual(["Alisson"]);
+    // Every starter is placed.
+    expect(rows.flat()).toHaveLength(11);
+  });
+
+  it("keeps players whose grid is missing/malformed in a trailing row", () => {
+    const players: LineupPlayer[] = [
+      { name: "Keeper", number: 1, position: "G", grid: "1:1", is_starter: true },
+      { name: "Mystery", number: 99, position: null, grid: null, is_starter: true },
+    ];
+    const rows = layoutRows(players);
+    expect(rows.flat()).toHaveLength(2);
+    // The unpositioned player is appended last, never dropped.
+    expect(rows[rows.length - 1].map((p) => p.name)).toContain("Mystery");
+  });
+});

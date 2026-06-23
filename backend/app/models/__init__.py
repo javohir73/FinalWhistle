@@ -112,6 +112,10 @@ class Match(Base):
     # Feed's per-match version stamp (lastUpdated). A lagging cache node must not
     # overwrite a fresher record we already applied (see live_scores.update).
     provider_last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # API-Football fixture id, resolved on demand by the display-only lineups
+    # endpoint (team-pair + kickoff date) and cached here so it can fetch
+    # /fixtures/lineups without re-resolving each time.
+    provider_fixture_id: Mapped[int | None] = mapped_column(Integer)
     # Goal events for the live/actual scoreline: ordered list of
     # {minute, side: "home"|"away", player, type: "goal"|"penalty"|"own_goal"}.
     # Populated by the api_football provider only (football-data has no scorers).
@@ -122,6 +126,50 @@ class Match(Base):
     home_team: Mapped[Team | None] = relationship(foreign_keys=[team_home_id])
     away_team: Mapped[Team | None] = relationship(foreign_keys=[team_away_id])
     predictions: Mapped[list[Prediction]] = relationship(back_populates="match")
+    lineups: Mapped[list[MatchLineup]] = relationship(
+        back_populates="match", cascade="all, delete-orphan"
+    )
+
+
+class MatchLineup(Base):
+    """One team's announced lineup for a match (display-only; never feeds the
+    prediction model). Fetched on demand from API-Football once a fixture is
+    within its lineup window and cached permanently. UNIQUE(match_id, side)."""
+
+    __tablename__ = "match_lineups"
+    __table_args__ = (UniqueConstraint("match_id", "side", name="uq_match_lineup_side"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), index=True)
+    side: Mapped[str] = mapped_column(String(4))  # "home" | "away"
+    formation: Mapped[str | None] = mapped_column(String(20))  # e.g. "4-3-3"
+    coach: Mapped[str | None] = mapped_column(String(120))
+    provider: Mapped[str] = mapped_column(String(40))  # "api_football"
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+    match: Mapped[Match] = relationship(back_populates="lineups")
+    players: Mapped[list[LineupPlayer]] = relationship(
+        back_populates="lineup", cascade="all, delete-orphan"
+    )
+
+
+class LineupPlayer(Base):
+    """A single player within a MatchLineup (starter or bench). Display-only."""
+
+    __tablename__ = "lineup_players"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_lineup_id: Mapped[int] = mapped_column(ForeignKey("match_lineups.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    number: Mapped[int | None] = mapped_column(Integer)
+    position: Mapped[str | None] = mapped_column(String(2))  # G/D/M/F
+    grid: Mapped[str | None] = mapped_column(String(10))  # "row:col"; null for bench
+    is_starter: Mapped[bool] = mapped_column(Boolean)
+    # Stable sort within starter/bench (provider order). "order" is a reserved SQL
+    # keyword, so the column is quoted; the attribute keeps the spec's name.
+    order: Mapped[int] = mapped_column("order", Integer)
+
+    lineup: Mapped[MatchLineup] = relationship(back_populates="players")
 
 
 class HistoricalMatch(Base):
@@ -466,6 +514,8 @@ __all__ = [
     "Group",
     "GroupTeam",
     "Match",
+    "MatchLineup",
+    "LineupPlayer",
     "HistoricalMatch",
     "TeamStats",
     "Prediction",

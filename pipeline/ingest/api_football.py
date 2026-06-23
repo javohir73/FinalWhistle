@@ -73,6 +73,101 @@ def fetch_events(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[d
     return data.get("response") or []
 
 
+def fetch_lineups(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[dict]:
+    """Return the raw lineup list for one fixture from api-sports.io.
+
+    Display-only: the lineups feature never feeds the prediction model. Real
+    lineups exist only ~40 min before kickoff, so this returns an empty list for
+    fixtures the provider has no lineup for yet."""
+    resp = requests.get(
+        f"{BASE_URL}/fixtures/lineups",
+        headers={"x-apisports-key": api_key},
+        params={"fixture": fixture_id},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        log.warning("api-football lineups errors: %s", data["errors"])
+    return data.get("response") or []
+
+
+# api-sports position letter -> our normalized position. Goalkeeper/Defender/
+# Midfielder/Forward all report a single leading letter (G/D/M/F); anything else
+# (or a missing pos) is left as None rather than guessed.
+_POSITIONS = frozenset({"G", "D", "M", "F"})
+
+
+def _position(pos: object) -> str | None:
+    """First letter of an api-sports position string, normalized to G/D/M/F."""
+    if not isinstance(pos, str) or not pos:
+        return None
+    letter = pos[0].upper()
+    return letter if letter in _POSITIONS else None
+
+
+def _player_row(entry: object, is_starter: bool, order: int) -> dict | None:
+    """Map one api-sports {player: {...}} entry into our lineup-player row dict,
+    or None if it carries no usable name (never fabricate a player)."""
+    if not isinstance(entry, dict):
+        return None
+    player = entry.get("player")
+    if not isinstance(player, dict):
+        return None
+    name = player.get("name")
+    if not name:
+        return None
+    return {
+        "name": name,
+        "number": player.get("number"),
+        "position": _position(player.get("pos")),
+        # Grid is "row:col" for starters and null on the bench (substitutes carry
+        # no grid). Kept as the provider's string; the UI lays it out.
+        "grid": player.get("grid") if is_starter else None,
+        "is_starter": is_starter,
+        "order": order,
+    }
+
+
+def parse_lineups(response: list[dict]) -> list[dict]:
+    """PURE mapping: api-sports /fixtures/lineups response -> our per-team
+    lineup dicts. Display-only; never feeds the prediction model.
+
+    Each output item is
+    ``{team, formation, coach, players: [row, ...]}`` where every row is the
+    shape persisted to ``lineup_players`` (name, number, position, grid,
+    is_starter, order). startXI rows are starters (grid kept); substitutes are
+    bench (grid forced to None). Malformed teams / nameless players are skipped
+    rather than fabricated."""
+    out: list[dict] = []
+    for team_block in response or []:
+        if not isinstance(team_block, dict):
+            continue
+        team = (team_block.get("team") or {}).get("name")
+        if not team:
+            continue
+        coach = (team_block.get("coach") or {}).get("name")
+        players: list[dict] = []
+        order = 0
+        for entry in team_block.get("startXI") or []:
+            row = _player_row(entry, is_starter=True, order=order)
+            if row is not None:
+                players.append(row)
+                order += 1
+        for entry in team_block.get("substitutes") or []:
+            row = _player_row(entry, is_starter=False, order=order)
+            if row is not None:
+                players.append(row)
+                order += 1
+        out.append({
+            "team": team,
+            "formation": team_block.get("formation"),
+            "coach": coach,
+            "players": players,
+        })
+    return out
+
+
 def _duration(short: str) -> str:
     if short in _SHOOTOUT:
         return "PENALTY_SHOOTOUT"

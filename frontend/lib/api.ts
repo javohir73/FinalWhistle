@@ -3,6 +3,7 @@
 import type {
   Group,
   LeaderboardRow,
+  MatchLineups,
   MatchSummary,
   ModelRecord,
   Prediction,
@@ -63,6 +64,10 @@ export const getLeaderboard = () =>
   getJson<LeaderboardRow[]>("/api/leaderboard");
 export const getMatchSummary = (id: number | string) =>
   getJson<MatchSummary>(`/api/matches/${id}/summary`);
+/** Display-only official lineups; resolves to `{ available: false }` when none
+ *  exist yet (future fixture, no API key, or provider error) — never throws. */
+export const getMatchLineups = (id: number | string) =>
+  getJson<MatchLineups>(`/api/matches/${id}/lineups`);
 export const getModelRecord = () =>
   getJson<ModelRecord>("/api/model/record");
 
@@ -80,6 +85,11 @@ export const getMatchServer = (id: number | string) =>
 /** Short revalidate: this seeds the live scoreboard on the match page. */
 export const getMatchSummaryServer = (id: number | string) =>
   getServer<MatchSummary>(`/api/matches/${id}/summary`, 30);
+/** Short revalidate so a fixture flips from the placeholder to its real XI soon
+ *  after the lineup is announced (~40 min pre-kickoff). Always returns a payload
+ *  (possibly `{ available: false }`); never 404s for a valid match. */
+export const getMatchLineupsServer = (id: number | string) =>
+  getServer<MatchLineups>(`/api/matches/${id}/lineups`, 60);
 export const getTeamsServer = () =>
   getServer<Team[]>("/api/teams", 600);
 export const getTeamServer = (id: number | string) =>
