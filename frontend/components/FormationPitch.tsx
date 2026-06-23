@@ -72,14 +72,18 @@ export function FormationPitch({ lineup }: { lineup: TeamLineup }) {
   );
 }
 
-function PlayerShirt({
+export function PlayerShirt({
   player,
   open,
   onToggle,
+  showName = false,
 }: {
   player: LineupPlayer;
   open: boolean;
   onToggle: () => void;
+  /** Keep the name visible under the shirt (used on the dense two-team pitch);
+   *  when false the name is sr-only until the shirt is tapped. */
+  showName?: boolean;
 }) {
   const label = [
     player.number != null ? `#${player.number}` : null,
@@ -104,7 +108,7 @@ function PlayerShirt({
       <span
         className={
           "mt-1 max-w-[72px] truncate text-center text-[10px] leading-tight text-white " +
-          (open ? "" : "sr-only")
+          (open || showName ? "" : "sr-only")
         }
       >
         {lastName(player.name)}
@@ -117,10 +121,14 @@ function PlayerShirt({
 }
 
 /** Group the XI into rows keyed by the grid `row` (1 = GK line), then order each
- *  row left→right by `col`. Rows are returned defence→attack; the renderer stacks
- *  them so row 1 sits at the bottom. Players with no parsable grid fall into a
- *  trailing "unpositioned" row so all eleven always render. */
-export function layoutRows(players: LineupPlayer[]): LineupPlayer[][] {
+ *  row left→right by `col`. Players with no parsable grid fall into a trailing
+ *  "unpositioned" row so all eleven always render.
+ *
+ *  `attackingUp` (default) emits the highest row first, so stacked top→bottom the
+ *  attackers sit on top and the GK at the bottom (a team attacking upward — the
+ *  single-team pitch). Pass `false` for a team attacking DOWNWARD (the top half
+ *  of the shared match pitch): emits row 1 first, putting the GK at the top. */
+export function layoutRows(players: LineupPlayer[], attackingUp = true): LineupPlayer[][] {
   const byRow = new Map<number, { col: number; player: LineupPlayer }[]>();
   const unpositioned: LineupPlayer[] = [];
 
@@ -135,9 +143,7 @@ export function layoutRows(players: LineupPlayer[]): LineupPlayer[][] {
     byRow.set(parsed.row, bucket);
   }
 
-  // Defence (row 1) first; the renderer reverses visually by stacking top→bottom,
-  // so emit highest row first to put attackers on top and the GK at the bottom.
-  const orderedRows = Array.from(byRow.keys()).sort((a, b) => b - a);
+  const orderedRows = Array.from(byRow.keys()).sort((a, b) => (attackingUp ? b - a : a - b));
   const rows = orderedRows.map((r) =>
     byRow
       .get(r)!
