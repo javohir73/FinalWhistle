@@ -77,6 +77,7 @@ export function PlayerShirt({
   open,
   onToggle,
   showName = false,
+  tone = "home",
 }: {
   player: LineupPlayer;
   open: boolean;
@@ -84,7 +85,16 @@ export function PlayerShirt({
   /** Keep the name visible under the shirt (used on the dense two-team pitch);
    *  when false the name is sr-only until the shirt is tapped. */
   showName?: boolean;
+  /** Chip colour, so the two teams are distinguishable on the shared pitch:
+   *  "home" is a white shirt, "away" a lime shirt. Single-team pitches stay
+   *  white (the default). Identity never relies on colour alone — flag, name,
+   *  position and the top/bottom halves all still distinguish the teams. */
+  tone?: "home" | "away";
 }) {
+  const chip =
+    tone === "away"
+      ? "bg-win text-pitch ring-win/50 hover:ring-white"
+      : "bg-white text-pitch ring-white/70 hover:ring-win";
   const label = [
     player.number != null ? `#${player.number}` : null,
     player.name,
@@ -101,7 +111,10 @@ export function PlayerShirt({
         aria-pressed={open}
         aria-label={label}
         title={player.name}
-        className="grid h-8 w-8 place-items-center rounded-full bg-white font-display text-[13px] font-extrabold tabular-nums text-pitch ring-1 ring-white/70 motion-safe:transition hover:ring-2 hover:ring-win sm:h-9 sm:w-9"
+        className={
+          "grid h-8 w-8 place-items-center rounded-full font-display text-[13px] font-extrabold tabular-nums ring-1 motion-safe:transition hover:ring-2 sm:h-9 sm:w-9 " +
+          chip
+        }
       >
         <span aria-hidden>{player.number ?? "·"}</span>
       </button>
