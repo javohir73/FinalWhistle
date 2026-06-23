@@ -4,6 +4,8 @@ import { getMatchLineups } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { ErrorState } from "@/components/States";
 import { FormationPitch } from "@/components/FormationPitch";
+import { MatchPitch } from "@/components/MatchPitch";
+import { Flag } from "@/components/Flag";
 import type { LineupPlayer, MatchLineups as MatchLineupsData, TeamLineup } from "@/lib/types";
 
 /** Client island: lazily fetches a match's official lineups and renders each
@@ -48,31 +50,89 @@ export function MatchLineups({
     );
   }
 
-  // Available, but the requested side may still be missing (e.g. only one team
-  // confirmed): fall through to the placeholder rather than rendering nothing.
-  const teams: TeamLineup[] = side
-    ? ([side === "home" ? data.home : data.away].filter(Boolean) as TeamLineup[])
-    : ([data.home, data.away].filter(Boolean) as TeamLineup[]);
+  const notYet = (
+    <p className="glass rounded-2xl p-6 text-center text-sm text-muted">
+      Lineup not available yet.
+    </p>
+  );
 
-  if (teams.length === 0) {
+  // Team-dashboard view: just this side's XI on a single-team pitch.
+  if (side) {
+    const team = side === "home" ? data.home : data.away;
+    if (!team) return notYet;
     return (
-      <p className="glass rounded-2xl p-6 text-center text-sm text-muted">
-        Lineup not available yet.
-      </p>
+      <div className="space-y-4">
+        <div className="glass rounded-2xl p-4">
+          <FormationPitch lineup={team} />
+          <Bench players={team.bench} />
+        </div>
+        <Attribution fetchedAt={data.fetched_at} />
+      </div>
     );
   }
 
+  // Match view: both teams on ONE shared pitch (home top / away bottom).
+  if (data.home && data.away) {
+    return (
+      <div className="space-y-4">
+        <div className="glass rounded-2xl p-4">
+          <MatchPitch home={data.home} away={data.away} />
+        </div>
+        <TwoTeamBench home={data.home} away={data.away} />
+        <Attribution fetchedAt={data.fetched_at} />
+      </div>
+    );
+  }
+
+  // Only one side confirmed so far — show that team's single pitch.
+  const only = data.home ?? data.away;
+  if (!only) return notYet;
   return (
     <div className="space-y-4">
-      <div className={side ? "" : "grid gap-4 sm:grid-cols-2"}>
-        {teams.map((t, i) => (
-          <div key={`${t.team}-${i}`} className="glass rounded-2xl p-4">
-            <FormationPitch lineup={t} />
-            <Bench players={t.bench} />
-          </div>
-        ))}
+      <div className="glass rounded-2xl p-4">
+        <FormationPitch lineup={only} />
+        <Bench players={only.bench} />
       </div>
       <Attribution fetchedAt={data.fetched_at} />
+    </div>
+  );
+}
+
+/** Both teams' substitutes, side by side (the match view's combined bench). */
+function TwoTeamBench({ home, away }: { home: TeamLineup; away: TeamLineup }) {
+  if (home.bench.length === 0 && away.bench.length === 0) return null;
+  return (
+    <div className="glass rounded-2xl p-4">
+      <p className="mb-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted">
+        Bench
+      </p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        <BenchColumn team={home} />
+        <BenchColumn team={away} />
+      </div>
+    </div>
+  );
+}
+
+function BenchColumn({ team }: { team: TeamLineup }) {
+  return (
+    <div className="min-w-0">
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-foreground">
+        <Flag team={team.team} size={14} />
+        <span className="truncate">{team.team}</span>
+      </p>
+      <ul className="space-y-0.5 text-xs text-foreground/90">
+        {team.bench.length === 0 ? (
+          <li className="text-muted">—</li>
+        ) : (
+          team.bench.map((p, i) => (
+            <li key={`${p.number ?? "x"}-${p.name}-${i}`} className="truncate tabular-nums">
+              {p.number != null && <span className="mr-1 font-semibold text-muted">{p.number}</span>}
+              {p.name}
+            </li>
+          ))
+        )}
+      </ul>
     </div>
   );
 }

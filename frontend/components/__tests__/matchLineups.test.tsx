@@ -49,8 +49,10 @@ it("renders both teams' XI, bench and the API-Football attribution when availabl
   mockGetMatchLineups.mockResolvedValue(available);
   render(<MatchLineups matchId={1} />);
 
-  expect(await screen.findByText("Brazil")).toBeInTheDocument();
-  expect(screen.getByText("Croatia")).toBeInTheDocument();
+  // Both teams share one pitch (home top half / away bottom half).
+  expect(
+    await screen.findByRole("group", { name: /Brazil versus Croatia/i }),
+  ).toBeInTheDocument();
   // A starter shirt is keyboard-accessible with a descriptive label.
   expect(
     screen.getByRole("button", { name: /#10 Vinicius Junior \(F\)/ }),
@@ -101,6 +103,8 @@ it("shows an error with a working Try again that recovers", async () => {
   mockGetMatchLineups.mockResolvedValue(available);
   fireEvent.click(retry);
 
-  await waitFor(() => expect(screen.getByText("Brazil")).toBeInTheDocument());
+  await waitFor(() =>
+    expect(screen.getByRole("group", { name: /Brazil versus Croatia/i })).toBeInTheDocument(),
+  );
   expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 });

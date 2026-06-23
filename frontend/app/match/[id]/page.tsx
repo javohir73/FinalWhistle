@@ -9,6 +9,7 @@ import { ReasonsList } from "@/components/ReasonsList";
 import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { MatchScoreboard } from "@/components/MatchScoreboard";
 import { MatchLineups } from "@/components/MatchLineups";
+import { MatchTabs } from "@/components/MatchTabs";
 import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
@@ -80,37 +81,39 @@ export default async function MatchDetailPage({ params }: { params: { id: string
         caveat={call?.label ?? null}
       />
 
-      {/* Lineups — official starting XI + bench, lazily fetched client-side.
-          Display-only; degrades to a placeholder when none are announced yet. */}
-      <section>
-        <h2 className="mb-3 font-display text-lg font-bold">Lineups</h2>
-        <MatchLineups matchId={p.match_id} />
-      </section>
+      {/* Tabbed detail: Overview (the AI's reasoning + your pick) and Lineups.
+          Lineups are lazily fetched only when that tab is opened. */}
+      <MatchTabs
+        overview={
+          <div className="space-y-6">
+            {/* Why (server-rendered reasons; chart hydrates client-side) */}
+            <section className="glass rounded-2xl p-6">
+              <h2 className="mb-4 font-display text-lg font-bold text-foreground">
+                {predictedWinner ? `Why ${predictedWinner}?` : "Why this prediction"}
+              </h2>
+              <ReasonsList reasons={p.reasons} />
+              {p.top_features.length > 0 && (
+                <>
+                  <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted">
+                    What drove this prediction
+                  </h3>
+                  <FeatureImportanceChart features={p.top_features} />
+                </>
+              )}
+            </section>
 
-      {/* Why (server-rendered reasons; chart hydrates client-side) */}
-      <section className="glass rounded-2xl p-6">
-        <h2 className="mb-4 font-display text-lg font-bold text-foreground">
-          {predictedWinner ? `Why ${predictedWinner}?` : "Why this prediction"}
-        </h2>
-        <ReasonsList reasons={p.reasons} />
-        {p.top_features.length > 0 && (
-          <>
-            <h3 className="mb-2 mt-6 text-xs font-semibold uppercase tracking-wider text-muted">
-              What drove this prediction
-            </h3>
-            <FeatureImportanceChart features={p.top_features} />
-          </>
-        )}
-      </section>
-
-      {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).
-          Needs the live match summary; rendered only when it's available. */}
-      {summary && (
-        <section>
-          <h2 className="mb-3 font-display text-lg font-bold">Your prediction</h2>
-          <MatchUserPrediction match={summary} />
-        </section>
-      )}
+            {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).
+                Needs the live match summary; rendered only when it's available. */}
+            {summary && (
+              <section>
+                <h2 className="mb-3 font-display text-lg font-bold">Your prediction</h2>
+                <MatchUserPrediction match={summary} />
+              </section>
+            )}
+          </div>
+        }
+        lineups={<MatchLineups matchId={p.match_id} />}
+      />
 
       <p className="text-center text-xs leading-relaxed text-muted">
         {(() => {
