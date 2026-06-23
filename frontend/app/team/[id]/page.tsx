@@ -13,6 +13,7 @@ import { FormStrip } from "@/components/FormStrip";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { TeamFixtures } from "@/components/TeamFixtures";
+import { TeamLastLineup } from "@/components/TeamLastLineup";
 import { ShareButton } from "@/components/ShareButton";
 
 export async function generateMetadata({
@@ -54,6 +55,25 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
   const fixtures = (allMatches ?? []).filter(
     (m) => m.teams.home === team.name || m.teams.away === team.name,
   );
+
+  // Most-recent finished match for this team → its "Last XI" lineup. Sort
+  // finished fixtures by kickoff desc and take the first; undated last.
+  const lastFinished = fixtures
+    .filter((m) => m.status === "finished")
+    .sort((a, b) => (b.kickoff_utc ?? "").localeCompare(a.kickoff_utc ?? ""))[0];
+  const lastLineup = lastFinished
+    ? {
+        matchId: lastFinished.match_id,
+        side: (lastFinished.teams.home === team.name ? "home" : "away") as
+          | "home"
+          | "away",
+        opponent:
+          lastFinished.teams.home === team.name
+            ? lastFinished.teams.away
+            : lastFinished.teams.home,
+        kickoffUtc: lastFinished.kickoff_utc,
+      }
+    : null;
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
@@ -158,6 +178,27 @@ export default async function TeamPage({ params }: { params: { id: string } }) {
             Fixtures
           </h2>
           <TeamFixtures matches={fixtures} teamName={team.name} />
+        </section>
+      )}
+
+      {/* Last XI — the team's most-recent finished match lineup (display-only,
+          official via API-Football). A national side has no canonical formation,
+          so this is explicitly the last match's XI, not a generic team shape. */}
+      {lastLineup ? (
+        <TeamLastLineup
+          matchId={lastLineup.matchId}
+          side={lastLineup.side}
+          opponent={lastLineup.opponent}
+          kickoffUtc={lastLineup.kickoffUtc}
+        />
+      ) : (
+        <section>
+          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+            Last XI
+          </h2>
+          <p className="glass rounded-2xl p-6 text-center text-sm text-muted">
+            No recent lineup yet.
+          </p>
         </section>
       )}
 

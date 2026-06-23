@@ -1,13 +1,14 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer, getMatchSummary, getMatchSummaryServer, getModelRecordServer } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getModelRecordServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGet = getMatchServer as jest.MockedFunction<typeof getMatchServer>;
 const mockSummaryServer = getMatchSummaryServer as jest.MockedFunction<typeof getMatchSummaryServer>;
 const mockSummary = getMatchSummary as jest.MockedFunction<typeof getMatchSummary>;
+const mockLineups = getMatchLineups as jest.MockedFunction<typeof getMatchLineups>;
 const mockModelRecord = getModelRecordServer as jest.MockedFunction<typeof getModelRecordServer>;
 
 // Recharts needs a non-zero layout size in jsdom.
@@ -46,6 +47,15 @@ beforeEach(() => {
   // page must render prediction-only.
   mockSummaryServer.mockResolvedValue(null);
   mockSummary.mockRejectedValue(new Error("no api in jsdom"));
+  // The Lineups island lazy-fetches client-side; resolve to the clean
+  // unavailable placeholder so the SSR-output test renders without a real API.
+  mockLineups.mockResolvedValue({
+    available: false,
+    message: "Lineups are announced ~40 minutes before kickoff.",
+    home: null,
+    away: null,
+    fetched_at: null,
+  });
   // Record fetch is secondary — resolve to null (no evaluated matches yet).
   mockModelRecord.mockResolvedValue(null);
 });

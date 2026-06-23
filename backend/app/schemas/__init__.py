@@ -267,3 +267,28 @@ class LeaderboardRowOut(BaseModel):
     total_points: int
     percentile: int | None = None
     updated_at: str | None = None
+
+
+# ---- Match lineups (display-only; never feeds the prediction model) ----
+class LineupPlayerOut(BaseModel):
+    name: str
+    number: int | None
+    position: str | None
+    grid: str | None
+    is_starter: bool
+
+
+class TeamLineupOut(BaseModel):
+    team: str
+    formation: str | None
+    coach: str | None
+    start_xi: list[LineupPlayerOut]
+    bench: list[LineupPlayerOut]
+
+
+class MatchLineupsOut(BaseModel):
+    available: bool
+    message: str | None
+    home: TeamLineupOut | None
+    away: TeamLineupOut | None
+    fetched_at: str | None
