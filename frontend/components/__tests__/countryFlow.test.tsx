@@ -10,6 +10,13 @@ import type { MatchSummary, Team } from "@/lib/types";
 
 jest.mock("@/lib/api");
 
+// The returning-user dashboard now mounts the team-search combobox, which uses
+// the App Router. Stub it so these (navigation-agnostic) flow tests don't need a
+// router context.
+jest.mock("next/navigation", () => ({
+  useRouter: () => ({ push: jest.fn() }),
+}));
+
 // Relative kickoffs so the match-of-the-day assertions don't time-bomb: a fixed
 // future date eventually becomes "yesterday" and (in UTC CI) falls out of the
 // upcoming/today window. Anchor to "now" instead.
