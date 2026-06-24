@@ -4,11 +4,15 @@ Registers CORS and the API routers. For task 1.x this exposes only a health
 check that proves the frontend can reach the backend end-to-end. Data/prediction
 routers are added in task 5.0.
 """
+import logging
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+logger = logging.getLogger(__name__)
 
 from app.api import (
     auth, brackets, groups, internal, knockout, leaderboard, match_picks, matches,
@@ -40,6 +44,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Misconfig guard: once real email is on, the reset/verification links must point
+# at an allowed origin or the page's same-origin POST 403s. (No-op in console mode.)
+if settings.email_provider.strip().lower() not in ("", "console") and not settings.public_base_url_allowed:
+    logger.warning(
+        "PUBLIC_BASE_URL %r is not an allowed origin %s — reset/verification email "
+        "links will 403 on submit. Add it to CORS_ORIGINS.",
+        settings.public_base_url, settings.allowed_origins,
+    )
 
 
 @app.middleware("http")

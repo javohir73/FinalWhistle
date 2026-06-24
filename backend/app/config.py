@@ -136,6 +136,13 @@ class Settings(BaseSettings):
         return out
 
     @property
+    def public_base_url_allowed(self) -> bool:
+        """The reset/verification email links point at public_base_url, and those
+        pages POST same-origin — so public_base_url MUST be an allowed origin or
+        the submit 403s. (Only matters once real email sending is on.)"""
+        return self.public_base_url in self.allowed_origins
+
+    @property
     def cors_origin_regex(self) -> str | None:
         """The validated preview-origin pattern, or None when unset/invalid.
         Fails closed: a malformed regex admits nothing rather than crashing every
