@@ -7,6 +7,7 @@ password reset (documented limitation).
 """
 from __future__ import annotations
 
+import logging
 import re
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -16,7 +17,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 from sqlalchemy.orm import Session
 
 from app import schemas
-from app.auth import get_current_user
+from app.auth import get_current_user, get_current_user_optional
 from app.config import settings
 from app.db import get_db
 from app.email import get_email_sender
@@ -24,12 +25,14 @@ from app.models import (
     AppUser,
     Bracket,
     EmailActionAttempt,
+    EmailVerificationToken,
     LoginAttempt,
     MatchPick,
     PasswordResetToken,
     UserSession,
 )
 from app.security import (
+    EMAIL_VERIFICATION_TTL,
     RESET_TTL,
     SESSION_COOKIE,
     SESSION_TTL,
@@ -46,6 +49,7 @@ from app.security import (
     verify_password,
 )
 
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -56,6 +60,13 @@ _THROTTLE_WINDOW_MIN = 15
 # Existence-agnostic limit for password-reset requests (per email AND per IP).
 _RESET_MAX = 3
 _RESET_WINDOW_MIN = 15
+# Registration is IP-throttled (it now triggers an outbound verification email,
+# so an open /register is an email amplifier without this).
+_REGISTER_MAX = 10
+_REGISTER_WINDOW_MIN = 60
+# Resend-verification limit (per email AND per IP).
+_VERIFY_RESEND_MAX = 3
+_VERIFY_RESEND_WINDOW_MIN = 15
 
 
 def _email_action_rate_limited(
@@ -115,13 +126,38 @@ def _signup_geo(request: Request) -> tuple[str | None, str | None]:
 
 def _user_out(u: AppUser) -> schemas.UserOut:
     return schemas.UserOut(id=u.id, email=u.email, display_name=u.display_name,
-                           avatar_url=u.avatar_url)
+                           avatar_url=u.avatar_url,
+                           email_verified=u.email_verified_at is not None)
+
+
+def _mint_and_send_verification(db: Session, user: AppUser, ip_hash: str | None) -> None:
+    """Best-effort: mint a verification token and email the link. NEVER raises —
+    a failed send must not break signup or resend (the user can request another)."""
+    try:
+        raw = new_opaque_token()
+        db.add(EmailVerificationToken(
+            user_id=user.id,
+            token_hash=hash_token(raw),
+            expires_at=datetime.now(timezone.utc) + EMAIL_VERIFICATION_TTL,
+            requested_ip_hash=ip_hash,
+        ))
+        db.commit()
+        link = f"{settings.public_base_url}/verify-email?token={raw}"
+        get_email_sender().send_verification(user.email, link)
+    except Exception:  # noqa: BLE001 — best-effort; never surface to the caller
+        logger.warning("verification email failed for user %s", user.id)
+        db.rollback()
 
 
 @router.post("/register", response_model=schemas.UserOut, dependencies=[Depends(require_same_origin)])
 def register(payload: schemas.RegisterIn, request: Request, response: Response,
              db: Session = Depends(get_db)):
     email = _normalize_email(payload.email)
+    ip_h = hash_ip(client_ip(request))
+    if _email_action_rate_limited(db, "register", email, ip_h, _REGISTER_MAX, _REGISTER_WINDOW_MIN):
+        raise HTTPException(status_code=429, detail={"code": "too_many_attempts",
+                                                     "message": "Too many attempts. Try again later."})
+    db.add(EmailActionAttempt(action="register", email=email, ip_hash=ip_h))
     _validate_credentials(email, payload.password)
     if db.query(AppUser).filter_by(email=email).first() is not None:
         raise HTTPException(status_code=409, detail={"code": "email_taken",
@@ -140,6 +176,8 @@ def register(payload: schemas.RegisterIn, request: Request, response: Response,
     db.commit()
     db.refresh(user)
     set_session_cookie(response, raw)
+    # Best-effort verification email (non-blocking: signup already succeeded).
+    _mint_and_send_verification(db, user, ip_h)
     return _user_out(user)
 
 
@@ -235,6 +273,7 @@ def delete_account(payload: schemas.DeleteAccountIn, response: Response,
     # back in — drop them (the account is anonymized, not row-deleted, so ORM
     # cascade never fires; mirror the explicit session/pick cleanup above).
     db.query(PasswordResetToken).filter_by(user_id=user.id).delete()
+    db.query(EmailVerificationToken).filter_by(user_id=user.id).delete()
     db.query(EmailActionAttempt).filter(EmailActionAttempt.email == old_email).delete()
     db.commit()
 
@@ -343,4 +382,60 @@ def reset_password(payload: schemas.ResetPasswordIn, db: Session = Depends(get_d
         PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None),
     ).update({PasswordResetToken.used_at: now})
     db.commit()
+    return {"ok": True}
+
+
+@router.post("/verify-email", dependencies=[Depends(require_same_origin)])
+def verify_email(payload: schemas.VerifyEmailIn, db: Session = Depends(get_db)):
+    """Confirm an email from the link's token. Single-use + expiring, but friendly:
+    a re-clicked link for an already-verified account returns ok/already_verified
+    rather than an error. No session needed — the token itself is the proof, so a
+    user can verify from any device."""
+    now = datetime.now(timezone.utc)
+    invalid = HTTPException(status_code=400, detail={
+        "code": "invalid_token", "message": "This verification link is invalid or has expired."})
+    tok = db.query(EmailVerificationToken).filter_by(token_hash=hash_token(payload.token)).one_or_none()
+    if tok is None:
+        raise invalid
+    user = db.get(AppUser, tok.user_id)
+    if user is None:
+        raise invalid
+    already = user.email_verified_at is not None
+    if tok.consumed_at is not None:
+        if already:
+            return {"ok": True, "already_verified": True}
+        raise invalid
+    if to_aware_utc(tok.expires_at) <= now:
+        raise invalid
+    consumed = (
+        db.query(EmailVerificationToken)
+        .filter(EmailVerificationToken.id == tok.id, EmailVerificationToken.consumed_at.is_(None))
+        .update({EmailVerificationToken.consumed_at: now})
+    )
+    if consumed != 1:  # raced — fine if the user ended up verified
+        return {"ok": True, "already_verified": True} if user.email_verified_at is not None else invalid
+    if user.email_verified_at is None:
+        user.email_verified_at = now
+    db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.user_id == user.id, EmailVerificationToken.consumed_at.is_(None),
+    ).update({EmailVerificationToken.consumed_at: now})
+    db.commit()
+    return {"ok": True, "already_verified": already}
+
+
+@router.post("/resend-verification", dependencies=[Depends(require_same_origin)])
+def resend_verification(request: Request, db: Session = Depends(get_db),
+                        user: AppUser | None = Depends(get_current_user_optional)):
+    """Re-send the verification email. Returns 200 with no email for a signed-out
+    or already-verified caller (no account-state leak); rate-limited otherwise."""
+    if user is None or user.email_verified_at is not None:
+        return {"ok": True}
+    ip_h = hash_ip(client_ip(request))
+    if _email_action_rate_limited(db, "verify_resend", user.email, ip_h,
+                                  _VERIFY_RESEND_MAX, _VERIFY_RESEND_WINDOW_MIN):
+        raise HTTPException(status_code=429, detail={"code": "too_many_attempts",
+                                                     "message": "Please wait before requesting another email."})
+    db.add(EmailActionAttempt(action="verify_resend", email=user.email, ip_hash=ip_h))
+    db.commit()
+    _mint_and_send_verification(db, user, ip_h)
     return {"ok": True}

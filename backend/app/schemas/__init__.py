@@ -203,11 +203,18 @@ class ResetPasswordIn(BaseModel):
     new_password: str
 
 
+class VerifyEmailIn(BaseModel):
+    token: str
+
+
 class UserOut(BaseModel):
     id: int
     email: str
     display_name: str | None = None
     avatar_url: str | None = None
+    # Whether the email has been confirmed. Non-blocking (an in-app banner
+    # prompts verification); defaults False so older clients ignore it harmlessly.
+    email_verified: bool = False
 
 
 # ---- Accounts / brackets / leaderboard ----

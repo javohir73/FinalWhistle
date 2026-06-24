@@ -439,9 +439,10 @@ class PasswordResetToken(Base):
 
 
 class EmailActionAttempt(Base):
-    """Records every reset / resend-verification request — even for unknown
-    emails — so rate limiting is existence-agnostic: the limit can't be used to
-    probe which accounts exist (tokens, which only exist for real users, can't)."""
+    """Records every reset / resend-verification / register request — even for
+    unknown emails — so rate limiting is existence-agnostic: the limit can't be
+    used to probe which accounts exist (tokens, which only exist for real users,
+    can't)."""
 
     __tablename__ = "email_action_attempts"
 
@@ -452,6 +453,26 @@ class EmailActionAttempt(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), index=True
     )
+
+
+class EmailVerificationToken(Base):
+    """A single-use, expiring email-verification token. Mirrors
+    PasswordResetToken (raw emailed in the link; only the SHA-256 hash stored).
+    consumed_at NULL = live; set on use or on a sibling being consumed."""
+
+    __tablename__ = "email_verification_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requested_ip_hash: Mapped[str | None] = mapped_column(String(64))
+
+    user: Mapped[AppUser] = relationship()
 
 
 class Bracket(Base):

@@ -18,6 +18,9 @@ export interface SessionUser {
   email: string;
   display_name: string | null;
   avatar_url: string | null;
+  // Optional: a cached hint from before this field existed won't have it, so
+  // `undefined` means "unknown" (don't show the verify banner until /me confirms).
+  email_verified?: boolean;
 }
 
 /** Error carrying the backend's {code,message} so callers can show friendly copy. */
@@ -172,6 +175,20 @@ export const resetPassword = (token: string, new_password: string) =>
     method: "POST",
     body: JSON.stringify({ token, new_password }),
   });
+
+// ---- Email verification ----
+/** Confirm an email from the link's token. Works without a session (the token is
+ *  the proof). Returns { already_verified } so a re-clicked link reads friendly. */
+export const verifyEmail = (token: string) =>
+  request<{ ok: boolean; already_verified: boolean }>("/api/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+
+/** Re-send the verification email to the signed-in user (no-op 200 if signed out
+ *  or already verified). Throws ApiError (too_many_attempts) when rate-limited. */
+export const resendVerification = () =>
+  request<{ ok: boolean }>("/api/auth/resend-verification", { method: "POST" });
 
 // ---- Brackets / leaderboard (cookie-authed) ----
 export const saveBracket = (body: BracketPayload) =>
