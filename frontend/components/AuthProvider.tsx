@@ -12,6 +12,7 @@ import {
 } from "@/lib/session";
 import { AuthModal } from "@/components/AuthModal";
 import { AuthToast } from "@/components/AuthToast";
+import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 
 interface SignInOptions {
   onSuccess?: () => void;
@@ -124,6 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider
       value={{ user, loading, refresh, logout, deleteAccount, openSignIn, registerLogoutFlush }}
     >
+      <VerifyEmailBanner user={user} />
       {children}
       <AuthModal
         open={modalOpen}
