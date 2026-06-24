@@ -3,6 +3,7 @@
 import { useMemo, useRef, useState } from "react";
 import { Flag } from "@/components/Flag";
 import type { Team } from "@/lib/types";
+import { rankTeams } from "@/lib/teamSearch";
 import { cn } from "@/lib/utils";
 
 /** Searchable grid of all nations. Results are ranked: prefix matches first,
@@ -39,18 +40,7 @@ export function CountrySearch({
     e.preventDefault();
   };
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const sorted = [...teams].sort((a, b) => a.name.localeCompare(b.name));
-    if (!q) return sorted;
-    return sorted
-      .filter((t) => t.name.toLowerCase().includes(q))
-      .sort((a, b) => {
-        const ap = a.name.toLowerCase().startsWith(q) ? 0 : 1;
-        const bp = b.name.toLowerCase().startsWith(q) ? 0 : 1;
-        return ap - bp || a.name.localeCompare(b.name);
-      });
-  }, [teams, query]);
+  const results = useMemo(() => rankTeams(teams, query), [teams, query]);
 
   return (
     <div>

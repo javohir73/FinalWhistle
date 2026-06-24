@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { CountryOnboarding } from "@/components/CountryOnboarding";
 import { AICalculationReveal } from "@/components/AICalculationReveal";
+import { TeamSearch } from "@/components/TeamSearch";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
@@ -80,6 +81,7 @@ export function HomeExperience({
     return (
       <HomeDashboard
         team={selectedTeam}
+        teams={teams}
         groups={groups}
         odds={odds}
         matches={matches}
@@ -118,12 +120,14 @@ function greeting(name?: string | null): string {
  */
 function HomeDashboard({
   team,
+  teams,
   groups,
   odds,
   matches,
   onChangeCountry,
 }: {
   team: Team;
+  teams: Team[];
   groups: Group[];
   odds: TournamentOdds[];
   matches: MatchSummary[];
@@ -228,6 +232,11 @@ function HomeDashboard({
           ? `${today.length} ${today.length === 1 ? "match" : "matches"} today`
           : "No matches today"}
       </h1>
+
+      {/* ===== Jump to any team ===== */}
+      <div className="mt-5">
+        <TeamSearch teams={teams} />
+      </div>
 
       {/* ===== Your-team hero (deep-green pitch panel) ===== */}
       <Link
