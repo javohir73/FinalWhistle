@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import re
 import secrets
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import HTTPException, Request, Response
 
@@ -22,6 +22,26 @@ from app.config import settings
 SESSION_COOKIE = "fw_session"
 SESSION_TTL = timedelta(days=30)
 MAX_PASSWORD_LEN = 200  # guard argon2 against pathologically large inputs
+
+# Lifetimes for the opaque link tokens (password reset / email verification).
+# Reset is short-lived (higher risk); verification links live longer since users
+# often open welcome emails late.
+RESET_TTL = timedelta(minutes=30)
+EMAIL_VERIFICATION_TTL = timedelta(hours=24)
+
+
+def new_opaque_token() -> str:
+    """A fresh ~256-bit url-safe token for reset/verification links. Same family
+    as session tokens; only its SHA-256 hash is ever stored, so a DB leak can't
+    reconstruct a usable link."""
+    return secrets.token_urlsafe(32)
+
+
+def to_aware_utc(dt: datetime) -> datetime:
+    """Coerce a possibly-naive datetime (SQLite hands back naive) to tz-aware UTC
+    so comparisons against datetime.now(timezone.utc) never raise. Shared by every
+    token-expiry check."""
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
 _hasher = None
 
