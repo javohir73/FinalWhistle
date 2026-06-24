@@ -14,12 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import AppUser, UserSession
-from app.security import SESSION_COOKIE, hash_token
-
-
-def _aware(dt: datetime) -> datetime:
-    """SQLite hands back naive datetimes; treat stored times as UTC."""
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+from app.security import SESSION_COOKIE, hash_token, to_aware_utc
 
 
 def _session_from_request(request: Request, db: Session) -> UserSession | None:
@@ -33,7 +28,7 @@ def _session_from_request(request: Request, db: Session) -> UserSession | None:
     )
     if sess is None or sess.revoked_at is not None:
         return None
-    if _aware(sess.expires_at) <= datetime.now(timezone.utc):
+    if to_aware_utc(sess.expires_at) <= datetime.now(timezone.utc):
         return None
     return sess
 

@@ -31,7 +31,17 @@ services:
       - key: ENVIRONMENT
         value: production
       - key: CORS_ORIGINS
-        sync: false # set to your Vercel URL after the frontend deploys (also gates the Origin/CSRF check)
+        sync: false # set to your Vercel URL after the frontend deploys (also gates the Origin/CSRF check; www/apex sibling auto-allowed)
+      - key: CORS_PREVIEW_REGEX
+        sync: false # leave BLANK in prod (a loose *.vercel.app pattern is a CSRF hole); anchored project regex only, ideally on a non-prod service
+      - key: PUBLIC_BASE_URL
+        sync: false # base URL for links in emails (reset/verify); must be an allowed origin, e.g. your Vercel URL
+      - key: EMAIL_PROVIDER
+        value: console # "console" logs links (no send); set "resend" + EMAIL_API_KEY to send real email
+      - key: EMAIL_API_KEY
+        sync: false # provider secret (e.g. Resend); empty => safe console fallback
+      - key: EMAIL_FROM
+        sync: false # From identity, e.g. "FinalWhistle <noreply@yourdomain>" (verify the domain with the provider)
       - key: SENTRY_DSN
         sync: false # optional: paste a Sentry DSN to enable backend error tracking
       - key: COOKIE_SECURE

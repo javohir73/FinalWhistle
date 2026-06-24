@@ -79,6 +79,19 @@ class Settings(BaseSettings):
     # guard; a malformed pattern fails closed (treated as disabled).
     cors_preview_regex: str = ""
 
+    # Transactional email (password reset, email verification). Provider-agnostic:
+    # EMAIL_PROVIDER="console" (default — logs the link, makes no network call) or
+    # "resend". EMAIL_API_KEY is the provider secret; empty => safe console
+    # fallback so a missing key never 500s the auth flow.
+    email_provider: str = "console"
+    email_api_key: str = ""
+    email_from: str = "FinalWhistle <noreply@finalwhistle.app>"
+
+    # Base URL for user-facing links embedded in emails (reset/verify). Must be an
+    # allowed origin (see allowed_origins) so the page's same-origin POST passes
+    # the Origin guard. Defaults to the canonical URL; never hardcode in routes.
+    public_base_url: str = "https://fifa-wc26-prediction.vercel.app"
+
     # Read-cache lifetime. Lets a separate refresh process's DB writes appear in
     # the web process without cross-process cache invalidation.
     cache_ttl_seconds: int = 600
