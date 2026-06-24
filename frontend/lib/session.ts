@@ -31,16 +31,38 @@ export class ApiError extends Error {
   }
 }
 
+// The free-tier backend sleeps when idle; without a cap a cold-start request can
+// hang for the browser default (~minutes). Abort at 30s and surface a typed
+// timeout so the UI can say "waking up — try again" instead of spinning forever.
+const REQUEST_TIMEOUT_MS = 30_000;
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${CLIENT_BASE}${path}`, {
-    ...init,
-    cache: "no-store",
-    credentials: "include",
-    headers: {
-      ...(init.body ? { "Content-Type": "application/json" } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(`${CLIENT_BASE}${path}`, {
+      ...init,
+      cache: "no-store",
+      credentials: "include",
+      signal: controller.signal,
+      headers: {
+        ...(init.body ? { "Content-Type": "application/json" } : {}),
+        ...(init.headers ?? {}),
+      },
+    });
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new ApiError(
+        408,
+        "request_timeout",
+        "The request timed out — the server may be waking up. Please try again.",
+      );
+    }
+    throw e; // network failure (TypeError) — mapped by friendlyAuthError
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) {
     let code = `http_${res.status}`;
     let message = "Something went wrong — please try again.";
@@ -88,6 +110,40 @@ export async function deleteAccount(password: string): Promise<void> {
     method: "POST",
     body: JSON.stringify({ password }),
   });
+}
+
+/** Map any thrown auth error to safe, friendly copy. Never surfaces the raw
+ *  origin-guard text ("Origin not allowed" / forbidden_origin), and turns
+ *  cold-start 5xx/timeouts and connection failures into clear guidance. The
+ *  single place the auth UI converts errors to display text. */
+export function friendlyAuthError(e: unknown, opts: { offline?: boolean } = {}): string {
+  const COLD =
+    "The match server is waking up after a quiet spell. Please try again in a few seconds.";
+  const OFFLINE = "You appear to be offline. Check your connection and try again.";
+  const NETWORK = "We couldn’t reach the server — check your connection and try again.";
+  const GENERIC = "Something went wrong — please try again.";
+
+  if (opts.offline) return OFFLINE;
+
+  if (e instanceof ApiError) {
+    if (e.code === "forbidden_origin") {
+      return "We couldn’t verify this request. Reload the page and try again — if it keeps happening you may be on an old link.";
+    }
+    if (e.code === "too_many_attempts") {
+      return "Too many attempts. Please wait a few minutes and try again.";
+    }
+    if (e.code === "request_timeout" || e.status >= 500 || e.code.startsWith("http_5")) {
+      return COLD;
+    }
+    // Other backend codes (invalid_credentials, email_taken, invalid_email,
+    // weak_password, …) already carry user-friendly messages.
+    return e.message || GENERIC;
+  }
+
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return OFFLINE;
+  if (e instanceof DOMException && e.name === "AbortError") return COLD;
+  if (e instanceof TypeError) return NETWORK; // fetch network failure
+  return GENERIC;
 }
 
 /** Current signed-in user, or null when there's no live session. */

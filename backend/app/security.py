@@ -11,6 +11,7 @@ Security choices (per OWASP Authentication / Session-Management cheat sheets):
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 from datetime import timedelta
 
@@ -112,8 +113,15 @@ def require_same_origin(request: Request) -> None:
                 detail={"code": "forbidden_origin", "message": "Missing Origin header"},
             )
         return
-    if origin not in settings.cors_origin_list:
-        raise HTTPException(
-            status_code=403,
-            detail={"code": "forbidden_origin", "message": "Origin not allowed"},
-        )
+    if origin in settings.allowed_origins:
+        return
+    # Optional anchored preview pattern (e.g. this project's Vercel previews).
+    # fullmatch mirrors the ^...$ anchoring so a suffix like .vercel.app.evil.com
+    # can't slip through.
+    pattern = settings.cors_origin_regex
+    if pattern and re.fullmatch(pattern, origin):
+        return
+    raise HTTPException(
+        status_code=403,
+        detail={"code": "forbidden_origin", "message": "Origin not allowed"},
+    )
