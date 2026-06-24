@@ -8,9 +8,10 @@ import * as session from "@/lib/session";
 
 jest.mock("@/lib/session", () => {
   const actual = jest.requireActual("@/lib/session");
-  return { ...actual, login: jest.fn(), register: jest.fn() };
+  return { ...actual, login: jest.fn(), register: jest.fn(), requestPasswordReset: jest.fn() };
 });
 const mockLogin = session.login as jest.Mock;
+const mockRequestReset = session.requestPasswordReset as jest.Mock;
 
 const setOnline = (value: boolean) =>
   Object.defineProperty(navigator, "onLine", { configurable: true, value });
@@ -56,6 +57,18 @@ it("short-circuits when offline: shows a connection message and never calls the 
 
   expect(await screen.findByText(/offline|connection/i)).toBeInTheDocument();
   expect(mockLogin).not.toHaveBeenCalled();
+});
+
+it("forgot-password: requests a reset and shows a neutral, enumeration-safe confirmation", async () => {
+  mockRequestReset.mockResolvedValue({ ok: true });
+  render(<AuthModal open onClose={() => {}} onAuthed={() => {}} />);
+
+  fireEvent.click(screen.getByRole("button", { name: /forgot password/i }));
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "x@y.com" } });
+  fireEvent.click(screen.getByRole("button", { name: /send reset link/i }));
+
+  await waitFor(() => expect(mockRequestReset).toHaveBeenCalledWith("x@y.com"));
+  expect(await screen.findByText(/if an account exists/i)).toBeInTheDocument();
 });
 
 it("clears the offline message once connectivity returns", async () => {

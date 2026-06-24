@@ -418,6 +418,42 @@ class LoginAttempt(Base):
     success: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class PasswordResetToken(Base):
+    """A single-use, expiring password-reset token. The raw token is emailed in
+    the link; only its SHA-256 hash is stored, so a DB leak can't reconstruct a
+    usable link. used_at NULL = live; set on consume or invalidation."""
+
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("app_users.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    requested_ip_hash: Mapped[str | None] = mapped_column(String(64))
+
+    user: Mapped[AppUser] = relationship()
+
+
+class EmailActionAttempt(Base):
+    """Records every reset / resend-verification request — even for unknown
+    emails — so rate limiting is existence-agnostic: the limit can't be used to
+    probe which accounts exist (tokens, which only exist for real users, can't)."""
+
+    __tablename__ = "email_action_attempts"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    action: Mapped[str] = mapped_column(String(40), index=True)
+    email: Mapped[str] = mapped_column(String(255), index=True)
+    ip_hash: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+
 class Bracket(Base):
     """A user's saved bracket (one per user in the MVP)."""
 

@@ -9,17 +9,28 @@ from __future__ import annotations
 
 import re
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from urllib.parse import unquote
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 
 from app import schemas
 from app.auth import get_current_user
+from app.config import settings
 from app.db import get_db
-from app.models import AppUser, Bracket, LoginAttempt, MatchPick, UserSession
+from app.email import get_email_sender
+from app.models import (
+    AppUser,
+    Bracket,
+    EmailActionAttempt,
+    LoginAttempt,
+    MatchPick,
+    PasswordResetToken,
+    UserSession,
+)
 from app.security import (
+    RESET_TTL,
     SESSION_COOKIE,
     SESSION_TTL,
     clear_session_cookie,
@@ -27,9 +38,11 @@ from app.security import (
     hash_ip,
     hash_password,
     hash_token,
+    new_opaque_token,
     new_session_token,
     require_same_origin,
     set_session_cookie,
+    to_aware_utc,
     verify_password,
 )
 
@@ -40,6 +53,27 @@ _MIN_PASSWORD = 8
 _MAX_PASSWORD = 200
 _THROTTLE_MAX_FAILURES = 5
 _THROTTLE_WINDOW_MIN = 15
+# Existence-agnostic limit for password-reset requests (per email AND per IP).
+_RESET_MAX = 3
+_RESET_WINDOW_MIN = 15
+
+
+def _email_action_rate_limited(
+    db: Session, action: str, email: str, ip_hash: str | None, max_count: int, window_min: int
+) -> bool:
+    """True when recent same-action requests for this email OR this IP exceed the
+    cap. Keyed on the request input (not on token rows that only exist for real
+    accounts), so it throttles unknown-email spam without leaking existence."""
+    window_start = datetime.now(timezone.utc) - timedelta(minutes=window_min)
+    base = db.query(EmailActionAttempt).filter(
+        EmailActionAttempt.action == action,
+        EmailActionAttempt.created_at >= window_start,
+    )
+    if base.filter(EmailActionAttempt.email == email).count() >= max_count:
+        return True
+    if ip_hash and base.filter(EmailActionAttempt.ip_hash == ip_hash).count() >= max_count:
+        return True
+    return False
 
 
 def _normalize_email(email: str) -> str:
@@ -197,6 +231,11 @@ def delete_account(payload: schemas.DeleteAccountIn, response: Response,
     db.query(MatchPick).filter_by(user_id=user.id).delete()
     db.query(UserSession).filter_by(user_id=user.id).delete()
     db.query(LoginAttempt).filter(LoginAttempt.email == old_email).delete()
+    # Reset tokens + email-action attempts hold the real address / a live route
+    # back in — drop them (the account is anonymized, not row-deleted, so ORM
+    # cascade never fires; mirror the explicit session/pick cleanup above).
+    db.query(PasswordResetToken).filter_by(user_id=user.id).delete()
+    db.query(EmailActionAttempt).filter(EmailActionAttempt.email == old_email).delete()
     db.commit()
 
     clear_session_cookie(response)
@@ -221,5 +260,87 @@ def change_password(payload: schemas.ChangePasswordIn, request: Request,
     for s in db.query(UserSession).filter_by(user_id=user.id, revoked_at=None).all():
         if s.session_token_hash != keep_hash:
             s.revoked_at = now
+    db.commit()
+    return {"ok": True}
+
+
+@router.post("/request-reset", dependencies=[Depends(require_same_origin)])
+def request_reset(payload: schemas.RequestResetIn, request: Request,
+                  background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    """Start a password reset. ALWAYS returns 200 with an identical body — whether
+    or not the email exists, is malformed, or is a deleted tombstone — so it can't
+    be used to enumerate accounts. The only non-200 is a rate-limit (429), keyed
+    on the request input, which leaks nothing. The real email + link go out only
+    if a live account matches, dispatched in the background so response timing
+    doesn't depend on account existence or the email provider."""
+    email = _normalize_email(payload.email)
+    ip_h = hash_ip(client_ip(request))
+    if _email_action_rate_limited(db, "reset", email, ip_h, _RESET_MAX, _RESET_WINDOW_MIN):
+        raise HTTPException(status_code=429, detail={"code": "too_many_attempts",
+                                                     "message": "Too many attempts. Try again later."})
+    db.add(EmailActionAttempt(action="reset", email=email, ip_hash=ip_h))
+
+    user = (
+        db.query(AppUser).filter_by(email=email).first()
+        if _EMAIL_RE.match(email)
+        else None
+    )
+    if user is not None:
+        now = datetime.now(timezone.utc)
+        # Only the latest link stays live.
+        db.query(PasswordResetToken).filter(
+            PasswordResetToken.user_id == user.id,
+            PasswordResetToken.used_at.is_(None),
+        ).update({PasswordResetToken.used_at: now})
+        raw = new_opaque_token()
+        db.add(PasswordResetToken(
+            user_id=user.id,
+            token_hash=hash_token(raw),
+            expires_at=now + RESET_TTL,
+            requested_ip_hash=ip_h,
+        ))
+        db.commit()
+        link = f"{settings.public_base_url}/reset-password?token={raw}"
+        background_tasks.add_task(get_email_sender().send_password_reset, user.email, link)
+    else:
+        db.commit()
+    return {"ok": True}
+
+
+@router.post("/reset-password", dependencies=[Depends(require_same_origin)])
+def reset_password(payload: schemas.ResetPasswordIn, db: Session = Depends(get_db)):
+    """Consume a reset token and set a new password. One generic invalid_token
+    message covers unknown/used/expired tokens (indistinguishable). The new
+    password is length-checked FIRST so a weak password never consumes the token.
+    A reset revokes every session and (re)confirms email control."""
+    if not (_MIN_PASSWORD <= len(payload.new_password) <= _MAX_PASSWORD):
+        raise HTTPException(status_code=422, detail={"code": "weak_password",
+                                                     "message": f"Password must be at least {_MIN_PASSWORD} characters."})
+    invalid = HTTPException(status_code=400, detail={
+        "code": "invalid_token", "message": "This reset link is invalid or has expired."})
+    now = datetime.now(timezone.utc)
+    tok = db.query(PasswordResetToken).filter_by(token_hash=hash_token(payload.token)).one_or_none()
+    if tok is None or to_aware_utc(tok.expires_at) <= now:
+        raise invalid
+    # Atomic single-use: only the request that flips used_at from NULL wins
+    # (race-safe on Postgres; a double-clicked link consumes exactly once).
+    consumed = (
+        db.query(PasswordResetToken)
+        .filter(PasswordResetToken.id == tok.id, PasswordResetToken.used_at.is_(None))
+        .update({PasswordResetToken.used_at: now})
+    )
+    if consumed != 1:
+        raise invalid
+    user = db.get(AppUser, tok.user_id)
+    if user is None:
+        raise invalid
+    user.password_hash = hash_password(payload.new_password)
+    user.email_verified_at = now  # a successful reset proves control of the inbox
+    db.query(UserSession).filter(
+        UserSession.user_id == user.id, UserSession.revoked_at.is_(None),
+    ).update({UserSession.revoked_at: now})
+    db.query(PasswordResetToken).filter(
+        PasswordResetToken.user_id == user.id, PasswordResetToken.used_at.is_(None),
+    ).update({PasswordResetToken.used_at: now})
     db.commit()
     return {"ok": True}

@@ -156,6 +156,23 @@ export async function getMe(): Promise<SessionUser | null> {
   }
 }
 
+// ---- Password reset ----
+/** Start a reset. The backend always resolves 200 (no account enumeration), so
+ *  the UI shows the same neutral confirmation regardless. */
+export const requestPasswordReset = (email: string) =>
+  request<{ ok: boolean }>("/api/auth/request-reset", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+
+/** Consume a reset token from the emailed link and set a new password. Throws
+ *  ApiError (invalid_token / weak_password) on failure. */
+export const resetPassword = (token: string, new_password: string) =>
+  request<{ ok: boolean }>("/api/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, new_password }),
+  });
+
 // ---- Brackets / leaderboard (cookie-authed) ----
 export const saveBracket = (body: BracketPayload) =>
   request<SavedBracket>("/api/brackets", {
