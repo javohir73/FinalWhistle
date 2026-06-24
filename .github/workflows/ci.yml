@@ -20,6 +20,16 @@ jobs:
           pip install -r backend/requirements.txt
       - name: Run pytest
         run: python -m pytest
+      - name: Single Alembic head
+        # Two migrations branching off the same revision produce multiple heads,
+        # which makes `alembic upgrade head` fail on deploy. Catch it in CI.
+        working-directory: backend
+        run: >
+          python -c "from alembic.config import Config;
+          from alembic.script import ScriptDirectory;
+          h=ScriptDirectory.from_config(Config('alembic.ini')).get_heads();
+          assert len(h)==1, f'Expected exactly one Alembic head, found {h}';
+          print('OK — single head:', h[0])"
 
   frontend:
     runs-on: ubuntu-latest

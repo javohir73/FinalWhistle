@@ -70,6 +70,29 @@ def test_preview_regex_valid_is_returned():
     assert Settings(cors_preview_regex=pat).cors_origin_regex == pat
 
 
+# ---- Settings.public_base_url_allowed (email-link / Origin-guard consistency) ----
+
+def test_public_base_url_allowed_when_in_origins():
+    s = Settings(
+        cors_origins="https://fifa-wc26-prediction.vercel.app",
+        public_base_url="https://fifa-wc26-prediction.vercel.app",
+    )
+    assert s.public_base_url_allowed is True
+
+
+def test_public_base_url_allowed_via_www_sibling():
+    s = Settings(cors_origins="https://finalwhistle.app", public_base_url="https://www.finalwhistle.app")
+    assert s.public_base_url_allowed is True  # www sibling is auto-allowed
+
+
+def test_public_base_url_not_allowed_when_mismatched():
+    s = Settings(
+        cors_origins="https://fifa-wc26-prediction.vercel.app",
+        public_base_url="https://finalwhistle.app",
+    )
+    assert s.public_base_url_allowed is False
+
+
 # ---- require_same_origin (reads the global settings; restore in finally) ----
 
 def test_allows_configured_origin_and_www_sibling():
