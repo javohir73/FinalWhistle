@@ -194,6 +194,15 @@ class DeleteAccountIn(BaseModel):
     password: str
 
 
+class RequestResetIn(BaseModel):
+    email: str
+
+
+class ResetPasswordIn(BaseModel):
+    token: str
+    new_password: str
+
+
 class UserOut(BaseModel):
     id: int
     email: str

@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { login, register, friendlyAuthError, type SessionUser } from "@/lib/session";
+import {
+  login,
+  register,
+  requestPasswordReset,
+  friendlyAuthError,
+  type SessionUser,
+} from "@/lib/session";
 import { trackEvent } from "@/lib/analytics";
 
 type Mode = "signin" | "signup";
@@ -26,6 +32,8 @@ export function AuthModal({
   const [slow, setSlow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [forgot, setForgot] = useState(false); // "forgot password" sub-view
+  const [resetSent, setResetSent] = useState(false);
   const firstField = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
@@ -34,7 +42,11 @@ export function AuthModal({
   // tab left on "Create account" from a previous user makes existing users
   // accidentally re-register ("account already exists").
   useEffect(() => {
-    if (open) setMode("signin");
+    if (open) {
+      setMode("signin");
+      setForgot(false);
+      setResetSent(false);
+    }
   }, [open]);
 
   useEffect(() => {
@@ -137,6 +149,33 @@ export function AuthModal({
     }
   };
 
+  const submitForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError(friendlyAuthError(null, { offline: true }));
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await requestPasswordReset(email.trim());
+      trackEvent("password_reset_requested");
+      // Enumeration-safe: the backend resolves 200 for any email, so we always
+      // show the same neutral confirmation (never "no such account").
+      setResetSent(true);
+    } catch (err) {
+      // Only a real failure (rate limit / offline / server) surfaces — these
+      // leak nothing about whether the account exists.
+      setError(
+        friendlyAuthError(err, {
+          offline: typeof navigator !== "undefined" && navigator.onLine === false,
+        }),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const tab = (m: Mode, label: string) => (
     <button
       type="button"
@@ -155,12 +194,68 @@ export function AuthModal({
   const field =
     "w-full rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win";
 
+  const forgotView = resetSent ? (
+    <div className="space-y-4">
+      <p className="text-sm text-foreground">
+        If an account exists for{" "}
+        <span className="font-semibold">{email.trim() || "that email"}</span>, we just
+        sent a reset link. Check your inbox (and your spam folder).
+      </p>
+      <button
+        type="button"
+        onClick={() => {
+          setForgot(false);
+          setResetSent(false);
+          setError(null);
+        }}
+        className="w-full rounded-xl bg-win px-4 py-3 text-sm font-bold text-pitch transition hover:brightness-110"
+      >
+        Back to sign in
+      </button>
+    </div>
+  ) : (
+    <form onSubmit={submitForgot} className="space-y-3">
+      <p className="text-sm text-muted">
+        Enter your email and we&rsquo;ll send a link to reset your password.
+      </p>
+      <input
+        ref={firstField}
+        type="email"
+        required
+        autoComplete="email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        placeholder="Email address"
+        aria-label="Email address"
+        className={field}
+      />
+      {error && <p className="text-sm text-loss">{error}</p>}
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full rounded-xl bg-win px-4 py-3 text-sm font-bold text-pitch transition hover:brightness-110 disabled:opacity-50"
+      >
+        {busy ? "Please wait…" : "Send reset link"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setForgot(false);
+          setError(null);
+        }}
+        className="block w-full text-center text-xs font-medium text-muted underline-offset-2 transition hover:text-foreground hover:underline"
+      >
+        Back to sign in
+      </button>
+    </form>
+  );
+
   return (
     <div
       className="fixed inset-0 z-[100] grid place-items-end bg-pitch/45 backdrop-blur-sm sm:place-items-center sm:p-4"
       role="dialog"
       aria-modal="true"
-      aria-label={mode === "signup" ? "Create account" : "Sign in"}
+      aria-label={forgot ? "Reset password" : mode === "signup" ? "Create account" : "Sign in"}
       onClick={onClose}
     >
       <div
@@ -172,7 +267,11 @@ export function AuthModal({
         <div aria-hidden className="mx-auto mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-lg font-extrabold tracking-tight">
-            {mode === "signup" ? "Create your account" : "Welcome back"}
+            {forgot
+              ? "Reset your password"
+              : mode === "signup"
+                ? "Create your account"
+                : "Welcome back"}
           </h2>
           <button
             type="button"
@@ -186,6 +285,8 @@ export function AuthModal({
           </button>
         </div>
 
+        {forgot ? forgotView : (
+        <>
         <div
           role="tablist"
           aria-label="Authentication mode"
@@ -251,6 +352,20 @@ export function AuthModal({
             </button>
           </div>
 
+          {mode === "signin" && (
+            <button
+              type="button"
+              onClick={() => {
+                setForgot(true);
+                setError(null);
+                setResetSent(false);
+              }}
+              className="block text-xs font-semibold text-lime-deep underline-offset-2 hover:underline"
+            >
+              Forgot password?
+            </button>
+          )}
+
           {error && <p className="text-sm text-loss">{error}</p>}
 
           <button
@@ -270,9 +385,10 @@ export function AuthModal({
         </form>
 
         <p className="mt-4 text-center text-xs text-muted">
-          Password reset is coming soon — use an email & password you can remember.
           Free, no spam, your picks stay yours.
         </p>
+        </>
+        )}
       </div>
     </div>
   );
