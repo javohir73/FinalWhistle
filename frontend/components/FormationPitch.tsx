@@ -55,6 +55,7 @@ export function FormationPitch({ lineup }: { lineup: TeamLineup }) {
                     player={p}
                     open={openKey === key}
                     onToggle={() => setOpenKey((cur) => (cur === key ? null : key))}
+                    showName
                   />
                 );
               })}
