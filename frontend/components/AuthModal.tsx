@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { login, register, ApiError, type SessionUser } from "@/lib/session";
+import { login, register, friendlyAuthError, type SessionUser } from "@/lib/session";
 import { trackEvent } from "@/lib/analytics";
 
 type Mode = "signin" | "signup";
@@ -83,10 +83,25 @@ export function AuthModal({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // When connectivity returns, clear a stale offline message so the user can
+  // retry without a leftover error (other errors are left as-is).
+  useEffect(() => {
+    if (!open) return;
+    const onOnline = () => setError((prev) => (prev && /offline/i.test(prev) ? null : prev));
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+  }, [open]);
+
   if (!open) return null;
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Don't fire a guaranteed-to-fail request when the device is offline — say so
+    // and let the online listener (below) clear it when connectivity returns.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setError(friendlyAuthError(null, { offline: true }));
+      return;
+    }
     setBusy(true);
     setError(null);
     // The free-tier backend sleeps when idle; the first request after a quiet
@@ -110,7 +125,11 @@ export function AuthModal({
       setPassword("");
       setName("");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Something went wrong — please try again.");
+      setError(
+        friendlyAuthError(err, {
+          offline: typeof navigator !== "undefined" && navigator.onLine === false,
+        }),
+      );
     } finally {
       clearTimeout(slowTimer);
       setSlow(false);

@@ -32,7 +32,10 @@ app = FastAPI(title=settings.app_name)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origin_list,
+    # Single source of truth (shared with require_same_origin): configured origins
+    # + their www/apex siblings, plus an optional anchored preview regex.
+    allow_origins=settings.allowed_origins,
+    allow_origin_regex=settings.cors_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

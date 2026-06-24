@@ -3,7 +3,13 @@
 Centralizes config so nothing is hard-coded. The app name lives here as a single
 constant (PRD Resolved Decision #5 — name finalized as "FinalWhistle").
 """
+import re
+from urllib.parse import urlsplit
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# A bare IPv4 host has no www/apex sibling to expand.
+_IPV4_RE = re.compile(r"^\d{1,3}(?:\.\d{1,3}){3}$")
 
 
 class Settings(BaseSettings):
@@ -62,8 +68,16 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
 
     # CORS / allowed browser origins. Also used for the Origin check on
-    # state-changing requests (CSRF defense-in-depth). Comma-separated.
+    # state-changing requests (CSRF defense-in-depth). Comma-separated. The
+    # www/apex sibling of each entry is auto-allowed (see allowed_origins).
     cors_origins: str = "http://localhost:3000"
+
+    # OPTIONAL anchored regex admitting extra origins (e.g. this project's Vercel
+    # preview deploys: ^https://fifa-wc26-prediction-[a-z0-9-]+\.vercel\.app$).
+    # Empty => disabled (the safe default; a loose *.vercel.app pattern would be a
+    # CSRF hole since anyone can deploy there). Feeds BOTH CORS and the Origin
+    # guard; a malformed pattern fails closed (treated as disabled).
+    cors_preview_regex: str = ""
 
     # Read-cache lifetime. Lets a separate refresh process's DB writes appear in
     # the web process without cross-process cache invalidation.
@@ -72,6 +86,55 @@ class Settings(BaseSettings):
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @staticmethod
+    def _sibling_origin(origin: str) -> str | None:
+        """The www<->apex sibling of an origin, preserving scheme + port.
+        Returns None for localhost, bare IPs, or anything without a registrable
+        host (nothing meaningful to expand)."""
+        parts = urlsplit(origin)
+        if not parts.scheme or not parts.netloc:
+            return None
+        netloc = parts.netloc
+        host, _, port = netloc.partition(":")
+        if host == "localhost" or _IPV4_RE.match(host):
+            return None
+        if host.startswith("www."):
+            sib_host = host[4:]
+        elif "." in host:
+            sib_host = "www." + host
+        else:
+            return None
+        sib_netloc = f"{sib_host}:{port}" if port else sib_host
+        return f"{parts.scheme}://{sib_netloc}"
+
+    @property
+    def allowed_origins(self) -> list[str]:
+        """The configured origins plus each one's www/apex sibling (deduped,
+        order-preserving). The single source of truth for both CORSMiddleware and
+        the require_same_origin CSRF guard, so the two never drift."""
+        out: list[str] = []
+        for origin in self.cors_origin_list:
+            if origin not in out:
+                out.append(origin)
+            sibling = self._sibling_origin(origin)
+            if sibling and sibling not in out:
+                out.append(sibling)
+        return out
+
+    @property
+    def cors_origin_regex(self) -> str | None:
+        """The validated preview-origin pattern, or None when unset/invalid.
+        Fails closed: a malformed regex admits nothing rather than crashing every
+        request or accidentally allowing all."""
+        pattern = self.cors_preview_regex.strip()
+        if not pattern:
+            return None
+        try:
+            re.compile(pattern)
+        except re.error:
+            return None
+        return pattern
 
     @property
     def sqlalchemy_url(self) -> str:
