@@ -6,9 +6,8 @@ import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
 import { cn } from "@/lib/utils";
 
-/** Desktop primary nav links — the same five destinations as the bottom tab
- *  bar. `activePrefixes` mirrors BottomNav exactly so active detection matches
- *  across both surfaces (e.g. /match/[id] belongs to Matches, /team to Home). */
+/** Desktop primary nav links. `activePrefixes` assigns detail routes to their
+ *  parent sections (e.g. /match/[id] belongs to Matches, /team to Home). */
 interface NavLink {
   href: string;
   label: string;
@@ -19,7 +18,8 @@ const LINKS: NavLink[] = [
   { href: "/", label: "Home", activePrefixes: ["/team"] },
   { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
   { href: "/groups", label: "Groups", activePrefixes: [] },
-  { href: "/brackets", label: "Bracket", activePrefixes: ["/my-bracket"] },
+  { href: "/brackets", label: "Bracket", activePrefixes: [] },
+  { href: "/my-bracket", label: "My Bracket", activePrefixes: [] },
   {
     href: "/leaderboard",
     label: "You",

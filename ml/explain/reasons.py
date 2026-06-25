@@ -65,9 +65,12 @@ def generate_reasons(
     gap = abs(f.elo_diff)
     if gap >= 20:
         descriptor = "a much higher" if gap >= 150 else "a higher"
+        favored_elo, underdog_elo = (
+            (f.elo_home, f.elo_away) if f.elo_diff >= 0 else (f.elo_away, f.elo_home)
+        )
         candidates.append(
             (gap, f"{favored} has {descriptor} Elo rating "
-                  f"({f.elo_home:.0f} vs {f.elo_away:.0f}).")
+                  f"({favored_elo:.0f} vs {underdog_elo:.0f}).")
         )
     else:
         candidates.append((10, f"{home_name} and {away_name} are closely matched on Elo."))
