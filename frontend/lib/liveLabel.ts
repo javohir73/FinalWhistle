@@ -40,7 +40,7 @@ export function groupHasLiveMatch(
  *  shows an estimate (and "LIVE" if even that is unavailable); half-time,
  *  extra time and penalties come from the period and read exactly. */
 export function liveLabel(
-  s: Pick<MatchSummary, "status" | "minute" | "period" | "injury_time">,
+  s: { status: MatchSummary["status"]; minute: number | null; period: string | null; injury_time: number | null },
 ): string {
   if (s.status === "finished") return "FT";
   if (s.status !== "in_play") return "";

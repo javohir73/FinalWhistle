@@ -132,7 +132,7 @@ function viewFor(matchNo: number, tie: KnockoutTie | undefined): TieView {
     state,
     a: side(tie.home, matchNo, "a", winner === "a"),
     b: side(tie.away, matchNo, "b", winner === "b"),
-    liveLabel: liveLabel({ status: tie.status, minute: tie.minute, period: tie.period as any, injury_time: tie.injury_time }),
+    liveLabel: liveLabel(tie),
     penaltyText,
   };
 }
