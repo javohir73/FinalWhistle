@@ -37,7 +37,7 @@ services:
       - key: PUBLIC_BASE_URL
         sync: false # base URL for links in emails (reset/verify); must be an allowed origin, e.g. your Vercel URL
       - key: EMAIL_PROVIDER
-        value: console # "console" logs links (no send); set "resend" + EMAIL_API_KEY to send real email
+        sync: false # dashboard-managed so a Blueprint re-sync won't revert it. Code defaults to "console" (logs links, no send); set "resend" + EMAIL_API_KEY in the dashboard to send real email.
       - key: EMAIL_API_KEY
         sync: false # provider secret (e.g. Resend); empty => safe console fallback
       - key: EMAIL_FROM
@@ -49,4 +49,4 @@ services:
       - key: FOOTBALL_DATA_API_KEY
         sync: false # set near kickoff to enable live in-game scores
       - key: LIVE_MODE_ENABLED
-        value: "false" # flip to "true" (with a key set) to activate live updates
+        sync: false # dashboard-managed so a Blueprint re-sync won't revert it. Code defaults to off; set "true" (with a live key set) in the dashboard to activate live updates.
