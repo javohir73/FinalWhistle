@@ -268,6 +268,56 @@ def test_bracket_endpoint_serializes_null_not_tbd_and_no_store():
     assert t104["home"]["team"] is None
 
 
+def test_canary_in_play_ko_is_not_label_in_bracket():
+    """Canary: any KO in_play row must serialize with a real team_id on at least one side."""
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.main import app
+    from app.db import Base, get_db
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+
+    db = TestingSession()
+    load_structure(db)
+    _seed_teams(db, ["Brazil", "Germany"])
+
+    # Simulate the assigned + live state the cron would produce.
+    row = db.query(Match).filter(Match.match_no == 90).one()
+    bra = db.query(Team).filter_by(name="Brazil").one()
+    ger = db.query(Team).filter_by(name="Germany").one()
+    row.team_home_id, row.team_away_id = bra.id, ger.id
+    row.status, row.score_home, row.score_away, row.minute = "in_play", 1, 0, 57
+    db.commit()
+    db.close()
+
+    def override_get_db():
+        session = TestingSession()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/knockout/bracket")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    ties = {t["match_no"]: t for t in resp.json()["ties"]}
+    for t in ties.values():
+        if t["status"] == "in_play":
+            # at least one real team -> the frontend renders it as in_play, not labels
+            assert t["home"]["team_id"] is not None or t["away"]["team_id"] is not None, t["match_no"]
+
+
 # ---------------------------------------------------------------------------
 # Task 11: knockout_results_from_db + recompute integration
 # ---------------------------------------------------------------------------
