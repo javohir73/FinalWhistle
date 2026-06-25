@@ -122,6 +122,7 @@ def health() -> dict:
         "app": settings.app_name,
         "model_version": settings.model_version,
         "live_updates": "ready" if settings.live_updates_active else "inactive",
+        "email": settings.email_status,
     }
 
 

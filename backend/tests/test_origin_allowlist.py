@@ -165,3 +165,33 @@ def test_preview_regex_allows_match_but_rejects_anchored_bypass():
             require_same_origin(FakeRequest("https://someone-else.vercel.app"))
     finally:
         settings.cors_origins, settings.cors_preview_regex = old_cors, old_prev
+
+
+# ---- Settings.email_status (the /api/health diagnostic) ----
+
+def test_email_status_console_by_default():
+    assert Settings().email_status == "console"
+
+
+def test_email_status_console_when_provider_set_but_no_key():
+    assert Settings(email_provider="resend", email_api_key="").email_status == "console"
+
+
+def test_email_status_misconfigured_when_links_not_allowed():
+    s = Settings(
+        email_provider="resend",
+        email_api_key="re_test",
+        cors_origins="https://fifa-wc26-prediction.vercel.app",
+        public_base_url="https://finalwhistle.app",
+    )
+    assert s.email_status == "misconfigured"
+
+
+def test_email_status_ready_when_provider_key_and_links_ok():
+    s = Settings(
+        email_provider="resend",
+        email_api_key="re_test",
+        cors_origins="https://fifa-wc26-prediction.vercel.app",
+        public_base_url="https://fifa-wc26-prediction.vercel.app",
+    )
+    assert s.email_status == "ready"

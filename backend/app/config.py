@@ -143,6 +143,22 @@ class Settings(BaseSettings):
         return self.public_base_url in self.allowed_origins
 
     @property
+    def email_status(self) -> str:
+        """Diagnostic for /api/health — does prod actually SEND email?
+          - "console"      : no real provider/key → links are only logged, never sent
+                             (reset/verify will silently not arrive).
+          - "misconfigured": a provider+key are set, but PUBLIC_BASE_URL isn't an
+                             allowed origin, so the emailed link 403s on submit.
+          - "ready"        : a real provider + key + a usable link base.
+        Never exposes the key itself."""
+        provider = (self.email_provider or "").strip().lower()
+        if provider in ("", "console") or not self.email_api_key:
+            return "console"
+        if not self.public_base_url_allowed:
+            return "misconfigured"
+        return "ready"
+
+    @property
     def cors_origin_regex(self) -> str | None:
         """The validated preview-origin pattern, or None when unset/invalid.
         Fails closed: a malformed regex admits nothing rather than crashing every
