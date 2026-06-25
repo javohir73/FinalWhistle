@@ -13,8 +13,9 @@ it("defaults to the AI bracket view and switches to Official on tab click", () =
   expect(screen.getByRole("heading", { name: "Official bracket" })).toBeInTheDocument();
 });
 
-it("keeps My picks as a cross-page link", () => {
+it("shows only Official and AI bracket tabs (no My picks)", () => {
   render(<BracketsClient />);
-  const myPicks = screen.getByRole("tab", { name: "My picks" });
-  expect(myPicks.closest("a")).toHaveAttribute("href", "/my-bracket");
+  expect(screen.getByRole("tab", { name: "Official" })).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "AI bracket" })).toBeInTheDocument();
+  expect(screen.queryByRole("tab", { name: "My picks" })).toBeNull();
 });
