@@ -179,3 +179,25 @@ def test_unmapped_stage_is_skipped_and_counted(db_session):
     summary = assign_knockout_teams(db_session, api_matches)
     assert summary["unmapped_stage"] == 1
     assert summary["assigned"] == 0
+
+
+def test_end_to_end_offline_assign_then_update(db_session):
+    load_structure(db_session)
+    _seed_teams(db_session, ["Argentina", "France", "Brazil", "Germany", "Spain", "Portugal"])
+    api_matches = json.loads((_TESTDATA / "wc_ko_matches.json").read_text())
+
+    assign_knockout_teams(db_session, api_matches)
+    update_live_scores(db_session, api_matches)
+
+    arg = db_session.query(Team).filter_by(name="Argentina").one()
+    finished = (
+        db_session.query(Match)
+        .filter(Match.stage == "R16", Match.team_home_id == arg.id)
+        .one_or_none()
+        or db_session.query(Match)
+        .filter(Match.stage == "R16", Match.team_away_id == arg.id)
+        .one()
+    )
+    assert finished.status == "finished"
+    assert {finished.score_home, finished.score_away} == {1, 1}
+    assert {finished.penalty_home, finished.penalty_away} == {4, 2}
