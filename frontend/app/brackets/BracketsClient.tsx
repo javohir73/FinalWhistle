@@ -42,20 +42,12 @@ export function BracketsClient({
           {view === "official" ? "Official bracket" : <>The AI&apos;s <span className="text-lime-deep">bracket</span></>}
         </h1>
 
-        {/* My picks / Official / AI bracket — segmented control */}
+        {/* Official / AI bracket — segmented control */}
         <div
           role="tablist"
           aria-label="Bracket views"
-          className="mt-5 flex max-w-md gap-1 rounded-[14px] bg-surface-2 p-1"
+          className="mt-5 flex max-w-xs gap-1 rounded-[14px] bg-surface-2 p-1"
         >
-          <Link
-            href="/my-bracket"
-            role="tab"
-            aria-selected={false}
-            className={cn(segBase, segOff)}
-          >
-            My picks
-          </Link>
           <button
             type="button"
             role="tab"
