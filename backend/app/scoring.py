@@ -84,6 +84,36 @@ def group_results_from_db(db: Session) -> dict[int, Outcome]:
     return out
 
 
+def knockout_results_from_db(db: Session) -> dict[int, int]:
+    """Finished KO matches -> winning team id, keyed by official match_no.
+    Winner = higher score; if level, higher penalty tally; omit if still tied.
+    (match_no 103 is resolved like any other KO row but carries no points —
+    the ADVANCE/FINALIST/CHAMPION sets already exclude 103.)"""
+    out: dict[int, int] = {}
+    finished = (
+        db.query(Match)
+        .filter(Match.stage != "group", Match.status == "finished", Match.match_no.isnot(None))
+        .all()
+    )
+    for m in finished:
+        if m.team_home_id is None or m.team_away_id is None:
+            continue
+        winner: int | None = None
+        if m.score_home is not None and m.score_away is not None:
+            if m.score_home > m.score_away:
+                winner = m.team_home_id
+            elif m.score_away > m.score_home:
+                winner = m.team_away_id
+        if winner is None and m.penalty_home is not None and m.penalty_away is not None:
+            if m.penalty_home > m.penalty_away:
+                winner = m.team_home_id
+            elif m.penalty_away > m.penalty_home:
+                winner = m.team_away_id
+        if winner is not None:
+            out[m.match_no] = winner
+    return out
+
+
 def recompute_scores(db: Session, knockout_results: dict[int, int] | None = None) -> int:
     """Recompute every bracket's score and rank. Returns the number scored.
 

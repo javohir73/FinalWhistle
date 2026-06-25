@@ -25,7 +25,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     """Execute the full refresh. Pass results_df to skip the network download
     (used by tests). Returns a summary of every step."""
     from app.config import settings
-    from app.scoring import recompute_scores
+    from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.compute_elo import compute_and_store_elo
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.fifa_rankings import LOCAL_RANKINGS_CSV, apply_rankings, load_rankings_df
@@ -64,7 +64,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     # adjusted ratings: evaluate finished matches, refresh tournament state.
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
-    step("bracket_scores", lambda: recompute_scores(db))
+    step("bracket_scores", lambda: recompute_scores(db, knockout_results=knockout_results_from_db(db)))
     step("prune_auth", lambda: prune_auth_rows(db))
     log.info("pipeline complete")
     return summary

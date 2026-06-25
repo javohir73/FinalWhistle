@@ -256,12 +256,12 @@ def run_post_results_chain(
     final whistle, where freshness beats the last decimal of Monte-Carlo
     precision; the 06:00 UTC pipeline re-runs at full depth.
     """
-    from app.scoring import recompute_scores
+    from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.generate_predictions import generate_predictions
 
     summary: dict = {"learning": run_learning_loop(db, model_version)}
     summary["predictions"] = generate_predictions(
         db, n_sims=n_sims, tournament_sims=tournament_sims
     )
-    summary["brackets"] = recompute_scores(db)
+    summary["brackets"] = recompute_scores(db, knockout_results=knockout_results_from_db(db))
     return summary

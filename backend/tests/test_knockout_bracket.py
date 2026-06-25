@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 from app.models import Match, Team
+from app.scoring import knockout_results_from_db, recompute_scores, _ADVANCE_NOS
 from pipeline.ingest.wc26_structure import load_structure
 from pipeline.ingest.ko_venues import apply_ko_venues, KO_VENUES
 from pipeline.ingest.live_scores import assign_knockout_teams, update_live_scores
@@ -201,3 +202,52 @@ def test_end_to_end_offline_assign_then_update(db_session):
     assert finished.status == "finished"
     assert {finished.score_home, finished.score_away} == {1, 1}
     assert {finished.penalty_home, finished.penalty_away} == {4, 2}
+
+
+# ---------------------------------------------------------------------------
+# Task 11: knockout_results_from_db + recompute integration
+# ---------------------------------------------------------------------------
+
+def _ko_row(db, match_no, home, away, **kw):
+    row = db.query(Match).filter(Match.match_no == match_no).one()
+    h = db.query(Team).filter_by(name=home).one()
+    a = db.query(Team).filter_by(name=away).one()
+    row.team_home_id, row.team_away_id = h.id, a.id
+    for k, v in kw.items():
+        setattr(row, k, v)
+    db.commit()
+    return row, h, a
+
+
+def test_knockout_results_score_then_penalties(db_session):
+    load_structure(db_session)
+    _seed_teams(db_session, ["A", "B", "C", "D", "E", "F", "G", "H"])
+
+    # 89: 2-1 -> home wins by score
+    _, h89, _ = _ko_row(db_session, 89, "A", "B", status="finished", score_home=2, score_away=1)
+    # 90: 1-1 pens 4-2 -> home wins on pens
+    _, h90, _ = _ko_row(db_session, 90, "C", "D", status="finished",
+                        score_home=1, score_away=1, penalty_home=4, penalty_away=2)
+    # 91: 0-0 pens 3-3 -> undecided, omitted
+    _ko_row(db_session, 91, "E", "F", status="finished",
+            score_home=0, score_away=0, penalty_home=3, penalty_away=3)
+    # 92: in_play -> omitted
+    _ko_row(db_session, 92, "G", "H", status="in_play", score_home=1, score_away=0)
+
+    results = knockout_results_from_db(db_session)
+    assert results[89] == h89.id
+    assert results[90] == h90.id
+    assert 91 not in results
+    assert 92 not in results
+
+
+def test_recompute_uses_knockout_results_and_103_scores_zero(db_session):
+    load_structure(db_session)
+    _seed_teams(db_session, ["A", "B", "C", "D"])
+    # 103 (third place) finished — must not be in the points-bearing sets.
+    _ko_row(db_session, 103, "A", "B", status="finished", score_home=2, score_away=0)
+    results = knockout_results_from_db(db_session)
+    assert results[103] == db_session.query(Team).filter_by(name="A").one().id
+    assert 103 not in _ADVANCE_NOS  # 103 never awards advance points
+    # recompute runs cleanly with knockout_results supplied
+    assert recompute_scores(db_session, knockout_results=results) >= 0

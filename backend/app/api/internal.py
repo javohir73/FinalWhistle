@@ -122,8 +122,8 @@ def recompute_scores_endpoint(
     """Recompute every bracket's leaderboard score + rank from current results.
     Backend-owned scoring; run after results update."""
     _require_token(x_recompute_token)
-    from app.scoring import recompute_scores
+    from app.scoring import recompute_scores, knockout_results_from_db
 
-    scored = recompute_scores(db)
+    scored = recompute_scores(db, knockout_results=knockout_results_from_db(db))
     cache.clear()
     return {"status": "ok", "brackets_scored": scored}
