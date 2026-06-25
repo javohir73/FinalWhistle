@@ -88,8 +88,10 @@ it("renders the detached 3rd-place node", () => {
   expect(screen.getByRole("list", { name: /third place/i })).toBeInTheDocument();
 });
 
-it("exposes round lists with accessible names", () => {
+it("exposes both bracket halves as round lists with accessible names", () => {
   render(<OfficialBracket ties={buildTree(null)} />);
-  expect(screen.getByRole("list", { name: "Round of 32" })).toBeInTheDocument();
+  // Two-sided tree: each round appears once per half, converging on the Final.
+  expect(screen.getByRole("list", { name: "Round of 32, left half" })).toBeInTheDocument();
+  expect(screen.getByRole("list", { name: "Round of 32, right half" })).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Final" })).toBeInTheDocument();
 });

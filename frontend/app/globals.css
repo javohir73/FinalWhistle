@@ -128,11 +128,11 @@ body {
     background: hsl(var(--surface-2) / 0.6);
   }
 
-  /* Official knockout bracket connectors (decorative, left-to-right converging
-     tree). Each round is a flex column of equal-share ties, so a successor tie's
-     centre sits at the midpoint of its two feeders; the elbows are drawn with
-     pseudo-element borders. The horizontal stub width must match the inter-round
-     column gap (1.5rem / gap-6). */
+  /* Official knockout bracket connectors (decorative). Two-sided converging tree:
+     the left half flows rightward and the right half leftward, both meeting the
+     centre Final. Each round is a flex column of equal-share ties, so a successor
+     tie's centre sits at its two feeders' midpoint; elbows are pseudo-element
+     borders. Stub width must match the inter-round column gap (0.75rem / gap-3). */
   .ko-round {
     display: flex;
     flex-direction: column;
@@ -143,25 +143,19 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 0.45rem 0;
+    padding: 0.3rem 0;
   }
-  /* Outgoing stub: every advancing tie (suppressed on the last round). The stub
-     width matches the inter-round column gap so it meets the next round's join. */
-  .ko-round .ko-tie::after {
+  /* LEFT half — rounds flow rightward toward the centre Final. With equal-share
+     ties the two feeders' centres land at 25%/75% of the successor's box. */
+  .ko-col-l .ko-tie::after {
     content: "";
     position: absolute;
     left: 100%;
     top: 50%;
-    width: 1.5rem;
+    width: 0.75rem;
     border-top: 1.5px solid hsl(var(--border) / 0.7);
   }
-  .ko-round.ko-last .ko-tie::after {
-    content: none;
-  }
-  /* Incoming vertical join across a feeder pair (suppressed on the first round).
-     With equal-share ties, the two feeders' centres land at 25% / 75% of this
-     tie's box, so the join spans that range. */
-  .ko-round .ko-tie::before {
+  .ko-col-l .ko-tie::before {
     content: "";
     position: absolute;
     right: 100%;
@@ -169,7 +163,25 @@ body {
     height: 50%;
     border-left: 1.5px solid hsl(var(--border) / 0.7);
   }
-  .ko-round.ko-first .ko-tie::before {
+  /* RIGHT half — mirrored: rounds flow leftward toward the centre Final. */
+  .ko-col-r .ko-tie::after {
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    width: 0.75rem;
+    border-top: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  .ko-col-r .ko-tie::before {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: 25%;
+    height: 50%;
+    border-left: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  /* Outermost round (R32) has no incoming feeder join. */
+  .ko-edge .ko-tie::before {
     content: none;
   }
 }
