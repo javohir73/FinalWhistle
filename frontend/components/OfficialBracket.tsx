@@ -83,7 +83,7 @@ function TieCard({ v, roundLabel, final }: { v: TieView; roundLabel: string; fin
 
   const linkable = v.matchId != null && v.state !== "labels";
   return (
-    <li className="min-w-[180px]" aria-label={tieAria(v, roundLabel)}>
+    <li className="ko-tie min-w-[180px]" aria-label={tieAria(v, roundLabel)}>
       {linkable ? (
         <Link href={`/match/${v.matchId}`} className="block">
           {body}
@@ -100,15 +100,22 @@ export default function OfficialBracket({ ties }: { ties: Record<number, TieView
   return (
     <div className="space-y-4">
       <div
-        className="flex gap-6 overflow-x-auto pb-4 [scroll-snap-type:x_proximity] [-webkit-overflow-scrolling:touch]"
+        className="flex items-stretch gap-6 overflow-x-auto pb-4 [scroll-snap-type:x_proximity] [-webkit-overflow-scrolling:touch]"
         aria-label="Official knockout bracket"
       >
-        {ROUND_COLUMNS.map((col) => (
-          <div key={col.round} className="flex shrink-0 flex-col justify-around gap-3 [scroll-snap-align:start]">
+        {ROUND_COLUMNS.map((col, idx) => (
+          <div key={col.round} className="flex shrink-0 flex-col [scroll-snap-align:start]">
             <div className="mb-1 text-xs font-bold uppercase tracking-wide text-muted" aria-hidden>
               {col.label}
             </div>
-            <ol aria-label={col.label} className="flex flex-col justify-around gap-3">
+            <ol
+              aria-label={col.label}
+              className={cn(
+                "ko-round flex-1",
+                idx === 0 && "ko-first",
+                idx === ROUND_COLUMNS.length - 1 && "ko-last",
+              )}
+            >
               {col.nos.map((no) =>
                 ties[no] ? (
                   <TieCard key={no} v={ties[no]} roundLabel={col.label} final={col.round === "final"} />
