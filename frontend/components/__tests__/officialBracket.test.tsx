@@ -88,7 +88,7 @@ it("renders the detached 3rd-place node", () => {
   expect(screen.getByRole("list", { name: /third place/i })).toBeInTheDocument();
 });
 
-it("exposes round lists and per-tie aria-labels; connectors are aria-hidden", () => {
+it("exposes round lists with accessible names", () => {
   render(<OfficialBracket ties={buildTree(null)} />);
   expect(screen.getByRole("list", { name: "Round of 32" })).toBeInTheDocument();
   expect(screen.getByRole("list", { name: "Final" })).toBeInTheDocument();

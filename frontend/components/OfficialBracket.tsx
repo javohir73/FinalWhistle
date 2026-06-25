@@ -27,7 +27,7 @@ function tieAria(v: TieView, roundLabel: string): string {
   return `${roundLabel}: ${a} vs ${b}, ${v.state}${winner}`;
 }
 
-function SideRow({ s, live }: { s: SideView; live: boolean }) {
+function SideRow({ s }: { s: SideView }) {
   return (
     <div
       data-side
@@ -40,7 +40,7 @@ function SideRow({ s, live }: { s: SideView; live: boolean }) {
         {s.team ? <Flag team={s.team} size={18} /> : null}
         <span className="truncate text-sm">{s.team ?? s.label}</span>
       </span>
-      {(live || s.score != null) && s.score != null ? (
+      {s.score != null ? (
         <span className="font-display text-sm font-extrabold tabular-nums">{s.score}</span>
       ) : null}
     </div>
@@ -73,8 +73,8 @@ function TieCard({ v, roundLabel, final }: { v: TieView; roundLabel: string; fin
           </span>
         ) : null}
       </div>
-      <SideRow s={v.a} live={live} />
-      <SideRow s={v.b} live={live} />
+      <SideRow s={v.a} />
+      <SideRow s={v.b} />
       {v.penaltyText ? (
         <div className="mt-1 text-[11px] font-semibold text-muted">{v.penaltyText}</div>
       ) : null}
@@ -104,31 +104,31 @@ export default function OfficialBracket({ ties }: { ties: Record<number, TieView
         aria-label="Official knockout bracket"
       >
         {ROUND_COLUMNS.map((col) => (
-          <ol
-            key={col.round}
-            aria-label={col.label}
-            className="flex shrink-0 flex-col justify-around gap-3 [scroll-snap-align:start]"
-          >
-            <li className="mb-1 text-xs font-bold uppercase tracking-wide text-muted" aria-hidden>
+          <div key={col.round} className="flex shrink-0 flex-col justify-around gap-3 [scroll-snap-align:start]">
+            <div className="mb-1 text-xs font-bold uppercase tracking-wide text-muted" aria-hidden>
               {col.label}
-            </li>
-            {col.nos.map((no) =>
-              ties[no] ? (
-                <TieCard key={no} v={ties[no]} roundLabel={col.label} final={col.round === "final"} />
-              ) : null,
-            )}
-          </ol>
+            </div>
+            <ol aria-label={col.label} className="flex flex-col justify-around gap-3">
+              {col.nos.map((no) =>
+                ties[no] ? (
+                  <TieCard key={no} v={ties[no]} roundLabel={col.label} final={col.round === "final"} />
+                ) : null,
+              )}
+            </ol>
+          </div>
         ))}
       </div>
 
       {/* Detached 3rd-place node — NOT part of the converging tree, no connectors. */}
       {third ? (
-        <ol aria-label="Third place" className="max-w-[200px]">
-          <li className="mb-1 text-xs font-bold uppercase tracking-wide text-muted" aria-hidden>
+        <div className="max-w-[200px]">
+          <div className="mb-1 text-xs font-bold uppercase tracking-wide text-muted" aria-hidden>
             Third place
-          </li>
-          <TieCard v={third} roundLabel="Third place" />
-        </ol>
+          </div>
+          <ol aria-label="Third place">
+            <TieCard v={third} roundLabel="Third place" />
+          </ol>
+        </div>
       ) : null}
     </div>
   );
