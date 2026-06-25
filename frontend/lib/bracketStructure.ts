@@ -58,3 +58,7 @@ export const ROUNDS: { key: string; label: string; matches: number[] }[] = [
 ];
 
 export const FINAL_MATCH = 104;
+
+/** 3rd-place match (103): NOT in KO_TREE — it is fed by the two SF LOSERS
+ *  (101, 102), not winners. Rendered as a detached node beside the Final. */
+export const THIRD_PLACE = { no: 103, loserFeeders: [101, 102] as [number, number] };
