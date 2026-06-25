@@ -240,3 +240,26 @@ export interface MatchLineups {
   away: TeamLineup | null;
   fetched_at: string | null;
 }
+
+// ---- Official knockout bracket (live; real teams + scores, never picks) ----
+export type KnockoutSide = {
+  team_id: number | null;
+  team: string | null;
+  score: number | null;
+  penalty: number | null;
+};
+
+export type KnockoutTie = {
+  match_no: number;
+  match_id: number | null;
+  stage: "R32" | "R16" | "QF" | "SF" | "third_place" | "final";
+  status: "scheduled" | "in_play" | "finished";
+  kickoff_utc: string | null;
+  home: KnockoutSide;
+  away: KnockoutSide;
+  minute: number | null;
+  period: string | null;
+  injury_time: number | null;
+};
+
+export type KnockoutBracket = { ties: KnockoutTie[] };

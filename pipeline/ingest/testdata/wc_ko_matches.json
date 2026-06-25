@@ -1,0 +1,48 @@
+[
+  {
+    "stage": "LAST_16",
+    "homeTeam": {"name": "Argentina"},
+    "awayTeam": {"name": "France"},
+    "status": "FINISHED",
+    "utcDate": "2026-07-04T20:00:00Z",
+    "lastUpdated": "2026-07-04T21:00:00Z",
+    "id": 9001,
+    "score": {
+      "fullTime": {"home": 1, "away": 1},
+      "duration": "PENALTY_SHOOTOUT",
+      "penalties": {"home": 4, "away": 2}
+    }
+  },
+  {
+    "stage": "LAST_16",
+    "homeTeam": {"name": "Brazil"},
+    "awayTeam": {"name": "Germany"},
+    "status": "IN_PLAY",
+    "utcDate": "2026-07-04T17:00:00Z",
+    "lastUpdated": "2026-07-04T20:10:00Z",
+    "minute": 57,
+    "id": 9002,
+    "score": {
+      "fullTime": {"home": 2, "away": 0},
+      "duration": "REGULAR"
+    }
+  },
+  {
+    "stage": "THIRD_PLACE",
+    "homeTeam": {"name": "Spain"},
+    "awayTeam": {"name": "Portugal"},
+    "status": "SCHEDULED",
+    "lastUpdated": "2026-07-18T12:00:00Z",
+    "id": 9103,
+    "score": {"fullTime": {"home": null, "away": null}, "duration": "REGULAR"}
+  },
+  {
+    "stage": "FINAL",
+    "homeTeam": {"name": "Argentina"},
+    "awayTeam": {"name": "Brazil"},
+    "status": "SCHEDULED",
+    "lastUpdated": "2026-07-19T12:00:00Z",
+    "id": 9104,
+    "score": {"fullTime": {"home": null, "away": null}, "duration": "REGULAR"}
+  }
+]

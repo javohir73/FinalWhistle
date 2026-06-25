@@ -88,7 +88,8 @@ class Match(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id"))
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"))
-    stage: Mapped[str] = mapped_column(String(20))  # group / R32 / R16 / QF / SF / final
+    stage: Mapped[str] = mapped_column(String(20))  # group / R32 / R16 / QF / SF / third_place / final
+    match_no: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)  # official KO match number (73..104)
     team_home_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     team_away_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

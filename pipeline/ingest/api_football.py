@@ -206,6 +206,10 @@ def _to_item(fx: object) -> dict | None:
         "homeTeam": {"name": home}, "awayTeam": {"name": away},
         "status": fd_status, "score": score,
     }
+    league = fx.get("league") or (fx.get("fixture") or {}).get("league") or {}
+    rnd = league.get("round")
+    if rnd:
+        item["stage"] = rnd
     elapsed = status.get("elapsed")
     if isinstance(elapsed, int):
         item["minute"] = elapsed           # the OFFICIAL live minute
@@ -213,6 +217,7 @@ def _to_item(fx: object) -> dict | None:
     if isinstance(extra, int):
         item["injuryTime"] = extra
     item["_fixture_id"] = (fx.get("fixture") or {}).get("id")
+    item["utcDate"] = (fx.get("fixture") or {}).get("date")
     return item
 
 

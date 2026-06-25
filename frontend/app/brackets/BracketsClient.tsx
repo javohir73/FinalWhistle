@@ -1,6 +1,6 @@
 "use client";
 
-import { getGroups, getKnockoutOdds } from "@/lib/api";
+import { getGroups, getKnockoutOdds, getOfficialBracket } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct } from "@/lib/format";
 import { Flag } from "@/components/Flag";
@@ -8,30 +8,41 @@ import { Reveal } from "@/components/Reveal";
 import { ErrorState } from "@/components/States";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
-import type { Group, TournamentOdds } from "@/lib/types";
+import { buildTree } from "@/lib/officialBracket";
+import OfficialBracket from "@/components/OfficialBracket";
+import type { Group, TournamentOdds, KnockoutBracket } from "@/lib/types";
 import Link from "next/link";
+import { useState } from "react";
 
 export function BracketsClient({
   initialOdds,
   initialGroups,
+  initialBracket,
 }: {
   initialOdds?: TournamentOdds[];
   initialGroups?: Group[];
+  initialBracket?: KnockoutBracket;
 }) {
+  const [view, setView] = useState<"official" | "ai">("ai");
   // getGroups is still fetched so the simulation pipeline stays warm and the
   // route's data contract is unchanged, even though the AI-bracket view now
   // reads only the knockout odds.
   const oddsState = useFetch(getKnockoutOdds, [], undefined, initialOdds);
   useFetch(getGroups, [], undefined, initialGroups);
+  const bracketState = useFetch(getOfficialBracket, [], 30_000, initialBracket);
+
+  const segBase = "flex-1 rounded-[11px] px-3 py-2 text-center text-sm font-semibold transition";
+  const segOn = "bg-surface text-foreground shadow-[0_1px_3px_rgba(18,40,25,0.1)]";
+  const segOff = "text-muted hover:text-foreground";
 
   return (
     <div className="space-y-8">
       <header className="fade-up">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          The AI&apos;s <span className="text-lime-deep">bracket</span>
+          {view === "official" ? "Official bracket" : <>The AI&apos;s <span className="text-lime-deep">bracket</span></>}
         </h1>
 
-        {/* My picks / AI bracket — prototype ".seg" segmented control */}
+        {/* My picks / Official / AI bracket — segmented control */}
         <div
           role="tablist"
           aria-label="Bracket views"
@@ -41,32 +52,59 @@ export function BracketsClient({
             href="/my-bracket"
             role="tab"
             aria-selected={false}
-            className="flex-1 rounded-[11px] px-3 py-2 text-center text-sm font-semibold text-muted transition hover:text-foreground"
+            className={cn(segBase, segOff)}
           >
             My picks
           </Link>
-          <span
+          <button
+            type="button"
             role="tab"
-            aria-selected
-            className="flex-1 rounded-[11px] bg-surface px-3 py-2 text-center text-sm font-semibold text-foreground shadow-[0_1px_3px_rgba(18,40,25,0.1)]"
+            aria-selected={view === "official"}
+            onClick={() => setView("official")}
+            className={cn(segBase, view === "official" ? segOn : segOff)}
+          >
+            Official
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={view === "ai"}
+            onClick={() => setView("ai")}
+            className={cn(segBase, view === "ai" ? segOn : segOff)}
           >
             AI bracket
-          </span>
+          </button>
         </div>
       </header>
 
-      {/* AI bracket: the model's most-likely path, round by round */}
-      {oddsState.status === "error" && <ErrorState message={oddsState.message} onRetry={oddsState.retry} />}
-      {oddsState.status === "loading" && <SkeletonRounds />}
-      {oddsState.status === "success" &&
-        (oddsState.data.length === 0 ? <NotReady /> : <AIBracket odds={oddsState.data} />)}
+      <div role="tabpanel" className="mt-5">
+        {view === "ai" ? (
+          <>
+            {oddsState.status === "error" && <ErrorState message={oddsState.message} onRetry={oddsState.retry} />}
+            {oddsState.status === "loading" && <SkeletonRounds />}
+            {oddsState.status === "success" &&
+              (oddsState.data.length === 0 ? <NotReady /> : <AIBracket odds={oddsState.data} />)}
+          </>
+        ) : (
+          // Always render the static-topology tree; live results overlay once loaded.
+          // buildTree(null) produces a label-only tree so Official tab is immediately
+          // useful even before the API responds or if it errors.
+          <OfficialBracket
+            ties={buildTree(
+              bracketState.status === "success" ? bracketState.data : null,
+            )}
+          />
+        )}
+      </div>
 
-      <p className="rounded-xl chip p-4 text-xs leading-relaxed text-muted">
-        Each run simulates all 72 group matches, ranks the qualifiers, seeds the
-        official Round-of-32 bracket, and plays every knockout tie (draws decided by
-        a penalty model). Probabilities are the share of runs in which a team reaches
-        that stage. Knockout matches are treated as neutral-venue.
-      </p>
+      {view === "ai" && (
+        <p className="rounded-xl chip p-4 text-xs leading-relaxed text-muted">
+          Each run simulates all 72 group matches, ranks the qualifiers, seeds the
+          official Round-of-32 bracket, and plays every knockout tie (draws decided by
+          a penalty model). Probabilities are the share of runs in which a team reaches
+          that stage. Knockout matches are treated as neutral-venue.
+        </p>
+      )}
     </div>
   );
 }

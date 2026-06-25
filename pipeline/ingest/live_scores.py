@@ -62,6 +62,94 @@ def fetch_matches(api_key: str, competition: str = "WC", timeout: float = 15.0) 
     return resp.json().get("matches", [])
 
 
+# Provider KO stage -> our stage. football-data uses enum-ish stage strings;
+# api-sports league.round is free text (forwarded as `stage` by _to_item).
+_KO_STAGE_MAP = {
+    "ROUND_OF_32": "R32", "LAST_32": "R32", "ROUND OF 32": "R32",
+    "LAST_16": "R16", "ROUND OF 16": "R16",
+    "QUARTER_FINALS": "QF", "QUARTER-FINALS": "QF",
+    "SEMI_FINALS": "SF", "SEMI-FINALS": "SF",
+    "THIRD_PLACE": "third_place", "3RD PLACE FINAL": "third_place",
+    "FINAL": "final",
+}
+
+
+def _map_ko_stage(raw: object) -> str | None:
+    if not isinstance(raw, str):
+        return None
+    return _KO_STAGE_MAP.get(raw.strip().upper())
+
+
+def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
+    """Assign real teams to KO placeholder rows, keyed on stage + provider
+    fixture id (NOT team-pair — placeholders have no teams yet, so the pair
+    index is circular). Within a stage, feed fixtures are ordered by kickoff
+    (utcDate, applies to both football-data and api-sports providers;
+    tiebreak: fixture id) and zipped onto match_no-ordered placeholders.
+    Never fabricates teams; freezes a row once it is in_play/finished; allows
+    overwrite only while scheduled."""
+    assigned = skipped = unmapped = 0
+
+    # Bucket incoming fixtures by our stage.
+    by_stage: dict[str, list[dict]] = {}
+    for am in api_matches:
+        stage = _map_ko_stage(am.get("stage"))
+        if stage is None:
+            if am.get("stage") is not None:
+                log.warning("unmapped KO stage %r — skipping fixture", am.get("stage"))
+                unmapped += 1
+            continue
+        by_stage.setdefault(stage, []).append(am)
+
+    for stage, fixtures in by_stage.items():
+        # Order feed fixtures by kickoff (utcDate) then fixture id.
+        fixtures.sort(key=lambda a: (a.get("utcDate") or "", a.get("_fixture_id") or a.get("id") or 0))
+        rows = (
+            db.query(Match)
+            .filter(Match.stage == stage)
+            .order_by(Match.match_no)
+            .all()
+        )
+        if len(fixtures) > len(rows):
+            overflow = len(fixtures) - len(rows)
+            log.warning(
+                "assign_knockout_teams: stage %r has %d feed fixtures but only %d "
+                "placeholder rows — %d fixture(s) will be silently dropped",
+                stage, len(fixtures), len(rows), overflow,
+            )
+            skipped += overflow
+        for am, row in zip(fixtures, rows):
+            # Gate: confirmed (non-placeholder) team objects only.
+            try:
+                home_name = normalize_team_name(am["homeTeam"]["name"])
+                away_name = normalize_team_name(am["awayTeam"]["name"])
+            except (KeyError, TypeError):
+                skipped += 1
+                continue
+            if not home_name or not away_name or home_name == away_name:
+                skipped += 1
+                continue
+            # Freeze once the match is live/finished.
+            if row.status in ("in_play", "finished"):
+                skipped += 1
+                continue
+            home = db.query(Team).filter(Team.name == home_name).one_or_none()
+            away = db.query(Team).filter(Team.name == away_name).one_or_none()
+            if home is None or away is None:
+                # Never fabricate teams.
+                skipped += 1
+                continue
+            row.team_home_id = home.id
+            row.team_away_id = away.id
+            fid = am.get("_fixture_id") or am.get("id")
+            if fid is not None:
+                row.provider_fixture_id = fid
+            assigned += 1
+
+    db.commit()
+    return {"assigned": assigned, "skipped": skipped, "unmapped_stage": unmapped}
+
+
 def _index_by_pair(db: Session) -> dict[frozenset, Match]:
     """Map {normalized {home,away} pair -> Match} for fixtures with known teams.
     Group pairings are unique, so the unordered pair is an unambiguous key."""
@@ -159,6 +247,14 @@ def _pick_minute(feed_minute: object, kickoff: datetime | None) -> int | None:
 def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     """Apply fetched match states to our DB. Returns a small summary."""
     index = _index_by_pair(db)
+    # Secondary index keyed on provider_fixture_id for KO rows that have been
+    # assigned a fixture id. This lets KO live ingestion resolve by id first,
+    # eliminating the cross-stage pair-collision hazard (same two teams in both
+    # a group row and a KO row share the same frozenset key; the id is unique).
+    fid_index: dict[int, Match] = {
+        m.provider_fixture_id: m
+        for m in db.query(Match).filter(Match.provider_fixture_id.isnot(None)).all()
+    }
     updated = live = finished = newly_finished = 0
 
     for am in api_matches:
@@ -168,8 +264,14 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         except (KeyError, TypeError):
             continue
 
-        match = index.get(frozenset((home_name, away_name)))
-        if match is None or home_name == away_name:
+        if home_name == away_name:
+            continue
+
+        fid = am.get("_fixture_id") or am.get("id")
+        match = fid_index.get(fid) if fid is not None else None
+        if match is None:
+            match = index.get(frozenset((home_name, away_name)))
+        if match is None:
             continue
 
         raw_status = am.get("status", "")
@@ -302,4 +404,5 @@ def refresh_live(db: Session, api_key: str | None = None, competition: str | Non
         log.warning("live scores fetch failed: %s", exc)
         return {"error": str(exc), "updated": 0, "live": 0, "finished": 0}
 
+    assign_knockout_teams(db, api_matches)
     return update_live_scores(db, api_matches)

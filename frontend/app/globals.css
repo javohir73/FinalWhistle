@@ -127,6 +127,63 @@ body {
     border: 1px solid hsl(var(--border));
     background: hsl(var(--surface-2) / 0.6);
   }
+
+  /* Official knockout bracket connectors (decorative). Two-sided converging tree:
+     the left half flows rightward and the right half leftward, both meeting the
+     centre Final. Each round is a flex column of equal-share ties, so a successor
+     tie's centre sits at its two feeders' midpoint; elbows are pseudo-element
+     borders. Stub width must match the inter-round column gap (0.75rem / gap-3). */
+  .ko-round {
+    display: flex;
+    flex-direction: column;
+  }
+  .ko-tie {
+    position: relative;
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 0.3rem 0;
+  }
+  /* LEFT half — rounds flow rightward toward the centre Final. With equal-share
+     ties the two feeders' centres land at 25%/75% of the successor's box. */
+  .ko-col-l .ko-tie::after {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: 50%;
+    width: 0.75rem;
+    border-top: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  .ko-col-l .ko-tie::before {
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 25%;
+    height: 50%;
+    border-left: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  /* RIGHT half — mirrored: rounds flow leftward toward the centre Final. */
+  .ko-col-r .ko-tie::after {
+    content: "";
+    position: absolute;
+    right: 100%;
+    top: 50%;
+    width: 0.75rem;
+    border-top: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  .ko-col-r .ko-tie::before {
+    content: "";
+    position: absolute;
+    left: 100%;
+    top: 25%;
+    height: 50%;
+    border-left: 1.5px solid hsl(var(--border) / 0.7);
+  }
+  /* Outermost round (R32) has no incoming feeder join. */
+  .ko-edge .ko-tie::before {
+    content: none;
+  }
 }
 
 /* ============ Motion ============ */

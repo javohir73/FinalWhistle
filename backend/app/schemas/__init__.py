@@ -2,6 +2,8 @@
 that the frontend consumes."""
 from __future__ import annotations
 
+from datetime import datetime
+
 from pydantic import BaseModel
 
 
@@ -145,6 +147,30 @@ class TournamentOddsOut(BaseModel):
     reach_sf: float | None
     reach_final: float | None
     win_title: float | None
+
+
+class KnockoutSideOut(BaseModel):
+    team_id: int | None
+    team: str | None
+    score: int | None
+    penalty: int | None
+
+
+class KnockoutTieOut(BaseModel):
+    match_no: int
+    match_id: int | None
+    stage: str
+    status: str
+    kickoff_utc: datetime | None
+    home: KnockoutSideOut
+    away: KnockoutSideOut
+    minute: int | None
+    period: str | None
+    injury_time: int | None
+
+
+class KnockoutBracketOut(BaseModel):
+    ties: list[KnockoutTieOut]
 
 
 class FormResultOut(BaseModel):

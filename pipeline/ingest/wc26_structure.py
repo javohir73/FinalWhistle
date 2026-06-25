@@ -23,6 +23,12 @@ from app.models import Group, GroupTeam, Match, Team, Tournament
 from pipeline.team_mapping import normalize_team_name
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
+_KO_SCHEDULE_PATH = Path(__file__).resolve().parents[1] / "data" / "wc26_ko_schedule.json"
+
+
+def _ko_kickoffs() -> dict[int, datetime]:
+    raw = json.loads(_KO_SCHEDULE_PATH.read_text())["kickoffs"]
+    return {int(k): datetime.fromisoformat(v.replace("Z", "+00:00")) for k, v in raw.items()}
 TOURNAMENT_NAME = "FIFA World Cup 2026"
 TOURNAMENT_YEAR = 2026
 
@@ -184,24 +190,40 @@ def load_structure(db: Session) -> dict:
             )
             group_match_count += 1
 
-    # 3. Knockout placeholders (teams TBD until group stage resolves)
-    existing_ko = db.query(Match).filter(
-        Match.tournament_id == tournament.id, Match.group_id.is_(None)
-    ).count()
-    ko_created = 0
-    if existing_ko == 0:
-        for stage, count in KNOCKOUT_STAGES:
-            for _ in range(count):
-                db.add(
-                    Match(
-                        tournament_id=tournament.id,
-                        group_id=None,
-                        stage=stage,
-                        is_neutral=True,
-                        status="scheduled",
-                    )
+    # 3. Knockout placeholders + idempotent match_no/kickoff stamping.
+    #    Stamps newly-created AND pre-existing teamless rows; safe to re-run.
+    kickoffs = _ko_kickoffs()
+    match_no = 73
+    ko_created = ko_stamped = 0
+    for stage, count in KNOCKOUT_STAGES:
+        rows = (
+            db.query(Match)
+            .filter(
+                Match.tournament_id == tournament.id,
+                Match.group_id.is_(None),
+                Match.stage == stage,
+            )
+            .order_by(Match.id)
+            .all()
+        )
+        for i in range(count):
+            if i < len(rows):
+                row = rows[i]
+            else:
+                row = Match(
+                    tournament_id=tournament.id,
+                    group_id=None,
+                    stage=stage,
+                    is_neutral=True,
+                    status="scheduled",
                 )
+                db.add(row)
                 ko_created += 1
+            row.match_no = match_no
+            if row.kickoff_utc is None:
+                row.kickoff_utc = kickoffs.get(match_no)
+            ko_stamped += 1
+            match_no += 1
 
     db.commit()
 
@@ -212,5 +234,6 @@ def load_structure(db: Session) -> dict:
         "groups": len(groups_data["groups"]),
         "group_matches_created": group_match_count,
         "knockout_created": ko_created,
+        "ko_stamped": ko_stamped,
         "total_matches": total_matches,
     }

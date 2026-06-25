@@ -2,6 +2,7 @@
  *  Base URL comes from NEXT_PUBLIC_API_URL so dev/prod point at the right host. */
 import type {
   Group,
+  KnockoutBracket,
   LeaderboardRow,
   MatchLineups,
   MatchSummary,
@@ -60,6 +61,8 @@ export const getTeam = (id: number | string) =>
 export const getGroups = () => getJson<Group[]>("/api/groups");
 export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
+export const getOfficialBracket = () =>
+  getJson<KnockoutBracket>("/api/knockout/bracket");
 export const getLeaderboard = () =>
   getJson<LeaderboardRow[]>("/api/leaderboard");
 export const getMatchSummary = (id: number | string) =>
@@ -100,6 +103,8 @@ export const getUpcomingMatchesServer = () =>
   getServer<MatchSummary[]>("/api/matches/upcoming", 300);
 export const getKnockoutOddsServer = () =>
   getServer<TournamentOdds[]>("/api/knockout/odds", 600);
+export const getOfficialBracketServer = () =>
+  getServer<KnockoutBracket>("/api/knockout/bracket", 30);
 export const getGroupsServer = () =>
   getServer<Group[]>("/api/groups", 300);
 export const getLeaderboardServer = () =>
