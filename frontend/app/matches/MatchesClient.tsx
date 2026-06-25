@@ -95,6 +95,23 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
     });
   }, [rest, tz, filter]);
 
+  const emptyLabel = (() => {
+    const team = query.trim();
+    if (filter === "Live") {
+      return team
+        ? `No live fixtures for "${team}" right now.`
+        : "No matches are live right now.";
+    }
+    if (filter === "Finished") {
+      return team
+        ? `No finished fixtures for "${team}" yet.`
+        : "No finished fixtures yet.";
+    }
+    return team
+      ? `No upcoming fixtures match "${team}".`
+      : "No upcoming fixtures yet.";
+  })();
+
   return (
     <div>
       <header className="mb-4 flex items-center justify-between gap-3">
@@ -176,7 +193,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
       {state.status === "success" &&
         (filtered.length === 0 && liveMatches.length === 0 ? (
-          <Empty label="No fixtures here yet." />
+          <Empty label={emptyLabel} />
         ) : (
           <div className="space-y-9">
             {/* Pinned: live games, so the current match is the first thing you see. */}

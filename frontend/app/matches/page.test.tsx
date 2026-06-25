@@ -133,7 +133,7 @@ it("shows an empty state when a search matches nothing, and recovers on clear", 
 
   // Search for something no team matches → the empty state appears.
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "zzz" } });
-  expect(screen.getByText("No fixtures here yet.")).toBeInTheDocument();
+  expect(screen.getByText('No upcoming fixtures match "zzz".')).toBeInTheDocument();
 
   // Clearing the search restores the fixtures.
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "" } });

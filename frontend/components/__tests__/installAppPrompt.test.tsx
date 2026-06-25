@@ -1,8 +1,11 @@
 /** Install prompt (PRD FR 4.4): engagement-gated, never on first load, never in
- *  standalone, Android native flow vs iOS manual steps, permanent dismiss. */
+ *  standalone, Android native flow vs iOS manual steps, permanent dismiss. The
+ *  prompt is also deferred a grace period after an in-session engagement signal
+ *  so it never pops over the action that triggered it (shortened to 0 here). */
 import { render, screen, fireEvent, act, waitFor } from "@testing-library/react";
 import { InstallAppPrompt } from "@/components/InstallAppPrompt";
 import { recordEngagement } from "@/lib/engagement";
+import { __setInstallPromptSettleMs } from "@/lib/useInstallPrompt";
 
 class FakeBeforeInstallPromptEvent extends Event {
   prompt = jest.fn().mockResolvedValue(undefined);
@@ -30,6 +33,7 @@ const IOS_UA = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/1
 beforeEach(() => {
   localStorage.clear();
   setUserAgent(DESKTOP_UA);
+  __setInstallPromptSettleMs(0); // no grace delay in specs; one test overrides it
 });
 
 afterEach(() => jest.resetAllMocks());
@@ -50,7 +54,20 @@ it("appears after an engagement signal when the native prompt is available", asy
   expect(screen.getByRole("button", { name: "Install app" })).toBeInTheDocument();
 });
 
-it("two My Bracket visits cross the engagement threshold; one does not", () => {
+it("defers the prompt a grace period so it doesn't interrupt the triggering action", async () => {
+  __setInstallPromptSettleMs(80);
+  render(<InstallAppPrompt />);
+  fireBeforeInstallPrompt();
+  act(() => {
+    recordEngagement("pick");
+  });
+  // Not shown immediately on the pick that crossed engagement…
+  expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
+  // …but appears once the grace period elapses.
+  expect(await screen.findByText("Install FinalWhistle")).toBeInTheDocument();
+});
+
+it("two My Bracket visits cross the engagement threshold; one does not", async () => {
   render(<InstallAppPrompt />);
   fireBeforeInstallPrompt();
   act(() => {
@@ -60,7 +77,7 @@ it("two My Bracket visits cross the engagement threshold; one does not", () => {
   act(() => {
     recordEngagement("my-bracket-visit");
   });
-  expect(screen.getByText("Install FinalWhistle")).toBeInTheDocument();
+  expect(await screen.findByText("Install FinalWhistle")).toBeInTheDocument();
 });
 
 it("fires the captured native prompt when Install app is tapped", async () => {
@@ -69,28 +86,28 @@ it("fires the captured native prompt when Install app is tapped", async () => {
   act(() => {
     recordEngagement("pick");
   });
-  fireEvent.click(screen.getByRole("button", { name: "Install app" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Install app" }));
   await waitFor(() => expect(bip.prompt).toHaveBeenCalled());
 });
 
-it("shows manual Add-to-Home-Screen steps on iOS (no install event exists)", () => {
+it("shows manual Add-to-Home-Screen steps on iOS (no install event exists)", async () => {
   setUserAgent(IOS_UA);
   render(<InstallAppPrompt />);
   act(() => {
     recordEngagement("menu-open");
   });
-  expect(screen.getByText("Install FinalWhistle")).toBeInTheDocument();
+  expect(await screen.findByText("Install FinalWhistle")).toBeInTheDocument();
   expect(screen.getByText(/Add to Home Screen/)).toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Install app" })).not.toBeInTheDocument();
 });
 
-it("dismiss is permanent — survives a remount", () => {
+it("dismiss is permanent — survives a remount", async () => {
   const { unmount } = render(<InstallAppPrompt />);
   fireBeforeInstallPrompt();
   act(() => {
     recordEngagement("pick");
   });
-  fireEvent.click(screen.getByRole("button", { name: "Dismiss install prompt" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Dismiss install prompt" }));
   expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
 
   unmount();
@@ -99,10 +116,13 @@ it("dismiss is permanent — survives a remount", () => {
   act(() => {
     recordEngagement("pick");
   });
-  expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
+  // Even after the grace period the prompt stays hidden (dismiss persisted).
+  await waitFor(() => {
+    expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
+  });
 });
 
-it("never shows when already running standalone (installed)", () => {
+it("never shows when already running standalone (installed)", async () => {
   const orig = window.matchMedia;
   window.matchMedia = ((q: string) => ({
     matches: q === "(display-mode: standalone)",
@@ -116,7 +136,9 @@ it("never shows when already running standalone (installed)", () => {
     act(() => {
       recordEngagement("pick");
     });
-    expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.queryByText("Install FinalWhistle")).not.toBeInTheDocument();
+    });
   } finally {
     window.matchMedia = orig;
   }
