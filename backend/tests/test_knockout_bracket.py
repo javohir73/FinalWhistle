@@ -91,16 +91,22 @@ def test_assign_knockout_teams_football_data(db_session):
     api_matches = json.loads((_TESTDATA / "wc_ko_matches.json").read_text())
 
     summary = assign_knockout_teams(db_session, api_matches)
-    assert summary["assigned"] >= 4
+    # 2 R16 + 1 third_place + 1 final = 4 assigned
+    assert summary["assigned"] == 4
     assert summary["unmapped_stage"] == 0
 
     r16 = db_session.query(Match).filter(Match.stage == "R16").order_by(Match.match_no).all()
-    # First R16 fixture by kickoff zips onto the lowest R16 match_no (89)
-    first = r16[0]
+    # utcDate order: 9002 (17:00) < 9001 (20:00) → 9002 lands on match_no 89, 9001 on 90
+    bra = db_session.query(Team).filter_by(name="Brazil").one()
+    ger = db_session.query(Team).filter_by(name="Germany").one()
     arg = db_session.query(Team).filter_by(name="Argentina").one()
     fra = db_session.query(Team).filter_by(name="France").one()
-    assert {first.team_home_id, first.team_away_id} == {arg.id, fra.id}
-    assert first.provider_fixture_id == 9001
+    assert r16[0].match_no == 89
+    assert {r16[0].team_home_id, r16[0].team_away_id} == {bra.id, ger.id}
+    assert r16[0].provider_fixture_id == 9002
+    assert r16[1].match_no == 90
+    assert {r16[1].team_home_id, r16[1].team_away_id} == {arg.id, fra.id}
+    assert r16[1].provider_fixture_id == 9001
 
 
 def test_assign_knockout_teams_apisports(db_session):
@@ -110,14 +116,29 @@ def test_assign_knockout_teams_apisports(db_session):
     api_matches = to_feed(raw)
 
     summary = assign_knockout_teams(db_session, api_matches)
-    assert summary["assigned"] >= 2
+    # 2 R16 fixtures assigned (date ordering, not id ordering)
+    assert summary["assigned"] == 2
     r16 = db_session.query(Match).filter(Match.stage == "R16").order_by(Match.match_no).all()
-    assert r16[0].provider_fixture_id == 7001
+    # fixture.date order: 7002 (17:00) < 7001 (20:00) → 7002 lands on match_no 89, 7001 on 90
+    # This proves date-ordering beats id-ordering (7001 < 7002 by id but arrives second)
+    bra = db_session.query(Team).filter_by(name="Brazil").one()
+    ger = db_session.query(Team).filter_by(name="Germany").one()
+    arg = db_session.query(Team).filter_by(name="Argentina").one()
+    fra = db_session.query(Team).filter_by(name="France").one()
+    assert r16[0].match_no == 89
+    assert {r16[0].team_home_id, r16[0].team_away_id} == {bra.id, ger.id}
+    assert r16[0].provider_fixture_id == 7002
+    assert r16[1].match_no == 90
+    assert {r16[1].team_home_id, r16[1].team_away_id} == {arg.id, fra.id}
+    assert r16[1].provider_fixture_id == 7001
 
 
 def test_assign_never_fabricates_and_freezes_after_in_play(db_session):
     load_structure(db_session)
-    _seed_teams(db_session, ["Argentina", "France"])
+    # Seed ALL teams used in this test — including "Brazil" used as the correction.
+    # This ensures the freeze gate (row.status == "in_play") is the ONLY thing
+    # blocking the overwrite, not the unknown-team gate.
+    _seed_teams(db_session, ["Argentina", "France", "Brazil"])
     api_matches = [
         {
             "stage": "LAST_16",
@@ -132,11 +153,13 @@ def test_assign_never_fabricates_and_freezes_after_in_play(db_session):
     row = db_session.query(Match).filter(Match.match_no == 89).one()
     row.status = "in_play"
     db_session.commit()
-    # A correction with different teams must NOT overwrite a live row
+    # A correction with a different (known/seeded) team must NOT overwrite a live row.
+    # Brazil IS seeded — so only the freeze gate prevents this overwrite.
     api_matches[0]["homeTeam"] = {"name": "Brazil"}
     assign_knockout_teams(db_session, api_matches)
     db_session.refresh(row)
     arg = db_session.query(Team).filter_by(name="Argentina").one()
+    # Argentina must still be on the row — the freeze held
     assert arg.id in {row.team_home_id, row.team_away_id}
 
 

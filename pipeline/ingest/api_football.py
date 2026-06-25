@@ -217,6 +217,7 @@ def _to_item(fx: object) -> dict | None:
     if isinstance(extra, int):
         item["injuryTime"] = extra
     item["_fixture_id"] = (fx.get("fixture") or {}).get("id")
+    item["utcDate"] = (fx.get("fixture") or {}).get("date")
     return item
 
 

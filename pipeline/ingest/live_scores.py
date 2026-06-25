@@ -84,7 +84,8 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
     """Assign real teams to KO placeholder rows, keyed on stage + provider
     fixture id (NOT team-pair — placeholders have no teams yet, so the pair
     index is circular). Within a stage, feed fixtures are ordered by kickoff
-    (tiebreak: fixture id) and zipped onto match_no-ordered placeholders.
+    (utcDate, applies to both football-data and api-sports providers;
+    tiebreak: fixture id) and zipped onto match_no-ordered placeholders.
     Never fabricates teams; freezes a row once it is in_play/finished; allows
     overwrite only while scheduled."""
     assigned = skipped = unmapped = 0
@@ -109,6 +110,14 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
             .order_by(Match.match_no)
             .all()
         )
+        if len(fixtures) > len(rows):
+            overflow = len(fixtures) - len(rows)
+            log.warning(
+                "assign_knockout_teams: stage %r has %d feed fixtures but only %d "
+                "placeholder rows — %d fixture(s) will be silently dropped",
+                stage, len(fixtures), len(rows), overflow,
+            )
+            skipped += overflow
         for am, row in zip(fixtures, rows):
             # Gate: confirmed (non-placeholder) team objects only.
             try:
