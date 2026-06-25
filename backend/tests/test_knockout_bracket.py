@@ -205,6 +205,70 @@ def test_end_to_end_offline_assign_then_update(db_session):
 
 
 # ---------------------------------------------------------------------------
+# Task 12: GET /api/knockout/bracket endpoint
+# ---------------------------------------------------------------------------
+
+def test_bracket_endpoint_serializes_null_not_tbd_and_no_store():
+    from fastapi.testclient import TestClient
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+    from app.main import app
+    from app.db import Base, get_db
+
+    engine = create_engine(
+        "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    Base.metadata.create_all(engine)
+    TestingSession = sessionmaker(bind=engine, future=True)
+
+    db = TestingSession()
+    load_structure(db)
+    _seed_teams(db, ["Argentina", "France"])
+
+    # Populate match_no 89 with real teams and a result
+    row = db.query(Match).filter(Match.match_no == 89).one()
+    arg = db.query(Team).filter_by(name="Argentina").one()
+    fra = db.query(Team).filter_by(name="France").one()
+    row.team_home_id, row.team_away_id = arg.id, fra.id
+    row.status, row.score_home, row.score_away = "finished", 2, 1
+    db.commit()
+    db.close()
+
+    def override_get_db():
+        session = TestingSession()
+        try:
+            yield session
+        finally:
+            session.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        client = TestClient(app)
+        resp = client.get("/api/knockout/bracket")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert resp.status_code == 200
+    assert resp.headers["Cache-Control"] == "no-store"
+    body = resp.json()
+    ties = {t["match_no"]: t for t in body["ties"]}
+    assert len(ties) == 32
+    # populated tie carries team names + match_id == DB row id
+    # Re-open session to get the committed row id
+    db2 = TestingSession()
+    row_id = db2.query(Match).filter(Match.match_no == 89).one().id
+    db2.close()
+    t89 = ties[89]
+    assert t89["match_id"] == row_id
+    assert t89["home"]["team"] == "Argentina"
+    # an unassigned tie is null, never "TBD"
+    t104 = ties[104]
+    assert t104["home"]["team_id"] is None
+    assert t104["home"]["team"] is None
+
+
+# ---------------------------------------------------------------------------
 # Task 11: knockout_results_from_db + recompute integration
 # ---------------------------------------------------------------------------
 

@@ -73,7 +73,7 @@ async def cache_control(request: Request, call_next):
         or path.startswith("/api/match-picks")
     ):
         response.headers["Cache-Control"] = "no-store"
-    elif path == "/api/matches/upcoming" or (
+    elif path.startswith("/api/knockout/bracket") or path == "/api/matches/upcoming" or (
         path.startswith("/api/matches/") and path.endswith("/summary")
     ):
         # Live scoreboard feeds: the frontend polls these every 30s through
