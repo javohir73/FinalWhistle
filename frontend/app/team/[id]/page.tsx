@@ -19,9 +19,10 @@ import { ShareButton } from "@/components/ShareButton";
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const data = await getTeamServer(params.id);
+  const { id } = await params;
+  const data = await getTeamServer(id);
   if (!data) return { title: `Team — ${APP_NAME}` };
   const t = data.team;
   const title = `${t.name} — World Cup 2026 profile | ${APP_NAME}`;
@@ -30,13 +31,14 @@ export async function generateMetadata({
   }, FIFA rank ${t.fifa_rank ?? "—"}, recent form, strengths and weaknesses.`;
   return {
     title, description,
-    alternates: { canonical: `/team/${params.id}` },
+    alternates: { canonical: `/team/${id}` },
     openGraph: { title, description },
   };
 }
 
-export default async function TeamPage({ params }: { params: { id: string } }) {
-  const data = await getTeamServer(params.id);
+export default async function TeamPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = await getTeamServer(id);
   if (!data) notFound();
 
   const { team, recent_form, strengths, weaknesses, group_id, group_name } = data;

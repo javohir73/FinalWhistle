@@ -7,8 +7,9 @@ export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Group projection — FinalWhistle";
 
-export default async function Image({ params }: { params: { id: string } }) {
-  const g = await getGroupServer(params.id).catch(() => null);
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const g = await getGroupServer(id).catch(() => null);
 
   if (!g) {
     return new ImageResponse(

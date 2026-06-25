@@ -9,8 +9,9 @@ export const alt = "Match prediction — FinalWhistle";
 
 const pc = (n: number) => `${Math.round(n * 100)}%`;
 
-export default async function Image({ params }: { params: { id: string } }) {
-  const p = await getMatchServer(params.id).catch(() => null);
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const p = await getMatchServer(id).catch(() => null);
 
   if (!p) {
     return new ImageResponse(
