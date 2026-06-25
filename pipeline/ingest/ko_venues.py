@@ -33,11 +33,11 @@ KO_VENUES: dict[int, tuple[str, str]] = {
 
 
 def apply_ko_venues(db: Session) -> int:
-    """Populate venue_city/venue_country on KO Match rows (id == match_no).
+    """Populate venue_city/venue_country on KO Match rows (keyed by match_no).
     Returns the number of rows updated."""
     updated = 0
     for match_no, (city, country) in KO_VENUES.items():
-        m = db.get(Match, match_no)
+        m = db.query(Match).filter(Match.match_no == match_no).one_or_none()
         if m is None:
             continue
         m.venue_city = city

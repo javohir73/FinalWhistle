@@ -1,5 +1,6 @@
 from app.models import Match
 from pipeline.ingest.wc26_structure import load_structure
+from pipeline.ingest.ko_venues import apply_ko_venues, KO_VENUES
 
 KO_STAGE_NOS = {
     "R32": list(range(73, 89)),
@@ -51,3 +52,14 @@ def test_load_structure_backfills_existing_unstamped_ko_rows(db_session):
     ko = db_session.query(Match).filter(Match.stage != "group").all()
     assert len(ko) == 32  # no duplicate rows
     assert all(m.match_no is not None and m.kickoff_utc is not None for m in ko)
+
+
+def test_apply_ko_venues_resolves_by_match_no(db_session):
+    load_structure(db_session)
+    updated = apply_ko_venues(db_session)
+    assert updated == len(KO_VENUES)
+    # Verify all venues are applied to the correct rows (by match_no, not id)
+    for match_no, (expected_city, expected_country) in KO_VENUES.items():
+        row = db_session.query(Match).filter_by(match_no=match_no).one()
+        assert row.venue_city == expected_city, f"match_no={match_no}: expected city {expected_city}, got {row.venue_city}"
+        assert row.venue_country == expected_country, f"match_no={match_no}: expected country {expected_country}, got {row.venue_country}"
