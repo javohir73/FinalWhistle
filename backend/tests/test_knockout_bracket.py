@@ -355,6 +355,67 @@ def test_knockout_results_score_then_penalties(db_session):
     assert 92 not in results
 
 
+def test_no_cross_stage_collision_when_same_pair_in_group_and_ko(db_session):
+    """Regression: provider_fixture_id keying must route each feed item to the
+    correct row even when the same two teams appear in both a group row AND an
+    assigned KO row (same frozenset key — old pair-only lookup collides)."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["France", "Argentina"])
+
+    fra = db_session.query(Team).filter_by(name="France").one()
+    arg = db_session.query(Team).filter_by(name="Argentina").one()
+
+    # A group row with France vs Argentina, fixture id 1111.
+    group_row = db_session.query(Match).filter(Match.stage == "group").first()
+    group_row.team_home_id = fra.id
+    group_row.team_away_id = arg.id
+    group_row.provider_fixture_id = 1111
+    group_row.status = "scheduled"
+
+    # KO row (final, match_no 104) assigned France vs Argentina, fixture id 2222.
+    ko_row = db_session.query(Match).filter(Match.match_no == 104).one()
+    ko_row.team_home_id = fra.id
+    ko_row.team_away_id = arg.id
+    ko_row.provider_fixture_id = 2222
+    ko_row.status = "scheduled"
+    db_session.commit()
+
+    # Two feed items for the SAME team pair but different fixture ids and scores.
+    api_matches = [
+        {
+            "id": 1111,
+            "homeTeam": {"name": "France"},
+            "awayTeam": {"name": "Argentina"},
+            "status": "FINISHED",
+            "score": {
+                "fullTime": {"home": 1, "away": 0},
+                "duration": "REGULAR",
+            },
+        },
+        {
+            "id": 2222,
+            "homeTeam": {"name": "France"},
+            "awayTeam": {"name": "Argentina"},
+            "status": "FINISHED",
+            "score": {
+                "fullTime": {"home": 3, "away": 2},
+                "duration": "REGULAR",
+            },
+        },
+    ]
+    update_live_scores(db_session, api_matches)
+    db_session.refresh(group_row)
+    db_session.refresh(ko_row)
+
+    # Each row must have received its OWN fixture's score.
+    assert group_row.score_home == 1 and group_row.score_away == 0, (
+        f"group row got {group_row.score_home}-{group_row.score_away}, expected 1-0"
+    )
+    assert ko_row.score_home == 3 and ko_row.score_away == 2, (
+        f"KO row got {ko_row.score_home}-{ko_row.score_away}, expected 3-2"
+    )
+
+
 def test_recompute_uses_knockout_results_and_103_scores_zero(db_session):
     load_structure(db_session)
     _seed_teams(db_session, ["A", "B", "C", "D"])

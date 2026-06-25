@@ -247,6 +247,14 @@ def _pick_minute(feed_minute: object, kickoff: datetime | None) -> int | None:
 def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     """Apply fetched match states to our DB. Returns a small summary."""
     index = _index_by_pair(db)
+    # Secondary index keyed on provider_fixture_id for KO rows that have been
+    # assigned a fixture id. This lets KO live ingestion resolve by id first,
+    # eliminating the cross-stage pair-collision hazard (same two teams in both
+    # a group row and a KO row share the same frozenset key; the id is unique).
+    fid_index: dict[int, Match] = {
+        m.provider_fixture_id: m
+        for m in db.query(Match).filter(Match.provider_fixture_id.isnot(None)).all()
+    }
     updated = live = finished = newly_finished = 0
 
     for am in api_matches:
@@ -256,8 +264,14 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         except (KeyError, TypeError):
             continue
 
-        match = index.get(frozenset((home_name, away_name)))
-        if match is None or home_name == away_name:
+        if home_name == away_name:
+            continue
+
+        fid = am.get("_fixture_id") or am.get("id")
+        match = fid_index.get(fid) if fid is not None else None
+        if match is None:
+            match = index.get(frozenset((home_name, away_name)))
+        if match is None:
             continue
 
         raw_status = am.get("status", "")
