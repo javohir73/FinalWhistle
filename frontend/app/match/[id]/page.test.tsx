@@ -64,7 +64,7 @@ afterEach(() => jest.resetAllMocks());
 it("server-renders teams, probabilities, reasons and odds stub", async () => {
   mockGet.mockResolvedValue(prediction);
   // Render the resolved async server component's output.
-  render(await MatchDetailPage({ params: { id: "1" } }));
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
 
   expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText("Serbia")).toBeInTheDocument();
@@ -76,5 +76,5 @@ it("server-renders teams, probabilities, reasons and odds stub", async () => {
 
 it("calls notFound() for a missing match", async () => {
   mockGet.mockResolvedValue(null);
-  await expect(MatchDetailPage({ params: { id: "999" } })).rejects.toThrow();
+  await expect(MatchDetailPage({ params: Promise.resolve({ id: "999" }) })).rejects.toThrow();
 });

@@ -7,8 +7,9 @@ export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Team profile — FinalWhistle";
 
-export default async function Image({ params }: { params: { id: string } }) {
-  const data = await getTeamServer(params.id).catch(() => null);
+export default async function Image({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const data = await getTeamServer(id).catch(() => null);
 
   if (!data) {
     return new ImageResponse(

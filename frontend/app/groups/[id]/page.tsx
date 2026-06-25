@@ -10,23 +10,25 @@ import { ShareButton } from "@/components/ShareButton";
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const group = await getGroupServer(params.id);
+  const { id } = await params;
+  const group = await getGroupServer(id);
   if (!group) return { title: `Group — ${APP_NAME}` };
   const teams = group.standings.map((s) => s.team).join(", ");
   const title = `${group.name} — standings & qualification odds | ${APP_NAME}`;
   const description = `${group.name} World Cup 2026 live standings and qualification odds: ${teams}.`;
   return {
     title, description,
-    alternates: { canonical: `/groups/${params.id}` },
+    alternates: { canonical: `/groups/${id}` },
     openGraph: { title, description },
   };
 }
 
-export default async function GroupDetailPage({ params }: { params: { id: string } }) {
+export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const [group, allMatches] = await Promise.all([
-    getGroupServer(params.id),
+    getGroupServer(id),
     getUpcomingMatchesServer(),
   ]);
   if (!group) notFound();

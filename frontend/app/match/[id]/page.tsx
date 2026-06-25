@@ -17,9 +17,10 @@ import { ShareButton } from "@/components/ShareButton";
 export async function generateMetadata({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }): Promise<Metadata> {
-  const p = await getMatchServer(params.id);
+  const { id } = await params;
+  const p = await getMatchServer(id);
   if (!p) return { title: `Match — ${APP_NAME}` };
   const title = `${p.teams.home} vs ${p.teams.away} — prediction | ${APP_NAME}`;
   const description = `AI prediction for ${p.teams.home} vs ${p.teams.away}: ${p.teams.home} ${pct(
@@ -29,17 +30,18 @@ export async function generateMetadata({
   )}. Most likely score ${formatScore(p.predicted_score.home, p.predicted_score.away)}.`;
   return {
     title, description,
-    alternates: { canonical: `/match/${params.id}` },
+    alternates: { canonical: `/match/${id}` },
     openGraph: { title, description },
   };
 }
 
-export default async function MatchDetailPage({ params }: { params: { id: string } }) {
-  const p = await getMatchServer(params.id);
+export default async function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const p = await getMatchServer(id);
   if (!p) notFound();
   // Seeds the scoreboard with the actual status/score; the page must still
   // render (prediction-only) if this secondary fetch hiccups.
-  const summary = await getMatchSummaryServer(params.id).catch(() => null);
+  const summary = await getMatchSummaryServer(id).catch(() => null);
   const record = await getModelRecordServer().catch(() => null);
 
   const { home, away } = p.teams;
