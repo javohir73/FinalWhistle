@@ -55,6 +55,11 @@ def test_load_structure_backfills_existing_unstamped_ko_rows(db_session):
 
 
 def test_apply_ko_venues_resolves_by_match_no(db_session):
+    # Break the id==match_no coincidence so this test actually guards the
+    # db.get(Match, match_no) regression: a decoy row shifts auto-increment ids
+    # (different tournament_id => load_structure ignores it).
+    db_session.add(Match(tournament_id=999, stage="group", is_neutral=True))
+    db_session.commit()
     load_structure(db_session)
     updated = apply_ko_venues(db_session)
     assert updated == len(KO_VENUES)
