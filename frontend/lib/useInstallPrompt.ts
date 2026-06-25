@@ -12,6 +12,17 @@ interface BeforeInstallPromptEvent extends Event {
 
 const DISMISS_KEY = "finalwhistle:install-prompt-dismissed:v1";
 
+/** Grace period after an in-session engagement signal before the prompt may
+ *  appear. Engagement crosses on the *first* pick, so showing the prompt
+ *  instantly would pop it over the prediction the user just made. A short defer
+ *  lets them finish; returning users (already engaged on load) are unaffected. */
+let settleMs = 6000;
+
+/** @internal Test hook — shorten the grace period so specs don't wait 6s. */
+export function __setInstallPromptSettleMs(ms: number): void {
+  settleMs = ms;
+}
+
 function loadDismissed(): boolean {
   try {
     return window.localStorage.getItem(DISMISS_KEY) === "1";
@@ -59,10 +70,14 @@ export function useInstallPrompt(): {
   const deferredRef = useRef<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
+    // Returning users who were already engaged see the prompt immediately —
+    // they aren't mid-action on a fresh load.
     setEngaged(isEngaged());
     setDismissed(loadDismissed());
     setInstalled(isStandalone());
     setReady(true);
+
+    let settleTimer: number | null = null;
 
     const onBip = (e: Event) => {
       e.preventDefault(); // we re-fire it from our own UI at the right moment
@@ -73,7 +88,15 @@ export function useInstallPrompt(): {
       trackEvent("app_installed");
       setInstalled(true);
     };
-    const onEngagement = () => setEngaged(isEngaged());
+    // An in-session signal (e.g. the user's first pick) crosses engagement —
+    // defer so the prompt doesn't interrupt the action that triggered it.
+    const onEngagement = () => {
+      if (!isEngaged() || settleTimer != null) return;
+      settleTimer = window.setTimeout(() => {
+        settleTimer = null;
+        setEngaged(true);
+      }, settleMs);
+    };
 
     window.addEventListener("beforeinstallprompt", onBip);
     window.addEventListener("appinstalled", onInstalled);
@@ -84,6 +107,7 @@ export function useInstallPrompt(): {
       window.removeEventListener("appinstalled", onInstalled);
       window.removeEventListener(ENGAGEMENT_EVENT, onEngagement);
       window.removeEventListener("storage", onEngagement);
+      if (settleTimer != null) window.clearTimeout(settleTimer);
     };
   }, []);
 
