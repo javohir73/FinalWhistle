@@ -80,14 +80,37 @@ def _map_ko_stage(raw: object) -> str | None:
     return _KO_STAGE_MAP.get(raw.strip().upper())
 
 
+def _instant_key(value: object) -> int | None:
+    """UTC epoch-second key for a kickoff, from either a datetime (a row's
+    kickoff_utc) or an ISO-8601 string (a feed's utcDate). Naive datetimes are
+    read as UTC. None when absent/unparseable — callers then skip, never guess."""
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return int(value.astimezone(timezone.utc).timestamp())
+
+
 def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
-    """Assign real teams to KO placeholder rows, keyed on stage + provider
-    fixture id (NOT team-pair — placeholders have no teams yet, so the pair
-    index is circular). Within a stage, feed fixtures are ordered by kickoff
-    (utcDate, applies to both football-data and api-sports providers;
-    tiebreak: fixture id) and zipped onto match_no-ordered placeholders.
+    """Assign real teams to KO placeholder rows by matching each feed fixture to
+    the placeholder whose OFFICIAL kickoff equals the fixture's kickoff (utcDate).
+
+    The official match numbers are NOT chronological within a round (e.g. match 76
+    kicks off before 74 and 75), so the old approach — sort the feed by kickoff and
+    zip it onto match_no-ordered rows — misplaced teams whenever fewer than the full
+    set had been drawn, putting same-group qualifiers in the same quarter. Kickoff
+    is the stable join key: every KO row carries its scheduled kickoff (from the
+    official schedule) and the feed reports the same instant, and kickoffs are
+    unique within each round, so the match is unambiguous.
+
     Never fabricates teams; freezes a row once it is in_play/finished; allows
-    overwrite only while scheduled."""
+    overwrite only while scheduled. A fixture whose kickoff matches no placeholder
+    (e.g. an unexpected reschedule) is skipped, not misplaced."""
     assigned = skipped = unmapped = 0
 
     # Bucket incoming fixtures by our stage.
@@ -102,23 +125,32 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
         by_stage.setdefault(stage, []).append(am)
 
     for stage, fixtures in by_stage.items():
-        # Order feed fixtures by kickoff (utcDate) then fixture id.
-        fixtures.sort(key=lambda a: (a.get("utcDate") or "", a.get("_fixture_id") or a.get("id") or 0))
-        rows = (
-            db.query(Match)
-            .filter(Match.stage == stage)
-            .order_by(Match.match_no)
-            .all()
-        )
-        if len(fixtures) > len(rows):
-            overflow = len(fixtures) - len(rows)
-            log.warning(
-                "assign_knockout_teams: stage %r has %d feed fixtures but only %d "
-                "placeholder rows — %d fixture(s) will be silently dropped",
-                stage, len(fixtures), len(rows), overflow,
-            )
-            skipped += overflow
-        for am, row in zip(fixtures, rows):
+        stage_rows = db.query(Match).filter(Match.stage == stage).all()
+        # Rebuild not-yet-live placeholders from the current feed: drop stale team
+        # assignments so a fixture that belongs on a different match_no can't leave
+        # a duplicate behind (e.g. a slot populated before this fix shipped).
+        # Frozen (in_play/finished) rows keep their teams. The provider lists every
+        # KO fixture each cycle, so a determined match is re-applied the same pass.
+        for r in stage_rows:
+            if r.status not in ("in_play", "finished"):
+                r.team_home_id = r.team_away_id = r.provider_fixture_id = None
+        # Index placeholders by their scheduled kickoff instant (unique per round).
+        rows_by_kickoff: dict[int, Match] = {}
+        for r in stage_rows:
+            key = _instant_key(r.kickoff_utc)
+            if key is not None:
+                rows_by_kickoff[key] = r
+
+        for am in fixtures:
+            row = rows_by_kickoff.get(_instant_key(am.get("utcDate")))
+            if row is None:
+                # No placeholder shares this kickoff — never guess a slot.
+                log.warning(
+                    "assign_knockout_teams: %s fixture (utcDate=%r) matched no "
+                    "placeholder kickoff — skipping", stage, am.get("utcDate"),
+                )
+                skipped += 1
+                continue
             # Gate: confirmed (non-placeholder) team objects only.
             try:
                 home_name = normalize_team_name(am["homeTeam"]["name"])

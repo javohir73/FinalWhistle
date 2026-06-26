@@ -97,17 +97,18 @@ def test_assign_knockout_teams_football_data(db_session):
     assert summary["unmapped_stage"] == 0
 
     r16 = db_session.query(Match).filter(Match.stage == "R16").order_by(Match.match_no).all()
-    # utcDate order: 9002 (17:00) < 9001 (20:00) → 9002 lands on match_no 89, 9001 on 90
+    # Placement keys on kickoff, not feed order: 9001 (21:00Z) matches match 89's
+    # official kickoff, 9002 (17:00Z) matches match 90's.
     bra = db_session.query(Team).filter_by(name="Brazil").one()
     ger = db_session.query(Team).filter_by(name="Germany").one()
     arg = db_session.query(Team).filter_by(name="Argentina").one()
     fra = db_session.query(Team).filter_by(name="France").one()
     assert r16[0].match_no == 89
-    assert {r16[0].team_home_id, r16[0].team_away_id} == {bra.id, ger.id}
-    assert r16[0].provider_fixture_id == 9002
+    assert {r16[0].team_home_id, r16[0].team_away_id} == {arg.id, fra.id}
+    assert r16[0].provider_fixture_id == 9001
     assert r16[1].match_no == 90
-    assert {r16[1].team_home_id, r16[1].team_away_id} == {arg.id, fra.id}
-    assert r16[1].provider_fixture_id == 9001
+    assert {r16[1].team_home_id, r16[1].team_away_id} == {bra.id, ger.id}
+    assert r16[1].provider_fixture_id == 9002
 
 
 def test_assign_knockout_teams_apisports(db_session):
@@ -120,18 +121,105 @@ def test_assign_knockout_teams_apisports(db_session):
     # 2 R16 fixtures assigned (date ordering, not id ordering)
     assert summary["assigned"] == 2
     r16 = db_session.query(Match).filter(Match.stage == "R16").order_by(Match.match_no).all()
-    # fixture.date order: 7002 (17:00) < 7001 (20:00) → 7002 lands on match_no 89, 7001 on 90
-    # This proves date-ordering beats id-ordering (7001 < 7002 by id but arrives second)
+    # Placement keys on kickoff: 7001 (21:00Z) -> match 89, 7002 (17:00Z) -> match 90
+    # (api-sports fixture.date is forwarded as utcDate by to_feed).
     bra = db_session.query(Team).filter_by(name="Brazil").one()
     ger = db_session.query(Team).filter_by(name="Germany").one()
     arg = db_session.query(Team).filter_by(name="Argentina").one()
     fra = db_session.query(Team).filter_by(name="France").one()
     assert r16[0].match_no == 89
-    assert {r16[0].team_home_id, r16[0].team_away_id} == {bra.id, ger.id}
-    assert r16[0].provider_fixture_id == 7002
+    assert {r16[0].team_home_id, r16[0].team_away_id} == {arg.id, fra.id}
+    assert r16[0].provider_fixture_id == 7001
     assert r16[1].match_no == 90
-    assert {r16[1].team_home_id, r16[1].team_away_id} == {arg.id, fra.id}
-    assert r16[1].provider_fixture_id == 7001
+    assert {r16[1].team_home_id, r16[1].team_away_id} == {bra.id, ger.id}
+    assert r16[1].provider_fixture_id == 7002
+
+
+def test_assign_r32_places_by_kickoff_not_feed_order(db_session):
+    """Regression (official-bracket seeding): an R32 fixture must land on the
+    match_no whose OFFICIAL kickoff matches the fixture — not be zipped onto
+    match_no order. Match 76 (Jun 29 17:00Z) kicks off BEFORE 74 (Jun 29 20:30Z)
+    and 75 (Jun 30 01:00Z), so the old "sort feed by kickoff, zip onto match_no
+    order" placed the 2nd-earliest fixture on 74 instead of 76 — putting same-group
+    qualifiers in the same quarter. Placement must key on kickoff, not feed order."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["Brazil", "Germany", "Spain", "Portugal"])
+    # Two real R32 fixtures, fed scrambled vs match_no order. Each utcDate is the
+    # official kickoff of the match_no it truly belongs to (76 and 73).
+    api_matches = [
+        {"stage": "ROUND_OF_32", "utcDate": "2026-06-29T17:00:00Z", "id": 1076,
+         "homeTeam": {"name": "Brazil"}, "awayTeam": {"name": "Germany"}},
+        {"stage": "ROUND_OF_32", "utcDate": "2026-06-28T19:00:00Z", "id": 1073,
+         "homeTeam": {"name": "Spain"}, "awayTeam": {"name": "Portugal"}},
+    ]
+    summary = assign_knockout_teams(db_session, api_matches)
+    assert summary["assigned"] == 2
+
+    bra = db_session.query(Team).filter_by(name="Brazil").one()
+    ger = db_session.query(Team).filter_by(name="Germany").one()
+    spa = db_session.query(Team).filter_by(name="Spain").one()
+    por = db_session.query(Team).filter_by(name="Portugal").one()
+    m73 = db_session.query(Match).filter(Match.match_no == 73).one()
+    m74 = db_session.query(Match).filter(Match.match_no == 74).one()
+    m76 = db_session.query(Match).filter(Match.match_no == 76).one()
+    # Brazil v Germany belongs on 76 (its kickoff), NOT 74 (the old zip's 2nd slot).
+    assert {m76.team_home_id, m76.team_away_id} == {bra.id, ger.id}
+    assert m76.provider_fixture_id == 1076
+    # Spain v Portugal on 73 (its kickoff).
+    assert {m73.team_home_id, m73.team_away_id} == {spa.id, por.id}
+    # 74 must stay empty — its real teams aren't determined yet.
+    assert m74.team_home_id is None and m74.team_away_id is None
+
+
+def test_assign_clears_stale_scheduled_slot_on_reseed(db_session):
+    """Deploy-transition guard: a slot misplaced by the old logic must not linger.
+    Pre-seed match 74 with a stale pair (as the old zip left Brazil/Japan on 74);
+    feeding that pair at its TRUE kickoff (match 76) must fill 76 AND clear 74 —
+    so the team never appears in two slots at once."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["Brazil", "Germany"])
+    bra = db_session.query(Team).filter_by(name="Brazil").one()
+    ger = db_session.query(Team).filter_by(name="Germany").one()
+    m74 = db_session.query(Match).filter(Match.match_no == 74).one()
+    m74.team_home_id, m74.team_away_id = bra.id, ger.id  # stale misplacement
+    db_session.commit()
+
+    assign_knockout_teams(db_session, [
+        {"stage": "ROUND_OF_32", "utcDate": "2026-06-29T17:00:00Z", "id": 1076,
+         "homeTeam": {"name": "Brazil"}, "awayTeam": {"name": "Germany"}},
+    ])
+    db_session.refresh(m74)
+    m76 = db_session.query(Match).filter(Match.match_no == 76).one()
+    assert {m76.team_home_id, m76.team_away_id} == {bra.id, ger.id}  # placed on 76
+    assert m74.team_home_id is None and m74.team_away_id is None     # stale 74 cleared
+
+
+def test_rebuild_preserves_live_and_finished_rows(db_session):
+    """The scheduled-row rebuild must never wipe a live/finished match. Match 73 is
+    in_play; a feed that includes the R32 stage but no fixture for 73's kickoff must
+    leave 73's teams intact while still clearing a stale scheduled slot (74)."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["Brazil", "Germany", "Spain", "Portugal"])
+    bra = db_session.query(Team).filter_by(name="Brazil").one()
+    ger = db_session.query(Team).filter_by(name="Germany").one()
+    spa = db_session.query(Team).filter_by(name="Spain").one()
+    por = db_session.query(Team).filter_by(name="Portugal").one()
+    m73 = db_session.query(Match).filter(Match.match_no == 73).one()
+    m73.team_home_id, m73.team_away_id, m73.status = bra.id, ger.id, "in_play"
+    m74 = db_session.query(Match).filter(Match.match_no == 74).one()
+    m74.team_home_id, m74.team_away_id = spa.id, por.id  # stale scheduled
+    db_session.commit()
+
+    # R32-stage feed item whose kickoff matches no row -> triggers rebuild, assigns nothing.
+    assign_knockout_teams(db_session, [
+        {"stage": "ROUND_OF_32", "utcDate": "2026-06-28T08:00:00Z", "id": 999,
+         "homeTeam": {"name": "Brazil"}, "awayTeam": {"name": "Germany"}},
+    ])
+    db_session.refresh(m73)
+    db_session.refresh(m74)
+    assert m73.status == "in_play"
+    assert {m73.team_home_id, m73.team_away_id} == {bra.id, ger.id}  # live row kept
+    assert m74.team_home_id is None and m74.team_away_id is None     # scheduled cleared
 
 
 def test_assign_never_fabricates_and_freezes_after_in_play(db_session):
@@ -146,6 +234,7 @@ def test_assign_never_fabricates_and_freezes_after_in_play(db_session):
             "homeTeam": {"name": "Argentina"},
             "awayTeam": {"name": "France"},
             "status": "IN_PLAY",
+            "utcDate": "2026-07-04T21:00:00Z",  # match 89's official kickoff
             "id": 5001,
             "score": {"fullTime": {"home": 0, "away": 0}, "duration": "REGULAR"},
         }

@@ -4,7 +4,7 @@
     "homeTeam": {"name": "Argentina"},
     "awayTeam": {"name": "France"},
     "status": "FINISHED",
-    "utcDate": "2026-07-04T20:00:00Z",
+    "utcDate": "2026-07-04T21:00:00Z",
     "lastUpdated": "2026-07-04T21:00:00Z",
     "id": 9001,
     "score": {
@@ -32,6 +32,7 @@
     "homeTeam": {"name": "Spain"},
     "awayTeam": {"name": "Portugal"},
     "status": "SCHEDULED",
+    "utcDate": "2026-07-18T21:00:00Z",
     "lastUpdated": "2026-07-18T12:00:00Z",
     "id": 9103,
     "score": {"fullTime": {"home": null, "away": null}, "duration": "REGULAR"}
@@ -41,6 +42,7 @@
     "homeTeam": {"name": "Argentina"},
     "awayTeam": {"name": "Brazil"},
     "status": "SCHEDULED",
+    "utcDate": "2026-07-19T19:00:00Z",
     "lastUpdated": "2026-07-19T12:00:00Z",
     "id": 9104,
     "score": {"fullTime": {"home": null, "away": null}, "duration": "REGULAR"}
