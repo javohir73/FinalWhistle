@@ -1,13 +1,13 @@
 [
   {
-    "fixture": {"id": 7001, "date": "2026-07-05T20:00:00+00:00", "status": {"short": "FT", "elapsed": 90}, "league": {"round": "Round of 16"}},
+    "fixture": {"id": 7001, "date": "2026-07-04T21:00:00+00:00", "status": {"short": "FT", "elapsed": 90}, "league": {"round": "Round of 16"}},
     "league": {"round": "Round of 16"},
     "teams": {"home": {"name": "Argentina"}, "away": {"name": "France"}},
     "goals": {"home": 1, "away": 1},
     "score": {"penalty": {"home": 4, "away": 2}}
   },
   {
-    "fixture": {"id": 7002, "date": "2026-07-05T17:00:00+00:00", "status": {"short": "2H", "elapsed": 57}, "league": {"round": "Round of 16"}},
+    "fixture": {"id": 7002, "date": "2026-07-04T17:00:00+00:00", "status": {"short": "2H", "elapsed": 57}, "league": {"round": "Round of 16"}},
     "league": {"round": "Round of 16"},
     "teams": {"home": {"name": "Brazil"}, "away": {"name": "Germany"}},
     "goals": {"home": 2, "away": 0},
