@@ -316,8 +316,9 @@ def generate_predictions(
     n_sims: int = 5000,
     tournament_sims: int = 2000,
 ) -> dict:
-    """Predict all upcoming group matches, simulate every group's standings, and
-    run the full-tournament (knockout) Monte-Carlo.
+    """Predict every upcoming match with both teams set — all group fixtures plus
+    any drawn knockout ties — simulate every group's standings, and run the
+    full-tournament (knockout) Monte-Carlo.
 
     Engine parameters come from ml.models.params.load_params() — the tuned
     model_params.json if present, else the v0.1 constants. The served model
@@ -345,9 +346,17 @@ def generate_predictions(
             weights = [training_weight(r, ref) for r in train_rows]
             booster = WdlBoost().fit(train_rows, sample_weight=weights)
 
+    # Every upcoming match with both teams set: all group fixtures plus any drawn
+    # knockout ties. The official bracket links each tie to its match-detail page,
+    # which needs a prediction, so KO matches must be predicted once their teams are
+    # known (build_payload skips a teamless placeholder defensively anyway).
     matches = (
         db.query(Match)
-        .filter(Match.stage == "group", Match.status == "scheduled")
+        .filter(
+            Match.status == "scheduled",
+            Match.team_home_id.isnot(None),
+            Match.team_away_id.isnot(None),
+        )
         .all()
     )
     predicted = 0
