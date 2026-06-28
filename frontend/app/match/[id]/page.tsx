@@ -13,6 +13,8 @@ import { MatchTabs } from "@/components/MatchTabs";
 import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
+import { Flag } from "@/components/Flag";
+import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
   params,
@@ -38,10 +40,16 @@ export async function generateMetadata({
 export default async function MatchDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const p = await getMatchServer(id);
-  if (!p) notFound();
   // Seeds the scoreboard with the actual status/score; the page must still
   // render (prediction-only) if this secondary fetch hiccups.
   const summary = await getMatchSummaryServer(id).catch(() => null);
+  // A just-drawn knockout tie exists (summary is served) before its prediction is
+  // generated. Show the matchup + a "prediction on the way" note rather than a
+  // hard 404; only 404 when the match genuinely doesn't exist.
+  if (!p) {
+    if (!summary) notFound();
+    return <PredictionPending summary={summary} />;
+  }
   const record = await getModelRecordServer().catch(() => null);
 
   const { home, away } = p.teams;
@@ -137,6 +145,70 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         })()}
         {p.disclaimer}
       </p>
+    </div>
+  );
+}
+
+/** Shown when a match exists but its AI prediction hasn't been generated yet
+ *  (e.g. a knockout tie just drawn, before the next pipeline run). Renders the
+ *  matchup, any live/final score, and lineups — never a 404. */
+function PredictionPending({ summary }: { summary: MatchSummary }) {
+  const { home, away } = summary.teams;
+  const venue = [summary.venue, summary.venue_city, summary.venue_country]
+    .filter(Boolean)
+    .join(", ");
+  const live = summary.status === "in_play";
+  const finished = summary.status === "finished";
+  const showScore =
+    (live || finished) && summary.score_home != null && summary.score_away != null;
+
+  return (
+    <div className="fade-up mx-auto max-w-2xl space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/matches" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
+          <span aria-hidden>←</span> All matches
+        </Link>
+        {summary.group && (
+          <span className="font-display text-[13px] font-semibold text-muted">{summary.group}</span>
+        )}
+        <ShareButton title={`${home} vs ${away} — World Cup 2026`} />
+      </div>
+
+      <LocalKickoff iso={summary.kickoff_utc} venue={venue || null} />
+
+      {/* Bare matchup + live/final score (the AI's-call card appears once predicted). */}
+      <section className="glass rounded-2xl p-6">
+        <div className="flex items-center justify-center gap-5">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Flag team={home} size={48} />
+            <span className="font-display text-sm font-bold">{home}</span>
+          </div>
+          <span className="font-display text-2xl font-extrabold tabular-nums text-muted">
+            {showScore ? `${summary.score_home}–${summary.score_away}` : "vs"}
+          </span>
+          <div className="flex flex-col items-center gap-2 text-center">
+            <Flag team={away} size={48} />
+            <span className="font-display text-sm font-bold">{away}</span>
+          </div>
+        </div>
+        {live && (
+          <p className="mt-3 text-center text-xs font-semibold uppercase tracking-wide text-loss">
+            Live{summary.minute != null ? ` · ${summary.minute}'` : ""}
+          </p>
+        )}
+      </section>
+
+      {/* Prediction-pending note */}
+      <section className="glass rounded-2xl p-6 text-center">
+        <h2 className="font-display text-base font-bold text-foreground">AI prediction on the way</h2>
+        <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
+          The model generates this match&apos;s prediction shortly after both teams are
+          confirmed. Check back soon for the full breakdown.
+        </p>
+      </section>
+
+      {/* Lineups load independently of the prediction. */}
+      <MatchLineups matchId={summary.match_id} />
     </div>
   );
 }

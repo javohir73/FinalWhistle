@@ -78,3 +78,23 @@ it("calls notFound() for a missing match", async () => {
   mockGet.mockResolvedValue(null);
   await expect(MatchDetailPage({ params: Promise.resolve({ id: "999" }) })).rejects.toThrow();
 });
+
+it("renders a prediction-pending view (not 404) when the match exists but has no prediction yet", async () => {
+  // A just-drawn knockout tie: no prediction row yet, but the match summary exists.
+  mockGet.mockResolvedValue(null);
+  mockSummaryServer.mockResolvedValue({
+    match_id: 76, stage: "R32", group: null, kickoff_utc: "2026-06-29T17:00:00Z",
+    venue: null, venue_city: "Philadelphia", venue_country: "USA", is_neutral: true,
+    status: "scheduled", score_home: null, score_away: null, minute: null,
+    period: null, injury_time: null, penalty_home: null, penalty_away: null,
+    goal_events: [], teams: { home: "Brazil", away: "Japan" },
+    predicted_winner: null, probabilities: null, predicted_score: null, confidence: null,
+  });
+
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "76" }) }));
+
+  // The matchup renders (no 404), with a clear "prediction on the way" note.
+  expect(screen.getAllByText("Brazil").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getAllByText("Japan").length).toBeGreaterThanOrEqual(1);
+  expect(screen.getByText(/prediction on the way/i)).toBeInTheDocument();
+});
