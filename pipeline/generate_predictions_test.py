@@ -89,6 +89,28 @@ def test_generate_predictions_writes_rows(db_session):
     assert len(standings) == 48
 
 
+def test_generate_predictions_covers_drawn_knockout_matches(db_session):
+    """KO matches with both teams drawn must get predictions too, so the bracket's
+    match-detail pages resolve instead of 404'ing. Undetermined KO rows (no teams
+    yet) must stay unpredicted."""
+    load_structure(db_session)
+    _set_elos(db_session)
+    # Draw two distinct teams into an R32 placeholder (match_no 73).
+    ko = db_session.query(Match).filter(Match.match_no == 73).one()
+    two = db_session.query(Team).order_by(Team.id).limit(2).all()
+    ko.team_home_id, ko.team_away_id = two[0].id, two[1].id
+    db_session.commit()
+
+    generate_predictions(db_session, n_sims=300)
+
+    assert db_session.query(Prediction).filter_by(match_id=ko.id).first() is not None, (
+        "a drawn knockout match must be predicted"
+    )
+    # An undetermined KO row (still teamless) must NOT be predicted.
+    empty = db_session.query(Match).filter(Match.match_no == 104).one()
+    assert db_session.query(Prediction).filter_by(match_id=empty.id).first() is None
+
+
 def test_finished_matches_feed_standings_as_facts(db_session):
     """Real results must flow into projected standings: a team that has already
     won all three of its games sits on exactly 9 points with qualification
