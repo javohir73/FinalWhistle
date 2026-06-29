@@ -46,6 +46,26 @@ class OddsComparisonOut(BaseModel):
     available: bool = False
 
 
+class TeamGoalBandsOut(BaseModel):
+    to_score: float
+    p2: float
+    p3: float
+    p4: float
+
+
+class GoalTotalsOut(BaseModel):
+    over_1_5: float
+    over_2_5: float
+    over_3_5: float
+
+
+class GoalMarketsOut(BaseModel):
+    home: TeamGoalBandsOut
+    away: TeamGoalBandsOut
+    total: GoalTotalsOut
+    btts: float
+
+
 class PredictionOut(BaseModel):
     """PRD §17 prediction contract."""
 
@@ -71,6 +91,7 @@ class PredictionOut(BaseModel):
     head_to_head: HeadToHeadOut
     odds_comparison: OddsComparisonOut
     disclaimer: str
+    goal_markets: GoalMarketsOut | None = None
 
 
 class TeamOut(BaseModel):

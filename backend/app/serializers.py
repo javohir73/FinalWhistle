@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.live_winprob import live_probabilities_for_match
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
+from ml.models.poisson import goal_markets as _goal_markets
 
 DISCLAIMER = "For analytics and entertainment only. Not betting advice."
 
@@ -36,6 +37,18 @@ def team_to_out(team: Team) -> schemas.TeamOut:
         fifa_rank=team.fifa_rank,
         elo_rating=team.elo_rating,
         is_host=team.is_host,
+    )
+
+
+def _goal_markets_out(lam_home, lam_away, rho) -> schemas.GoalMarketsOut | None:
+    gm = _goal_markets(lam_home, lam_away, rho)
+    if gm is None:
+        return None
+    return schemas.GoalMarketsOut(
+        home=schemas.TeamGoalBandsOut(**gm["home"]),
+        away=schemas.TeamGoalBandsOut(**gm["away"]),
+        total=schemas.GoalTotalsOut(**gm["total"]),
+        btts=gm["btts"],
     )
 
 
@@ -97,6 +110,7 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         else schemas.HeadToHeadOut(matches=0, home_wins=0, draws=0, away_wins=0),
         odds_comparison=schemas.OddsComparisonOut(available=False),
         disclaimer=DISCLAIMER,
+        goal_markets=_goal_markets_out(pred.lambda_home, pred.lambda_away, pred.rho),
     )
 
 
