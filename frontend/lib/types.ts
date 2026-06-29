@@ -29,6 +29,26 @@ export interface HeadToHead {
   away_wins: number;
 }
 
+export interface TeamGoalBands {
+  to_score: number;
+  p2: number;
+  p3: number;
+  p4: number;
+}
+
+export interface GoalTotals {
+  over_1_5: number;
+  over_2_5: number;
+  over_3_5: number;
+}
+
+export interface GoalMarkets {
+  home: TeamGoalBands;
+  away: TeamGoalBands;
+  total: GoalTotals;
+  btts: number;
+}
+
 export interface Prediction {
   match_id: number;
   model_version: string;
@@ -52,6 +72,7 @@ export interface Prediction {
   head_to_head: HeadToHead;
   odds_comparison: { available: boolean };
   disclaimer: string;
+  goal_markets: GoalMarkets | null;
 }
 
 /** Phase of play while a match is in progress (refines `status`). Null before

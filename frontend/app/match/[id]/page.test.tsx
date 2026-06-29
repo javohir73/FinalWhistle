@@ -40,6 +40,7 @@ const prediction: Prediction = {
   head_to_head: { matches: 1, home_wins: 1, draws: 0, away_wins: 0 },
   odds_comparison: { available: false },
   disclaimer: "For analytics and entertainment only. Not betting advice.",
+  goal_markets: null,
 };
 
 beforeEach(() => {
@@ -72,6 +73,27 @@ it("server-renders teams, probabilities, reasons and odds stub", async () => {
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
   // The AI's call leads with the plain verdict sentence.
   expect(screen.getByText(/to win/)).toBeInTheDocument();
+});
+
+it("renders the Goals section when goal_markets is present", async () => {
+  mockGet.mockResolvedValue({
+    ...prediction,
+    goal_markets: {
+      home: { to_score: 0.86, p2: 0.6, p3: 0.45, p4: 0.38 },
+      away: { to_score: 0.39, p2: 0.12, p3: 0.03, p4: 0.01 },
+      total: { over_1_5: 0.78, over_2_5: 0.55, over_3_5: 0.3 },
+      btts: 0.34,
+    },
+  });
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+  expect(screen.getByText("Goals")).toBeInTheDocument();
+  expect(screen.getByText("Over 2.5")).toBeInTheDocument();
+});
+
+it("omits the Goals section when goal_markets is null", async () => {
+  mockGet.mockResolvedValue({ ...prediction, goal_markets: null });
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+  expect(screen.queryByText("Goals")).not.toBeInTheDocument();
 });
 
 it("calls notFound() for a missing match", async () => {

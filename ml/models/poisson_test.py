@@ -149,3 +149,33 @@ def test_predict_match_threads_eff_gap_to_segmented_calibrator():
     raw_far = outcome_probabilities(score_matrix(lam_h_far, lam_a_far))
     # With eff_gap=50, far matches the "50-150" bucket which is identity (no lift).
     assert far.prob_draw == pytest.approx(raw_far[1])
+
+
+def test_goal_markets_none_when_rates_missing():
+    from ml.models.poisson import goal_markets
+    assert goal_markets(None, 1.0) is None
+    assert goal_markets(1.0, None) is None
+
+
+def test_goal_markets_bands_are_probabilities_and_monotonic():
+    from ml.models.poisson import goal_markets
+    gm = goal_markets(2.0, 0.5, rho=0.0)
+    for side in ("home", "away"):
+        b = gm[side]
+        assert 0.0 <= b["p4"] <= b["p3"] <= b["p2"] <= b["to_score"] <= 1.0
+    t = gm["total"]
+    assert 1.0 >= t["over_1_5"] >= t["over_2_5"] >= t["over_3_5"] >= 0.0
+    # BTTS cannot exceed either side's chance to score.
+    assert gm["btts"] <= gm["home"]["to_score"]
+    assert gm["btts"] <= gm["away"]["to_score"]
+
+
+def test_goal_markets_known_lambda_matches_poisson_marginals():
+    import math
+    from ml.models.poisson import goal_markets
+    gm = goal_markets(2.0, 0.5, rho=0.0)
+    # rho=0 => independent Poisson; P(>=1) = 1 - e^-lambda (grid truncation negligible).
+    assert abs(gm["home"]["to_score"] - (1 - math.exp(-2.0))) < 0.01
+    assert abs(gm["away"]["to_score"] - (1 - math.exp(-0.5))) < 0.01
+    # Independent => BTTS ~= P(home>=1) * P(away>=1).
+    assert abs(gm["btts"] - (1 - math.exp(-2.0)) * (1 - math.exp(-0.5))) < 0.01

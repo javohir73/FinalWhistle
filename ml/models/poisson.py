@@ -88,6 +88,48 @@ def score_matrix(
     return matrix
 
 
+def goal_markets(
+    lam_home: float | None,
+    lam_away: float | None,
+    rho: float | None = 0.0,
+    max_goals: int = MAX_GOALS,
+) -> dict | None:
+    """Per-team goal bands, match totals and both-teams-to-score, marginalized
+    from the NORMALIZED Dixon-Coles score grid. Same distribution that yields the
+    predicted score, so the numbers stay consistent. Returns None when a rate is
+    missing (legacy predictions). All probabilities rounded to 4 dp."""
+    if lam_home is None or lam_away is None:
+        return None
+    matrix = score_matrix(lam_home, lam_away, max_goals=max_goals, rho=rho or 0.0)
+    total = sum(sum(row) for row in matrix)
+    if total <= 0.0:
+        return None
+    p = [[matrix[h][a] / total for a in range(max_goals + 1)] for h in range(max_goals + 1)]
+    home_goals = [sum(p[h]) for h in range(max_goals + 1)]
+    away_goals = [sum(p[h][a] for h in range(max_goals + 1)) for a in range(max_goals + 1)]
+
+    def at_least(dist: list[float], n: int) -> float:
+        return round(sum(dist[n:]), 4)
+
+    def total_ge(m: int) -> float:
+        return round(
+            sum(p[h][a] for h in range(max_goals + 1) for a in range(max_goals + 1) if h + a >= m),
+            4,
+        )
+
+    btts = round(
+        sum(p[h][a] for h in range(1, max_goals + 1) for a in range(1, max_goals + 1)), 4
+    )
+    return {
+        "home": {"to_score": at_least(home_goals, 1), "p2": at_least(home_goals, 2),
+                 "p3": at_least(home_goals, 3), "p4": at_least(home_goals, 4)},
+        "away": {"to_score": at_least(away_goals, 1), "p2": at_least(away_goals, 2),
+                 "p3": at_least(away_goals, 3), "p4": at_least(away_goals, 4)},
+        "total": {"over_1_5": total_ge(2), "over_2_5": total_ge(3), "over_3_5": total_ge(4)},
+        "btts": btts,
+    }
+
+
 def score_cdf(lam_home, lam_away, rho=0.0, max_goals=MAX_GOALS):
     """Flattened, normalized CDF over the (max_goals+1)^2 Dixon-Coles grid.
     Build ONCE per fixture; reuse across sims via sample_scoreline_from_cdf.
