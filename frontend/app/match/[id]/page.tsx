@@ -14,6 +14,7 @@ import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
 import { Flag } from "@/components/Flag";
+import { GoalMarkets } from "@/components/GoalMarkets";
 import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
@@ -111,6 +112,11 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
                 </>
               )}
             </section>
+
+            {/* Goals — per-team bands, over/under and BTTS (hidden until predicted). */}
+            {p.goal_markets && (
+              <GoalMarkets home={home} away={away} markets={p.goal_markets} />
+            )}
 
             {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).
                 Needs the live match summary; rendered only when it's available. */}
