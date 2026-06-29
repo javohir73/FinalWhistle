@@ -61,7 +61,9 @@ from the scoreline distribution, matching `predicted_score`.)
 ### Backend (compute on read, serializer-side)
 
 - **`goal_markets(lambda_home, lambda_away, rho) -> dict | None`** — new pure
-  function in `ml/models/poisson.py`. Returns `None` if any input is `None`.
+  function in `ml/models/poisson.py`. Returns `None` only when `lambda_home` or
+  `lambda_away` is `None`; a missing `rho` is treated as `0` (plain Poisson, no
+  low-score correction) rather than nullifying the whole card.
   Calls `score_matrix(lam_home, lam_away, rho=rho)`, normalizes by total mass,
   then marginalizes (no new matrix code needed). Returns:
   ```
@@ -78,7 +80,8 @@ from the scoreline distribution, matching `predicted_score`.)
   `PredictionOut`.
 - **Schema**: add nullable `goal_markets: GoalMarketsOut | None` to
   `PredictionOut`, with nested out-models (`GoalMarketsOut`, per-team band model,
-  totals model). Null when `lambda_*`/`rho` are absent (legacy rows).
+  totals model). Null when `lambda_home`/`lambda_away` are absent (legacy rows);
+  a missing `rho` defaults to `0`.
 - **No** change to `build_payload`, the `Prediction` model, or any migration —
   markets are derived at serve time, not stored.
 

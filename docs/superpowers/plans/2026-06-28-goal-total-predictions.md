@@ -14,7 +14,7 @@
 - **Same distribution as the predicted score.** Build markets from `score_matrix(lam_home, lam_away, rho=rho)`, normalized by total mass (the grid is un-normalized) — never a separate model.
 - **Markets shown:** per-team `to_score` (≥1) / `p2` (≥2) / `p3` (≥3) / `p4` (≥4); totals `over_1_5/2_5/3_5`; `btts`. No clean-sheet market.
 - **Display rule:** the "4+ goals" row appears only when `p4 ≥ 0.10`. Totals card shows Over 2.5 and Over 3.5. All percentages via the existing `pct()` formatter.
-- **Nullable end-to-end:** `goal_markets` is `None`/`null` when `lambda_home`, `lambda_away`, or `rho` is missing (legacy rows); the card is hidden then.
+- **Nullable end-to-end:** `goal_markets` is `None`/`null` when `lambda_home` or `lambda_away` is missing (legacy rows); the card is hidden then. A missing `rho` defaults to `0` (plain Poisson) and still yields markets.
 - `MAX_GOALS = 10` (existing grid cap in `ml/models/poisson.py`).
 
 ---
