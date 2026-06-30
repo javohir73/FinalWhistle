@@ -1,0 +1,43 @@
+# Refresh player squads + scoring stats (Stage 1b). POSTs to the token-guarded
+# /api/internal/refresh-players, which runs the bounded api-football ingestion
+# server-side (where the key lives). Each call refreshes a capped number of stale
+# players; the loop + weekly cadence walk through the whole pool over time.
+#
+# Repo secrets required (already set for refresh-live):
+#   - API_URL          the deployed API base, e.g. https://pitchprophet-api.onrender.com
+#   - RECOMPUTE_TOKEN  the SAME value as the backend's RECOMPUTE_TOKEN env var
+name: refresh-players
+
+on:
+  schedule:
+    - cron: "30 4 * * 1"   # Mondays 04:30 UTC
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-players
+  cancel-in-progress: false
+
+jobs:
+  refresh-players:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST refresh-players (loop to cover stale players)
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set — skipping."
+            exit 0
+          fi
+          for i in $(seq 1 20); do
+            code=$(curl -sS -o /tmp/players.json -w "%{http_code}" -m 120 \
+              -X POST "${API_URL%/}/api/internal/refresh-players" \
+              -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" || echo 000)
+            echo "tick $i -> HTTP $code: $(cat /tmp/players.json 2>/dev/null)"
+            if [ "$code" != "200" ]; then echo "non-200; stopping loop"; break; fi
+            refreshed=$(python3 -c "import json,sys; print(json.load(open('/tmp/players.json')).get('players_refreshed',0))" 2>/dev/null || echo 0)
+            if [ "$refreshed" = "0" ]; then echo "no stale players left; done"; break; fi
+            sleep 20
+          done
