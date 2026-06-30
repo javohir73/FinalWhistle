@@ -3,12 +3,13 @@ linker; squad + per-player stats ingestion arrive in Stage 1b."""
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+import time
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
 
 from app.models import Player, Team
-from pipeline.ingest.api_football import fetch_player_stats, fetch_squad
+from pipeline.ingest.api_football import fetch_player_stats, fetch_squad, fetch_teams
 from pipeline.team_mapping import normalize_team_name
 
 log = logging.getLogger(__name__)
@@ -101,3 +102,45 @@ def link_team_ids(db: Session, teams_response: list[dict]) -> int:
             linked += 1
     db.commit()
     return linked
+
+
+def refresh_players(
+    db: Session, api_key: str, league: int,
+    club_season: int = 2025, wc_season: int = 2026,
+    max_players: int = 40, stale_days: int = 7, pace_seconds: float = 0.5,
+    now: datetime | None = None,
+) -> dict:
+    """One bounded, idempotent ingestion pass (runs server-side; the cron repeats
+    it to cover everyone). Links team ids, ingests squads for teams with no Player
+    rows yet, then refreshes up to max_players players whose stats are missing or
+    older than stale_days. Paced; a single player's failure never aborts the run."""
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=stale_days)
+
+    teams_linked = link_team_ids(db, fetch_teams(api_key, league, wc_season))
+
+    squads_ingested = 0
+    for team in db.query(Team).filter(Team.provider_team_id.isnot(None)).all():
+        has_players = db.query(Player).filter_by(team_id=team.id).first() is not None
+        if not has_players:
+            ingest_squad(db, api_key, team)
+            squads_ingested += 1
+
+    stale = (
+        db.query(Player)
+        .filter((Player.updated_at.is_(None)) | (Player.updated_at < cutoff))
+        .order_by(Player.updated_at.is_(None).desc(), Player.id)
+        .limit(max_players)
+        .all()
+    )
+    refreshed = 0
+    for player in stale:
+        try:
+            ingest_player_stats(db, api_key, player, club_season, wc_season, league)
+            refreshed += 1
+        except Exception:  # noqa: BLE001 - one bad player must not abort the pass
+            log.warning("player stats refresh failed for %s", player.provider_player_id)
+        time.sleep(pace_seconds)
+
+    return {"teams_linked": teams_linked, "squads_ingested": squads_ingested,
+            "players_refreshed": refreshed}
