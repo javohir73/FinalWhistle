@@ -27,6 +27,26 @@ def test_ingest_squad_upserts_players_with_mapped_position(db_session, monkeypat
     assert db_session.query(Player).filter_by(provider_player_id=909).one().position == "M"
 
 
+def test_ingest_squad_skips_nameless_entries(db_session, monkeypatch):
+    """An entry with an id but no name must be silently skipped — no Player row
+    created and no IntegrityError raised (players.name is NOT NULL)."""
+    team = Team(name="Belgium", provider_team_id=1)
+    db_session.add(team)
+    db_session.commit()
+    _patch_squad(monkeypatch, [
+        {"team": {"id": 1}, "players": [
+            {"id": 730, "name": "T. Courtois", "position": "Goalkeeper"},  # valid
+            {"id": 999, "name": None, "position": "Defender"},              # nameless — skip
+            {"id": 998, "position": "Midfielder"},                          # name key absent — skip
+        ]},
+    ])
+    n = ingest_squad(db_session, "k", team)
+    assert n == 1  # only the valid player counted
+    assert db_session.query(Player).filter_by(provider_player_id=730).count() == 1
+    assert db_session.query(Player).filter_by(provider_player_id=999).count() == 0
+    assert db_session.query(Player).filter_by(provider_player_id=998).count() == 0
+
+
 def test_ingest_squad_is_idempotent(db_session, monkeypatch):
     team = Team(name="Belgium", provider_team_id=1)
     db_session.add(team)

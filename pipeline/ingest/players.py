@@ -33,14 +33,14 @@ def ingest_squad(db: Session, api_key: str, team: Team) -> int:
     seen = 0
     for p in squad_players:
         pid = p.get("id")
-        if pid is None:
+        name = p.get("name")
+        if pid is None or not name:
             continue
         row = db.query(Player).filter_by(provider_player_id=pid).one_or_none()
         if row is None:
             row = Player(provider_player_id=pid)
             db.add(row)
-        if p.get("name"):
-            row.name = p["name"]
+        row.name = name
         row.team_id = team.id
         mapped = _squad_position(p.get("position"))
         if mapped is not None:
@@ -123,8 +123,11 @@ def refresh_players(
     for team in db.query(Team).filter(Team.provider_team_id.isnot(None)).all():
         has_players = db.query(Player).filter_by(team_id=team.id).first() is not None
         if not has_players:
-            ingest_squad(db, api_key, team)
-            squads_ingested += 1
+            try:
+                ingest_squad(db, api_key, team)
+                squads_ingested += 1
+            except Exception:  # noqa: BLE001 - one team's squad failure must not abort the pass
+                log.warning("squad ingest failed for team %s", team.provider_team_id)
 
     stale = (
         db.query(Player)
