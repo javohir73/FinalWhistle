@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getMatchServer, getMatchSummaryServer, getModelRecordServer } from "@/lib/api";
+import {
+  getMatchServer,
+  getMatchSummaryServer,
+  getMatchGoalscorersServer,
+  getModelRecordServer,
+} from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { pct, formatScore, topOutcome } from "@/lib/format";
 import { prematchCall } from "@/lib/verdict";
@@ -15,6 +20,7 @@ import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
 import { Flag } from "@/components/Flag";
 import { GoalMarkets } from "@/components/GoalMarkets";
+import { LikelyScorers } from "@/components/LikelyScorers";
 import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
@@ -52,6 +58,9 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
     return <PredictionPending summary={summary} />;
   }
   const record = await getModelRecordServer().catch(() => null);
+  // Likely scorers (squad estimate or confirmed XI); null until player data
+  // exists for a team. A hiccup here must not take down the page.
+  const goalscorers = await getMatchGoalscorersServer(id).catch(() => null);
 
   const { home, away } = p.teams;
   const venue = [p.venue, p.venue_city, p.venue_country].filter(Boolean).join(", ");
@@ -116,6 +125,11 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             {/* Goals — per-team bands, over/under and BTTS (hidden until predicted). */}
             {p.goal_markets && (
               <GoalMarkets home={home} away={away} markets={p.goal_markets} />
+            )}
+
+            {/* Likely scorers — top players per team (hidden until player data). */}
+            {goalscorers && (
+              <LikelyScorers home={home} away={away} data={goalscorers} />
             )}
 
             {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).

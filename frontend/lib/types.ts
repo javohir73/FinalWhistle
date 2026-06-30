@@ -49,6 +49,22 @@ export interface GoalMarkets {
   btts: number;
 }
 
+export interface Goalscorer {
+  name: string;
+  position: string | null;
+  p_score: number;
+  p_score_2plus: number;
+  xg: number;
+}
+
+/** Per-team likely scorers. `mode` is "squad" (pre-lineup estimate from the
+ *  full squad) or "lineup" (sharpened on the announced XI). */
+export interface Goalscorers {
+  mode: "squad" | "lineup";
+  home: Goalscorer[];
+  away: Goalscorer[];
+}
+
 export interface Prediction {
   match_id: number;
   model_version: string;
