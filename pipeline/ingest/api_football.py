@@ -123,6 +123,21 @@ def fetch_squad(api_key: str, team_id: int, timeout: float = 15.0) -> list[dict]
     return data.get("response") or []
 
 
+def fetch_player_stats(api_key: str, player_id: int, season: int, timeout: float = 15.0) -> list[dict]:
+    """Return one player's per-(team,league) statistics for a season (/players?id=&season=)."""
+    resp = requests.get(
+        f"{BASE_URL}/players",
+        headers={"x-apisports-key": api_key},
+        params={"id": player_id, "season": season},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        log.warning("api-football players errors: %s", data["errors"])
+    return data.get("response") or []
+
+
 def probe_player_access(api_key: str, league: int, season: int, timeout: float = 15.0) -> dict:
     """One-shot diagnostic: does this api-sports key reach current-season PLAYER
     data (the raw material for goalscorer predictions)? Calls /status and

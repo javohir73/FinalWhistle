@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.models import Player, Team
-from pipeline.ingest.api_football import fetch_squad
+from pipeline.ingest.api_football import fetch_player_stats, fetch_squad
 from pipeline.team_mapping import normalize_team_name
 
 log = logging.getLogger(__name__)
@@ -47,6 +47,39 @@ def ingest_squad(db: Session, api_key: str, team: Team) -> int:
         seen += 1
     db.commit()
     return seen
+
+
+def _aggregate_stats(statistics: list[dict] | None, league_id: int | None = None) -> tuple[int, int, int]:
+    """Sum goals.total, games.minutes and penalty.scored across a player's
+    statistics entries (api-sports returns one per team+league). Nulls count as 0.
+    When league_id is given, only that league's entries are summed."""
+    goals = minutes = pens = 0
+    for s in statistics or []:
+        if league_id is not None and (s.get("league") or {}).get("id") != league_id:
+            continue
+        goals += (s.get("goals") or {}).get("total") or 0
+        minutes += (s.get("games") or {}).get("minutes") or 0
+        pens += (s.get("penalty") or {}).get("scored") or 0
+    return goals, minutes, pens
+
+
+def ingest_player_stats(
+    db: Session, api_key: str, player: Player,
+    club_season: int, wc_season: int, wc_league: int,
+) -> None:
+    """Fill one Player's club-season and WC scoring stats. Club = sum of all
+    club_season entries; WC = sum of wc_season entries for the WC league only."""
+    club = fetch_player_stats(api_key, player.provider_player_id, club_season)
+    if club:
+        cg, cm, cp = _aggregate_stats(club[0].get("statistics"))
+        player.club_goals, player.club_minutes, player.club_penalties = cg, cm, cp
+        player.season = club_season
+    wc = fetch_player_stats(api_key, player.provider_player_id, wc_season)
+    if wc:
+        wg, wm, _pens = _aggregate_stats(wc[0].get("statistics"), league_id=wc_league)
+        player.wc_goals, player.wc_minutes = wg, wm
+    player.updated_at = datetime.now(timezone.utc)
+    db.commit()
 
 
 def link_team_ids(db: Session, teams_response: list[dict]) -> int:
