@@ -56,6 +56,26 @@ def recompute(
     return {"status": "ok", "recomputed": summary}
 
 
+def _run_refresh_players(db, api_key: str, league: int) -> dict:
+    """Indirection point (patchable in tests) for the player-stats ingestion pass."""
+    from pipeline.ingest.players import refresh_players
+    return refresh_players(db, api_key, league)
+
+
+@router.post("/refresh-players")
+def refresh_players_endpoint(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+) -> dict:
+    """Run one bounded player-stats ingestion pass (squads + club/WC scoring).
+    Token-guarded; the heavy api-football calls run here, where the key lives."""
+    _require_token(x_recompute_token)
+    if settings.live_provider != "api_football" or not settings.api_football_api_key:
+        return {"skipped": "api_football not active or no key",
+                "teams_linked": 0, "squads_ingested": 0, "players_refreshed": 0}
+    return _run_refresh_players(db, settings.api_football_api_key, settings.api_football_league)
+
+
 @router.post("/refresh-live")
 def refresh_live(
     db: Session = Depends(get_db),
