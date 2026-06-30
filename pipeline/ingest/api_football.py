@@ -148,6 +148,39 @@ def probe_player_access(api_key: str, league: int, season: int, timeout: float =
     return out
 
 
+def probe_player_sample(api_key: str, league: int, season: int, club_season: int,
+                        timeout: float = 15.0) -> dict:
+    """Capture trimmed live sample shapes of /teams, /players/squads and
+    /players?id= so the Stage 1b goalscorer ingester is written against real
+    field names. No secrets in the output; never raises. `season` is the WC
+    season; `club_season` (e.g. 2025) is the 2025-26 club season for the
+    per-player stats sample."""
+    out: dict = {"team": None, "squad_player": None, "player_stats": None, "note": None}
+
+    def _get(path: str, params: dict) -> dict:
+        return requests.get(
+            f"{BASE_URL}{path}", headers={"x-apisports-key": api_key},
+            params=params, timeout=timeout,
+        ).json()
+
+    try:
+        teams = _get("/teams", {"league": league, "season": season}).get("response") or []
+        if teams:
+            out["team"] = teams[0]
+            tid = (teams[0].get("team") or {}).get("id")
+            squad = _get("/players/squads", {"team": tid}).get("response") or []
+            players = (squad[0].get("players") if squad else None) or []
+            if players:
+                out["squad_player"] = players[0]
+                pid = players[0].get("id")
+                stats = _get("/players", {"id": pid, "season": club_season}).get("response") or []
+                if stats:
+                    out["player_stats"] = stats[0]
+    except Exception as exc:  # noqa: BLE001 - a diagnostic must never raise
+        out["note"] = f"sample error: {exc}"
+    return out
+
+
 # api-sports position letter -> our normalized position. Goalkeeper/Defender/
 # Midfielder/Forward all report a single leading letter (G/D/M/F); anything else
 # (or a missing pos) is left as None rather than guessed.

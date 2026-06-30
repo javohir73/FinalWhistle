@@ -20,6 +20,34 @@ def _patch(monkeypatch, status_payload, topscorers_payload):
     monkeypatch.setattr(api_football.requests, "get", fake_get)
 
 
+def test_probe_player_sample_walks_teams_squad_player(monkeypatch):
+    def fake_get(url, headers=None, params=None, timeout=None):
+        if url.endswith("/teams"):
+            return _Resp({"response": [{"team": {"id": 6, "name": "Brazil"}}]})
+        if url.endswith("/players/squads"):
+            return _Resp({"response": [{"team": {"id": 6},
+                                        "players": [{"id": 1179, "name": "Vinicius", "position": "Attacker"}]}]})
+        return _Resp({"response": [{"player": {"id": 1179, "name": "Vinicius"},
+                                    "statistics": [{"goals": {"total": 24}, "games": {"minutes": 2800}}]}]})
+
+    monkeypatch.setattr(api_football.requests, "get", fake_get)
+    out = api_football.probe_player_sample("k", 1, 2026, 2025)
+    assert out["team"]["team"]["id"] == 6
+    assert out["squad_player"]["id"] == 1179
+    assert out["player_stats"]["player"]["id"] == 1179
+    assert out["note"] is None
+
+
+def test_probe_player_sample_never_raises(monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("network down")
+
+    monkeypatch.setattr(api_football.requests, "get", boom)
+    out = api_football.probe_player_sample("k", 1, 2026, 2025)
+    assert out["team"] is None
+    assert "network down" in str(out["note"])
+
+
 def test_probe_reports_reachable_with_plan(monkeypatch):
     _patch(
         monkeypatch,
