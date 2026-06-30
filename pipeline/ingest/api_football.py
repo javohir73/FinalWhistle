@@ -92,6 +92,22 @@ def fetch_lineups(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[
     return data.get("response") or []
 
 
+def fetch_teams(api_key: str, league: int, season: int, timeout: float = 15.0) -> list[dict]:
+    """Return the raw team list for a league+season from api-sports.io (used to
+    map api-football team ids onto our Team rows)."""
+    resp = requests.get(
+        f"{BASE_URL}/teams",
+        headers={"x-apisports-key": api_key},
+        params={"league": league, "season": season},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        log.warning("api-football teams errors: %s", data["errors"])
+    return data.get("response") or []
+
+
 def probe_player_access(api_key: str, league: int, season: int, timeout: float = 15.0) -> dict:
     """One-shot diagnostic: does this api-sports key reach current-season PLAYER
     data (the raw material for goalscorer predictions)? Calls /status and
