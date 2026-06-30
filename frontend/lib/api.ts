@@ -1,6 +1,7 @@
 /** Typed client for the FastAPI backend.
  *  Base URL comes from NEXT_PUBLIC_API_URL so dev/prod point at the right host. */
 import type {
+  Goalscorers,
   Group,
   KnockoutBracket,
   LeaderboardRow,
@@ -93,6 +94,11 @@ export const getMatchSummaryServer = (id: number | string) =>
  *  (possibly `{ available: false }`); never 404s for a valid match. */
 export const getMatchLineupsServer = (id: number | string) =>
   getServer<MatchLineups>(`/api/matches/${id}/lineups`, 60);
+/** Likely scorers (top players by chance to score). Short revalidate so the card
+ *  flips from the squad estimate to the confirmed XI soon after the lineup is
+ *  announced (~40 min pre-kickoff). Returns null when no player data exists. */
+export const getMatchGoalscorersServer = (id: number | string) =>
+  getServer<Goalscorers>(`/api/matches/${id}/goalscorers`, 60);
 export const getTeamsServer = () =>
   getServer<Team[]>("/api/teams", 600);
 export const getTeamServer = (id: number | string) =>

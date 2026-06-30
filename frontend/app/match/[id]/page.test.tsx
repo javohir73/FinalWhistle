@@ -1,7 +1,7 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getModelRecordServer } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getMatchGoalscorersServer, getModelRecordServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
@@ -9,6 +9,7 @@ const mockGet = getMatchServer as jest.MockedFunction<typeof getMatchServer>;
 const mockSummaryServer = getMatchSummaryServer as jest.MockedFunction<typeof getMatchSummaryServer>;
 const mockSummary = getMatchSummary as jest.MockedFunction<typeof getMatchSummary>;
 const mockLineups = getMatchLineups as jest.MockedFunction<typeof getMatchLineups>;
+const mockGoalscorers = getMatchGoalscorersServer as jest.MockedFunction<typeof getMatchGoalscorersServer>;
 const mockModelRecord = getModelRecordServer as jest.MockedFunction<typeof getModelRecordServer>;
 
 // Recharts needs a non-zero layout size in jsdom.
@@ -57,6 +58,8 @@ beforeEach(() => {
     away: null,
     fetched_at: null,
   });
+  // Likely scorers fetch is secondary — default to no player data (null).
+  mockGoalscorers.mockResolvedValue(null);
   // Record fetch is secondary — resolve to null (no evaluated matches yet).
   mockModelRecord.mockResolvedValue(null);
 });
@@ -94,6 +97,26 @@ it("omits the Goals section when goal_markets is null", async () => {
   mockGet.mockResolvedValue({ ...prediction, goal_markets: null });
   render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
   expect(screen.queryByText("Goals")).not.toBeInTheDocument();
+});
+
+it("renders the Likely scorers card when goalscorers data is present", async () => {
+  mockGet.mockResolvedValue(prediction);
+  mockGoalscorers.mockResolvedValue({
+    mode: "squad",
+    home: [{ name: "A. Striker", position: "F", p_score: 0.31, p_score_2plus: 0.06, xg: 0.37 }],
+    away: [{ name: "B. Forward", position: "F", p_score: 0.22, p_score_2plus: 0.03, xg: 0.25 }],
+  });
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+  expect(screen.getByText("Likely scorers")).toBeInTheDocument();
+  expect(screen.getByText("Squad estimate")).toBeInTheDocument();
+  expect(screen.getByText("A. Striker")).toBeInTheDocument();
+});
+
+it("omits the Likely scorers card when goalscorers is null", async () => {
+  mockGet.mockResolvedValue(prediction);
+  mockGoalscorers.mockResolvedValue(null);
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+  expect(screen.queryByText("Likely scorers")).not.toBeInTheDocument();
 });
 
 it("calls notFound() for a missing match", async () => {
