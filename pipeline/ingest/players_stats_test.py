@@ -46,3 +46,30 @@ def test_ingest_player_stats_sets_club_and_wc(db_session, monkeypatch):
     assert got.club_goals == 10 and got.club_minutes == 3000 and got.club_penalties == 1
     assert got.wc_goals == 1 and got.wc_minutes == 270
     assert got.season == 2025 and got.updated_at is not None
+
+
+def test_ingest_player_stats_zeros_stale_data_on_empty_response(db_session, monkeypatch):
+    """Re-ingestion with an empty response must zero all five stat fields."""
+    player = Player(
+        provider_player_id=42,
+        name="Stale Player",
+        position="F",
+        club_goals=7,
+        club_minutes=1800,
+        club_penalties=2,
+        wc_goals=3,
+        wc_minutes=270,
+    )
+    db_session.add(player)
+    db_session.commit()
+
+    monkeypatch.setattr(players_mod, "fetch_player_stats", lambda *a, **k: [])
+    ingest_player_stats(db_session, "k", player, club_season=2025, wc_season=2026, wc_league=1)
+
+    got = db_session.query(Player).filter_by(provider_player_id=42).one()
+    assert got.club_goals == 0
+    assert got.club_minutes == 0
+    assert got.club_penalties == 0
+    assert got.wc_goals == 0
+    assert got.wc_minutes == 0
+    assert got.updated_at is not None

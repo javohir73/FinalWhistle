@@ -69,6 +69,8 @@ def ingest_player_stats(
 ) -> None:
     """Fill one Player's club-season and WC scoring stats. Club = sum of all
     club_season entries; WC = sum of wc_season entries for the WC league only."""
+    player.club_goals = player.club_minutes = player.club_penalties = 0
+    player.wc_goals = player.wc_minutes = 0
     club = fetch_player_stats(api_key, player.provider_player_id, club_season)
     if club:
         cg, cm, cp = _aggregate_stats(club[0].get("statistics"))
