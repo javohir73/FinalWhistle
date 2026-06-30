@@ -42,9 +42,11 @@ it("renders a finished tie with score, pens text, winner highlight, and a link",
   expect(screen.getByText("(4-2 pens)")).toBeInTheDocument();
   const link = document.querySelector('a[href="/match/312"]');
   expect(link).not.toBeNull();
-  // winner side gets the lime-deep token; loser is muted
-  const winner = screen.getByText("Argentina").closest("[data-side]");
-  expect(winner?.className).toContain("text-lime-deep");
+  // Argentina won #89, so they also advance into their QF slot — scope the
+  // winner-highlight assertion to the lime-deep (winner) instance.
+  const sides = screen.getAllByText("Argentina").map((e) => e.closest("[data-side]"));
+  const winner = sides.find((s) => s?.className.includes("text-lime-deep"));
+  expect(winner).toBeTruthy();
 });
 
 it("renders an in_play tie with a live badge and label", () => {

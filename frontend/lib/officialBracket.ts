@@ -137,11 +137,39 @@ function viewFor(matchNo: number, tie: KnockoutTie | undefined): TieView {
   };
 }
 
+/** Advance decided feeders into still-empty dependent slots. A finished feeder's
+ *  winner is a settled fact, so the next round should show that team rather than
+ *  the static "Winner <n>" placeholder. The provider feed only names a knockout
+ *  pairing once it chooses to (often once BOTH sides are known, and with lag), so
+ *  without this a decided R32 winner stays invisible until its opponent is also
+ *  decided. Only *finished* feeders advance — a derived (not-yet-played) team is
+ *  never chained onward, since the next match's participant isn't yet known.
+ *  Never overwrites a team the feed already assigned (the feed is authoritative). */
+function advanceFeeders(out: Record<number, TieView>): void {
+  const SIDES = ["a", "b"] as const;
+  for (const no of ALL_NOS) {
+    const feeders = KO_TREE[no];
+    if (!feeders) continue; // R32 placements and the 3rd-place node aren't winner-fed
+    SIDES.forEach((which, i) => {
+      const slot = out[no][which];
+      if (slot.teamId != null || slot.team != null) return; // already real or derived
+      const feeder = out[feeders[i]];
+      if (!feeder || feeder.state !== "finished") return;
+      const win = feeder.a.isWinner ? feeder.a : feeder.b.isWinner ? feeder.b : null;
+      if (!win || win.team == null) return;
+      out[no][which] = { ...slot, teamId: win.teamId, team: win.team };
+    });
+  }
+}
+
 /** Build the full 32-node tree from official data, or pure topology when null. */
 export function buildTree(bracket: KnockoutBracket | null): Record<number, TieView> {
   const byNo = new Map<number, KnockoutTie>();
   for (const t of bracket?.ties ?? []) byNo.set(t.match_no, t);
   const out: Record<number, TieView> = {};
   for (const no of ALL_NOS) out[no] = viewFor(no, byNo.get(no));
+  // ALL_NOS is in round order (R32 → R16 → QF → SF → Final), so each match's
+  // feeders are already built when we reach it.
+  advanceFeeders(out);
   return out;
 }
