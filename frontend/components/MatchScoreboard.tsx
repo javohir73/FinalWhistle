@@ -6,6 +6,7 @@ import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
+import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import type { MatchSummary, PredictedScore, Probabilities, GoalEvent } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
@@ -72,6 +73,9 @@ export function MatchScoreboard({
   const liveProbs = live ? summary?.live_probabilities ?? null : null;
   const shownProbs = liveProbs ?? probabilities;
   const predictedScore = formatScore(predicted.home, predicted.away);
+  // The headline says "X to win" only with a decisive predicted scoreline; a
+  // level modal scoreline falls back to "Too close to call".
+  const showsWinner = !!predictedWinner && predicted.home !== predicted.away;
 
   return (
     <>
@@ -131,7 +135,12 @@ export function MatchScoreboard({
           The AI&apos;s call
         </span>
         <p className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-[25px]">
-          {predictedWinner ? (
+          {/* Only say "X to win" when the most-likely scoreline actually has a
+              winner. The favoured outcome (argmax W/D/L) can lean to a side while
+              the modal scoreline is level — "{team} to win 1–1" reads as a
+              contradiction, so a level scoreline falls back to "Too close to call"
+              (the lean still shows in the bar below). */}
+          {showsWinner ? (
             <>
               {predictedWinner} to win{" "}
               <span className="text-lime-deep">{predictedScore}</span>
@@ -140,7 +149,11 @@ export function MatchScoreboard({
             "Too close to call"
           )}
         </p>
-        {caveat && <p className="mt-1.5 text-sm text-muted">{caveat}</p>}
+        {/* Suppress the caveat when it would just repeat the "Too close to call"
+            headline; keep it when it adds a lean (e.g. "{team} edge it"). */}
+        {caveat && !(!showsWinner && caveat === "Too close to call") && (
+          <p className="mt-1.5 text-sm text-muted">{caveat}</p>
+        )}
         {confidence && (
           <div className="mt-4 flex justify-center">
             <ConfidenceBadge level={confidence} />
@@ -174,9 +187,11 @@ export function MatchScoreboard({
             >
               <span aria-hidden>{verdict.kind === "miss" ? "✕" : "✓"}</span>
               {verdict.label}
+              <BasisTag verdict={verdict} />
             </span>
           </p>
         )}
+        {verdict && <ShootoutNote verdict={verdict} />}
       </section>
     </>
   );

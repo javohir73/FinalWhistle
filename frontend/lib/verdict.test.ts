@@ -54,6 +54,55 @@ it("handles a predicted draw correctly", () => {
   ).toBe("winner");
 });
 
+describe("regulation basis (90-min) + penalty shootouts", () => {
+  it("group matches carry no 90-min basis and no shootout note", () => {
+    const v = predictionVerdict(base);
+    expect(v?.basis).toBeNull();
+    expect(v?.shootout).toBeNull();
+  });
+
+  it("knockout matches are flagged as a 90-min prediction", () => {
+    const v = predictionVerdict({ ...base, stage: "R16" });
+    expect(v?.basis).toBe("90 min");
+    expect(v?.shootout).toBeNull(); // decided in regulation, no shootout
+  });
+
+  it("a knockout level after 90 and decided on penalties keeps the exact-score hit and notes the shootout", () => {
+    // Netherlands 1–1 Morocco (90'), Morocco win 3–2 on pens. AI predicted 1–1.
+    const v = predictionVerdict({
+      ...base,
+      stage: "R32",
+      teams: { home: "Netherlands", away: "Morocco" },
+      score_home: 1,
+      score_away: 1,
+      penalty_home: 2,
+      penalty_away: 3,
+      predicted_score: { home: 1, away: 1, probability: 0.11 },
+      probabilities: { home_win: 0.38, draw: 0.29, away_win: 0.33 },
+    });
+    expect(v?.kind).toBe("exact"); // the AI nailed the 90-min scoreline
+    expect(v?.basis).toBe("90 min");
+    expect(v?.shootout?.winner).toBe("Morocco");
+    expect(v?.shootout?.text).toMatch(/penalties/i);
+    expect(v?.shootout?.text).toContain("3");
+    expect(v?.shootout?.text).toContain("2");
+  });
+
+  it("reads the shootout winner from the higher penalty tally (home win)", () => {
+    const v = predictionVerdict({
+      ...base,
+      stage: "QF",
+      teams: { home: "Brazil", away: "Japan" },
+      score_home: 1,
+      score_away: 1,
+      penalty_home: 5,
+      penalty_away: 4,
+      predicted_score: { home: 2, away: 0, probability: 0.1 },
+    });
+    expect(v?.shootout?.winner).toBe("Brazil");
+  });
+});
+
 describe("predictedOutcome (AI prefill mapping)", () => {
   it("returns the argmax of the pre-match probabilities", () => {
     expect(predictedOutcome(base)).toBe("home"); // 0.60 / 0.25 / 0.15

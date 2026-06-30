@@ -7,6 +7,7 @@ import type { MatchSummary } from "@/lib/types";
 import { kickoffTime, dayHeading, tzAbbrev } from "@/lib/datetime";
 import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
+import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { cn } from "@/lib/utils";
 
 type Outcome = "home" | "draw" | "away";
@@ -164,10 +165,16 @@ export function UserPredictionCard({
       </div>
 
       {matchVerdict && (
-        <div className="mt-1.5 flex items-center justify-center gap-1 text-xs font-semibold">
-          <span aria-hidden>{matchVerdict.kind === "miss" ? "✗" : "✓"}</span>
-          <span className={matchVerdict.kind === "miss" ? "text-loss" : "text-lime-deep"}>
-            {matchVerdict.label}
+        <div className="mt-1.5 flex flex-col items-center text-xs font-semibold">
+          <span className="flex items-center gap-1">
+            <span aria-hidden>{matchVerdict.kind === "miss" ? "✗" : "✓"}</span>
+            <span className={matchVerdict.kind === "miss" ? "text-loss" : "text-lime-deep"}>
+              {matchVerdict.label}
+            </span>
+            <BasisTag verdict={matchVerdict} />
+          </span>
+          <span className="text-center">
+            <ShootoutNote verdict={matchVerdict} />
           </span>
         </div>
       )}
