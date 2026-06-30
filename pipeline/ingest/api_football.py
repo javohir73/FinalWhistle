@@ -158,6 +158,7 @@ def _player_row(entry: object, is_starter: bool, order: int) -> dict | None:
     if not name:
         return None
     return {
+        "player_id": player.get("id"),
         "name": name,
         "number": player.get("number"),
         "position": _position(player.get("pos")),
