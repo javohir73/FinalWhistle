@@ -14,6 +14,7 @@ import { useTimezone } from "@/lib/useTimezone";
 import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
 import { pct, formatScore } from "@/lib/format";
 import { prematchCall, predictionVerdict } from "@/lib/verdict";
+import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { isLiveNow, liveLabel } from "@/lib/liveLabel";
 import { kickoffTime, relativeDayLabel } from "@/lib/datetime";
 import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
@@ -438,7 +439,8 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
                 ? "Upset — we missed it."
                 : verdict.kind === "exact"
                   ? "Exact score — called it!"
-                  : "Called it."}{" "}
+                  : "Called it."}
+              <BasisTag verdict={verdict} />{" "}
               <span className="font-semibold text-lime-deep">See the result →</span>
             </span>
           </>
@@ -454,6 +456,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
           </>
         )}
       </div>
+      {verdict && <ShootoutNote verdict={verdict} />}
     </Link>
   );
 }
@@ -496,6 +499,9 @@ function AlsoTodayRow({ match, tz }: { match: MatchSummary; tz: string }) {
               <span className={`font-semibold ${verdict.kind === "miss" ? "text-loss" : "text-lime-deep"}`}>
                 {verdict.kind === "miss" ? "Upset" : "Called it"}
               </span>
+              {verdict.shootout && (
+                <span className="text-muted"> · {verdict.shootout.winner} on pens</span>
+              )}
             </>
           ) : call ? (
             <>

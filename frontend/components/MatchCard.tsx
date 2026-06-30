@@ -5,6 +5,7 @@ import type { MatchSummary } from "@/lib/types";
 import { formatScore } from "@/lib/format";
 import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict, prematchCall } from "@/lib/verdict";
+import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { kickoffDate, kickoffTime } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
@@ -92,7 +93,7 @@ export function MatchCard({
         <p className="text-sm text-muted">Prediction pending…</p>
       )}
 
-      <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3 text-sm">
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3 text-sm">
         {finished && verdict ? (
           <span
             className={`inline-flex items-center gap-1.5 text-xs font-semibold ${
@@ -105,6 +106,7 @@ export function MatchCard({
               : verdict.kind === "exact"
                 ? "Exact score!"
                 : "Called it"}
+            <BasisTag verdict={verdict} />
           </span>
         ) : call ? (
           <span
@@ -130,6 +132,7 @@ export function MatchCard({
             {formatScore(predicted_score.home, predicted_score.away)}
           </span>
         )}
+        {finished && <ShootoutNote verdict={verdict} />}
       </div>
     </Link>
   );
