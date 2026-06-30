@@ -62,7 +62,7 @@ def build_goalscorers(db: Session, match: Match, top_n: int = 8) -> schemas.Goal
     away_players, away_lineup = _side_players(db, match, "away")
     if not home_players and not away_players:
         return None
-    mode = "lineup" if (home_lineup or away_lineup) else "squad"
+    mode = "lineup" if (home_lineup and away_lineup) else "squad"
     home = goalscorers(pred.lambda_home, home_players, mode)[:top_n]
     away = goalscorers(pred.lambda_away, away_players, mode)[:top_n]
     return schemas.GoalscorersOut(
