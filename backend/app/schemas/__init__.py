@@ -355,3 +355,17 @@ class MatchLineupsOut(BaseModel):
     home: TeamLineupOut | None
     away: TeamLineupOut | None
     fetched_at: str | None
+
+
+class GoalscorerOut(BaseModel):
+    name: str
+    position: str | None
+    p_score: float
+    p_score_2plus: float
+    xg: float
+
+
+class GoalscorersOut(BaseModel):
+    mode: str                     # "lineup" | "squad"
+    home: list[GoalscorerOut]
+    away: list[GoalscorerOut]
