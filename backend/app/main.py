@@ -19,6 +19,7 @@ from app.api import (
     model_record, predictions, teams,
 )
 from app.config import settings
+from app.cache import cache
 
 # Error tracking — only active when SENTRY_DSN is set (safe no-op otherwise).
 if settings.sentry_dsn:
@@ -124,6 +125,31 @@ def health() -> dict:
         "live_updates": "ready" if settings.live_updates_active else "inactive",
         "email": settings.email_status,
     }
+
+
+@app.get("/api/health/provider")
+def provider_health() -> dict:
+    """On-demand diagnostic (cached): is the live provider's key reaching
+    current-season PLAYER data — the prerequisite for goalscorer predictions?
+    Returns the plan + reachability; never exposes the key."""
+    if settings.live_provider != "api_football" or not settings.api_football_api_key:
+        return {
+            "provider": settings.live_provider,
+            "player_data_reachable": None,
+            "note": "api_football is not the active provider, or no key is set",
+        }
+    cached = cache.get("provider:player-probe")
+    if cached is not None:
+        return cached
+    from pipeline.ingest.api_football import probe_player_access
+
+    out = {"provider": "api_football", **probe_player_access(
+        settings.api_football_api_key,
+        settings.api_football_league,
+        settings.api_football_season,
+    )}
+    cache.set("provider:player-probe", out)
+    return out
 
 
 app.include_router(auth.router)

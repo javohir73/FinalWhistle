@@ -92,6 +92,46 @@ def fetch_lineups(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[
     return data.get("response") or []
 
 
+def probe_player_access(api_key: str, league: int, season: int, timeout: float = 15.0) -> dict:
+    """One-shot diagnostic: does this api-sports key reach current-season PLAYER
+    data (the raw material for goalscorer predictions)? Calls /status and
+    /players/topscorers and reports the plan + reachability — never the key, and
+    never raises. api-sports answers 200 with an `errors` object on plan/quota
+    issues, so reachability is judged by the topscorers result count."""
+    out: dict = {
+        "plan": None, "active": None, "requests": None,
+        "player_data_reachable": False, "topscorers_results": 0, "note": None,
+    }
+    try:
+        s = requests.get(f"{BASE_URL}/status", headers={"x-apisports-key": api_key}, timeout=timeout)
+        sd = s.json().get("response")
+        if isinstance(sd, dict):
+            sub = sd.get("subscription") or {}
+            out["plan"], out["active"] = sub.get("plan"), sub.get("active")
+            out["requests"] = sd.get("requests")
+        else:
+            out["note"] = f"status errors: {s.json().get('errors')}"
+    except Exception as exc:  # noqa: BLE001 - a diagnostic must never raise
+        out["note"] = f"status error: {exc}"
+    try:
+        t = requests.get(
+            f"{BASE_URL}/players/topscorers",
+            headers={"x-apisports-key": api_key},
+            params={"league": league, "season": season},
+            timeout=timeout,
+        )
+        td = t.json()
+        out["topscorers_results"] = td.get("results") or 0
+        out["player_data_reachable"] = bool(out["topscorers_results"])
+        if td.get("errors"):
+            sep = " | " if out["note"] else ""
+            out["note"] = f"{out['note'] or ''}{sep}topscorers errors: {td['errors']}"
+    except Exception as exc:  # noqa: BLE001
+        sep = " | " if out["note"] else ""
+        out["note"] = f"{out['note'] or ''}{sep}topscorers error: {exc}"
+    return out
+
+
 # api-sports position letter -> our normalized position. Goalkeeper/Defender/
 # Midfielder/Forward all report a single leading letter (G/D/M/F); anything else
 # (or a missing pos) is left as None rather than guessed.
