@@ -122,6 +122,89 @@ describe("buildTree", () => {
     expect(v.b.label).toBe("Winner 75");
   });
 
+  it("advances a finished feeder's winner into the dependent R16 slot", () => {
+    // #74 finished: Germany 1 (3 pens) vs Paraguay 1 (4 pens) -> Paraguay wins.
+    // #89 (fed by 74 & 77) is still scheduled with no teams from the feed.
+    const tree = buildTree({
+      ties: [
+        tie({
+          match_no: 74,
+          match_id: 174,
+          stage: "R32",
+          status: "finished",
+          home: { team_id: 17, team: "Germany", score: 1, penalty: 3 },
+          away: { team_id: 14, team: "Paraguay", score: 1, penalty: 4 },
+        }),
+        tie({ match_no: 89, match_id: null, stage: "R16", status: "scheduled" }),
+      ],
+    });
+    const v = tree[89];
+    // Home slot now shows the decided winner of #74, not "Winner 74".
+    expect(v.a.team).toBe("Paraguay");
+    expect(v.a.teamId).toBe(14);
+    expect(v.a.isWinner).toBe(false); // the R16 tie itself is not decided
+    // Away slot stays a placeholder — #77 hasn't been played.
+    expect(v.b.team).toBeNull();
+    expect(v.b.label).toBe("Winner 77");
+  });
+
+  it("does not advance from an unfinished feeder", () => {
+    const tree = buildTree({
+      ties: [
+        tie({
+          match_no: 74,
+          stage: "R32",
+          status: "in_play",
+          home: { team_id: 17, team: "Germany", score: 1, penalty: null },
+          away: { team_id: 14, team: "Paraguay", score: 0, penalty: null },
+        }),
+      ],
+    });
+    expect(tree[89].a.team).toBeNull();
+    expect(tree[89].a.label).toBe("Winner 74");
+  });
+
+  it("never overwrites a team the feed already assigned", () => {
+    const tree = buildTree({
+      ties: [
+        tie({
+          match_no: 74,
+          stage: "R32",
+          status: "finished",
+          home: { team_id: 17, team: "Germany", score: 0, penalty: null },
+          away: { team_id: 14, team: "Paraguay", score: 1, penalty: null },
+        }),
+        // Feed already named #89's home as Brazil — derivation must not clobber it.
+        tie({
+          match_no: 89,
+          stage: "R16",
+          status: "scheduled",
+          home: { team_id: 9, team: "Brazil", score: null, penalty: null },
+        }),
+      ],
+    });
+    expect(tree[89].a.team).toBe("Brazil");
+  });
+
+  it("does not chain a derived (not-yet-played) team into the next round", () => {
+    // #74 decided -> #89 derives a team, but #89 hasn't been played, so #97
+    // (fed by 89 & 90) must remain a placeholder.
+    const tree = buildTree({
+      ties: [
+        tie({
+          match_no: 74,
+          stage: "R32",
+          status: "finished",
+          home: { team_id: 17, team: "Germany", score: 0, penalty: null },
+          away: { team_id: 14, team: "Paraguay", score: 1, penalty: null },
+        }),
+      ],
+    });
+    expect(tree[89].a.team).toBe("Paraguay"); // derived
+    expect(tree[97].a.team).toBeNull(); // not chained
+    expect(tree[97].a.label).toBe("Winner 89");
+  });
+
   it("emits in_play liveLabel and ET label", () => {
     const tree = buildTree({
       ties: [
