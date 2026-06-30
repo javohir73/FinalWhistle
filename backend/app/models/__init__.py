@@ -50,6 +50,9 @@ class Team(Base):
     elo_rating: Mapped[float | None] = mapped_column(Float)
     flag_url: Mapped[str | None] = mapped_column(String(300))
     is_host: Mapped[bool] = mapped_column(default=False)
+    # API-Football team id (api-sports.io), linked by normalized name. Lets the
+    # goalscorer ingestion pull this team's squad. Nullable until linked.
+    provider_team_id: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)
 
     stats: Mapped[list[TeamStats]] = relationship(back_populates="team")
 
@@ -169,8 +172,32 @@ class LineupPlayer(Base):
     # Stable sort within starter/bench (provider order). "order" is a reserved SQL
     # keyword, so the column is quoted; the attribute keeps the spec's name.
     order: Mapped[int] = mapped_column("order", Integer)
+    # API-Football player id — links an announced XI row to a Player by id
+    # (no fuzzy name matching). Nullable; older rows / unmatched players stay None.
+    provider_player_id: Mapped[int | None] = mapped_column(Integer, index=True)
 
     lineup: Mapped[MatchLineup] = relationship(back_populates="players")
+
+
+class Player(Base):
+    """A squad player plus scoring stats, ingested from API-Football. Feeds the
+    Phase 2 goalscorer model; never shown raw. Rates blend club-season form
+    (season=2025) with WC-2026 form, so both are stored."""
+
+    __tablename__ = "players"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    provider_player_id: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    team_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"), index=True)
+    position: Mapped[str | None] = mapped_column(String(2))  # G/D/M/F
+    club_goals: Mapped[int | None] = mapped_column(Integer)
+    club_minutes: Mapped[int | None] = mapped_column(Integer)
+    club_penalties: Mapped[int | None] = mapped_column(Integer)
+    wc_goals: Mapped[int | None] = mapped_column(Integer)
+    wc_minutes: Mapped[int | None] = mapped_column(Integer)
+    season: Mapped[int | None] = mapped_column(Integer)
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class HistoricalMatch(Base):
@@ -574,6 +601,7 @@ __all__ = [
     "Match",
     "MatchLineup",
     "LineupPlayer",
+    "Player",
     "HistoricalMatch",
     "TeamStats",
     "Prediction",

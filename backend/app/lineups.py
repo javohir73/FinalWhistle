@@ -242,6 +242,7 @@ def _persist(db: Session, match: Match, parsed: list[dict]) -> None:
                     grid=row.get("grid"),
                     is_starter=row["is_starter"],
                     order=row["order"],
+                    provider_player_id=row.get("player_id"),
                 )
             )
         db.add(lineup)
