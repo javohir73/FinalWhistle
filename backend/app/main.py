@@ -152,6 +152,28 @@ def provider_health() -> dict:
     return out
 
 
+@app.get("/api/health/provider-sample")
+def provider_sample() -> dict:
+    """One-off shape capture (cached): trimmed live samples of /teams,
+    /players/squads and /players?id= so the goalscorer ingester is written
+    against real field names. No secrets in the output."""
+    if settings.live_provider != "api_football" or not settings.api_football_api_key:
+        return {"provider": settings.live_provider, "note": "api_football not active or no key"}
+    cached = cache.get("provider:sample")
+    if cached is not None:
+        return cached
+    from pipeline.ingest.api_football import probe_player_sample
+
+    out = probe_player_sample(
+        settings.api_football_api_key,
+        settings.api_football_league,
+        settings.api_football_season,
+        2025,
+    )
+    cache.set("provider:sample", out)
+    return out
+
+
 app.include_router(auth.router)
 app.include_router(matches.router)
 app.include_router(predictions.router)
