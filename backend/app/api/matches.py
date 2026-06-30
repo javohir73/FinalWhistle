@@ -8,6 +8,7 @@ from app import schemas, serializers
 from app.cache import cache
 from app.config import settings
 from app.db import get_db
+from app.goalscorers import build_goalscorers
 from app.lineups import get_match_lineups
 from app.live_refresh import maybe_refresh_live
 from app.models import Match
@@ -56,6 +57,17 @@ def match_summary(match_id: int, background_tasks: BackgroundTasks,
     result = serializers.match_to_summary(db, match)
     cache.set(cache_key, result)
     return result
+
+
+@router.get("/{match_id}/goalscorers", response_model=schemas.GoalscorersOut | None)
+def match_goalscorers(match_id: int, db: Session = Depends(get_db)):
+    """Likely scorers per team (squad estimate, or the announced XI when stored).
+    `null` body when there's no player data yet — never fabricated, never 5xx."""
+    match = db.get(Match, match_id)
+    if match is None:
+        raise HTTPException(status_code=404, detail={"code": "match_not_found",
+                                                     "message": f"No match {match_id}"})
+    return build_goalscorers(db, match)
 
 
 @router.get("/{match_id}/lineups", response_model=schemas.MatchLineupsOut)
