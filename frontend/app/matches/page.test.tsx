@@ -3,19 +3,11 @@ import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 // The route's page.tsx is now a server component; the interactive UI lives in the
 // client island. Render that directly (unseeded → it fetches via the mock below).
 import { MatchesClient as MatchesPage } from "./MatchesClient";
-import { getUpcomingMatches, getHealth } from "@/lib/api";
+import { getUpcomingMatches } from "@/lib/api";
 import type { MatchSummary } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGet = getUpcomingMatches as jest.MockedFunction<typeof getUpcomingMatches>;
-const mockHealth = getHealth as jest.MockedFunction<typeof getHealth>;
-
-beforeEach(() => {
-  // Kept resolved for any incidental health fetch; harmless for this surface.
-  mockHealth.mockResolvedValue({
-    status: "ok", app: "FinalWhistle", model_version: "poisson-elo-v0.1", live_updates: "inactive",
-  });
-});
 
 function match(
   id: number,
