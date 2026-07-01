@@ -62,6 +62,28 @@ def in_live_window(db: Session) -> bool:
     )
 
 
+def maybe_run_post_results_chain(db: Session, summary: dict) -> None:
+    """Run the post-results learning chain when a refresh just finished at
+    least one match, recording the outcome under ``summary["post_results"]``.
+
+    Shared by every live-ingestion entry point — the traffic-driven refresh
+    below and POST /api/internal/refresh-live — so a final whistle triggers
+    evaluation, rating updates, prediction regeneration and bracket rescoring
+    no matter which path ingested it. Never raises: scores are already
+    committed, and the next trigger or the daily pipeline retries the chain.
+    """
+    if not summary.get("newly_finished"):
+        return
+    from pipeline.learning_loop import run_post_results_chain
+
+    try:
+        chain = run_post_results_chain(db, settings.model_version)
+        summary["post_results"] = chain
+        log.info("post-results chain after final whistle: %s", chain)
+    except Exception:  # noqa: BLE001 — next trigger/daily run retries
+        log.exception("post-results chain failed; data remains consistent")
+
+
 def maybe_refresh_live(session_factory=None) -> dict | None:
     """Refresh live scores if live mode is on, the rate limit allows it, and a
     live window is active. Never raises (background task). Returns the refresh
@@ -84,21 +106,10 @@ def maybe_refresh_live(session_factory=None) -> dict | None:
             from pipeline.ingest.live_scores import refresh_live
 
             summary = refresh_live(db)
-            if summary.get("newly_finished"):
-                # Final whistle just blew: run the learning chain — evaluate
-                # the frozen prediction, update tournament ratings (conservative
-                # + capped), regenerate future predictions/simulations, rescore
-                # the leaderboard. Still inside _lock, so chains never overlap;
-                # rare by nature (a handful of finals per day at most).
-                from app.config import settings as app_settings
-                from pipeline.learning_loop import run_post_results_chain
-
-                try:
-                    chain = run_post_results_chain(db, app_settings.model_version)
-                    summary["post_results"] = chain
-                    log.info("post-results chain after final whistle: %s", chain)
-                except Exception:  # noqa: BLE001 — next trigger/daily run retries
-                    log.exception("post-results chain failed; data remains consistent")
+            # Final whistle just blew: run the learning chain. Still inside
+            # _lock, so chains never overlap; rare by nature (a handful of
+            # finals per day at most).
+            maybe_run_post_results_chain(db, summary)
             if summary.get("updated"):
                 cache.clear()  # evict the stale board so the next poll shows new scores
             return summary

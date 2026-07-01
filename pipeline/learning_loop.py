@@ -47,17 +47,22 @@ _OUTCOME = {0: "home", 1: "draw", 2: "away"}
 
 
 def _finished_matches(db: Session) -> list[Match]:
-    """Finished group-stage matches with known teams and scores, kickoff order.
+    """ALL finished matches with known teams and scores, in kickoff order —
+    group and knockout stages alike, so the loop is a true catch-all.
 
-    Group stage only for now: knockout full-time scores from the feed may
-    include extra time, which makes 90-minute outcome evaluation ambiguous —
-    documented limitation, revisit at R32.
+    Knockout convention: the stored score is the feed's final score — after
+    extra time when played, never counting shootout kicks — the same basis
+    every user-facing verdict uses (frontend/lib/verdict.ts). A tie decided
+    on penalties is level, so it evaluates and replays as a draw, matching
+    the model's 90-minute basis (shootouts are deliberately unmodelled). The
+    one accepted skew: a tie decided by an extra-time goal counts at its
+    after-ET score rather than the 90-minute draw — consistent with how the
+    record is displayed, and the replay's Elo update stays conservative.
     """
     return (
         db.query(Match)
         .filter(
             Match.status == "finished",
-            Match.stage == "group",
             Match.score_home.isnot(None),
             Match.score_away.isnot(None),
             Match.team_home_id.isnot(None),

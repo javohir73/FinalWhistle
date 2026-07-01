@@ -82,11 +82,16 @@ def refresh_live(
     x_recompute_token: str | None = Header(default=None),
 ):
     """Pull live in-game scores and update fixtures. Safe to call every minute
-    (an external cron does this during match windows). No-op without an API key."""
+    (an external cron does this during match windows). No-op without an API key.
+    A match finishing in this pass triggers the post-results chain, exactly as
+    the traffic-driven refresh does — the cron path must not depend on board
+    traffic to evaluate predictions and rescore brackets."""
     _require_token(x_recompute_token)
+    from app.live_refresh import maybe_run_post_results_chain
     from pipeline.ingest.live_scores import refresh_live as run_live
 
     summary = run_live(db)
+    maybe_run_post_results_chain(db, summary)  # never raises into the response
     cache.clear()
     return {"status": "ok", "live": summary}
 

@@ -115,6 +115,46 @@ def test_recent_kickoff_counts_as_live_window(monkeypatch):
     assert len(calls) == 1
 
 
+def test_final_whistle_triggers_post_results_chain(monkeypatch):
+    """A refresh that transitions a match to finished must run the learning
+    chain (evaluate → ratings → predictions → brackets) and report it."""
+    monkeypatch.setattr(
+        "pipeline.ingest.live_scores.refresh_live",
+        lambda db: {"updated": 1, "live": 0, "finished": 1, "newly_finished": 1},
+    )
+    chain_calls = []
+    monkeypatch.setattr(
+        "pipeline.learning_loop.run_post_results_chain",
+        lambda db, mv, **kw: chain_calls.append(mv) or {"learning": {"evaluated_new": 1}},
+    )
+    factory = _factory_with(Match(tournament_id=1, stage="group", status="in_play"))
+
+    summary = live_refresh.maybe_refresh_live(session_factory=factory)
+
+    assert chain_calls == [settings.model_version]
+    assert summary["post_results"] == {"learning": {"evaluated_new": 1}}
+
+
+def test_chain_failure_keeps_the_refresh_summary(monkeypatch):
+    """The chain is best-effort: scores are committed either way, so a chain
+    crash must be swallowed (the next trigger or the daily run retries)."""
+    monkeypatch.setattr(
+        "pipeline.ingest.live_scores.refresh_live",
+        lambda db: {"updated": 1, "live": 0, "finished": 1, "newly_finished": 1},
+    )
+
+    def boom(db, mv, **kw):
+        raise RuntimeError("simulation blew up")
+
+    monkeypatch.setattr("pipeline.learning_loop.run_post_results_chain", boom)
+    factory = _factory_with(Match(tournament_id=1, stage="group", status="in_play"))
+
+    summary = live_refresh.maybe_refresh_live(session_factory=factory)
+
+    assert summary["updated"] == 1
+    assert "post_results" not in summary
+
+
 # ---- endpoint wiring: the matches board drives the refresh ----
 
 def _client_with_empty_db():
