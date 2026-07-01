@@ -18,6 +18,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -399,6 +400,11 @@ class AppUser(Base):
     # came through the frontend proxy). Best-effort — null for direct API calls.
     signup_country: Mapped[str | None] = mapped_column(String(2))
     signup_city: Mapped[str | None] = mapped_column(String(120))
+    # Ops/smoke-test accounts: hidden from the public leaderboard and never
+    # ranked. Set via POST /api/internal/flag-internal-user.
+    is_internal: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
