@@ -31,6 +31,10 @@ class ModelParams:
     pk_beta: float = 0.0
     calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
     wdl_blend: dict | None = None    # {"weight": float, "calibrator": dict|None} or None
+    # Market-odds anchoring weight for the SHADOW model (exact-score FR-4.3):
+    # how far the lambda SUM moves toward the bookmaker total. 0 = blend off —
+    # the shipped default; promotion is a manual owner decision (FR-4.8).
+    w_odds: float = 0.0
     team_offsets: dict | None = None  # {"file": "team_offsets.json"} or None (disabled, FR-5.3)
 
     def to_dict(self) -> dict:
@@ -65,6 +69,7 @@ def load_params() -> ModelParams:
         pk_beta=float(data.get("pk_beta", 0.0)),
         calibrator=data.get("calibrator"),
         wdl_blend=data.get("wdl_blend"),
+        w_odds=float(data.get("w_odds", 0.0)),
         team_offsets=data.get("team_offsets"),
     )
 

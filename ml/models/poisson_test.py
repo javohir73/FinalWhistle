@@ -181,6 +181,34 @@ def test_goal_markets_known_lambda_matches_poisson_marginals():
     assert abs(gm["btts"] - (1 - math.exp(-2.0)) * (1 - math.exp(-0.5))) < 0.01
 
 
+def test_predict_from_lambdas_equals_predict_match_at_same_rates():
+    """predict_from_lambdas is predict_match entered at the expected-goals level
+    (the shadow odds-blend path). At the engine's own lambdas and eff_gap the
+    two must agree exactly — same grid, same calibration, same headline rule."""
+    from ml.evaluation.calibration import effective_gap
+    from ml.models.poisson import (
+        expected_goals_from_elo, predict_from_lambdas, predict_match,
+    )
+
+    elo_home, elo_away, adv = 1900.0, 1760.0, 60.0
+    via_elo = predict_match(elo_home, elo_away, home_adv=adv, base=1.2,
+                            beta=0.0021, rho=-0.06, temperature=1.1)
+    lam_h, lam_a = expected_goals_from_elo(elo_home, elo_away, adv, 1.2, 0.0021)
+    via_lam = predict_from_lambdas(
+        lam_h, lam_a, rho=-0.06, temperature=1.1,
+        eff_gap=effective_gap(elo_home, elo_away, adv),
+    )
+    assert via_lam == via_elo
+
+
+def test_predict_from_lambdas_scoreline_follows_blended_rates():
+    """Anchoring the total downward must be able to change the headline
+    scoreline — the blend has to flow through to the modal pick."""
+    from ml.models.poisson import predict_from_lambdas
+
+    high = predict_from_lambdas(2.6, 1.4)
+    low = predict_from_lambdas(1.3, 0.7)  # same split, half the total
+    assert high.score_home + high.score_away > low.score_home + low.score_away
 # --- per-team attack/defence offsets at the choke point (FR-5.2/FR-5.3) ------
 
 def test_expected_goals_offsets_default_is_bit_identical():

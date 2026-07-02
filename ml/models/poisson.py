@@ -265,9 +265,30 @@ def predict_match(
         elo_home, elo_away, home_adv, base, beta,
         atk_home=atk_home, def_home=def_home, atk_away=atk_away, def_away=def_away,
     )
+    return predict_from_lambdas(
+        lam_home, lam_away, rho=rho, temperature=temperature, calibrator=calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, home_adv),
+    )
+
+
+def predict_from_lambdas(
+    lam_home: float,
+    lam_away: float,
+    rho: float = 0.0,
+    temperature: float = 1.0,
+    calibrator: dict | None = None,
+    eff_gap: float = 0.0,
+) -> MatchPrediction:
+    """``predict_match`` entered at the expected-goals level.
+
+    The shadow odds-blend path (exact-score program FR-4.3/FR-4.4) anchors the
+    lambda pair to the bookmaker total BEFORE the grid is built, so it needs
+    this seam; ``predict_match`` itself delegates here, keeping grid, headline
+    rule and calibration in one place. ``eff_gap`` feeds a segmented calibrator
+    (callers derive it from the same Elo inputs that produced the lambdas).
+    """
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
-    eff_gap = effective_gap(elo_home, elo_away, home_adv)
     p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature, eff_gap=eff_gap)
     if abs(p_home - p_away) <= DRAW_HEADLINE_BAND:
         # Coin-flip: show the grid's single most-likely exact score (a draw for

@@ -69,10 +69,16 @@ def _first_group_match(db) -> Match:
     )
 
 
+def _production_result(db) -> PredictionResult:
+    """The single PRODUCTION result row (shadow twins are scored separately —
+    their isolation is covered in pipeline/shadow_predictions_test.py)."""
+    return db.query(PredictionResult).filter_by(is_shadow=False).one()
+
+
 def test_no_update_without_finished_matches(db_session):
     _seed(db_session)
     summary = run_learning_loop(db_session, MV)
-    assert summary == {"evaluated_new": 0, "teams_updated": 0}
+    assert summary == {"evaluated_new": 0, "shadow_evaluated_new": 0, "teams_updated": 0}
     assert db_session.query(PredictionResult).count() == 0
     # Effective ratings equal the base when there is no tournament evidence.
     base = {t.id: t.elo_rating for t in db_session.query(Team).all()}
@@ -95,7 +101,7 @@ def test_completed_match_updates_ratings_and_stores_metrics(db_session):
     assert summary["evaluated_new"] == 1
     assert summary["teams_updated"] == 2
 
-    r = db_session.query(PredictionResult).one()
+    r = _production_result(db_session)
     assert r.match_id == m.id
     assert r.exact_score_correct is True
     assert r.goal_error == 0
@@ -125,7 +131,7 @@ def test_upset_is_recorded_as_miss_and_loop_is_idempotent(db_session):
         loser_id = m.team_away_id
 
     run_learning_loop(db_session, MV)
-    first = db_session.query(PredictionResult).one()
+    first = _production_result(db_session)
     assert first.winner_correct is False
 
     loser = db_session.query(TeamTournamentState).filter_by(team_id=loser_id).one()
@@ -137,7 +143,7 @@ def test_upset_is_recorded_as_miss_and_loop_is_idempotent(db_session):
     # Second run: nothing double-applies, nothing re-evaluates.
     summary = run_learning_loop(db_session, MV)
     assert summary["evaluated_new"] == 0
-    assert db_session.query(PredictionResult).count() == 1
+    assert db_session.query(PredictionResult).filter_by(is_shadow=False).count() == 1
     db_session.refresh(loser)
     assert abs(loser.elo_delta - delta_before) < 1e-9
 
@@ -245,7 +251,7 @@ def test_finished_knockout_match_is_evaluated_and_updates_ratings(db_session):
     summary = run_learning_loop(db_session, MV)
 
     assert summary["evaluated_new"] == 1
-    r = db_session.query(PredictionResult).one()
+    r = _production_result(db_session)
     assert r.match_id == ko.id
     assert r.outcome == "home"
 
@@ -268,7 +274,7 @@ def test_shootout_tie_scores_as_regulation_draw(db_session):
     summary = run_learning_loop(db_session, MV)
 
     assert summary["evaluated_new"] == 1
-    r = db_session.query(PredictionResult).one()
+    r = _production_result(db_session)
     assert r.outcome == "draw"
     assert (r.actual_score_home, r.actual_score_away) == (1, 1)
 
@@ -288,7 +294,7 @@ def test_post_results_chain_runs_end_to_end_and_rescores(db_session):
     assert summary["learning"]["evaluated_new"] == 1
     assert summary["predictions"]["matches_predicted"] > 0
     assert "brackets" in summary  # leaderboard rescoring ran (0 brackets is fine)
-    assert db_session.query(PredictionResult).count() == 1
+    assert db_session.query(PredictionResult).filter_by(is_shadow=False).count() == 1
 
 
 def test_tracked_chain_writes_success_watermark(db_session):
@@ -341,7 +347,7 @@ def test_evaluation_scores_exact_on_90_minute_basis(db_session):
     m = _first_group_match(db_session)
     pred = (
         db_session.query(Prediction)
-        .filter_by(match_id=m.id)
+        .filter_by(match_id=m.id, is_shadow=False)  # the row evaluation freezes
         .order_by(Prediction.id.desc())
         .first()
     )
@@ -352,7 +358,7 @@ def test_evaluation_scores_exact_on_90_minute_basis(db_session):
 
     evaluate_finished_predictions(db_session, MV)
 
-    row = db_session.query(PredictionResult).filter_by(match_id=m.id).one()
+    row = db_session.query(PredictionResult).filter_by(match_id=m.id, is_shadow=False).one()
     assert row.exact_score_correct is True  # 1-1 pick vs 1-1 at 90'
     assert row.outcome == "home"  # winner basis: final result
 
@@ -366,7 +372,7 @@ def test_post_results_chain_backfills_90min_before_evaluating(db_session):
     m.stage = "R32"  # knockout: ET is possible, group-copy shortcut off
     pred = (
         db_session.query(Prediction)
-        .filter_by(match_id=m.id)
+        .filter_by(match_id=m.id, is_shadow=False)  # the row evaluation freezes
         .order_by(Prediction.id.desc())
         .first()
     )
@@ -384,5 +390,5 @@ def test_post_results_chain_backfills_90min_before_evaluating(db_session):
 
     db_session.refresh(m)
     assert (m.score_home_90, m.score_away_90) == (1, 1)  # healed from events
-    row = db_session.query(PredictionResult).filter_by(match_id=m.id).one()
+    row = db_session.query(PredictionResult).filter_by(match_id=m.id, is_shadow=False).one()
     assert row.exact_score_correct is True  # evaluated on the healed basis

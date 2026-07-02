@@ -11,17 +11,24 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team, TournamentOdds
-from ml.evaluation.calibration import calibrate
+from app.models import Group, GroupTeam, HistoricalMatch, Match, Odds, Prediction, Standing, Team, TournamentOdds
+from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
+from ml.models.odds_blend import blend_lambda_total, market_lambda_total
 from ml.models.params import ModelParams, load_params
+from ml.models.poisson import predict_from_lambdas, predict_match
 from ml.models.poisson import predict_match
 from ml.models.team_offsets import load_team_offsets, offsets_for
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
+
+#: Version tag for shadow rows (exact-score program FR-4.4): the odds-anchored
+#: twin of every production prediction. Never served, never in the public
+#: record — promotion to the headline is a manual owner decision (FR-4.8).
+SHADOW_MODEL_VERSION = "poisson-elo-v0.3-shadow"
 
 
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
@@ -189,7 +196,8 @@ def build_payload(
     }
 
 
-def _write_prediction(db: Session, payload: dict, model_version: str) -> None:
+def _write_prediction(db: Session, payload: dict, model_version: str,
+                      is_shadow: bool = False) -> None:
     p = payload["probabilities"]
     s = payload["predicted_score"]
     db.add(
@@ -208,8 +216,83 @@ def _write_prediction(db: Session, payload: dict, model_version: str) -> None:
             confidence=payload["confidence"],
             reasons=payload["reasons"],
             top_features=payload["top_features"],
+            is_shadow=is_shadow,
         )
     )
+
+
+def _latest_odds(db: Session, match_id: int) -> Odds | None:
+    """Freshest stored bookmaker consensus for a match (None when unpriced)."""
+    return (
+        db.query(Odds)
+        .filter(Odds.match_id == match_id)
+        .order_by(Odds.captured_at.desc(), Odds.id.desc())
+        .first()
+    )
+
+
+def write_shadow_prediction(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+) -> None:
+    """Write the shadow twin of a just-built production payload (FR-4.4).
+
+    With a stored market total AND ``params.w_odds`` > 0, the twin's lambda
+    SUM is anchored toward the market (Elo split preserved, FR-4.3) and the
+    grid/triple/headline are recomputed through the same calibrated pipeline
+    (``predict_from_lambdas``). Otherwise the twin copies the production
+    numbers exactly, so the production-vs-shadow comparison is a clean null
+    test until odds exist and a weight is deliberately set. Explanation
+    fields (confidence/reasons/top_features) always mirror production — the
+    twin is internal-only and never rendered. NOTE: the anchored triple is
+    pure Poisson (no W/D/L booster leg even if wdl_blend ever ships) so the
+    comparison attributes divergence to the odds anchor alone.
+
+    The ``w_odds`` gate runs FIRST: with the shipped 0.0 the blend is the
+    identity, so the odds lookup and the market inversion (whose 1X2 fallback
+    is a costly double bisection) are skipped entirely — this path executes
+    synchronously inside latency-sensitive request chains.
+    """
+    shadow = payload
+    if params.w_odds <= 0.0:
+        _write_prediction(db, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+        return
+    odds = _latest_odds(db, match.id)
+    market_total = None
+    if odds is not None:
+        market_total = market_lambda_total(
+            odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
+            odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
+        )
+    if market_total is not None:
+        lam_h, lam_a = blend_lambda_total(
+            payload["lambda_home"], payload["lambda_away"], market_total, params.w_odds
+        )
+        home = db.get(Team, match.team_home_id)
+        away = db.get(Team, match.team_away_id)
+        elo_home = strengths.get(home.id, estimate_strength(home)[0])
+        elo_away = strengths.get(away.id, estimate_strength(away)[0])
+        pred = predict_from_lambdas(
+            lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+            calibrator=params.calibrator,
+            eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
+        )
+        shadow = {
+            **payload,
+            "probabilities": {
+                "home_win": round(pred.prob_home_win, 4),
+                "draw": round(pred.prob_draw, 4),
+                "away_win": round(pred.prob_away_win, 4),
+            },
+            "predicted_score": {
+                "home": pred.score_home,
+                "away": pred.score_away,
+                "probability": round(pred.score_prob, 4),
+            },
+            "lambda_home": round(pred.lambda_home, 4),
+            "lambda_away": round(pred.lambda_away, 4),
+        }
+    _write_prediction(db, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
 
 
 def _played_score(m: Match) -> tuple[int, int] | None:
@@ -398,6 +481,9 @@ def generate_predictions(
         if payload is None:
             continue
         _write_prediction(db, payload, active_model_version)
+        # Shadow twin (FR-4.4): odds-anchored when a market total is stored and
+        # w_odds > 0, otherwise an exact copy — either way never served.
+        write_shadow_prediction(db, match, payload, strengths, params)
         predicted += 1
 
     groups = db.query(Group).all()

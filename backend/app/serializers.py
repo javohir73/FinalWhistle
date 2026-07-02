@@ -115,9 +115,11 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
 
 
 def latest_prediction(db: Session, match_id: int) -> Prediction | None:
+    """Latest PRODUCTION prediction — shadow rows are never served (FR-4.5)."""
     return (
         db.query(Prediction)
         .filter_by(match_id=match_id)
+        .filter(Prediction.is_shadow.is_(False))
         .order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .first()
     )

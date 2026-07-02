@@ -273,6 +273,11 @@ class Prediction(Base):
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)
+    # Shadow rows (exact-score program FR-4.4/4.5): the odds-anchored twin,
+    # tagged model_version "poisson-elo-v0.3-shadow". Invisible to serving,
+    # frozen-prediction selection, bracket scoring and the public record —
+    # they exist only for the internal production-vs-shadow comparison.
+    is_shadow: Mapped[bool] = mapped_column(default=False)
 
     match: Mapped[Match] = relationship(back_populates="predictions")
 
@@ -324,14 +329,22 @@ class PredictionResult(Base):
     (predictions are append-only and never regenerated after kickoff, so the
     latest row per match is the immutable snapshot). This table is the audited
     source of truth for the "AI record" endpoint and marketing claims.
+
+    Shadow scoring (FR-4.6) writes a SECOND row per match with is_shadow=True
+    (the odds-anchored twin's evaluation, tagged its shadow model_version), so
+    uniqueness is per (match, basis). Everything public reads is_shadow=False.
     """
 
     __tablename__ = "prediction_results"
+    __table_args__ = (
+        UniqueConstraint("match_id", "is_shadow", name="uq_prediction_result_match_shadow"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), unique=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), index=True)
     prediction_id: Mapped[int] = mapped_column(ForeignKey("predictions.id"))
     model_version: Mapped[str] = mapped_column(String(40))
+    is_shadow: Mapped[bool] = mapped_column(default=False)
     actual_score_home: Mapped[int] = mapped_column(Integer)
     actual_score_away: Mapped[int] = mapped_column(Integer)
     outcome: Mapped[str] = mapped_column(String(4))  # 'home' / 'draw' / 'away'
@@ -377,8 +390,13 @@ class TeamTournamentState(Base):
 
 
 class Odds(Base):
-    """Bookmaker odds. Historical odds are ingested for calibration only in MVP
-    (Decision #1); user-facing odds comparison is Phase 4."""
+    """Bookmaker odds — a MODEL INPUT only, never shown to users (PRD non-goal).
+
+    Populated by the best-effort pre-kickoff snapshot (pipeline/ingest/odds.py,
+    exact-score program FR-4.1): one consensus row per match per pass holding
+    the MEDIAN decimal price across bookmakers for 1X2 and over/under-2.5,
+    plus margin-free implied 1X2 probabilities. Feeds the shadow model's
+    lambda-total anchor (ml/models/odds_blend.py)."""
 
     __tablename__ = "odds"
 
@@ -388,6 +406,8 @@ class Odds(Base):
     odds_home: Mapped[float | None] = mapped_column(Float)
     odds_draw: Mapped[float | None] = mapped_column(Float)
     odds_away: Mapped[float | None] = mapped_column(Float)
+    odds_over25: Mapped[float | None] = mapped_column(Float)   # over 2.5 goals
+    odds_under25: Mapped[float | None] = mapped_column(Float)  # under 2.5 goals
     implied_prob_home: Mapped[float | None] = mapped_column(Float)
     implied_prob_draw: Mapped[float | None] = mapped_column(Float)
     implied_prob_away: Mapped[float | None] = mapped_column(Float)

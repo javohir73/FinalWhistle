@@ -39,6 +39,7 @@ def prediction_for_match(match_id: int, db: Session = Depends(get_db)):
     history_rows = (
         db.query(Prediction)
         .filter_by(match_id=match_id)
+        .filter(Prediction.is_shadow.is_(False))  # shadow rows are never served (FR-4.5)
         .order_by(Prediction.created_at.asc(), Prediction.id.asc())
         .all()
     )

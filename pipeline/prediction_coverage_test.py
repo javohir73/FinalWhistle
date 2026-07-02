@@ -32,8 +32,11 @@ def test_generates_prediction_for_missing_match(db_session):
 
     assert m.id in result["match_ids"]
     assert result["generated"] == len(result["match_ids"]) > 0
-    row = db_session.query(Prediction).filter_by(match_id=m.id).one()
+    row = db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=False).one()
     assert row.predicted_score_home is not None
+    # The sweep keeps the shadow record complete too (FR-4.4): one twin per row.
+    shadow = db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=True).one()
+    assert shadow.model_version == "poisson-elo-v0.3-shadow"
 
 
 def test_second_sweep_is_a_noop(db_session):
@@ -53,7 +56,7 @@ def test_changed_pairing_forces_regeneration(db_session):
     _set_elos(db_session)
     m = _assign_ko_teams(db_session, 89)
     ensure_prediction_coverage(db_session)
-    assert db_session.query(Prediction).filter_by(match_id=m.id).count() == 1
+    assert db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=False).count() == 1
 
     # Re-pair (as assign_knockout_teams would after a feed correction).
     teams = db_session.query(Team).order_by(Team.id).limit(4).all()
@@ -62,4 +65,4 @@ def test_changed_pairing_forces_regeneration(db_session):
 
     result = ensure_prediction_coverage(db_session, changed_match_ids={m.id})
     assert m.id in result["match_ids"]
-    assert db_session.query(Prediction).filter_by(match_id=m.id).count() == 2
+    assert db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=False).count() == 2
