@@ -72,11 +72,23 @@ must be reproducible from this endpoint — it is computed from the append-only
   "Model updated" timestamp that reflects the last learning run.
 - Country hub: the AI outlook card carries the current record line.
 
+## Baseline (pinned 2026-07-02)
+
+Production `/api/model/record` snapshot: **82 evaluated / 51 winners (62.2%) /
+9 exact scores (11.0%)**. All before/after accuracy claims for the exact-score
+maximization program (see `tasks/prd-exact-score-maximization.md`) compare
+against production snapshots — never the local dev database, which is stale
+and unmigrated. Offline context: the 1,843-match walk-forward holdout hits
+~14.8% exact with the production pick rule, ≈13–14% when re-weighted to a
+World-Cup-like Elo-gap mix — the honest expectation band for live results.
+
 ## Limitations (honest)
 
-- **Group stage only** for prediction generation + evaluation: the feed's
-  knockout full-time score may include extra time, making 90-minute outcome
-  evaluation ambiguous. Revisit at R32.
+- **Knockout evaluation uses the feed's full-time score, which includes extra
+  time** (shootout kicks never count; a shootout tie evaluates as a draw). The
+  model predicts 90-minute scores, so a tie decided by an extra-time goal is
+  scored at its after-ET scoreline — an accepted skew until the 90-minute
+  capture ships (Phase 2 of the exact-score program).
 - **No injuries/suspensions:** no reliable data source — the form layer does
   not pretend otherwise.
 - Effective ratings feed probabilities; the human-readable "reasons" text
