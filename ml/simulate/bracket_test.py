@@ -72,6 +72,80 @@ def test_played_results_lock_group_outcomes():
     assert res[a]["win_title"] == 0.0
 
 
+def _build_locked_tournament():
+    """Full 12-group stage with every fixture PLAYED and a deterministic order.
+
+    In each group members are (a, b, c, d); results force the standing a>b>c>d,
+    with the third-placed team (c) given a group-specific winning margin so the
+    twelve thirds are strictly ranked A>B>...>L (top-8 thirds = groups A..H,
+    fully determined, not tie-broken by rng)."""
+    groups, fixtures, elos = {}, {}, {}
+    tid = 1
+    for i, letter in enumerate(GROUP_LETTERS):
+        a, b, c, d = range(tid, tid + 4)
+        tid += 4
+        groups[letter] = [a, b, c, d]
+        for m in (a, b, c, d):
+            elos[m] = 2000 - m * 7
+        margin = 12 - i  # c beats d by this many — distinct GD per group
+        pairs_scores = [
+            ((a, b), (2, 0)),        # a beats b
+            ((c, d), (margin, 0)),   # c beats d by `margin`
+            ((a, c), (1, 0)),        # a beats c
+            ((d, b), (0, 1)),        # b beats d
+            ((d, a), (0, 1)),        # a beats d
+            ((b, c), (1, 0)),        # b beats c
+        ]
+        fixtures[letter] = [GroupFixture(h, w, score=s) for (h, w), s in pairs_scores]
+    return elos, groups, fixtures
+
+
+def test_played_knockout_winner_locked_and_loser_pinned():
+    elos, groups, fixtures = _build_locked_tournament()
+    # Match 73 = (Group A runner-up) vs (Group B runner-up): a pure position
+    # pairing, so the two teams are fixed once the groups are decided. Record a
+    # played result — the winner must reach the R16 in every draw, the loser never.
+    a2, b2 = groups["A"][1], groups["B"][1]
+    res = simulate_tournament(
+        elos, groups, fixtures, n_sims=200, seed=7, rho=0.0,
+        ko_results={73: (a2, b2, a2)},
+    )
+    assert res[a2]["reach_r16"] == 1.0     # winner advances in every draw
+    assert res[b2]["reach_r16"] == 0.0     # loser is out in every draw
+    assert res[a2]["make_knockout"] == 1.0
+    assert res[b2]["make_knockout"] == 1.0
+
+
+def test_played_knockout_pins_third_place_loser():
+    elos, groups, fixtures = _build_locked_tournament()
+    # Match 82 = (Group G winner) vs (a third-placed team). Group A's third is the
+    # strongest third, so it always qualifies; the random third-slot assignment
+    # would otherwise let it advance from a different slot. A played result must
+    # pin it into slot 82 and OUT of the R16 in every draw.
+    g1 = groups["G"][0]        # group G winner (pos side)
+    a3 = groups["A"][2]        # best third; eligible for slot 82
+    res = simulate_tournament(
+        elos, groups, fixtures, n_sims=300, seed=11, rho=0.0,
+        ko_results={82: (g1, a3, g1)},
+    )
+    assert res[g1]["reach_r16"] == 1.0
+    assert res[a3]["reach_r16"] == 0.0
+    assert res[a3]["make_knockout"] == 1.0   # it did qualify, as a third
+
+
+def test_played_knockout_preserves_monotonicity():
+    elos, groups, fixtures = _build_locked_tournament()
+    a2, b2 = groups["A"][1], groups["B"][1]
+    g1, a3 = groups["G"][0], groups["A"][2]
+    res = simulate_tournament(
+        elos, groups, fixtures, n_sims=400, seed=3, rho=0.0,
+        ko_results={73: (a2, b2, a2), 82: (g1, a3, g1)},
+    )
+    for r in res.values():
+        assert 0.0 <= r["win_title"] <= r["reach_final"] <= r["reach_sf"] <= 1.0
+        assert r["reach_sf"] <= r["reach_qf"] <= r["reach_r16"] <= r["make_knockout"] <= 1.0
+
+
 def test_probabilities_valid_and_one_champion():
     elos, groups, fixtures = _build_tournament()
     res = simulate_tournament(elos, groups, fixtures, n_sims=1500, seed=2026, rho=0.0)
