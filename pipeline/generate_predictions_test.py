@@ -299,3 +299,39 @@ def test_blend_shifts_probabilities_toward_booster(db_session):
     assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
     # Predicted SCORE stays Poisson's — the booster never touches it.
     assert on["predicted_score"] == off["predicted_score"]
+
+
+def test_build_payload_team_offsets_off_is_identity_and_on_shifts_lambdas(db_session, tmp_path):
+    """FR-5.3 end-to-end: with params.team_offsets=None (the shipped default)
+    the payload is exactly the no-offsets payload; with a store enabled, the
+    home team's positive attack offset must lift the served lambda_home."""
+    import json as _json
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    home = db_session.get(Team, match.team_home_id)
+
+    baseline_params = replace(DEFAULT_PARAMS, team_offsets=None)
+    store = tmp_path / "team_offsets.json"
+    store.write_text(_json.dumps({home.name: {"atk": 0.075, "def": 0.0, "n_matches": 100}}))
+    enabled_params = replace(DEFAULT_PARAMS, team_offsets={"file": str(store)})
+
+    base = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline_params)
+    off = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline_params)
+    on = build_payload(db_session, match, "poisson-elo-v0.1", params=enabled_params)
+
+    # Disabled twice -> identical model outputs (identity path).
+    for key in ("probabilities", "predicted_score", "lambda_home", "lambda_away"):
+        assert base[key] == off[key]
+    # Enabled -> only the home lambda moves (away team has no store entry).
+    assert on["lambda_home"] > base["lambda_home"]
+    assert on["lambda_away"] == base["lambda_away"]
+    assert on["probabilities"]["home_win"] > base["probabilities"]["home_win"]

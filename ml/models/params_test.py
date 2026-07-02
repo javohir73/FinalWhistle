@@ -83,3 +83,33 @@ def test_segmented_calibrator_round_trips(tmp_path, monkeypatch):
                          rho=-0.06, temperature=1.0, calibrator=blob)
     save_params(params)
     assert load_params().calibrator == blob
+
+
+def test_default_params_have_no_team_offsets():
+    # "team_offsets": null is the shipped default — offsets are opt-in (FR-5.3).
+    assert DEFAULT_PARAMS.team_offsets is None
+
+
+def test_shipped_model_params_json_has_team_offsets_disabled():
+    data = json.loads(params_mod._PARAMS_FILE.read_text())
+    assert "team_offsets" in data and data["team_offsets"] is None
+    assert load_params().team_offsets is None
+
+
+def test_team_offsets_round_trips_through_save_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", tmp_path / "model_params.json")
+    blob = {"file": "team_offsets.json"}
+    p = ModelParams(version="v0.3+offsets", base=1.2, beta=0.0021, home_adv=60.0,
+                    rho=-0.06, temperature=1.0, pk_beta=0.0, team_offsets=blob)
+    save_params(p)
+    assert load_params().team_offsets == blob
+
+
+def test_json_without_team_offsets_loads_as_none(tmp_path, monkeypatch):
+    f = tmp_path / "model_params.json"
+    f.write_text(json.dumps({
+        "version": "v0.2", "base": 1.2, "beta": 0.0021, "home_adv": 60.0,
+        "rho": -0.06, "temperature": 1.0, "pk_beta": 0.0,
+    }))
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    assert load_params().team_offsets is None

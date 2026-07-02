@@ -18,6 +18,7 @@ from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.params import ModelParams, load_params
 from ml.models.poisson import predict_match
+from ml.models.team_offsets import load_team_offsets, offsets_for
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
@@ -99,10 +100,18 @@ def build_payload(
     feats.elo_home = elo_home
     feats.elo_away = elo_away
     feats.elo_diff = elo_home - elo_away
+    # Per-team attack/defence offsets (FR-5.3): opt-in via model_params.json
+    # ("team_offsets": null keeps this a strict no-op — bit-identical lambdas).
+    atk_h = def_h = atk_a = def_a = 0.0
+    if params.team_offsets:
+        store = load_team_offsets(params.team_offsets.get("file"))
+        atk_h, def_h = offsets_for(store, home.name)
+        atk_a, def_a = offsets_for(store, away.name)
     pred = predict_match(
         elo_home, elo_away, home_adv=host_adv,
         base=params.base, beta=params.beta, rho=params.rho,
         temperature=params.temperature, calibrator=params.calibrator,
+        atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
     )
 
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained

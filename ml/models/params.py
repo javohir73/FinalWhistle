@@ -31,6 +31,7 @@ class ModelParams:
     pk_beta: float = 0.0
     calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
     wdl_blend: dict | None = None    # {"weight": float, "calibrator": dict|None} or None
+    team_offsets: dict | None = None  # {"file": "team_offsets.json"} or None (disabled, FR-5.3)
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -64,6 +65,7 @@ def load_params() -> ModelParams:
         pk_beta=float(data.get("pk_beta", 0.0)),
         calibrator=data.get("calibrator"),
         wdl_blend=data.get("wdl_blend"),
+        team_offsets=data.get("team_offsets"),
     )
 
 
