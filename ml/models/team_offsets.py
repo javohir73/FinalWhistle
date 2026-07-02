@@ -2,10 +2,14 @@
 
 The offline fitter (pipeline/fit_attack_defence.py) writes team_offsets.json
 next to this module: {team_name: {"atk": float, "def": float, "n_matches": int}}.
-Offsets are log-lambda units — prediction applies λ_home ×= exp(atk_home +
+Offsets are log-lambda units — the match cards AND both Monte-Carlo simulators
+(group qualification + tournament bracket) apply λ_home ×= exp(atk_home +
 def_away) (and mirrored for away) at the single choke point in
-ml/models/poisson.py, and ONLY when model_params.json enables them
-("team_offsets" is null by default, so production behavior is unchanged).
+ml/models/poisson.py (expected_goals_from_elo), and ONLY when model_params.json
+enables them ("team_offsets" is null by default, so production behavior is
+unchanged). The pipeline routes all three paths through one loader
+(pipeline/generate_predictions._offsets_by_team_id) so a served page can never
+mix offset-adjusted match probabilities with offset-free simulation odds.
 
 Anti-overfitting policy mirrors the in-tournament form layer
 (ml/ratings/tournament.py): a √(n/full-weight) confidence ramp plus a hard cap,

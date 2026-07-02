@@ -43,6 +43,25 @@ def test_finished_match_counts_as_fact_not_probability():
     assert res[2]["avg_points"] <= 6.0  # only two games left to win
 
 
+def test_team_offsets_shift_qualification_and_default_is_identity():
+    """Per-team attack/defence offsets (FR-5.3) must reach the group Monte-Carlo:
+    qualification odds must be simulated from the SAME offset-adjusted lambdas the
+    match cards use. Omitted/None/empty offsets stay bit-identical to the
+    historical call, so the dormant flag remains a strict no-op."""
+    elos = {1: 1700, 2: 1700, 3: 1700, 4: 1700}
+    fx = _round_robin([1, 2, 3, 4])
+    base = simulate_group(elos, fx, n_sims=2000, seed=42, rho=0.0)
+    assert simulate_group(elos, fx, n_sims=2000, seed=42, rho=0.0,
+                          team_offsets=None) == base
+    assert simulate_group(elos, fx, n_sims=2000, seed=42, rho=0.0,
+                          team_offsets={}) == base
+    # A strong attack (+) / defence (-) edge for team 1 must lift its odds.
+    boosted = simulate_group(elos, fx, n_sims=2000, seed=42, rho=0.0,
+                             team_offsets={1: (0.5, -0.5)})
+    assert boosted[1]["qualification_prob"] > base[1]["qualification_prob"]
+    assert boosted[1]["avg_gf"] > base[1]["avg_gf"]
+
+
 def test_fully_played_group_is_deterministic():
     # All six games played: team 4 (lowest Elo) won everything, team 1
     # (highest Elo) lost everything. The table must be the real table —

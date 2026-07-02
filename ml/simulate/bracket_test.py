@@ -175,3 +175,24 @@ def test_deterministic_with_seed():
     r1 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99, rho=0.0)
     r2 = simulate_tournament(elos, groups, fixtures, n_sims=500, seed=99, rho=0.0)
     assert r1 == r2
+
+
+def test_team_offsets_shift_knockout_odds_and_default_is_identity():
+    """Per-team attack/defence offsets (FR-5.3) must reach the tournament
+    Monte-Carlo too: reach_*/win_title must be simulated from the SAME
+    offset-adjusted lambdas the match cards use — in the group stage AND in the
+    knockout rounds. Omitted/None/empty offsets stay bit-identical, so the
+    dormant flag remains a strict no-op."""
+    elos, groups, fixtures = _build_tournament()
+    base = simulate_tournament(elos, groups, fixtures, n_sims=400, seed=13, rho=0.0)
+    assert simulate_tournament(elos, groups, fixtures, n_sims=400, seed=13, rho=0.0,
+                               team_offsets=None) == base
+    assert simulate_tournament(elos, groups, fixtures, n_sims=400, seed=13, rho=0.0,
+                               team_offsets={}) == base
+    # A big attack (+) / defence (-) edge turns the weakest team into a
+    # contender: both its group-exit and its title odds must rise.
+    weakest = min(elos, key=elos.get)
+    boosted = simulate_tournament(elos, groups, fixtures, n_sims=400, seed=13, rho=0.0,
+                                  team_offsets={weakest: (0.7, -0.7)})
+    assert boosted[weakest]["make_knockout"] > base[weakest]["make_knockout"]
+    assert boosted[weakest]["win_title"] > base[weakest]["win_title"]
