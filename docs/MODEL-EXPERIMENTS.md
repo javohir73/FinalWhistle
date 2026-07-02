@@ -23,8 +23,15 @@ wins AND losses — so refuted ideas are never retried. Rules:
 | 2026-07-02 | FR-3.1d empirical prior blend w=0.2 | same | top1 14.54% (−0.22pp) | [−1.92, +1.59] pp | **REFUTED** — no gain |
 | 2026-07-02 | FR-3.1d empirical prior blend w=0.3 | same | top1 14.92% (+0.16pp) | [−1.47, +1.95] pp | **REFUTED** — noise in both directions across w grid |
 | 2026-07-02 | FR-3.1e stage-conditional (group/KO) empirical blend w=0.1 | same | top1 14.49% (−0.27pp) | [−1.82, +1.52] pp | **REFUTED** — no gain |
-| 2026-07-02 | FR-3.1e stage-conditional empirical blend w=0.2 | same | top1 14.54% (−0.22pp) | [−1.91, +1.61] pp | **REFUTED** — no gain |
+| 2026-07-02 | FR-3.1e stage-conditional empirical blend w=0.2 | same | top1 14.60% (−0.16pp) | [−1.85, +1.65] pp | **REFUTED** — no gain |
 | 2026-07-02 | FR-3.1e stage-conditional empirical blend w=0.3 | same | top1 15.19% (+0.43pp) | [−1.33, +2.28] pp | **NOT SHIPPED** — largest point estimate of Phase 3, CI still spans 0 |
+
+FR-3.1e rows record the re-run after the stage-label truncation fix (review
+finding on `knockout_flags`): history stage flags are now computed on COMPLETE
+editions before date-truncation, so a concurrent summer edition still underway
+at an edition's kickoff (Euro/Copa 2016, 2021, 2024; the 2019 Copa/Gold
+Cup/AFCON triple) no longer gets trailing group matches counted into the KO
+frequency table. Only w=0.2 moved (14.54% → 14.60%); every verdict stands.
 
 Phase 3 (pick policy) verdict: **no candidate clears the FR-3.2 gate; the
 production pick rule stands.** The wider-band and stage-w=0.3 point estimates

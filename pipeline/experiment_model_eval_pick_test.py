@@ -5,6 +5,7 @@ from ml.models.params import DEFAULT_PARAMS
 from ml.models.poisson import expected_goals_from_elo, outcome_probabilities, score_matrix
 from pipeline.experiment_model_eval import (
     PICK_CANDIDATES,
+    history_with_flags,
     knockout_flags,
     make_band_pick,
     make_empirical_pick,
@@ -140,6 +141,95 @@ def test_stage_conditional_pick_uses_the_right_table():
     match = {"pre_home": 1600.0, "pre_away": 1500.0}
     assert picker(match, flat, (0.4, 0.3, 0.3), False) == (3, 0)
     assert picker(match, flat, (0.4, 0.3, 0.3), True) == (0, 0)
+
+
+# --- truncated concurrent editions (stage labels must come from complete editions) -
+
+def _overlap_rows():
+    """A complete 2022 World Cup, then a Euro-style edition truncated mid-group:
+    only its first 18 group matches predate the cutoff — the shape of Euro 2024
+    when Copa América 2024 kicked off on 2024-06-20."""
+    rows = []
+    for i in range(48):
+        rows.append(_hist_row(date(2022, 11, 15 + i % 12), 1600, 1500, 1, 0,
+                              comp="FIFA World Cup", home_id=1 + i % 32, away_id=1 + (i + 7) % 32))
+    for i in range(16):
+        rows.append(_hist_row(date(2022, 12, 3 + i), 1600, 1500, 2, 0,
+                              comp="FIFA World Cup", home_id=1 + i % 16, away_id=17 + i % 16))
+    # Concurrent edition: 18 group matches before the cutoff, the remaining 18
+    # group matches and the whole 15-match bracket strictly after it.
+    for i in range(18):
+        rows.append(_hist_row(date(2024, 6, 14 + i % 6), 1600, 1500, 1, 1,
+                              comp="UEFA Euro", home_id=101 + i % 24, away_id=101 + (i + 5) % 24))
+    for i in range(18):
+        rows.append(_hist_row(date(2024, 6, 20 + i % 6), 1600, 1500, 1, 1,
+                              comp="UEFA Euro", home_id=101 + i % 24, away_id=101 + (i + 5) % 24))
+    for i in range(15):
+        rows.append(_hist_row(date(2024, 7, 1 + i), 1600, 1500, 2, 0,
+                              comp="UEFA Euro", home_id=101 + i, away_id=116 + i % 8))
+    return rows
+
+
+def test_history_flags_come_from_complete_editions_not_the_truncated_view():
+    # Scoring an edition that kicks off 2024-06-20: the concurrent Euro is
+    # mid-group, so its pre-cutoff rows are ALL group matches — none may reach
+    # the knockout table. Labels must be inferred on the full row set (stage
+    # structure is fixture knowledge) and only then sliced to the history.
+    rows = _overlap_rows()
+    history, flags = history_with_flags(rows, date(2024, 6, 20))
+    assert len(history) == len(flags) == 48 + 16 + 18
+    # The complete 2022 edition keeps its trailing-bracket labels...
+    assert flags[:48] == [False] * 48
+    assert flags[48:64] == [True] * 16
+    # ...and the truncated concurrent edition contributes zero knockout rows.
+    assert flags[64:] == [False] * 18
+    # Regression guard: re-inferring on the truncated view alone DOES mislabel
+    # trailing group matches — the helper exists precisely to avoid that path.
+    assert any(knockout_flags(history)[64:])
+
+
+def test_stage_pick_fits_tables_from_supplied_flags_not_reinference():
+    # Truncated concurrent edition: only 12 GROUP matches (all 3-0) predate the
+    # cutoff. Re-inferred flags would call the last 4 "knockout" and poison the
+    # KO table with group scorelines; the supplied complete-edition flags say
+    # all-group, so the KO table stays empty and a knockout match degrades to
+    # the grid argmax instead of parroting the group scoreline.
+    hist = [_hist_row(date(2021, 6, 1 + i), 1600, 1500, 3, 0,
+                      comp="Copa America", home_id=1 + i % 8, away_id=1 + (i + 3) % 8)
+            for i in range(12)]
+    flat = [[1.0 / 16.0] * 4 for _ in range(4)]
+    match = {"pre_home": 1600.0, "pre_away": 1500.0}
+    picker = make_stage_pick(0.3)(hist, _CUTOFF, [False] * 12)
+    assert picker(match, flat, (0.4, 0.3, 0.3), False) == (3, 0)  # group table populated
+    assert picker(match, flat, (0.4, 0.3, 0.3), True) == (0, 0)   # empty KO table -> grid argmax
+
+
+def test_run_pick_policy_hands_factories_complete_edition_stage_flags(monkeypatch):
+    # A Copa-style edition truncated at the WC's first date: 12 group matches in
+    # late May, its 4-match bracket in late June — mid-flight when the WC 2018
+    # edition is scored, so every one of its history rows must stay group.
+    rows = _gate_rows()
+    for i in range(12):
+        rows.append(_hist_row(date(2018, 5, 20 + i % 8), 1700, 1400, 2, 0,
+                              comp="Copa America", home_id=41 + i % 8, away_id=41 + (i + 3) % 8))
+    for i in range(4):
+        rows.append(_hist_row(date(2018, 6, 25 + i), 1700, 1400, 2, 0,
+                              comp="Copa America", home_id=41 + i, away_id=45 + i))
+
+    seen: dict = {}
+
+    def spy(history, first_date, history_flags=None):
+        seen[first_date] = (history, history_flags)
+        return lambda r, grid, wdl, is_ko: (0, 0)
+
+    monkeypatch.setitem(PICK_CANDIDATES, "spy", spy)
+    run_pick_policy(rows, since_year=2010, n_boot=20, val_days=3650,
+                    served_params=DEFAULT_PARAMS)
+
+    history, flags = seen[date(2018, 6, 1)]  # the WC 2018 edition's factory call
+    assert flags is not None and len(flags) == len(history)
+    copa = [f for r, f in zip(history, flags) if r["competition"] == "Copa America"]
+    assert copa == [False] * 12  # the truncated view would flag its last 4
 
 
 # --- the walk-forward gate --------------------------------------------------------

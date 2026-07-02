@@ -224,20 +224,23 @@ CANDIDATES = {
 # Same factory pattern as CANDIDATES, one level down: the model (grid + W/D/L
 # triple) is the served engine for EVERY candidate; only the scoreline pick
 # moves, so top1 is the sole metric that can differ. Each factory maps
-# (history, first_date) -> picker(r, grid, wdl, is_knockout) -> (h, a), where
-# `history` is every enriched row strictly before the edition being scored and
-# `first_date` is the edition's first match date — empirical fits re-filter at
-# that cutoff inside EmpiricalScorePrior.fit, so a careless caller cannot leak.
+# (history, first_date, history_flags) -> picker(r, grid, wdl, is_knockout) ->
+# (h, a), where `history` is every enriched row strictly before the edition
+# being scored, `first_date` is the edition's first match date — empirical fits
+# re-filter at that cutoff inside EmpiricalScorePrior.fit, so a careless caller
+# cannot leak — and `history_flags` are index-aligned group/knockout labels
+# computed on COMPLETE editions (see history_with_flags), because re-inferring
+# stages from a date-truncated history mislabels concurrent editions.
 
 _PICK_CONTROL = "control (production rule)"
 
 
-def pick_control(history, first_date):
+def pick_control(history, first_date, history_flags=None):
     # The rule production publishes (FR-2.5 parity) — the gate's baseline.
     return lambda r, grid, wdl, is_ko: production_scoreline_pick(grid, wdl[0], wdl[1], wdl[2])
 
 
-def pick_unrestricted_argmax(history, first_date):
+def pick_unrestricted_argmax(history, first_date, history_flags=None):
     def pick(r, grid, wdl, is_ko):
         sh, sa, _ = most_likely_score(grid)
         return sh, sa
@@ -246,7 +249,7 @@ def pick_unrestricted_argmax(history, first_date):
 
 def make_band_pick(band: float):
     """Production rule with a wider coin-flip band than DRAW_HEADLINE_BAND."""
-    def factory(history, first_date):
+    def factory(history, first_date, history_flags=None):
         def pick(r, grid, wdl, is_ko):
             p_home, _, p_away = wdl
             if abs(p_home - p_away) <= band:
@@ -281,7 +284,7 @@ def blend_pick(grid, prior: EmpiricalScorePrior, gap: float, home_is_favorite: b
 
 def make_empirical_pick(w: float):
     """Empirical prior blend (FR-3.1d): one frequency table per Elo-gap bucket."""
-    def factory(history, first_date):
+    def factory(history, first_date, history_flags=None):
         prior = EmpiricalScorePrior().fit(history, before=first_date)
 
         def pick(r, grid, wdl, is_ko):
@@ -292,9 +295,15 @@ def make_empirical_pick(w: float):
 
 
 def make_stage_pick(w: float):
-    """Stage-conditional blend (FR-3.1e): separate group/knockout tables."""
-    def factory(history, first_date):
-        flags = knockout_flags(history)
+    """Stage-conditional blend (FR-3.1e): separate group/knockout tables.
+
+    Stage labels come from `history_flags` (complete-edition labels, see
+    history_with_flags) when supplied. The knockout_flags(history) fallback is
+    only safe when every edition in `history` is fully played — on a
+    date-truncated history it would mislabel the trailing group matches of
+    still-running concurrent editions as knockout."""
+    def factory(history, first_date, history_flags=None):
+        flags = history_flags if history_flags is not None else knockout_flags(history)
         priors = {
             ko: EmpiricalScorePrior().fit(
                 [r for r, f in zip(history, flags) if f == ko], before=first_date)
@@ -339,9 +348,15 @@ def knockout_flags(rows: list[dict]) -> list[bool]:
     major-final edition, the LAST k matches by date are the knockout stage,
     where k = _ko_team_count(distinct teams) — the bracket's k-1 games plus
     roughly one third-place match. Editions with odd legacy formats get a few
-    mislabels; acceptable noise for a frequency prior, and the same rule is
-    applied to fit and test rows so nothing is systematically skewed.
-    Non-major rows (friendlies, qualifiers) are never knockout."""
+    mislabels; acceptable noise for a frequency prior. Non-major rows
+    (friendlies, qualifiers) are never knockout.
+
+    The rule assumes every edition in `rows` is COMPLETE. Never apply it to a
+    date-truncated history: an edition still underway at the cutoff (summer
+    tournaments overlap — Euro/Copa 2016, 2021, 2024, the 2019 Copa/Gold
+    Cup/AFCON triple) looks like a tiny finished edition and its trailing GROUP
+    matches get flagged as knockout. Truncating callers must label the full row
+    set first and slice after — that is history_with_flags below."""
     flags = [False] * len(rows)
     editions: dict[tuple, list[int]] = defaultdict(list)
     for i, r in enumerate(rows):
@@ -354,6 +369,23 @@ def knockout_flags(rows: list[dict]) -> list[bool]:
         for i in ordered[len(ordered) - n_ko:]:
             flags[i] = True
     return flags
+
+
+def history_with_flags(rows: list[dict], first_date) -> tuple[list[dict], list[bool]]:
+    """Rows strictly before `first_date`, with index-aligned stage flags computed
+    on the FULL row set — never on the truncated slice.
+
+    Labeling before truncating matters: a concurrent edition still underway at
+    the cutoff (Euro 2024 when Copa América 2024 kicks off, the 2019 and 2021
+    summer overlaps) would look to knockout_flags like a tiny complete edition,
+    and its trailing GROUP matches would be mislabeled as knockout. Computing
+    flags on complete editions leaks no results — which matches are group vs
+    knockout is fixture knowledge, public before a ball is kicked — and the
+    returned history still contains only pre-cutoff rows."""
+    cutoff = _as_date(first_date)
+    flags = knockout_flags(rows)
+    pairs = [(r, f) for r, f in zip(rows, flags) if _as_date(r["date"]) < cutoff]
+    return [r for r, _ in pairs], [f for _, f in pairs]
 
 
 # --- run ---------------------------------------------------------------------
@@ -729,8 +761,12 @@ def run_pick_policy(rows: list[dict], since_year: int, n_boot: int, val_days: in
         if len(val) < MIN_VAL_MATCHES:  # underpowered window; skip (matches run())
             continue
         edition_count += 1
-        history = [r for r in rows if _as_date(r["date"]) < _as_date(first_date)]
-        pickers = {name: fn(history, first_date) for name, fn in PICK_CANDIDATES.items()}
+        # Stage labels are computed on the FULL row set before truncation, so a
+        # concurrent edition still underway at first_date keeps its true group
+        # labels instead of masquerading as a tiny complete edition.
+        history, history_flags = history_with_flags(rows, first_date)
+        pickers = {name: fn(history, first_date, history_flags)
+                   for name, fn in PICK_CANDIDATES.items()}
         target_flags = knockout_flags(target)
         for r, is_ko in zip(target, target_flags):
             wdl, grid = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], served)
