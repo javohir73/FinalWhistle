@@ -110,8 +110,14 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
 
     Never fabricates teams; freezes a row once it is in_play/finished; allows
     overwrite only while scheduled. A fixture whose kickoff matches no placeholder
-    (e.g. an unexpected reschedule) is skipped, not misplaced."""
+    (e.g. an unexpected reschedule) is skipped, not misplaced.
+
+    ``changed_match_ids`` in the returned summary lists matches whose pairing
+    actually changed this pass (newly assigned, or re-paired by a feed
+    correction) — the prediction-coverage sweep uses it to supersede stale
+    predictions (FR-1.1)."""
     assigned = skipped = unmapped = 0
+    pairing_before: dict[int, tuple[int | None, int | None]] = {}
 
     # Bucket incoming fixtures by our stage.
     by_stage: dict[str, list[dict]] = {}
@@ -132,6 +138,7 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
         # Frozen (in_play/finished) rows keep their teams. The provider lists every
         # KO fixture each cycle, so a determined match is re-applied the same pass.
         for r in stage_rows:
+            pairing_before[r.id] = (r.team_home_id, r.team_away_id)
             if r.status not in ("in_play", "finished"):
                 r.team_home_id = r.team_away_id = r.provider_fixture_id = None
         # Index placeholders by their scheduled kickoff instant (unique per round).
@@ -179,7 +186,17 @@ def assign_knockout_teams(db: Session, api_matches: list[dict]) -> dict:
             assigned += 1
 
     db.commit()
-    return {"assigned": assigned, "skipped": skipped, "unmapped_stage": unmapped}
+    changed = []
+    for mid, before in pairing_before.items():
+        m = db.get(Match, mid)
+        if m is not None and (m.team_home_id, m.team_away_id) != before:
+            changed.append(mid)
+    return {
+        "assigned": assigned,
+        "skipped": skipped,
+        "unmapped_stage": unmapped,
+        "changed_match_ids": sorted(changed),
+    }
 
 
 def _index_by_pair(db: Session) -> dict[frozenset, Match]:
@@ -438,5 +455,20 @@ def refresh_live(db: Session, api_key: str | None = None, competition: str | Non
         log.warning("live scores fetch failed: %s", exc)
         return {"error": str(exc), "updated": 0, "live": 0, "finished": 0}
 
-    assign_knockout_teams(db, api_matches)
-    return update_live_scores(db, api_matches)
+    ko = assign_knockout_teams(db, api_matches)
+    summary = update_live_scores(db, api_matches)
+    # FR-1.1: a pairing that just became known (or changed) needs a frozen
+    # prediction before kickoff — without one, evaluation silently skips the
+    # match. Best-effort: a sweep failure must never break score ingestion;
+    # the next pass or the daily pipeline retries.
+    try:
+        from pipeline.prediction_coverage import ensure_prediction_coverage
+
+        cov = ensure_prediction_coverage(
+            db, changed_match_ids=set(ko.get("changed_match_ids", []))
+        )
+        if cov["generated"]:
+            summary["predictions_generated"] = cov["generated"]
+    except Exception:  # noqa: BLE001 — coverage is retried by later passes
+        log.exception("prediction coverage sweep failed; scores unaffected")
+    return summary

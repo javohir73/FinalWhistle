@@ -537,3 +537,20 @@ def test_recompute_uses_knockout_results_and_103_scores_zero(db_session):
     assert 103 not in _ADVANCE_NOS  # 103 never awards advance points
     # recompute runs cleanly with knockout_results supplied
     assert recompute_scores(db_session, knockout_results=results) >= 0
+
+
+def test_assign_knockout_teams_reports_changed_match_ids(db_session):
+    """FR-1.1 companion: the assigner must report WHICH matches' pairings
+    changed this pass, so the coverage sweep can supersede stale predictions
+    after a feed correction (same feed twice => no changes)."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["Argentina", "France", "Brazil", "Germany", "Spain", "Portugal"])
+    api_matches = json.loads((_TESTDATA / "wc_ko_matches.json").read_text())
+
+    first = assign_knockout_teams(db_session, api_matches)
+    assert first["assigned"] == 4
+    assert len(first["changed_match_ids"]) == 4
+
+    second = assign_knockout_teams(db_session, api_matches)
+    assert second["assigned"] == 4  # re-applied as always
+    assert second["changed_match_ids"] == []  # but nothing actually changed

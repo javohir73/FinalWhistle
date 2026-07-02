@@ -68,3 +68,37 @@ def test_health_reports_learning_chain_heartbeat():
         assert chain["last_trigger"] == "test"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_health_reports_prediction_coverage():
+    """FR-1.3: a scheduled match with teams, kicking off within 48h, and no
+    frozen prediction row must surface as prediction_coverage.missing so
+    external monitors can alert before it becomes a guaranteed zero."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import Match, Prediction
+
+    c, session_factory = _client_with_db()
+    try:
+        cov = c.get("/api/health").json()["prediction_coverage"]
+        assert cov["missing"] == 0  # empty DB: nothing due
+
+        s = session_factory()
+        m = Match(tournament_id=1, stage="R32", status="scheduled",
+                  team_home_id=1, team_away_id=2,
+                  kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=12))
+        s.add(m)
+        s.commit()
+
+        cov = c.get("/api/health").json()["prediction_coverage"]
+        assert cov["missing"] == 1
+
+        s.add(Prediction(match_id=m.id, model_version="poisson-elo-test",
+                         prob_home_win=0.5, prob_draw=0.3, prob_away_win=0.2))
+        s.commit()
+        s.close()
+
+        cov = c.get("/api/health").json()["prediction_coverage"]
+        assert cov["missing"] == 0
+    finally:
+        app.dependency_overrides.clear()

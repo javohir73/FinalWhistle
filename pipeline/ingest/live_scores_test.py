@@ -462,3 +462,58 @@ def test_absent_scorers_leaves_goal_events_untouched(db_session):
     update_live_scores(db_session, _feed("IN_PLAY", home=1, away=0, minute=30))
     m = _match_for(db_session, "Mexico", "South Africa")
     assert m.goal_events is None  # football_data feed carries no scorers
+
+
+# ---- FR-1.1: a live pass that assigns KO teams must leave a frozen prediction ----
+
+def _ko_fixture_feed(db) -> list[dict]:
+    """A provider feed that assigns two seeded group-stage teams to KO match 89
+    (placement keys on the kickoff instant, like the real feed)."""
+    m89 = db.query(Match).filter_by(match_no=89).one()
+    teams = db.query(Team).order_by(Team.id).limit(2).all()
+    return [{
+        "id": 9101,
+        "stage": "LAST_16",
+        "utcDate": m89.kickoff_utc.isoformat().replace("+00:00", "Z"),
+        "homeTeam": {"name": teams[0].name},
+        "awayTeam": {"name": teams[1].name},
+        "status": "TIMED",
+        "score": {"fullTime": {"home": None, "away": None}},
+    }]
+
+
+def _spread_elos(db):
+    for i, t in enumerate(db.query(Team).order_by(Team.id).all()):
+        t.elo_rating = 1500.0 + (i % 12) * 40
+    db.commit()
+
+
+def test_refresh_live_generates_prediction_for_newly_assigned_ko_match(db_session, monkeypatch):
+    load_structure(db_session)
+    _spread_elos(db_session)
+    feed = _ko_fixture_feed(db_session)
+    monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", lambda key, comp=None: feed)
+
+    refresh_live(db_session, api_key="k")
+
+    m89 = db_session.query(Match).filter_by(match_no=89).one()
+    assert m89.team_home_id is not None  # assignment happened
+    from app.models import Prediction
+    assert db_session.query(Prediction).filter_by(match_id=m89.id).count() >= 1
+
+
+def test_refresh_live_survives_prediction_generation_failure(db_session, monkeypatch):
+    """Coverage generation is best-effort inside the live path: a crash there
+    must never break score ingestion (the next pass or the daily run retries)."""
+    load_structure(db_session)
+    _spread_elos(db_session)
+    feed = _ko_fixture_feed(db_session)
+    monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", lambda key, comp=None: feed)
+
+    def boom(db, changed_match_ids=frozenset()):
+        raise RuntimeError("generation exploded")
+
+    monkeypatch.setattr("pipeline.prediction_coverage.ensure_prediction_coverage", boom)
+
+    summary = refresh_live(db_session, api_key="k")
+    assert "error" not in summary  # ingestion completed despite the crash

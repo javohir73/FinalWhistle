@@ -71,3 +71,10 @@ def test_pipeline_is_idempotent(db_session):
     # Re-running must not duplicate teams or historical matches.
     assert db_session.query(Team).count() == teams_after_first
     assert db_session.query(HistoricalMatch).count() == hist_after_first
+
+
+def test_pipeline_reports_prediction_coverage(db_session):
+    """FR-1.2: after the predictions step, no scheduled match with teams may
+    lack a frozen prediction — the coverage step proves it in the summary."""
+    summary = run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+    assert summary["prediction_coverage"]["missing"] == 0

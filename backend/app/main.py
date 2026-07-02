@@ -150,6 +150,18 @@ def health(db: Session = Depends(get_db)) -> dict:
         }
     except Exception:  # noqa: BLE001 — health must answer even without a DB
         out["learning_chain"] = {"status": "unavailable"}
+    try:
+        from app.prediction_coverage import matches_missing_prediction
+
+        # Matches kicking off within 48h whose frozen prediction is missing —
+        # each would be a guaranteed zero in the model record (FR-1.3).
+        due = matches_missing_prediction(db, within_hours=48)
+        out["prediction_coverage"] = {
+            "missing": len(due),
+            "match_ids": [m.id for m in due][:20],
+        }
+    except Exception:  # noqa: BLE001 — health must answer even without a DB
+        out["prediction_coverage"] = {"status": "unavailable"}
     return out
 
 

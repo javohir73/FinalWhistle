@@ -55,17 +55,17 @@
 
 ## Tasks
 
-- [ ] 0.0 Create feature branch
-  - [ ] 0.1 Create and checkout the Phase 1 branch: `git checkout -b feat/prediction-coverage` (from up-to-date `main`; repeat this pattern per phase: `feat/90min-basis`, `feat/pick-policy`, `feat/odds-shadow`, `feat/attack-defence`)
+- [x] 0.0 Create feature branch
+  - [x] 0.1 Create and checkout the Phase 1 branch: `git checkout -b feat/prediction-coverage` (from up-to-date `main`; repeat this pattern per phase: `feat/90min-basis`, `feat/pick-policy`, `feat/odds-shadow`, `feat/attack-defence`)
 
 - [ ] 1.0 Phase 1 — Ops integrity: guarantee every match has a frozen pre-kickoff prediction (FR-1.1–FR-1.4)
-  - [ ] 1.1 Write a failing test: after `assign_knockout_teams` assigns both teams to a scheduled KO match with no `Prediction` row for that pairing, a prediction row exists for the match (test in `pipeline/ingest/live_scores_test.py` or `backend/tests/test_live_refresh.py`, wherever the trigger lands)
-  - [ ] 1.2 Extract/confirm a cheap single-match generation function in `pipeline/generate_predictions.py` (analytic `predict_match` payload only — no Monte-Carlo; reuse `build_payload`), callable with a `db` session and a `Match`
-  - [ ] 1.3 Hook the trigger: where `assign_knockout_teams` (pipeline/ingest/live_scores.py) newly assigns both teams, collect those match ids and generate predictions for them in the same pass, inside the post-results-chain error contract (never raises into the response; failures logged and retried by the next pass)
-  - [ ] 1.4 Write a failing test for the coverage counter: scheduled match + both teams + kickoff within 48h + no frozen prediction row ⇒ counted; then implement a `prediction_coverage(db)` helper (suggest `backend/app/chain_status.py` or a small new module) returning `{missing: N, match_ids: [...]}`
-  - [ ] 1.5 Add a `prediction_coverage` step to `run_pipeline` (after `predictions`) that runs the helper and fails loudly in the summary when `missing > 0` (log + summary, not an exception)
-  - [ ] 1.6 Surface it in `GET /api/health` as `prediction_coverage: {missing, checked_at}` (DB-guarded like `learning_chain` — health must answer without a DB); test in `backend/tests/test_health.py`
-  - [ ] 1.7 Pin the baseline in `docs/LEARNING-LOOP.md`: production snapshot 2026-07-02 (82 evaluated / 9 exact / 62.2% winner), the rule that all comparisons use production `/api/model/record`, and the gap-mix caveat (offline holdout ≈14.8% raw ≈13–14% WC-mix-adjusted)
+  - [x] 1.1 Write a failing test: after `assign_knockout_teams` assigns both teams to a scheduled KO match with no `Prediction` row for that pairing, a prediction row exists for the match (test in `pipeline/ingest/live_scores_test.py` or `backend/tests/test_live_refresh.py`, wherever the trigger lands)
+  - [x] 1.2 Extract/confirm a cheap single-match generation function in `pipeline/generate_predictions.py` (analytic `predict_match` payload only — no Monte-Carlo; reuse `build_payload`), callable with a `db` session and a `Match`
+  - [x] 1.3 Hook the trigger: where `assign_knockout_teams` (pipeline/ingest/live_scores.py) newly assigns both teams, collect those match ids and generate predictions for them in the same pass, inside the post-results-chain error contract (never raises into the response; failures logged and retried by the next pass)
+  - [x] 1.4 Write a failing test for the coverage counter: scheduled match + both teams + kickoff within 48h + no frozen prediction row ⇒ counted; then implement a `prediction_coverage(db)` helper (suggest `backend/app/chain_status.py` or a small new module) returning `{missing: N, match_ids: [...]}`
+  - [x] 1.5 Add a `prediction_coverage` step to `run_pipeline` (after `predictions`) that runs the helper and fails loudly in the summary when `missing > 0` (log + summary, not an exception)
+  - [x] 1.6 Surface it in `GET /api/health` as `prediction_coverage: {missing, checked_at}` (DB-guarded like `learning_chain` — health must answer without a DB); test in `backend/tests/test_health.py`
+  - [x] 1.7 Pin the baseline in `docs/LEARNING-LOOP.md`: production snapshot 2026-07-02 (82 evaluated / 9 exact / 62.2% winner), the rule that all comparisons use production `/api/model/record`, and the gap-mix caveat (offline holdout ≈14.8% raw ≈13–14% WC-mix-adjusted)
   - [ ] 1.8 Full suite green; open PR "feat(predictions): regenerate on KO team assignment + coverage guarantee"; after merge, trigger the `refresh-data` workflow and verify `prediction_coverage.missing == 0` on production `/api/health`
 
 - [ ] 2.0 Phase 2 — Measurement correctness (FR-2.1–FR-2.5)

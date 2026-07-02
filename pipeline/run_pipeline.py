@@ -71,6 +71,22 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     covered = finished_match_count(db)
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
+
+    # Coverage assertion (FR-1.2): after the predictions step, no imminent
+    # match may lack a frozen prediction. Loud in the summary, not fatal —
+    # the sweep in the live path is the healer, this is the detector.
+    def _prediction_coverage() -> dict:
+        from app.prediction_coverage import matches_missing_prediction
+
+        due = matches_missing_prediction(db, within_hours=48)
+        if due:
+            log.error(
+                "prediction coverage gap: %d match(es) without a frozen "
+                "prediction: %s", len(due), [m.id for m in due],
+            )
+        return {"missing": len(due), "match_ids": [m.id for m in due]}
+
+    step("prediction_coverage", _prediction_coverage)
     step("bracket_scores", lambda: recompute_scores(db, knockout_results=knockout_results_from_db(db)))
     # The steps above are the post-results chain at full depth — stamp the
     # heartbeat so /api/health and the opportunistic retries know nothing is owed.
