@@ -85,6 +85,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             · Explainable World Cup 2026 predictions · For analytics and
             entertainment only. Not betting advice.
             <span className="mt-1.5 block">
+              <Link href="/methodology" className="underline-offset-2 hover:text-foreground hover:underline">
+                Methodology
+              </Link>{" "}
+              ·{" "}
               <Link href="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
                 Privacy
               </Link>{" "}
