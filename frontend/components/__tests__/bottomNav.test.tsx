@@ -42,18 +42,12 @@ it.each([
   ["/groups", "Groups"],
   ["/groups/2", "Groups"], // group detail still lights Groups
   ["/brackets", "Bracket"],
-  ["/my-bracket", "Bracket"], // your picks live under the Bracket tab
   ["/leaderboard", "You"],
   ["/about", "You"], // relocated info pages light the You hub
   ["/methodology", "You"],
 ])("marks the right tab active on %s", (path, label) => {
   renderAt(path);
   expect(current()).toContain(label);
-});
-
-it("does not false-match prefix collisions (/my-bracket is not Brackets href)", () => {
-  renderAt("/my-bracket");
-  expect(current()).toEqual(["Bracket"]);
 });
 
 it("uses the deep lime for the active tab on the light canvas", () => {

@@ -19,7 +19,6 @@ const LINKS: NavLink[] = [
   { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
   { href: "/groups", label: "Groups", activePrefixes: [] },
   { href: "/brackets", label: "Bracket", activePrefixes: [] },
-  { href: "/my-bracket", label: "My Bracket", activePrefixes: [] },
   {
     href: "/leaderboard",
     label: "You",

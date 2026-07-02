@@ -24,7 +24,7 @@ const OUT = resolve(import.meta.dirname, "../../store-assets");
 const SCENES = [
   { slug: "01-home", path: "/", settle: 2500 },
   { slug: "02-matches", path: "/matches", settle: 3000 },
-  { slug: "03-my-bracket", path: "/my-bracket", settle: 3000 },
+  { slug: "03-brackets", path: "/brackets", settle: 3500 },
   { slug: "04-leaderboard", path: "/leaderboard", settle: 2500 },
 ];
 
