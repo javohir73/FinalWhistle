@@ -15,6 +15,7 @@ const mockGetMe = session.getMe as jest.Mock;
 const mockGetMyBracket = session.getMyBracket as jest.Mock;
 const mockSaveBracket = session.saveBracket as jest.Mock;
 const mockLogout = session.logout as jest.Mock;
+const mockLoadUserHint = session.loadUserHint as jest.Mock;
 
 /** Pinned public contract: where the device records which account the local
  *  bracket belongs to. */
@@ -92,6 +93,10 @@ const savedMatchIds = (call: BracketPayload) => call.group_picks.map((p) => p.ma
 
 beforeEach(() => {
   localStorage.clear();
+  // These scenarios model a RETURNING signed-in user: a cached display hint is
+  // present, so the provider reconciles against /auth/me on mount (a guest with
+  // no hint would skip the probe entirely).
+  mockLoadUserHint.mockReturnValue(alice);
   mockGetMe.mockResolvedValue(alice);
   mockSaveBracket.mockResolvedValue(savedBracket(1));
   mockLogout.mockResolvedValue(undefined);
