@@ -31,6 +31,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.fifa_rankings import LOCAL_RANKINGS_CSV, apply_rankings, load_rankings_df
     from pipeline.ingest.historical_results import download_results_df, load_historical
+    from pipeline.ingest.ko_venues import apply_ko_venues
     from pipeline.ingest.wc26_structure import load_structure
     from pipeline.learning_loop import run_learning_loop
     from pipeline.prune_auth import prune_auth_rows
@@ -50,6 +51,9 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
         return result
 
     step("structure", lambda: load_structure(db))
+    # KO venues are static (keyed by match_no) — load_structure fills group-stage
+    # venues, this fills knockout ones. Idempotent, so safe on every run.
+    step("ko_venues", lambda: apply_ko_venues(db))
     df = results_df if results_df is not None else step("download_results", download_results_df)
     step("historical", lambda: load_historical(db, df))
     step("elo", lambda: compute_and_store_elo(db))
