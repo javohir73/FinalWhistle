@@ -48,6 +48,19 @@ def test_pipeline_marks_chain_covered(db_session):
     assert chain_pending(db_session) is False
 
 
+def test_pipeline_populates_knockout_venues(db_session):
+    """The daily pipeline must fill knockout venues (city/country/stadium), not
+    just group-stage ones — otherwise KO match pages show a blank venue."""
+    from app.models import Match
+
+    run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+
+    m82 = db_session.get(Match, 82)
+    assert m82.venue == "Lumen Field"
+    assert m82.venue_city == "Seattle"
+    assert m82.venue_country == "United States"
+
+
 def test_pipeline_is_idempotent(db_session):
     df = _sample_results()
     run_pipeline(db_session, results_df=df, n_sims=100)
