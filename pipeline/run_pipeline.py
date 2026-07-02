@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     """Execute the full refresh. Pass results_df to skip the network download
     (used by tests). Returns a summary of every step."""
+    from app.chain_status import finished_match_count, record_success
     from app.config import settings
     from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.compute_elo import compute_and_store_elo
@@ -62,9 +63,14 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
 
     # Learning loop AFTER the Elo base is fresh, BEFORE predictions consume the
     # adjusted ratings: evaluate finished matches, refresh tournament state.
+    # Count first: a match finishing mid-pipeline stays owed for the next sweep.
+    covered = finished_match_count(db)
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
     step("bracket_scores", lambda: recompute_scores(db, knockout_results=knockout_results_from_db(db)))
+    # The steps above are the post-results chain at full depth — stamp the
+    # heartbeat so /api/health and the opportunistic retries know nothing is owed.
+    step("chain_status", lambda: record_success(db, covered, trigger="pipeline"))
     step("prune_auth", lambda: prune_auth_rows(db))
     log.info("pipeline complete")
     return summary

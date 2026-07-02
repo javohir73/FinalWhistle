@@ -6,10 +6,11 @@ routers are added in task 5.0.
 """
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 logger = logging.getLogger(__name__)
@@ -20,6 +21,7 @@ from app.api import (
 )
 from app.config import settings
 from app.cache import cache
+from app.db import get_db
 
 # Error tracking — only active when SENTRY_DSN is set (safe no-op otherwise).
 if settings.sentry_dsn:
@@ -116,15 +118,39 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.get("/api/health")
-def health() -> dict:
-    """Liveness check. The frontend homepage calls this to prove connectivity."""
-    return {
+def health(db: Session = Depends(get_db)) -> dict:
+    """Liveness check. The frontend homepage calls this to prove connectivity.
+
+    Also surfaces the post-results chain heartbeat: chain failures are
+    swallowed at the trigger sites by design, so this is where a silently
+    dying chain (crash / instance kill mid-simulation) becomes visible to
+    monitors. Guarded — liveness never depends on the DB being reachable."""
+    out = {
         "status": "ok",
         "app": settings.app_name,
         "model_version": settings.model_version,
         "live_updates": "ready" if settings.live_updates_active else "inactive",
         "email": settings.email_status,
     }
+    try:
+        from app.chain_status import chain_pending, get_chain_status
+
+        row = get_chain_status(db)
+
+        def _iso(dt):
+            return dt.isoformat() if dt else None
+
+        out["learning_chain"] = {
+            "pending": chain_pending(db),  # finished matches no completed chain covers
+            "last_attempt_at": _iso(row.last_attempt_at if row else None),
+            "last_success_at": _iso(row.last_success_at if row else None),
+            "last_error_at": _iso(row.last_error_at if row else None),
+            "last_error": row.last_error if row else None,
+            "last_trigger": row.last_trigger if row else None,
+        }
+    except Exception:  # noqa: BLE001 — health must answer even without a DB
+        out["learning_chain"] = {"status": "unavailable"}
+    return out
 
 
 @app.get("/api/health/provider")

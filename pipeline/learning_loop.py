@@ -28,6 +28,13 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
+from app.chain_status import (
+    finished_match_count,
+    finished_matches_query,
+    record_attempt,
+    record_failure,
+    record_success,
+)
 from app.models import (
     HistoricalMatch,
     Match,
@@ -58,16 +65,12 @@ def _finished_matches(db: Session) -> list[Match]:
     one accepted skew: a tie decided by an extra-time goal counts at its
     after-ET score rather than the 90-minute draw — consistent with how the
     record is displayed, and the replay's Elo update stays conservative.
+    Eligibility (finished + teams + scores) is shared with the chain-status
+    watermark (app/chain_status.finished_matches_query) so "pending" counts
+    exactly what this loop sweeps.
     """
     return (
-        db.query(Match)
-        .filter(
-            Match.status == "finished",
-            Match.score_home.isnot(None),
-            Match.score_away.isnot(None),
-            Match.team_home_id.isnot(None),
-            Match.team_away_id.isnot(None),
-        )
+        finished_matches_query(db)
         .order_by(Match.kickoff_utc.asc().nullslast(), Match.id.asc())
         .all()
     )
@@ -269,4 +272,35 @@ def run_post_results_chain(
         db, n_sims=n_sims, tournament_sims=tournament_sims
     )
     summary["brackets"] = recompute_scores(db, knockout_results=knockout_results_from_db(db))
+    return summary
+
+
+def run_tracked_post_results_chain(
+    db: Session,
+    model_version: str,
+    *,
+    trigger: str,
+    n_sims: int = 2000,
+    tournament_sims: int = 1000,
+) -> dict:
+    """``run_post_results_chain`` with a durable heartbeat (app/chain_status).
+
+    Records the attempt before the heavy work (committed, so even a killed
+    process leaves a trace), and advances the success watermark ONLY after the
+    full chain completed — a crash or an OOM-kill mid-run leaves the finished
+    matches marked pending, which later refreshes and the daily pipeline use
+    to retry. Failures are recorded and re-raised: swallow-or-500 is the
+    caller's policy, the bookkeeping is not.
+    """
+    covered = finished_match_count(db)  # taken BEFORE: a mid-run finish stays owed
+    record_attempt(db, trigger)
+    try:
+        summary = run_post_results_chain(
+            db, model_version, n_sims=n_sims, tournament_sims=tournament_sims
+        )
+    except Exception as exc:
+        db.rollback()  # drop any partial, uncommitted stage before the status write
+        record_failure(db, exc)
+        raise
+    record_success(db, covered)
     return summary

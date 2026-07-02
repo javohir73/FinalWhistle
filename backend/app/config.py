@@ -47,6 +47,13 @@ class Settings(BaseSettings):
     # safe no-op.
     live_mode_enabled: bool = False
 
+    # Post-results chain (runs opportunistically inside the web process after a
+    # final whistle): slimmer Monte-Carlo than the daily pipeline — freshness
+    # beats the last decimal there, and a long chain risks being killed on a
+    # small instance mid-run. The 06:00 UTC pipeline re-simulates at full depth.
+    chain_n_sims: int = 1000
+    chain_tournament_sims: int = 500
+
     @property
     def active_live_api_key(self) -> str:
         """API key for the currently selected live provider ("" => unconfigured)."""

@@ -593,6 +593,30 @@ class MatchPick(Base):
     user: Mapped[AppUser] = relationship(back_populates="match_picks")
 
 
+class LearningChainStatus(Base):
+    """Single-row (id=1) heartbeat of the post-results chain.
+
+    The chain runs opportunistically inside the web process after a final
+    whistle, and its trigger sites swallow failures by design — so a crash (or
+    the instance being killed mid-simulation) would otherwise be invisible and
+    the finished match silently unprocessed. This row records every attempt /
+    success / failure, plus ``covered_finished``: the finished-match count
+    covered by the last COMPLETED chain. Current finished count > covered
+    means work is owed — later refreshes retry it (app/live_refresh.py) and
+    /api/health surfaces it. Accessors live in app/chain_status.py.
+    """
+
+    __tablename__ = "learning_chain_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    last_trigger: Mapped[str | None] = mapped_column(String(30))
+    covered_finished: Mapped[int] = mapped_column(Integer, default=0)
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -618,4 +642,5 @@ __all__ = [
     "BracketKnockoutPick",
     "BracketScore",
     "MatchPick",
+    "LearningChainStatus",
 ]

@@ -35,6 +35,19 @@ def test_pipeline_runs_end_to_end(db_session):
     assert db_session.query(Standing).count() == 48
 
 
+def test_pipeline_marks_chain_covered(db_session):
+    """The daily run is the catch-all sweep: after it completes, the chain
+    heartbeat shows success and nothing owed (health stops flagging pending)."""
+    from app.chain_status import chain_pending, get_chain_status
+
+    run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+
+    row = get_chain_status(db_session)
+    assert row is not None and row.last_success_at is not None
+    assert row.last_trigger == "pipeline"
+    assert chain_pending(db_session) is False
+
+
 def test_pipeline_is_idempotent(db_session):
     df = _sample_results()
     run_pipeline(db_session, results_df=df, n_sims=100)

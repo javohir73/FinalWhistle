@@ -10,14 +10,20 @@ from sqlalchemy.pool import StaticPool
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
+from app.models import Match
 
 
-def _client():
+def _client(*matches):
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
     Base.metadata.create_all(engine)
     TestingSession = sessionmaker(bind=engine, future=True)
+    if matches:
+        s = TestingSession()
+        s.add_all(matches)
+        s.commit()
+        s.close()
 
     def override_get_db():
         s = TestingSession()
@@ -79,6 +85,33 @@ def test_no_chain_when_nothing_newly_finished(monkeypatch):
         assert r.status_code == 200
         assert chain_calls == []
         assert "post_results" not in r.json()["live"]
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_endpoint_sweeps_owed_chain_without_transition(monkeypatch):
+    """A finish that slipped through (chain crashed, or ingested while the
+    process was down) is swept by the next cron hit — the cron path must not
+    wait for another whistle or the daily pipeline."""
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+    monkeypatch.setattr(
+        "pipeline.ingest.live_scores.refresh_live",
+        lambda db: {"updated": 0, "live": 0, "finished": 1, "newly_finished": 0},
+    )
+    chain_calls = []
+    monkeypatch.setattr(
+        "pipeline.learning_loop.run_post_results_chain",
+        lambda db, mv, **kw: chain_calls.append(mv) or {"learning": {"evaluated_new": 1}},
+    )
+    client = _client(
+        Match(tournament_id=1, stage="R32", status="finished",
+              score_home=1, score_away=0, team_home_id=1, team_away_id=2)
+    )
+    try:
+        r = client.post("/api/internal/refresh-live", headers={"X-Recompute-Token": "secret"})
+        assert r.status_code == 200
+        assert chain_calls == [settings.model_version]
+        assert r.json()["live"]["post_results"]["learning"]["evaluated_new"] == 1
     finally:
         app.dependency_overrides.clear()
 

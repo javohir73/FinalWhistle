@@ -46,11 +46,12 @@ def recompute(
     # Lazy import: the model packages aren't needed for normal read traffic.
     # Full chain: evaluate finished predictions + update tournament ratings
     # (conservative Elo delta + capped form), THEN regenerate predictions and
-    # simulations from the adjusted ratings, THEN rescore brackets.
-    from pipeline.learning_loop import run_post_results_chain
+    # simulations from the adjusted ratings, THEN rescore brackets. Tracked:
+    # success advances the chain watermark, failure is recorded for /api/health.
+    from pipeline.learning_loop import run_tracked_post_results_chain
 
-    summary = run_post_results_chain(
-        db, settings.model_version, n_sims=5000, tournament_sims=2000
+    summary = run_tracked_post_results_chain(
+        db, settings.model_version, trigger="recompute", n_sims=5000, tournament_sims=2000
     )
     cache.clear()
     return {"status": "ok", "recomputed": summary}
@@ -91,7 +92,7 @@ def refresh_live(
     from pipeline.ingest.live_scores import refresh_live as run_live
 
     summary = run_live(db)
-    maybe_run_post_results_chain(db, summary)  # never raises into the response
+    maybe_run_post_results_chain(db, summary, trigger="internal")  # never raises
     cache.clear()
     return {"status": "ok", "live": summary}
 
