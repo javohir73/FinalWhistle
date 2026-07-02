@@ -77,7 +77,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <SiteNav />
             <OfflineBanner />
           </div>
-          <main id="main" className="mx-auto max-w-6xl px-4 py-8 sm:px-5">{children}</main>
+          <main
+            id="main"
+            className="mx-auto max-w-6xl px-4 pb-[calc(env(safe-area-inset-bottom)+72px)] pt-8 sm:px-5 sm:pb-8"
+          >
+            {children}
+          </main>
           {/* Bottom padding clears the fixed mobile tab bar + the iPhone home
               indicator (safe-area inset is 0 on desktop/non-notched devices). */}
           <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
