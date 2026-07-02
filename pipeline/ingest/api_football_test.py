@@ -288,3 +288,36 @@ def test_attach_events_finished_fixture_keeps_goal_count_trigger_only(db_session
     feed[0]["_fixture_id"] = 779
     af.attach_events(db_session, feed, "dummy-key")
     assert calls["n"] == 0  # finished + goal totals agree: no staleness refetch
+
+
+def test_refresh_live_api_football_stores_cards(db_session, monkeypatch):
+    from app.config import settings as app_settings
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    monkeypatch.setattr(app_settings, "live_provider", "api_football")
+    monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
+    monkeypatch.setattr(af, "fetch_fixtures",
+                        lambda *a, **k: [_fixture("2H", elapsed=55, gh=1, ga=0)])
+    monkeypatch.setattr(af, "fetch_events", lambda *a, **k: [
+        _event("Normal Goal", "Mexico", "R. Jimenez", 30),
+        _event("Red Card", "South Africa", "T. Mokoena", 44, etype="Card"),
+    ])
+    af._last_events_fetch.clear()
+
+    refresh_live(db_session)
+    h = db_session.query(Team).filter_by(name="Mexico").one()
+    a = db_session.query(Team).filter_by(name="South Africa").one()
+    m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    assert m.card_events == [
+        {"minute": 44, "side": "away", "player": "T. Mokoena", "type": "red"}]
+    assert m.goal_events == [
+        {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+
+    # A later refresh that fetches no events (goal totals agree, tracker fresh)
+    # must not blank the stored cards.
+    monkeypatch.setattr(af, "fetch_events", lambda *a, **k: [])
+    refresh_live(db_session)
+    db_session.refresh(m)
+    assert m.card_events == [
+        {"minute": 44, "side": "away", "player": "T. Mokoena", "type": "red"}]

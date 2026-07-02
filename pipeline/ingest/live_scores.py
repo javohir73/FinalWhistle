@@ -392,6 +392,8 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
 
         if "scorers" in am:
             match.goal_events = am["scorers"]
+        if "cards" in am:
+            match.card_events = am["cards"]
         if incoming_lu is not None:
             match.provider_last_updated = incoming_lu
         updated += 1

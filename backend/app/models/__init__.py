@@ -124,6 +124,12 @@ class Match(Base):
     # {minute, side: "home"|"away", player, type: "goal"|"penalty"|"own_goal"}.
     # Populated by the api_football provider only (football-data has no scorers).
     goal_events: Mapped[list | None] = mapped_column(JSON)
+    # Card events, same pipeline as goal_events: ordered list of
+    # {minute, side: "home"|"away", player, type: "yellow"|"red"}. A second
+    # yellow arrives from the feed as a single "red" event. Populated by the
+    # api_football provider only (football-data has no cards) — None means
+    # "no card data", which every consumer treats as zero cards.
+    card_events: Mapped[list | None] = mapped_column(JSON)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
