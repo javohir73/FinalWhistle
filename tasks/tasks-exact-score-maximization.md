@@ -68,7 +68,7 @@
   - [x] 1.7 Pin the baseline in `docs/LEARNING-LOOP.md`: production snapshot 2026-07-02 (82 evaluated / 9 exact / 62.2% winner), the rule that all comparisons use production `/api/model/record`, and the gap-mix caveat (offline holdout ≈14.8% raw ≈13–14% WC-mix-adjusted)
   - [x] 1.8 Full suite green; open PR "feat(predictions): regenerate on KO team assignment + coverage guarantee"; after merge, trigger the `refresh-data` workflow and verify `prediction_coverage.missing == 0` on production `/api/health`
 
-- [ ] 2.0 Phase 2 — Measurement correctness (FR-2.1–FR-2.5)
+- [x] 2.0 Phase 2 — Measurement correctness (FR-2.1–FR-2.5)
   - [x] 2.1 Migration + model: add nullable `score_home_90`/`score_away_90` to `Match` (`backend/app/models/__init__.py` + new alembic revision chained on current head); test table round-trip
   - [x] 2.2 Write failing tests for 90-minute capture in `pipeline/ingest/live_scores_test.py`: (a) match enters extra time ⇒ 90' score frozen at the regulation score, (b) match finishes without ET ⇒ 90' score = final score, (c) shootout after ET ⇒ 90' score stays the regulation score, (d) re-ingest after finish never overwrites a captured 90' score
   - [x] 2.3 Implement capture in `update_live_scores` (pipeline/ingest/live_scores.py) using the existing period/duration tracking
@@ -76,35 +76,35 @@
   - [x] 2.5 Backfill: one-off, idempotent pipeline step or script deriving 90' scores for already-finished KO matches from `Match.goal_events` minute data (goals ≤ 90' + injury time count; document matches where events are incomplete — they keep the after-ET score per FR-2.3)
   - [x] 2.6 Residual bug fix (FR-2.4): failing regression test in `ml/ratings/tournament_test.py` pinning that `replay_tournament` computes expected goals with the SERVED params (from `ml/models/params.py`), not v0.1 defaults; then fix `ml/ratings/tournament.py:~145` (thread params through, keep signature backward-compatible)
   - [x] 2.7 Harness parity (FR-2.5): add a `production_pick(matrix, p_home, p_away)` scorer to `ml/evaluation/scoreline_metrics.py` that replicates `predict_match`'s DRAW_HEADLINE_BAND + outcome-restricted argmax exactly (parity test: feed both the same grids, assert identical picks); switch `experiment_model_eval.py`'s `top1` to use it (keep the unrestricted metric as `top1_unrestricted` for comparison)
-  - [ ] 2.8 Full suite green; PR "fix(model): 90-minute scoring basis + served-params residuals + harness parity"; after merge run `refresh-data`, then record the re-based production record in `docs/MODEL-EXPERIMENTS.md`
+  - [x] 2.8 Full suite green; PR "fix(model): 90-minute scoring basis + served-params residuals + harness parity"; after merge run `refresh-data`, then record the re-based production record in `docs/MODEL-EXPERIMENTS.md`
 
-- [ ] 3.0 Phase 3 — Pick-policy offline experiment (FR-3.1–FR-3.3)
+- [x] 3.0 Phase 3 — Pick-policy offline experiment (FR-3.1–FR-3.3)
   - [x] 3.1 Create `docs/MODEL-EXPERIMENTS.md` with the experiment-log format (date, candidate, holdout, metric deltas, bootstrap CI, verdict) and back-enter the two design-time refutations (unrestricted argmax; base/rho re-tune)
-  - [ ] 3.2 Build `ml/evaluation/empirical_prior.py` (TDD): fit a scoreline-frequency table conditioned on Elo-gap bucket from historical matches **strictly before a given date** (no-leakage test: table fitted at date D contains no matches ≥ D); start with buckets 0–50/50–150/150+ and make boundaries a parameter (PRD open question 4)
-  - [ ] 3.3 Add harness candidates to `pipeline/experiment_model_eval.py` `CANDIDATES`: control (production rule), unrestricted argmax, band = 0.15/0.20/0.25, empirical blend `(1−w)·P_grid + w·F_empirical` for w ∈ {0.1, 0.2, 0.3}, and stage-conditional (group vs KO) tables
-  - [ ] 3.4 Run the walk-forward evaluation (`--since 2004`, ~1,843 matches), record every candidate's parity-top1 delta + bootstrap CI in `docs/MODEL-EXPERIMENTS.md`
-  - [ ] 3.5 If a candidate clears the gate: implement it in `predict_match` behind `model_params.json` config (TDD), bump the model version, update the methodology note (task 6.1), PR + deploy + `refresh-data`. If none clears: record the negative result and close the phase (that outcome is likely and fine)
+  - [x] 3.2 Build `ml/evaluation/empirical_prior.py` (TDD): fit a scoreline-frequency table conditioned on Elo-gap bucket from historical matches **strictly before a given date** (no-leakage test: table fitted at date D contains no matches ≥ D); start with buckets 0–50/50–150/150+ and make boundaries a parameter (PRD open question 4)
+  - [x] 3.3 Add harness candidates to `pipeline/experiment_model_eval.py` `CANDIDATES`: control (production rule), unrestricted argmax, band = 0.15/0.20/0.25, empirical blend `(1−w)·P_grid + w·F_empirical` for w ∈ {0.1, 0.2, 0.3}, and stage-conditional (group vs KO) tables
+  - [x] 3.4 Run the walk-forward evaluation (`--since 2004`, ~1,843 matches), record every candidate's parity-top1 delta + bootstrap CI in `docs/MODEL-EXPERIMENTS.md`
+  - [x] 3.5 If a candidate clears the gate: implement it in `predict_match` behind `model_params.json` config (TDD), bump the model version, update the methodology note (task 6.1), PR + deploy + `refresh-data`. If none clears: record the negative result and close the phase (that outcome is likely and fine)
 
-- [ ] 4.0 Phase 4 — Market-odds anchoring in shadow mode (FR-4.1–FR-4.8)
-  - [ ] 4.1 Verify API-Football `/odds` coverage for upcoming international fixtures FIRST (PRD open question 2) — a small read-only probe script; if coverage is poor, stop and record in `docs/MODEL-EXPERIMENTS.md` (blend weight stays 0, phase re-scoped)
-  - [ ] 4.2 Build `pipeline/ingest/odds.py` (TDD): fetch 1X2 + over/under-2.5 for scheduled matches inside a pre-kickoff window, write `Odds` rows (median across bookmakers; store `captured_at`); best-effort contract test — fetch failure/empty response leaves DB unchanged and never raises into callers (FR-4.2)
-  - [ ] 4.3 Build `ml/models/odds_blend.py` (TDD): margin removal (normalize implied probs), invert O/U-2.5 + 1X2 into a market λ-total (Poisson-grid search or closed-form approximation — document choice), and `blend_lambda_total(lam_h, lam_a, market_total, w_odds)` preserving the Elo split; property tests (w=0 identity, w=1 sum=market, split invariant)
-  - [ ] 4.4 Shadow storage: `Prediction.is_shadow` boolean (default false) + migration; shadow generation step (daily pipeline + post-chain) producing `poisson-elo-v0.3-shadow` rows with the odds blend when odds exist, pure-Elo otherwise
-  - [ ] 4.5 Shadow isolation (FR-4.5), one failing test per exclusion BEFORE wiring: serving endpoints, `learning_loop._frozen_prediction`, bracket scoring, public `/api/model/record`
-  - [ ] 4.6 Shadow scoring: learning loop evaluates shadow rows into `PredictionResult` tagged with the shadow version; internal comparison endpoint (e.g. `GET /api/model/record?version=` or `/api/internal/shadow-record`) returning production vs shadow: n, exact hits, winner acc, Brier (FR-4.6)
-  - [ ] 4.7 Knockout λ-multiplier candidate (FR-4.7): add to the harness (backtestable on historical 90' KO scores via the 2.7 parity metric), gate per FR-3.2, log the result; ships independently of shadow mode if it clears
-  - [ ] 4.8 PR + deploy shadow mode; let it accumulate. Promotion (FR-4.8) is a separate, later, owner-approved one-line version switch — never automatic
-  - [ ] 4.9 Wire the production-vs-shadow comparison into the monitoring routine so the owner sees it without asking (e.g. include in the health-check summary the monitoring loop reports)
+- [x] 4.0 Phase 4 — Market-odds anchoring in shadow mode (FR-4.1–FR-4.8)
+  - [x] 4.1 Verify API-Football `/odds` coverage for upcoming international fixtures FIRST (PRD open question 2) — a small read-only probe script; if coverage is poor, stop and record in `docs/MODEL-EXPERIMENTS.md` (blend weight stays 0, phase re-scoped)
+  - [x] 4.2 Build `pipeline/ingest/odds.py` (TDD): fetch 1X2 + over/under-2.5 for scheduled matches inside a pre-kickoff window, write `Odds` rows (median across bookmakers; store `captured_at`); best-effort contract test — fetch failure/empty response leaves DB unchanged and never raises into callers (FR-4.2)
+  - [x] 4.3 Build `ml/models/odds_blend.py` (TDD): margin removal (normalize implied probs), invert O/U-2.5 + 1X2 into a market λ-total (Poisson-grid search or closed-form approximation — document choice), and `blend_lambda_total(lam_h, lam_a, market_total, w_odds)` preserving the Elo split; property tests (w=0 identity, w=1 sum=market, split invariant)
+  - [x] 4.4 Shadow storage: `Prediction.is_shadow` boolean (default false) + migration; shadow generation step (daily pipeline + post-chain) producing `poisson-elo-v0.3-shadow` rows with the odds blend when odds exist, pure-Elo otherwise
+  - [x] 4.5 Shadow isolation (FR-4.5), one failing test per exclusion BEFORE wiring: serving endpoints, `learning_loop._frozen_prediction`, bracket scoring, public `/api/model/record`
+  - [x] 4.6 Shadow scoring: learning loop evaluates shadow rows into `PredictionResult` tagged with the shadow version; internal comparison endpoint (e.g. `GET /api/model/record?version=` or `/api/internal/shadow-record`) returning production vs shadow: n, exact hits, winner acc, Brier (FR-4.6)
+  - [x] 4.7 Knockout λ-multiplier candidate (FR-4.7): add to the harness (backtestable on historical 90' KO scores via the 2.7 parity metric), gate per FR-3.2, log the result; ships independently of shadow mode if it clears
+  - [x] 4.8 PR + deploy shadow mode; let it accumulate. Promotion (FR-4.8) is a separate, later, owner-approved one-line version switch — never automatic
+  - [x] 4.9 Wire the production-vs-shadow comparison into the monitoring routine so the owner sees it without asking (e.g. include in the health-check summary the monitoring loop reports)
 
-- [ ] 5.0 Phase 5 — Per-team attack/defence upgrade, gated (FR-5.1–FR-5.4)
-  - [ ] 5.1 Build `pipeline/fit_attack_defence.py` (TDD): time-decayed Poisson MLE over `historical_matches` (~49k rows) producing per-team attack/defence offsets; decay half-life a parameter (default in the 2–4-year range); seeded + reproducible; runs offline/CI only, writes `ml/models/team_offsets.json`
-  - [ ] 5.2 Shrinkage + caps (TDD): teams under N matches shrink toward 0; hard cap on |offset| mirroring the form-layer policy; property tests for both bounds
-  - [ ] 5.3 Choke-point integration behind config: `expected_goals_from_elo`/`predict_match` applies `exp(atk_home + def_away)` multipliers only when `model_params.json` enables offsets; off by default; identity test when disabled
-  - [ ] 5.4 Walk-forward harness candidate with the parity metric; edition-bootstrap gate decides (FR-5.3); record the result either way in `docs/MODEL-EXPERIMENTS.md`
-  - [ ] 5.5 If the gate clears: enable via params + version bump, PR + deploy + `refresh-data` + methodology note. If not: leave the code path disabled and documented
-  - [ ] 5.6 (Optional, FR-5.4 — only after 2.6) capped asymmetric in-tournament residual candidate through the same gate; expected to fail at n=3–4 matches/team; record and move on
+- [x] 5.0 Phase 5 — Per-team attack/defence upgrade, gated (FR-5.1–FR-5.4)
+  - [x] 5.1 Build `pipeline/fit_attack_defence.py` (TDD): time-decayed Poisson MLE over `historical_matches` (~49k rows) producing per-team attack/defence offsets; decay half-life a parameter (default in the 2–4-year range); seeded + reproducible; runs offline/CI only, writes `ml/models/team_offsets.json`
+  - [x] 5.2 Shrinkage + caps (TDD): teams under N matches shrink toward 0; hard cap on |offset| mirroring the form-layer policy; property tests for both bounds
+  - [x] 5.3 Choke-point integration behind config: `expected_goals_from_elo`/`predict_match` applies `exp(atk_home + def_away)` multipliers only when `model_params.json` enables offsets; off by default; identity test when disabled
+  - [x] 5.4 Walk-forward harness candidate with the parity metric; edition-bootstrap gate decides (FR-5.3); record the result either way in `docs/MODEL-EXPERIMENTS.md`
+  - [x] 5.5 If the gate clears: enable via params + version bump, PR + deploy + `refresh-data` + methodology note. If not: leave the code path disabled and documented
+  - [x] 5.6 (Optional, FR-5.4 — only after 2.6) capped asymmetric in-tournament residual candidate through the same gate; expected to fail at n=3–4 matches/team; record and move on
 
-- [ ] 6.0 Cross-cutting — visibility and hygiene (FR-6.1, FR-3.3)
-  - [ ] 6.1 Methodology page: add a short "model changelog" section (version, date, one-line change description); update it in the same PR as every shipped model change — never as an afterthought
-  - [ ] 6.2 Keep `docs/MODEL-EXPERIMENTS.md` the single source of truth for every gate run (wins AND losses) so refuted ideas are never retried
-  - [ ] 6.3 After each phase's production deploy: verify via `/api/health` (chain + coverage green) and snapshot `/api/model/record` into the experiment log as the phase's closing baseline
+- [x] 6.0 Cross-cutting — visibility and hygiene (FR-6.1, FR-3.3)
+  - [x] 6.1 Methodology page: add a short "model changelog" section (version, date, one-line change description); update it in the same PR as every shipped model change — never as an afterthought
+  - [x] 6.2 Keep `docs/MODEL-EXPERIMENTS.md` the single source of truth for every gate run (wins AND losses) so refuted ideas are never retried
+  - [x] 6.3 After each phase's production deploy: verify via `/api/health` (chain + coverage green) and snapshot `/api/model/record` into the experiment log as the phase's closing baseline

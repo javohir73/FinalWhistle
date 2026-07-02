@@ -162,6 +162,19 @@ def health(db: Session = Depends(get_db)) -> dict:
         }
     except Exception:  # noqa: BLE001 — health must answer even without a DB
         out["prediction_coverage"] = {"status": "unavailable"}
+    try:
+        from app.models import PredictionResult
+
+        # Shadow-mode progress only (task 4.9): the pair count tells monitors
+        # the comparison sample is growing; the accuracy comparison itself
+        # stays behind /api/internal/shadow-record's token (FR-4.6/FR-4.8).
+        out["shadow_progress"] = {
+            "pairs": db.query(PredictionResult)
+            .filter(PredictionResult.is_shadow.is_(True))
+            .count(),
+        }
+    except Exception:  # noqa: BLE001 — health must answer even without a DB
+        out["shadow_progress"] = {"status": "unavailable"}
     return out
 
 

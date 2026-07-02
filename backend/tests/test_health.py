@@ -102,3 +102,34 @@ def test_health_reports_prediction_coverage():
         assert cov["missing"] == 0
     finally:
         app.dependency_overrides.clear()
+
+
+def test_health_reports_shadow_progress_without_accuracy():
+    """Task 4.9: monitors need to SEE the shadow sample growing without the
+    comparison numbers going public (those stay behind /api/internal/shadow-record's
+    token per FR-4.6). Health exposes the pair count only."""
+    from app.models import PredictionResult
+
+    c, session_factory = _client_with_db()
+    try:
+        sp = c.get("/api/health").json()["shadow_progress"]
+        assert sp["pairs"] == 0
+
+        s = session_factory()
+        s.add(PredictionResult(match_id=1, prediction_id=1, model_version="poisson-elo-v0.2",
+                               actual_score_home=1, actual_score_away=0, outcome="home",
+                               winner_correct=True, exact_score_correct=False,
+                               prob_assigned=0.5, brier=0.5, log_loss=0.7, goal_error=1,
+                               is_shadow=False))
+        s.add(PredictionResult(match_id=1, prediction_id=2, model_version="poisson-elo-v0.3-shadow",
+                               actual_score_home=1, actual_score_away=0, outcome="home",
+                               winner_correct=True, exact_score_correct=False,
+                               prob_assigned=0.5, brier=0.5, log_loss=0.7, goal_error=1,
+                               is_shadow=True))
+        s.commit(); s.close()
+
+        sp = c.get("/api/health").json()["shadow_progress"]
+        assert sp["pairs"] == 1
+        assert "exact_hits" not in sp and "winner_acc" not in sp  # numbers stay internal
+    finally:
+        app.dependency_overrides.clear()
