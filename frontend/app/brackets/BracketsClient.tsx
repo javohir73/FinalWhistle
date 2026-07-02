@@ -23,7 +23,7 @@ export function BracketsClient({
   initialGroups?: Group[];
   initialBracket?: KnockoutBracket;
 }) {
-  const [view, setView] = useState<"official" | "ai">("ai");
+  const [view, setView] = useState<"official" | "ai">("official");
   // getGroups is still fetched so the simulation pipeline stays warm and the
   // route's data contract is unchanged, even though the AI-bracket view now
   // reads only the knockout odds.
