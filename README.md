@@ -58,15 +58,14 @@ feature-importance breakdown, and a published, backtested accuracy record.
 - **Title & stage odds** ("Road to the Final"): each nation's chance of reaching the R32 → R16 → QF → SF → Final → lifting the trophy.
 - **Projected bracket** from the official 2026 format (12 groups + the 8 best third-placed teams), with a penalty-shootout model for knockout ties.
 
-### 🎮 Play along
-- **My Bracket** — pick group winners and play out the entire knockout bracket against the model.
-- **Leaderboard** — publish your bracket and get scored against real results.
+### 🎮 Explore
+- **Bracket** — the official knockout bracket alongside the AI's projected path to the final.
 
 <table>
 <tr>
 <td width="33%"><img src=".github/assets/groups.png" alt="Group standings"><br><sub><b>Group standings</b> — projected tables, qualification odds, LIVE badges</sub></td>
 <td width="33%"><img src=".github/assets/brackets.png" alt="Title odds"><br><sub><b>Road to the Final</b> — title & stage odds from full-tournament sims</sub></td>
-<td width="33%"><img src=".github/assets/my-bracket.png" alt="Bracket builder"><br><sub><b>My Bracket</b> — play the tournament against the model</sub></td>
+<td width="33%"><img src=".github/assets/brackets.png" alt="Official bracket"><br><sub><b>Bracket</b> — official results and the AI's projected path</sub></td>
 </tr>
 </table>
 
@@ -205,7 +204,7 @@ Full deploy instructions and the env-var reference live in **[DEPLOYMENT.md](DEP
 backend/    FastAPI app, ORM models, API routers, scoring
 ml/         prediction engine — Elo, Poisson/Dixon-Coles, calibration, simulation, explainability
 pipeline/   data ingestion (historical + live), scheduled orchestration, backtest harness
-frontend/   Next.js app (matches, groups, brackets, my-bracket, leaderboard, methodology)
+frontend/   Next.js app (matches, groups, brackets, leaderboard, methodology)
 docs/       methodology & accuracy write-up
 tasks/      product spec + build plan
 ```
