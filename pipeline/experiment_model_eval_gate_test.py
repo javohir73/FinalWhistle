@@ -1,6 +1,8 @@
 """Smoke test for the booster blend gate."""
 from datetime import date
 
+import pytest
+
 from pipeline.experiment_model_eval import run_blend_gate
 
 
@@ -108,3 +110,96 @@ def test_wdl_and_grid_threads_eff_gap():
     assert close[1] > 0.5  # draw lifted significantly in 0-50 bucket
     assert far[1] < 0.3    # draw unchanged by default (identity)
     assert close[1] > far[1]  # close should have much higher draw
+
+
+# --- Phase 5: per-team attack/defence offsets gate (FR-5.1..FR-5.3) ----------
+
+def test_team_offsets_gate_runs_and_reports_a_verdict():
+    from pipeline.experiment_model_eval import run_team_offsets_gate
+
+    res = run_team_offsets_gate(_rows(), test_since=2018, n_boot=50)
+    assert res["served_version"] == "poisson-elo-v0.2"
+    assert res["test_n"] > 0 and res["editions"] > 0
+    for key in ("base_top1", "cand_top1", "d_top1", "t1_ci",
+                "base_exact_nll", "cand_exact_nll", "d_exact_nll", "es_ci",
+                "base_log_loss", "cand_log_loss", "d_log_loss", "ll_ci"):
+        assert key in res, f"missing {key}"
+    assert res["verdict"] in ("SHIP", "do-not-ship")
+    # Mechanical ship rule: parity top1 CI excludes 0 upward, OR exact-NLL CI
+    # excludes 0 downward with top1 not regressing; log-loss guardrail always.
+    expect_ship = (res["d_log_loss"] <= res["ll_tol"]) and (
+        res["t1_ci"][0] > 0
+        or (res["es_ci"][1] < 0 and res["d_top1"] >= 0.0)
+    )
+    assert (res["verdict"] == "SHIP") == expect_ship
+
+
+def test_team_offsets_gate_fits_leak_free_per_edition(monkeypatch):
+    """Every per-edition fit must see ONLY rows dated before that edition's
+    first match, with the decay reference at that same date (FR-5.3)."""
+    import pipeline.experiment_model_eval as em
+    from ml.features.training_rows import _as_date
+
+    calls = []
+
+    def _recorder(train_rows, ref_date, **kwargs):
+        calls.append((max((_as_date(r["date"]) for r in train_rows), default=None), ref_date))
+        return {tid: {"atk": 0.0, "def": 0.0, "n_matches": 1, "n_eff": 1.0}
+                for tid in {r["home_id"] for r in train_rows}}
+
+    monkeypatch.setattr(em, "fit_offsets", _recorder)
+    em.run_team_offsets_gate(_rows(), test_since=2018, n_boot=10)
+    assert calls, "gate never fitted offsets"
+    for max_train_date, ref in calls:
+        assert max_train_date is not None
+        assert max_train_date < ref
+
+
+def test_team_offsets_gate_zero_offsets_are_a_no_op(monkeypatch):
+    """With every fitted offset forced to 0 the candidate IS the control, so
+    all deltas must be exactly zero and the gate must not ship."""
+    import pipeline.experiment_model_eval as em
+
+    monkeypatch.setattr(em, "fit_offsets", lambda rows, ref, **kw: {
+        r["home_id"]: {"atk": 0.0, "def": 0.0, "n_matches": 9, "n_eff": 9.0} for r in rows
+    })
+    res = em.run_team_offsets_gate(_rows(), test_since=2018, n_boot=10)
+    assert res["d_top1"] == 0.0
+    assert res["d_exact_nll"] == 0.0
+    assert res["d_log_loss"] == 0.0
+    assert res["verdict"] == "do-not-ship"
+
+
+# --- Phase 5 optional: in-tournament residual candidate (FR-5.4) -------------
+
+def test_residual_log_adj_is_capped_and_ramped():
+    from ml.models.team_offsets import OFFSET_CAP
+    from pipeline.experiment_model_eval import residual_log_adj
+
+    # No matches yet -> no adjustment, regardless of kappa.
+    assert residual_log_adj(5.0, 0, 5.0, 0, kappa=0.5) == 0.0
+    # Extreme residuals cannot escape the offsets' log-lambda cap.
+    assert residual_log_adj(50.0, 4, 50.0, 4, kappa=1.0) == OFFSET_CAP
+    assert residual_log_adj(-50.0, 4, -50.0, 4, kappa=1.0) == -OFFSET_CAP
+    # Below the full-weight count the √(n/4) ramp shrinks the raw term.
+    import math
+    from ml.ratings.tournament import FORM_FULL_WEIGHT_MATCHES
+    one = residual_log_adj(0.2, 1, 0.0, 0, kappa=0.1)
+    assert one == pytest.approx(0.1 * 0.2 * math.sqrt(1 / FORM_FULL_WEIGHT_MATCHES))
+    full = residual_log_adj(0.2, FORM_FULL_WEIGHT_MATCHES, 0.0, 0, kappa=0.1)
+    assert full == pytest.approx(0.1 * 0.2)
+    assert abs(one) < abs(full)
+
+
+def test_residual_form_gate_runs_and_reports_a_verdict():
+    from pipeline.experiment_model_eval import run_residual_form_gate
+
+    res = run_residual_form_gate(_rows(), kappa=0.10, test_since=2018, n_boot=50)
+    assert res["kappa"] == 0.10
+    assert res["test_n"] > 0
+    assert res["verdict"] in ("SHIP", "do-not-ship")
+    expect_ship = (res["d_log_loss"] <= res["ll_tol"]) and (
+        res["t1_ci"][0] > 0
+        or (res["es_ci"][1] < 0 and res["d_top1"] >= 0.0)
+    )
+    assert (res["verdict"] == "SHIP") == expect_ship

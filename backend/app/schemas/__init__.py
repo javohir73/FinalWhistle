@@ -111,6 +111,13 @@ class GoalEventOut(BaseModel):
     type: str          # "goal" | "penalty" | "own_goal"
 
 
+class CardEventOut(BaseModel):
+    minute: int | None
+    side: str          # "home" | "away"
+    player: str
+    type: str          # "yellow" | "red" (a second yellow arrives as one "red")
+
+
 class MatchSummaryOut(BaseModel):
     match_id: int
     stage: str
@@ -123,12 +130,17 @@ class MatchSummaryOut(BaseModel):
     status: str
     score_home: int | None
     score_away: int | None
+    # Regulation-time (90') score when captured — the basis the model's
+    # scoreline prediction is judged on (FR-2.2); null falls back to the final.
+    score_home_90: int | None = None
+    score_away_90: int | None = None
     minute: int | None
     period: str | None = None
     injury_time: int | None = None
     penalty_home: int | None = None
     penalty_away: int | None = None
     goal_events: list[GoalEventOut] = []
+    card_events: list[CardEventOut] = []
     teams: TeamsOut
     predicted_winner: str | None
     probabilities: ProbabilitiesOut | None

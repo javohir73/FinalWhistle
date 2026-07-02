@@ -24,12 +24,14 @@ log = logging.getLogger(__name__)
 def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     """Execute the full refresh. Pass results_df to skip the network download
     (used by tests). Returns a summary of every step."""
+    from app.chain_status import finished_match_count, record_success
     from app.config import settings
     from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.compute_elo import compute_and_store_elo
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.fifa_rankings import LOCAL_RANKINGS_CSV, apply_rankings, load_rankings_df
     from pipeline.ingest.historical_results import download_results_df, load_historical
+    from pipeline.ingest.ko_venues import apply_ko_venues
     from pipeline.ingest.wc26_structure import load_structure
     from pipeline.learning_loop import run_learning_loop
     from pipeline.prune_auth import prune_auth_rows
@@ -49,6 +51,9 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
         return result
 
     step("structure", lambda: load_structure(db))
+    # KO venues are static (keyed by match_no) — load_structure fills group-stage
+    # venues, this fills knockout ones. Idempotent, so safe on every run.
+    step("ko_venues", lambda: apply_ko_venues(db))
     df = results_df if results_df is not None else step("download_results", download_results_df)
     step("historical", lambda: load_historical(db, df))
     step("elo", lambda: compute_and_store_elo(db))
@@ -60,11 +65,47 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     else:
         log.info("step skipped: fifa_rankings (no %s)", LOCAL_RANKINGS_CSV.name)
 
+    # Pre-kickoff odds snapshot (FR-4.1) BEFORE predictions, so the shadow
+    # twins generated below can anchor to a fresh market total. Best-effort by
+    # contract (refresh_odds never raises, FR-4.2); skipped without a key.
+    if settings.api_football_api_key:
+        from pipeline.ingest.odds import refresh_odds
+
+        step("odds", lambda: refresh_odds(db, settings.api_football_api_key))
+    else:
+        log.info("step skipped: odds (no API_FOOTBALL_API_KEY)")
+
     # Learning loop AFTER the Elo base is fresh, BEFORE predictions consume the
     # adjusted ratings: evaluate finished matches, refresh tournament state.
+    # Count first: a match finishing mid-pipeline stays owed for the next sweep.
+    covered = finished_match_count(db)
+    # 90' basis before evaluation: fill regulation scores history/cron-gaps
+    # missed, so exact-score results land on the basis the model predicts.
+    from pipeline.backfill_90min import backfill_90min_scores
+
+    step("backfill_90min", lambda: backfill_90min_scores(db))
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
+
+    # Coverage assertion (FR-1.2): after the predictions step, no imminent
+    # match may lack a frozen prediction. Loud in the summary, not fatal —
+    # the sweep in the live path is the healer, this is the detector.
+    def _prediction_coverage() -> dict:
+        from app.prediction_coverage import matches_missing_prediction
+
+        due = matches_missing_prediction(db, within_hours=48)
+        if due:
+            log.error(
+                "prediction coverage gap: %d match(es) without a frozen "
+                "prediction: %s", len(due), [m.id for m in due],
+            )
+        return {"missing": len(due), "match_ids": [m.id for m in due]}
+
+    step("prediction_coverage", _prediction_coverage)
     step("bracket_scores", lambda: recompute_scores(db, knockout_results=knockout_results_from_db(db)))
+    # The steps above are the post-results chain at full depth — stamp the
+    # heartbeat so /api/health and the opportunistic retries know nothing is owed.
+    step("chain_status", lambda: record_success(db, covered, trigger="pipeline"))
     step("prune_auth", lambda: prune_auth_rows(db))
     log.info("pipeline complete")
     return summary

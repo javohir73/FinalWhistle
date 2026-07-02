@@ -84,34 +84,47 @@ def group_results_from_db(db: Session) -> dict[int, Outcome]:
     return out
 
 
-def knockout_results_from_db(db: Session) -> dict[int, int]:
-    """Finished KO matches -> winning team id, keyed by official match_no.
-    Winner = higher score; if level, higher penalty tally; omit if still tied.
-    (match_no 103 is resolved like any other KO row but carries no points —
-    the ADVANCE/FINALIST/CHAMPION sets already exclude 103.)"""
-    out: dict[int, int] = {}
+def _ko_winner(m: Match) -> int | None:
+    """Winning team id of a KO match: higher score, else higher penalty tally;
+    None while still tied or a side is unknown."""
+    if m.team_home_id is None or m.team_away_id is None:
+        return None
+    if m.score_home is not None and m.score_away is not None:
+        if m.score_home > m.score_away:
+            return m.team_home_id
+        if m.score_away > m.score_home:
+            return m.team_away_id
+    if m.penalty_home is not None and m.penalty_away is not None:
+        if m.penalty_home > m.penalty_away:
+            return m.team_home_id
+        if m.penalty_away > m.penalty_home:
+            return m.team_away_id
+    return None
+
+
+def knockout_played_from_db(db: Session) -> dict[int, tuple[int, int, int]]:
+    """Finished KO matches -> (home_id, away_id, winner_id), keyed by official
+    match_no. This is the fact source the tournament simulator pins as decided:
+    both participants (so a beaten third can be held to its real slot) and the
+    resolved winner. Omits ties with no decided winner."""
+    out: dict[int, tuple[int, int, int]] = {}
     finished = (
         db.query(Match)
         .filter(Match.stage != "group", Match.status == "finished", Match.match_no.isnot(None))
         .all()
     )
     for m in finished:
-        if m.team_home_id is None or m.team_away_id is None:
-            continue
-        winner: int | None = None
-        if m.score_home is not None and m.score_away is not None:
-            if m.score_home > m.score_away:
-                winner = m.team_home_id
-            elif m.score_away > m.score_home:
-                winner = m.team_away_id
-        if winner is None and m.penalty_home is not None and m.penalty_away is not None:
-            if m.penalty_home > m.penalty_away:
-                winner = m.team_home_id
-            elif m.penalty_away > m.penalty_home:
-                winner = m.team_away_id
+        winner = _ko_winner(m)
         if winner is not None:
-            out[m.match_no] = winner
+            out[m.match_no] = (m.team_home_id, m.team_away_id, winner)
     return out
+
+
+def knockout_results_from_db(db: Session) -> dict[int, int]:
+    """Finished KO matches -> winning team id, keyed by official match_no.
+    (match_no 103 is resolved like any other KO row but carries no points —
+    the ADVANCE/FINALIST/CHAMPION sets already exclude 103.)"""
+    return {mno: winner for mno, (_h, _a, winner) in knockout_played_from_db(db).items()}
 
 
 def recompute_scores(db: Session, knockout_results: dict[int, int] | None = None) -> int:

@@ -108,6 +108,13 @@ export interface GoalEvent {
   type: "goal" | "penalty" | "own_goal";
 }
 
+export interface CardEvent {
+  minute: number | null;
+  side: "home" | "away";
+  player: string;
+  type: "yellow" | "red";
+}
+
 export interface MatchSummary {
   match_id: number;
   stage: string;
@@ -120,12 +127,17 @@ export interface MatchSummary {
   status: "scheduled" | "in_play" | "finished";
   score_home: number | null;
   score_away: number | null;
+  score_home_90?: number | null;
+  score_away_90?: number | null;
   minute: number | null;
   period: LivePeriod;
   injury_time: number | null;
   penalty_home: number | null;
   penalty_away: number | null;
   goal_events: GoalEvent[];
+  /** Bookings and sendings-off; optional so pre-cards payloads stay valid.
+   *  A second yellow arrives as a single "red" event. */
+  card_events?: CardEvent[];
   teams: Teams;
   predicted_winner: string | null;
   probabilities: Probabilities | null;

@@ -42,10 +42,23 @@ class Settings(BaseSettings):
     # free tier → estimated minute) or "api_football" (real live minute).
     live_provider: str = "football_data"
 
+    # In-play events refetch cadence (seconds). Cards can arrive without a goal,
+    # so live fixtures refetch /fixtures/events when the last fetch is older
+    # than this. ~20 calls per live match hour on the default; the goal-count
+    # trigger still fires immediately on any goal.
+    events_refetch_seconds: int = 180
+
     # Master switch for live mode (activate near kickoff). Live updates are only
     # active when BOTH this is on and the active provider's key is set — else a
     # safe no-op.
     live_mode_enabled: bool = False
+
+    # Post-results chain (runs opportunistically inside the web process after a
+    # final whistle): slimmer Monte-Carlo than the daily pipeline — freshness
+    # beats the last decimal there, and a long chain risks being killed on a
+    # small instance mid-run. The 06:00 UTC pipeline re-simulates at full depth.
+    chain_n_sims: int = 1000
+    chain_tournament_sims: int = 500
 
     @property
     def active_live_api_key(self) -> str:

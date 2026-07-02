@@ -106,6 +106,11 @@ class Match(Base):
     status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled/in_play/finished
     score_home: Mapped[int | None] = mapped_column(Integer)
     score_away: Mapped[int | None] = mapped_column(Integer)
+    # Regulation-time (90') score, frozen when a match first goes beyond
+    # regulation and equal to the final score otherwise. The model predicts
+    # 90-minute scores, so exact-score evaluation prefers this basis (FR-2.1).
+    score_home_90: Mapped[int | None] = mapped_column(Integer)
+    score_away_90: Mapped[int | None] = mapped_column(Integer)
     minute: Mapped[int | None] = mapped_column(Integer)  # live clock when in_play (None at HT/PENS)
     # Phase of play, refines `status` while in_play: first_half / half_time /
     # second_half / extra_time / penalty_shootout (None otherwise). Drives the
@@ -125,6 +130,12 @@ class Match(Base):
     # {minute, side: "home"|"away", player, type: "goal"|"penalty"|"own_goal"}.
     # Populated by the api_football provider only (football-data has no scorers).
     goal_events: Mapped[list | None] = mapped_column(JSON)
+    # Card events, same pipeline as goal_events: ordered list of
+    # {minute, side: "home"|"away", player, type: "yellow"|"red"}. A second
+    # yellow arrives from the feed as a single "red" event. Populated by the
+    # api_football provider only (football-data has no cards) — None means
+    # "no card data", which every consumer treats as zero cards.
+    card_events: Mapped[list | None] = mapped_column(JSON)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])
@@ -263,6 +274,11 @@ class Prediction(Base):
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)
+    # Shadow rows (exact-score program FR-4.4/4.5): the odds-anchored twin,
+    # tagged model_version "poisson-elo-v0.3-shadow". Invisible to serving,
+    # frozen-prediction selection, bracket scoring and the public record —
+    # they exist only for the internal production-vs-shadow comparison.
+    is_shadow: Mapped[bool] = mapped_column(default=False)
 
     match: Mapped[Match] = relationship(back_populates="predictions")
 
@@ -314,14 +330,22 @@ class PredictionResult(Base):
     (predictions are append-only and never regenerated after kickoff, so the
     latest row per match is the immutable snapshot). This table is the audited
     source of truth for the "AI record" endpoint and marketing claims.
+
+    Shadow scoring (FR-4.6) writes a SECOND row per match with is_shadow=True
+    (the odds-anchored twin's evaluation, tagged its shadow model_version), so
+    uniqueness is per (match, basis). Everything public reads is_shadow=False.
     """
 
     __tablename__ = "prediction_results"
+    __table_args__ = (
+        UniqueConstraint("match_id", "is_shadow", name="uq_prediction_result_match_shadow"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), unique=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), index=True)
     prediction_id: Mapped[int] = mapped_column(ForeignKey("predictions.id"))
     model_version: Mapped[str] = mapped_column(String(40))
+    is_shadow: Mapped[bool] = mapped_column(default=False)
     actual_score_home: Mapped[int] = mapped_column(Integer)
     actual_score_away: Mapped[int] = mapped_column(Integer)
     outcome: Mapped[str] = mapped_column(String(4))  # 'home' / 'draw' / 'away'
@@ -367,8 +391,13 @@ class TeamTournamentState(Base):
 
 
 class Odds(Base):
-    """Bookmaker odds. Historical odds are ingested for calibration only in MVP
-    (Decision #1); user-facing odds comparison is Phase 4."""
+    """Bookmaker odds — a MODEL INPUT only, never shown to users (PRD non-goal).
+
+    Populated by the best-effort pre-kickoff snapshot (pipeline/ingest/odds.py,
+    exact-score program FR-4.1): one consensus row per match per pass holding
+    the MEDIAN decimal price across bookmakers for 1X2 and over/under-2.5,
+    plus margin-free implied 1X2 probabilities. Feeds the shadow model's
+    lambda-total anchor (ml/models/odds_blend.py)."""
 
     __tablename__ = "odds"
 
@@ -378,6 +407,8 @@ class Odds(Base):
     odds_home: Mapped[float | None] = mapped_column(Float)
     odds_draw: Mapped[float | None] = mapped_column(Float)
     odds_away: Mapped[float | None] = mapped_column(Float)
+    odds_over25: Mapped[float | None] = mapped_column(Float)   # over 2.5 goals
+    odds_under25: Mapped[float | None] = mapped_column(Float)  # under 2.5 goals
     implied_prob_home: Mapped[float | None] = mapped_column(Float)
     implied_prob_draw: Mapped[float | None] = mapped_column(Float)
     implied_prob_away: Mapped[float | None] = mapped_column(Float)
@@ -599,6 +630,30 @@ class MatchPick(Base):
     user: Mapped[AppUser] = relationship(back_populates="match_picks")
 
 
+class LearningChainStatus(Base):
+    """Single-row (id=1) heartbeat of the post-results chain.
+
+    The chain runs opportunistically inside the web process after a final
+    whistle, and its trigger sites swallow failures by design — so a crash (or
+    the instance being killed mid-simulation) would otherwise be invisible and
+    the finished match silently unprocessed. This row records every attempt /
+    success / failure, plus ``covered_finished``: the finished-match count
+    covered by the last COMPLETED chain. Current finished count > covered
+    means work is owed — later refreshes retry it (app/live_refresh.py) and
+    /api/health surfaces it. Accessors live in app/chain_status.py.
+    """
+
+    __tablename__ = "learning_chain_status"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    last_attempt_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_success_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(String(500))
+    last_trigger: Mapped[str | None] = mapped_column(String(30))
+    covered_finished: Mapped[int] = mapped_column(Integer, default=0)
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -624,4 +679,5 @@ __all__ = [
     "BracketKnockoutPick",
     "BracketScore",
     "MatchPick",
+    "LearningChainStatus",
 ]

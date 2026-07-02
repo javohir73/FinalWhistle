@@ -46,11 +46,27 @@ def expected_goals_from_elo(
     home_adv: float = 0.0,
     base: float = BASE_GOALS,
     beta: float = ELO_TO_GOALS_BETA,
+    atk_home: float = 0.0,
+    def_home: float = 0.0,
+    atk_away: float = 0.0,
+    def_away: float = 0.0,
 ) -> tuple[float, float]:
-    """Map an Elo matchup to (expected_home_goals, expected_away_goals)."""
+    """Map an Elo matchup to (expected_home_goals, expected_away_goals).
+
+    The optional per-team attack/defence offsets (log-lambda units, from the
+    offline fit in pipeline/fit_attack_defence.py) enrich the symmetric Elo
+    mapping: lambda_home ×= exp(atk_home + def_away) and mirrored for away
+    (FR-5.2). All four default to 0.0 and are only applied when non-zero, so
+    with team offsets disabled the lambdas are bit-identical to the historical
+    behavior.
+    """
     diff = (elo_home + home_adv) - elo_away
     lam_home = base * math.exp(beta * diff)
     lam_away = base * math.exp(-beta * diff)
+    if atk_home or def_away:
+        lam_home *= math.exp(atk_home + def_away)
+    if atk_away or def_home:
+        lam_away *= math.exp(atk_away + def_home)
     return lam_home, lam_away
 
 
@@ -218,8 +234,17 @@ def predict_match(
     rho: float = 0.0,
     temperature: float = 1.0,
     calibrator: dict | None = None,
+    atk_home: float = 0.0,
+    def_home: float = 0.0,
+    atk_away: float = 0.0,
+    def_away: float = 0.0,
 ) -> MatchPrediction:
     """Full Poisson prediction for one match from the two Elo ratings.
+
+    The per-team attack/defence offsets pass straight through to
+    `expected_goals_from_elo` (0.0 defaults = disabled = bit-identical output;
+    FR-5.3 — the caller only supplies them when model_params.json enables the
+    offsets store).
 
     `rho` applies the Dixon–Coles low-score correction. The W/D/L triple is then
     calibrated via `calibrate`: a vector-scaling `calibrator` blob if present
@@ -236,10 +261,34 @@ def predict_match(
     avoid an odd "one side ~50% but predicted 1-1" headline. Either way the shown
     outcome follows the scoreline, so winner and score stay consistent.
     """
-    lam_home, lam_away = expected_goals_from_elo(elo_home, elo_away, home_adv, base, beta)
+    lam_home, lam_away = expected_goals_from_elo(
+        elo_home, elo_away, home_adv, base, beta,
+        atk_home=atk_home, def_home=def_home, atk_away=atk_away, def_away=def_away,
+    )
+    return predict_from_lambdas(
+        lam_home, lam_away, rho=rho, temperature=temperature, calibrator=calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, home_adv),
+    )
+
+
+def predict_from_lambdas(
+    lam_home: float,
+    lam_away: float,
+    rho: float = 0.0,
+    temperature: float = 1.0,
+    calibrator: dict | None = None,
+    eff_gap: float = 0.0,
+) -> MatchPrediction:
+    """``predict_match`` entered at the expected-goals level.
+
+    The shadow odds-blend path (exact-score program FR-4.3/FR-4.4) anchors the
+    lambda pair to the bookmaker total BEFORE the grid is built, so it needs
+    this seam; ``predict_match`` itself delegates here, keeping grid, headline
+    rule and calibration in one place. ``eff_gap`` feeds a segmented calibrator
+    (callers derive it from the same Elo inputs that produced the lambdas).
+    """
     matrix = score_matrix(lam_home, lam_away, rho=rho)
     p_home, p_draw, p_away = outcome_probabilities(matrix)
-    eff_gap = effective_gap(elo_home, elo_away, home_adv)
     p_home, p_draw, p_away = calibrate((p_home, p_draw, p_away), calibrator, temperature, eff_gap=eff_gap)
     if abs(p_home - p_away) <= DRAW_HEADLINE_BAND:
         # Coin-flip: show the grid's single most-likely exact score (a draw for

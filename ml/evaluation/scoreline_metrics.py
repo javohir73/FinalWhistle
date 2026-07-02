@@ -176,3 +176,21 @@ def mean_ranked_probability_score(probs_list: list[Probs], labels: list[int]) ->
     if not labels:
         return float("nan")
     return sum(ranked_probability_score(p, idx) for p, idx in zip(probs_list, labels)) / len(labels)
+
+
+def production_scoreline_pick(
+    grid: Grid, p_home: float, p_draw: float, p_away: float
+) -> tuple[int, int]:
+    """The scoreline production actually publishes for this grid + calibrated
+    triple — DRAW_HEADLINE_BAND coin-flip rule included (FR-2.5 harness
+    parity). Delegates to ml.models.poisson so the rule can never drift from
+    predict_match; offline top-1 numbers measured with this pick are the
+    direct proxy for the public exact_score_hits metric.
+    """
+    from ml.models.poisson import DRAW_HEADLINE_BAND, most_likely_score
+
+    if abs(p_home - p_away) <= DRAW_HEADLINE_BAND:
+        sh, sa, _ = most_likely_score(grid)
+    else:
+        sh, sa, _ = most_likely_score(grid, "home" if p_home > p_away else "away")
+    return sh, sa

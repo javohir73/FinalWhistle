@@ -5,7 +5,7 @@ Additive with a server default of false — safe, no data change. Internal
 and excluded from the public leaderboard.
 
 Revision ID: c4d5e6f7a8b0
-Revises: b2c3d4e5f6a0
+Revises: f9b0c1d2e3a4
 Create Date: 2026-07-02
 """
 from typing import Sequence, Union
@@ -14,7 +14,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "c4d5e6f7a8b0"
-down_revision: Union[str, None] = "b2c3d4e5f6a0"
+down_revision: Union[str, None] = "f9b0c1d2e3a4"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

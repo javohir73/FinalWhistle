@@ -47,11 +47,12 @@ def recompute(
     # Lazy import: the model packages aren't needed for normal read traffic.
     # Full chain: evaluate finished predictions + update tournament ratings
     # (conservative Elo delta + capped form), THEN regenerate predictions and
-    # simulations from the adjusted ratings, THEN rescore brackets.
-    from pipeline.learning_loop import run_post_results_chain
+    # simulations from the adjusted ratings, THEN rescore brackets. Tracked:
+    # success advances the chain watermark, failure is recorded for /api/health.
+    from pipeline.learning_loop import run_tracked_post_results_chain
 
-    summary = run_post_results_chain(
-        db, settings.model_version, n_sims=5000, tournament_sims=2000
+    summary = run_tracked_post_results_chain(
+        db, settings.model_version, trigger="recompute", n_sims=5000, tournament_sims=2000
     )
     cache.clear()
     return {"status": "ok", "recomputed": summary}
@@ -83,11 +84,16 @@ def refresh_live(
     x_recompute_token: str | None = Header(default=None),
 ):
     """Pull live in-game scores and update fixtures. Safe to call every minute
-    (an external cron does this during match windows). No-op without an API key."""
+    (an external cron does this during match windows). No-op without an API key.
+    A match finishing in this pass triggers the post-results chain, exactly as
+    the traffic-driven refresh does — the cron path must not depend on board
+    traffic to evaluate predictions and rescore brackets."""
     _require_token(x_recompute_token)
+    from app.live_refresh import maybe_run_post_results_chain
     from pipeline.ingest.live_scores import refresh_live as run_live
 
     summary = run_live(db)
+    maybe_run_post_results_chain(db, summary, trigger="internal")  # never raises
     cache.clear()
     return {"status": "ok", "live": summary}
 
@@ -185,6 +191,49 @@ def flag_internal_user(
     recompute_scores(db, knockout_results=knockout_results_from_db(db))
     cache.clear()
     return {"status": "ok", "email": user.email, "is_internal": user.is_internal}
+
+
+@router.get("/shadow-record")
+def shadow_record(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Production vs shadow model record, side by side (FR-4.6) — the input to
+    the MANUAL promotion decision (FR-4.8; nothing here auto-promotes).
+    Token-guarded: shadow numbers are internal until the owner says otherwise.
+
+    Like-for-like: "production" is restricted to matches that ALSO have a
+    shadow result, so both comparison columns aggregate the same match set.
+    Matches evaluated before Phase 4 deployed have no shadow twin; letting
+    them into the comparison would skew it by sample composition alone (e.g.
+    an easy pre-deploy group-stage stretch the shadow never predicted). The
+    unrestricted record ships separately as "production_full_record"."""
+    _require_token(x_recompute_token)
+    from app.models import PredictionResult
+
+    def aggregate(rows: list) -> dict:
+        n = len(rows)
+        return {
+            "n": n,
+            "exact_hits": sum(1 for r in rows if r.exact_score_correct),
+            "winner_acc": round(sum(1 for r in rows if r.winner_correct) / n, 4) if n else None,
+            "avg_brier": round(sum(r.brier for r in rows) / n, 4) if n else None,
+            "model_versions": sorted({r.model_version for r in rows}),
+        }
+
+    shadow_rows = (
+        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(True)).all()
+    )
+    production_rows = (
+        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(False)).all()
+    )
+    shadow_match_ids = {r.match_id for r in shadow_rows}
+    paired_production = [r for r in production_rows if r.match_id in shadow_match_ids]
+    return {
+        "production": aggregate(paired_production),
+        "shadow": aggregate(shadow_rows),
+        "production_full_record": aggregate(production_rows),
+    }
 
 
 @router.post("/recompute-scores")

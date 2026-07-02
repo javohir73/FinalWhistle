@@ -110,3 +110,19 @@ def test_ece_high_for_overconfident_wrong_model():
     probs = [(0.9, 0.05, 0.05)] * 50
     labels = [2] * 50  # always away
     assert expected_calibration_error(probs, labels, bins=10) > 0.3
+
+
+def test_production_pick_matches_predict_match_on_both_regimes():
+    """FR-2.5 parity: the harness scorer must pick the exact scoreline
+    production publishes — including the DRAW_HEADLINE_BAND outcome
+    restriction — or offline numbers measure a rule production doesn't use."""
+    from ml.evaluation.scoreline_metrics import production_scoreline_pick
+    from ml.models.poisson import predict_match, score_matrix
+
+    for elo_h, elo_a in [(1800, 1790), (1900, 1750), (1600, 1850)]:
+        pred = predict_match(elo_h, elo_a, base=1.2, beta=0.0021, rho=-0.06)
+        grid = score_matrix(pred.lambda_home, pred.lambda_away, rho=-0.06)
+        pick = production_scoreline_pick(
+            grid, pred.prob_home_win, pred.prob_draw, pred.prob_away_win
+        )
+        assert pick == (pred.score_home, pred.score_away), (elo_h, elo_a)

@@ -115,12 +115,33 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
 
 
 def latest_prediction(db: Session, match_id: int) -> Prediction | None:
+    """Latest PRODUCTION prediction — shadow rows are never served (FR-4.5)."""
     return (
         db.query(Prediction)
         .filter_by(match_id=match_id)
+        .filter(Prediction.is_shadow.is_(False))
         .order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .first()
     )
+
+
+def _card_counts(card_events: list | None) -> dict[str, int]:
+    """Per-side red and ACTIVE-yellow counts for the live model. A yellow is
+    active only while its player has not been sent off — once the red arrives
+    (a second yellow comes through as one red event for the same player) the
+    booking no longer carries second-yellow risk. None/malformed -> all zero."""
+    counts = {"red_home": 0, "red_away": 0, "yellow_home": 0, "yellow_away": 0}
+    events = [e for e in (card_events or [])
+              if isinstance(e, dict) and e.get("side") in ("home", "away")]
+    sent_off = {"home": set(), "away": set()}
+    for e in events:
+        if e.get("type") == "red":
+            counts[f"red_{e['side']}"] += 1
+            sent_off[e["side"]].add(e.get("player"))
+    for e in events:
+        if e.get("type") == "yellow" and e.get("player") not in sent_off[e["side"]]:
+            counts[f"yellow_{e['side']}"] += 1
+    return counts
 
 
 def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
@@ -143,6 +164,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
             lam_home=pred.lambda_home,
             lam_away=pred.lambda_away,
             rho=pred.rho,
+            **_card_counts(match.card_events),
         )
         if live is not None:
             live_probabilities = schemas.ProbabilitiesOut(
@@ -176,12 +198,15 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         status=match.status,
         score_home=match.score_home,
         score_away=match.score_away,
+        score_home_90=match.score_home_90,
+        score_away_90=match.score_away_90,
         minute=match.minute,
         period=match.period,
         injury_time=match.injury_time,
         penalty_home=match.penalty_home,
         penalty_away=match.penalty_away,
         goal_events=[schemas.GoalEventOut(**g) for g in (match.goal_events or [])],
+        card_events=[schemas.CardEventOut(**c) for c in (match.card_events or [])],
         teams=schemas.TeamsOut(
             home=home.name if home else "TBD", away=away.name if away else "TBD"
         ),

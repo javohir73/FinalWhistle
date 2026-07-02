@@ -116,12 +116,24 @@ class GroupFixture:
     score: tuple[int, int] | None = None
 
 
-def _assign_thirds(qualified_groups: list[str], rng: np.random.Generator) -> dict[int, str]:
+def _assign_thirds(
+    qualified_groups: list[str],
+    rng: np.random.Generator,
+    pinned: dict[int, str] | None = None,
+) -> dict[int, str]:
     """Match the 8 qualified third-place groups to the 8 slots, respecting each
-    slot's eligibility. Most-constrained slot first, with backtracking."""
-    slots = sorted(THIRD_SLOTS, key=lambda s: len(s[1] & set(qualified_groups)))
-    assignment: dict[int, str] = {}
-    used: set[str] = set()
+    slot's eligibility. Most-constrained slot first, with backtracking.
+
+    ``pinned`` fixes some slots to a specific group (a played R32 tie whose
+    third-placed side is a known fact); those slots and groups are held out and
+    the remaining ones are matched around them."""
+    pinned = pinned or {}
+    slots = sorted(
+        (s for s in THIRD_SLOTS if s[0] not in pinned),
+        key=lambda s: len(s[1] & set(qualified_groups)),
+    )
+    assignment: dict[int, str] = dict(pinned)
+    used: set[str] = set(pinned.values())
 
     def backtrack(i: int) -> bool:
         if i == len(slots):
@@ -155,10 +167,52 @@ def simulate_tournament(
     pk_beta: float = 0.0,
     home_adv: float = 0.0,
     ko_host_by_match: dict[int, int] | None = None,
+    ko_results: dict[int, tuple[int, int, int]] | None = None,
+    team_offsets: dict[int, tuple[float, float]] | None = None,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
-    reach_final, win_title}} as probabilities over n_sims tournaments."""
+    reach_final, win_title}} as probabilities over n_sims tournaments.
+
+    ``team_offsets`` maps team_id -> (atk, def) log-lambda offsets (FR-5.3) so
+    every simulated match — group stage and knockout — runs on the SAME
+    adjusted lambdas as the match cards. Omitted or empty -> bit-identical to
+    the historical symmetric-Elo behavior.
+
+    ``ko_results`` pins already-played knockout ties as facts (analogous to a
+    played ``GroupFixture.score``): ``{official_match_no: (home_id, away_id,
+    winner_id)}``. A pinned tie forces its winner forward and its loser out in
+    every draw, so the winner's reach_* for that round is 1.0 and the loser's is
+    0.0. The R32 third-place side of a pinned tie is also held to its real slot,
+    so a beaten third can't re-enter the bracket via the random slot assignment.
+    """
     ko_host = ko_host_by_match or {}
+    ko_results = ko_results or {}
+    offsets = team_offsets or {}
+
+    def _lambdas(h: int, a: int, adv: float) -> tuple[float, float]:
+        """Expected goals for one pairing, offsets included — the one lambda
+        builder for both the group stage and the knockout rounds."""
+        atk_h, def_h = offsets.get(h, (0.0, 0.0))
+        atk_a, def_a = offsets.get(a, (0.0, 0.0))
+        return expected_goals_from_elo(
+            team_elos[h], team_elos[a], home_adv=adv, base=base, beta=beta,
+            atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
+        )
+    # Forced winners, keyed by match number, applied at every played tie.
+    ko_win = {mno: winner for mno, (_h, _a, winner) in ko_results.items()}
+    # A played R32 tie whose third-placed side is known: hold that team to its
+    # real slot when the per-draw third assignment runs (below).
+    r32_sides = {mno: (hs, as_) for mno, hs, as_ in R32}
+    pinned_third_slot: dict[int, int] = {}
+    for mno, (home_id, away_id, _w) in ko_results.items():
+        sides = r32_sides.get(mno)
+        if sides is None:
+            continue
+        hs, as_ = sides
+        if hs == ("third",):
+            pinned_third_slot[mno] = home_id
+        elif as_ == ("third",):
+            pinned_third_slot[mno] = away_id
     rng = np.random.default_rng(seed)
     all_ids = [t for members in groups.values() for t in members]
     counts = {tid: {k: 0 for _, k in ROUND_KEYS} for tid in all_ids}
@@ -184,10 +238,7 @@ def simulate_tournament(
                 else:
                     bp[fx.home_id] += 1; bp[fx.away_id] += 1
             else:
-                lh, la = expected_goals_from_elo(
-                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
-                    base=base, beta=beta,
-                )
+                lh, la = _lambdas(fx.home_id, fx.away_id, fx.home_adv)
                 lams.append((fx.home_id, fx.away_id, score_cdf(lh, la, rho)))
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
@@ -197,8 +248,7 @@ def simulate_tournament(
         Host advantage applied when ko_host maps mno to h or a."""
         host = ko_host.get(mno)
         adv = home_adv if host == h else -home_adv if host == a else 0.0
-        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=adv,
-                                         base=base, beta=beta)
+        lh, la = _lambdas(h, a, adv)
         sh, sa = sample_scoreline(rng, lh, la, rho)
         if sh > sa:
             return h
@@ -240,7 +290,16 @@ def simulate_tournament(
         # --- best 8 third-placed teams ---
         thirds.sort(key=lambda x: x[:4], reverse=True)
         third_team_by_group = {t[4]: t[5] for t in thirds[:8]}
-        assignment = _assign_thirds(list(third_team_by_group), rng)
+        # Hold played R32 thirds to their real slots (a beaten third must stay put,
+        # never advance from a slot it was randomly reassigned to). Only pin a team
+        # that actually made the top-8 this draw; otherwise it can't advance anyway.
+        group_of_third = {tid: g for g, tid in third_team_by_group.items()}
+        pinned_groups = {
+            mno: group_of_third[tid]
+            for mno, tid in pinned_third_slot.items()
+            if tid in group_of_third
+        }
+        assignment = _assign_thirds(list(third_team_by_group), rng, pinned=pinned_groups)
 
         # --- seed Round of 32 ---
         def resolve(slot: tuple, mno: int) -> int:
@@ -258,17 +317,23 @@ def simulate_tournament(
         for mno, hs, as_ in R32:
             h, a = resolve(hs, mno), resolve(as_, mno)
             mark(h, 1); mark(a, 1)
-            w = play(mno, h, a)
+            w = ko_win.get(mno)
+            if w is None:
+                w = play(mno, h, a)
             winners[mno] = w
             mark(w, 2)
 
         for tree, rnd in ((R16, 3), (QF, 4), (SF, 5)):
             for mno, (s1, s2) in tree.items():
-                w = play(mno, winners[s1], winners[s2])
+                w = ko_win.get(mno)
+                if w is None:
+                    w = play(mno, winners[s1], winners[s2])
                 winners[mno] = w
                 mark(w, rnd)
 
-        champion = play(104, winners[FINAL[0]], winners[FINAL[1]])
+        champion = ko_win.get(104)
+        if champion is None:
+            champion = play(104, winners[FINAL[0]], winners[FINAL[1]])
         mark(champion, 6)
 
         for tid, rnd in reached.items():

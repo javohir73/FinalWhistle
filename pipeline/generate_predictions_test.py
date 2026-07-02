@@ -82,7 +82,9 @@ def test_generate_predictions_writes_rows(db_session):
 
     assert summary["matches_predicted"] == 72  # all group matches
     assert summary["groups_simulated"] == 12
-    assert db_session.query(Prediction).count() == 72
+    assert db_session.query(Prediction).filter_by(is_shadow=False).count() == 72
+    # Every production row gets its shadow twin (FR-4.4) — never more, never fewer.
+    assert db_session.query(Prediction).filter_by(is_shadow=True).count() == 72
 
     # Standings: 48 teams, qualification probs sum to ~2 per group.
     standings = db_session.query(Standing).all()
@@ -299,3 +301,140 @@ def test_blend_shifts_probabilities_toward_booster(db_session):
     assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
     # Predicted SCORE stays Poisson's — the booster never touches it.
     assert on["predicted_score"] == off["predicted_score"]
+
+
+def test_build_payload_team_offsets_off_is_identity_and_on_shifts_lambdas(db_session, tmp_path):
+    """FR-5.3 end-to-end: with params.team_offsets=None (the shipped default)
+    the payload is exactly the no-offsets payload; with a store enabled, the
+    home team's positive attack offset must lift the served lambda_home."""
+    import json as _json
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    home = db_session.get(Team, match.team_home_id)
+
+    baseline_params = replace(DEFAULT_PARAMS, team_offsets=None)
+    store = tmp_path / "team_offsets.json"
+    store.write_text(_json.dumps({home.name: {"atk": 0.075, "def": 0.0, "n_matches": 100}}))
+    enabled_params = replace(DEFAULT_PARAMS, team_offsets={"file": str(store)})
+
+    base = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline_params)
+    off = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline_params)
+    on = build_payload(db_session, match, "poisson-elo-v0.1", params=enabled_params)
+
+    # Disabled twice -> identical model outputs (identity path).
+    for key in ("probabilities", "predicted_score", "lambda_home", "lambda_away"):
+        assert base[key] == off[key]
+    # Enabled -> only the home lambda moves (away team has no store entry).
+    assert on["lambda_home"] > base["lambda_home"]
+    assert on["lambda_away"] == base["lambda_away"]
+    assert on["probabilities"]["home_win"] > base["probabilities"]["home_win"]
+
+
+def test_simulations_receive_the_same_team_offsets_as_match_cards(db_session, tmp_path, monkeypatch):
+    """Review-finding guard: with team_offsets enabled, _simulate_standings and
+    _simulate_tournament must hand the Monte-Carlo engines the SAME per-team
+    (atk, def) offsets that build_payload applies to the match cards — otherwise
+    a match page would serve offset-adjusted W/D/L next to qualification/title
+    odds simulated from divergent symmetric-Elo lambdas. With the flag off (the
+    shipped default) the sims must see no offsets at all."""
+    import json as _json
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from ml.models.team_offsets import load_team_offsets, offsets_for
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    store_path = tmp_path / "team_offsets.json"
+    store_path.write_text(_json.dumps({
+        members[0].name: {"atk": 0.075, "def": -0.075, "n_matches": 100},
+        members[1].name: {"atk": -0.03, "def": 0.02, "n_matches": 50},
+    }))
+
+    captured: dict[str, list] = {"group": [], "tournament": []}
+    real_group, real_tournament = gp.simulate_group, gp.simulate_tournament
+
+    def spy_group(*args, **kwargs):
+        captured["group"].append(kwargs.get("team_offsets"))
+        return real_group(*args, **kwargs)
+
+    def spy_tournament(*args, **kwargs):
+        captured["tournament"].append(kwargs.get("team_offsets"))
+        return real_tournament(*args, **kwargs)
+
+    monkeypatch.setattr(gp, "simulate_group", spy_group)
+    monkeypatch.setattr(gp, "simulate_tournament", spy_tournament)
+
+    enabled = replace(DEFAULT_PARAMS, team_offsets={"file": str(store_path)})
+    gp._simulate_standings(db_session, group, "v", n_sims=50, params=enabled)
+    gp._simulate_tournament(db_session, n_sims=20, params=enabled)
+
+    # Exactly what build_payload would apply, keyed by team id, for every member.
+    store = load_team_offsets(str(store_path))
+    assert captured["group"] == [{t.id: offsets_for(store, t.name) for t in members}]
+    all_members = [gt.team for g in db_session.query(Group).all() for gt in g.group_teams]
+    assert captured["tournament"] == [
+        {t.id: offsets_for(store, t.name) for t in all_members}
+    ]
+    # Sanity: the boosted team's offsets actually made it through (non-zero).
+    assert captured["tournament"][0][members[0].id] == (0.075, -0.075)
+
+    # Flag off (shipped default): the sims must run offset-free.
+    captured["group"].clear()
+    captured["tournament"].clear()
+    disabled = replace(DEFAULT_PARAMS, team_offsets=None)
+    gp._simulate_standings(db_session, group, "v", n_sims=50, params=disabled)
+    gp._simulate_tournament(db_session, n_sims=20, params=disabled)
+    assert not captured["group"][0]
+    assert not captured["tournament"][0]
+
+
+def test_team_offsets_shift_simulated_standings_when_enabled(db_session, tmp_path):
+    """End-to-end over the standings path: enabling a store that boosts one
+    team's attack AND weakens every group rival must lift that team's simulated
+    qualification_prob relative to the offset-free run (same seed inside
+    _simulate_standings, so the comparison uses common random numbers)."""
+    import json as _json
+    from dataclasses import replace
+
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.generate_predictions import _simulate_standings
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    target = min(members, key=lambda t: t.elo_rating)  # weakest: room to climb
+    store = {
+        t.name: ({"atk": 0.075, "def": -0.075, "n_matches": 100} if t is target
+                 else {"atk": -0.075, "def": 0.075, "n_matches": 100})
+        for t in members
+    }
+    store_path = tmp_path / "team_offsets.json"
+    store_path.write_text(_json.dumps(store))
+
+    def qual_prob(params) -> float:
+        _simulate_standings(db_session, group, "v", n_sims=4000, params=params)
+        row = db_session.query(Standing).filter_by(
+            group_id=group.id, team_id=target.id).one()
+        return row.qualification_prob
+
+    baseline = qual_prob(replace(DEFAULT_PARAMS, team_offsets=None))
+    boosted = qual_prob(replace(DEFAULT_PARAMS, team_offsets={"file": str(store_path)}))
+    assert boosted > baseline

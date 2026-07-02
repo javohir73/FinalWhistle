@@ -84,17 +84,26 @@ def evaluate_match(
     pred_away: int,
     home_goals: int,
     away_goals: int,
+    *,
+    exact_home_goals: int | None = None,
+    exact_away_goals: int | None = None,
 ) -> MatchEvaluation:
-    """Score one frozen prediction against one final result."""
+    """Score one frozen prediction against one final result.
+
+    ``exact_home_goals``/``exact_away_goals`` optionally supply a separate
+    basis for the scoreline comparison (the 90-minute score, FR-2.2): the
+    model predicts regulation-time scores, while the winner/Brier verdicts
+    keep the final-result (after-extra-time) convention shipped in PR #90.
+    """
     actual = outcome_index(home_goals, away_goals)
+    ex_h = exact_home_goals if exact_home_goals is not None else home_goals
+    ex_a = exact_away_goals if exact_away_goals is not None else away_goals
     return MatchEvaluation(
         winner_correct=winner_correct(probs, home_goals, away_goals),
-        exact_score_correct=exact_score_correct(
-            pred_home, pred_away, home_goals, away_goals
-        ),
+        exact_score_correct=exact_score_correct(pred_home, pred_away, ex_h, ex_a),
         brier=brier(probs, actual),
         log_loss=log_loss(probs, actual),
-        goal_error=goal_error(pred_home, pred_away, home_goals, away_goals),
+        goal_error=goal_error(pred_home, pred_away, ex_h, ex_a),
         outcome_idx=actual,
         predicted_idx=predicted_index(probs),
     )

@@ -444,6 +444,28 @@ def test_knockout_results_score_then_penalties(db_session):
     assert 92 not in results
 
 
+def test_knockout_played_carries_participants_and_winner(db_session):
+    from app.scoring import knockout_played_from_db
+
+    load_structure(db_session)
+    _seed_teams(db_session, ["A", "B", "C", "D", "E", "F"])
+
+    # 89: 2-1 -> home wins by score.
+    _, h89, a89 = _ko_row(db_session, 89, "A", "B", status="finished",
+                          score_home=2, score_away=1)
+    # 90: 1-1 pens 2-4 -> away wins on pens.
+    _, h90, a90 = _ko_row(db_session, 90, "C", "D", status="finished",
+                          score_home=1, score_away=1, penalty_home=2, penalty_away=4)
+    # 91: still level -> omitted (no decided winner).
+    _ko_row(db_session, 91, "E", "F", status="finished",
+            score_home=0, score_away=0, penalty_home=3, penalty_away=3)
+
+    played = knockout_played_from_db(db_session)
+    assert played[89] == (h89.id, a89.id, h89.id)   # home won
+    assert played[90] == (h90.id, a90.id, a90.id)   # away won on penalties
+    assert 91 not in played
+
+
 def test_no_cross_stage_collision_when_same_pair_in_group_and_ko(db_session):
     """Regression: provider_fixture_id keying must route each feed item to the
     correct row even when the same two teams appear in both a group row AND an
@@ -515,3 +537,20 @@ def test_recompute_uses_knockout_results_and_103_scores_zero(db_session):
     assert 103 not in _ADVANCE_NOS  # 103 never awards advance points
     # recompute runs cleanly with knockout_results supplied
     assert recompute_scores(db_session, knockout_results=results) >= 0
+
+
+def test_assign_knockout_teams_reports_changed_match_ids(db_session):
+    """FR-1.1 companion: the assigner must report WHICH matches' pairings
+    changed this pass, so the coverage sweep can supersede stale predictions
+    after a feed correction (same feed twice => no changes)."""
+    load_structure(db_session)
+    _seed_teams(db_session, ["Argentina", "France", "Brazil", "Germany", "Spain", "Portugal"])
+    api_matches = json.loads((_TESTDATA / "wc_ko_matches.json").read_text())
+
+    first = assign_knockout_teams(db_session, api_matches)
+    assert first["assigned"] == 4
+    assert len(first["changed_match_ids"]) == 4
+
+    second = assign_knockout_teams(db_session, api_matches)
+    assert second["assigned"] == 4  # re-applied as always
+    assert second["changed_match_ids"] == []  # but nothing actually changed

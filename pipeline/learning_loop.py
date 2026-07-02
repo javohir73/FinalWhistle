@@ -28,6 +28,13 @@ from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
+from app.chain_status import (
+    finished_match_count,
+    finished_matches_query,
+    record_attempt,
+    record_failure,
+    record_success,
+)
 from app.models import (
     HistoricalMatch,
     Match,
@@ -47,33 +54,78 @@ _OUTCOME = {0: "home", 1: "draw", 2: "away"}
 
 
 def _finished_matches(db: Session) -> list[Match]:
-    """Finished group-stage matches with known teams and scores, kickoff order.
+    """ALL finished matches with known teams and scores, in kickoff order —
+    group and knockout stages alike, so the loop is a true catch-all.
 
-    Group stage only for now: knockout full-time scores from the feed may
-    include extra time, which makes 90-minute outcome evaluation ambiguous —
-    documented limitation, revisit at R32.
+    Knockout convention: the stored score is the feed's final score — after
+    extra time when played, never counting shootout kicks — the same basis
+    every user-facing verdict uses (frontend/lib/verdict.ts). A tie decided
+    on penalties is level, so it evaluates and replays as a draw, matching
+    the model's 90-minute basis (shootouts are deliberately unmodelled). The
+    one accepted skew: for the WINNER verdict and the Elo replay, a tie
+    decided by an extra-time goal counts at its after-ET score rather than
+    the 90-minute draw. EXACT-SCORE hits, by contrast, score against the
+    captured 90-minute basis when present (FR-2.2; evaluate_match's
+    exact_home_goals/exact_away_goals), matching the frontend verdict's
+    scoreline comparison.
+    Eligibility (finished + teams + scores) is shared with the chain-status
+    watermark (app/chain_status.finished_matches_query) so "pending" counts
+    exactly what this loop sweeps.
     """
     return (
-        db.query(Match)
-        .filter(
-            Match.status == "finished",
-            Match.stage == "group",
-            Match.score_home.isnot(None),
-            Match.score_away.isnot(None),
-            Match.team_home_id.isnot(None),
-            Match.team_away_id.isnot(None),
-        )
+        finished_matches_query(db)
         .order_by(Match.kickoff_utc.asc().nullslast(), Match.id.asc())
         .all()
     )
 
 
-def _frozen_prediction(db: Session, match: Match) -> Prediction | None:
-    """The pre-kickoff snapshot: latest prediction created while scheduled."""
-    q = db.query(Prediction).filter(Prediction.match_id == match.id)
+def _frozen_prediction(db: Session, match: Match, *, shadow: bool = False) -> Prediction | None:
+    """The pre-kickoff snapshot: latest prediction created while scheduled.
+
+    Production and shadow rows are frozen SEPARATELY (FR-4.5): the audited
+    record must never pick up an odds-anchored twin, and the shadow record
+    must never pick up a production row.
+    """
+    q = db.query(Prediction).filter(
+        Prediction.match_id == match.id,
+        Prediction.is_shadow.is_(shadow),
+    )
     if match.kickoff_utc is not None:
         q = q.filter(Prediction.created_at <= match.kickoff_utc)
     return q.order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()
+
+
+def _result_row(m: Match, pred: Prediction, model_version: str, *, shadow: bool) -> PredictionResult:
+    """Evaluate one frozen prediction against a finished match — the SAME math
+    for the production record and the shadow record (FR-4.6)."""
+    ev = evaluate_match(
+        (pred.prob_home_win, pred.prob_draw, pred.prob_away_win),
+        pred.predicted_score_home if pred.predicted_score_home is not None else -1,
+        pred.predicted_score_away if pred.predicted_score_away is not None else -1,
+        m.score_home,
+        m.score_away,
+        # Exact-score on the 90-minute basis when captured (FR-2.2); the
+        # winner verdict keeps the after-ET final-result convention.
+        exact_home_goals=m.score_home_90,
+        exact_away_goals=m.score_away_90,
+    )
+    return PredictionResult(
+        match_id=m.id,
+        prediction_id=pred.id,
+        model_version=pred.model_version or model_version,
+        actual_score_home=m.score_home,
+        actual_score_away=m.score_away,
+        outcome=_OUTCOME[ev.outcome_idx],
+        winner_correct=ev.winner_correct,
+        exact_score_correct=ev.exact_score_correct,
+        prob_assigned=(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)[
+            ev.outcome_idx
+        ],
+        brier=ev.brier,
+        log_loss=ev.log_loss,
+        goal_error=ev.goal_error,
+        is_shadow=shadow,
+    )
 
 
 def evaluate_finished_predictions(db: Session, model_version: str) -> int:
@@ -82,7 +134,12 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
     Returns the number of NEW evaluations. Never rewrites an existing row —
     the record is append-only evidence.
     """
-    evaluated_ids = {r.match_id for r in db.query(PredictionResult.match_id).all()}
+    evaluated_ids = {
+        r.match_id
+        for r in db.query(PredictionResult.match_id)
+        .filter(PredictionResult.is_shadow.is_(False))
+        .all()
+    }
     new = 0
     for m in _finished_matches(db):
         if m.id in evaluated_ids:
@@ -91,31 +148,33 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
         if pred is None:
             log.warning("finished match %s has no pre-kickoff prediction; skipping", m.id)
             continue
-        ev = evaluate_match(
-            (pred.prob_home_win, pred.prob_draw, pred.prob_away_win),
-            pred.predicted_score_home if pred.predicted_score_home is not None else -1,
-            pred.predicted_score_away if pred.predicted_score_away is not None else -1,
-            m.score_home,
-            m.score_away,
-        )
-        db.add(
-            PredictionResult(
-                match_id=m.id,
-                prediction_id=pred.id,
-                model_version=pred.model_version or model_version,
-                actual_score_home=m.score_home,
-                actual_score_away=m.score_away,
-                outcome=_OUTCOME[ev.outcome_idx],
-                winner_correct=ev.winner_correct,
-                exact_score_correct=ev.exact_score_correct,
-                prob_assigned=(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)[
-                    ev.outcome_idx
-                ],
-                brier=ev.brier,
-                log_loss=ev.log_loss,
-                goal_error=ev.goal_error,
-            )
-        )
+        db.add(_result_row(m, pred, model_version, shadow=False))
+        new += 1
+    if new:
+        db.commit()
+    return new
+
+
+def evaluate_finished_shadow_predictions(db: Session) -> int:
+    """Score the shadow model's frozen predictions into is_shadow=True result
+    rows (FR-4.6) — the data behind /api/internal/shadow-record. Matches with
+    no shadow twin (pre-Phase-4) are skipped silently: no twin, no comparison.
+    Append-only and idempotent, exactly like the production path.
+    """
+    evaluated_ids = {
+        r.match_id
+        for r in db.query(PredictionResult.match_id)
+        .filter(PredictionResult.is_shadow.is_(True))
+        .all()
+    }
+    new = 0
+    for m in _finished_matches(db):
+        if m.id in evaluated_ids:
+            continue
+        pred = _frozen_prediction(db, m, shadow=True)
+        if pred is None:
+            continue
+        db.add(_result_row(m, pred, pred.model_version, shadow=True))
         new += 1
     if new:
         db.commit()
@@ -185,7 +244,12 @@ def update_tournament_state(db: Session) -> int:
         for m in finished
         if m.id not in skip
     ]
-    states = replay_tournament(base, replay)
+    from ml.models.params import load_params
+
+    served = load_params()
+    states = replay_tournament(
+        base, replay, goals_base=served.base, goals_beta=served.beta
+    )
 
     updated = 0
     for t in teams:
@@ -232,10 +296,16 @@ def effective_elos(db: Session) -> dict[int, float]:
 
 
 def run_learning_loop(db: Session, model_version: str) -> dict:
-    """The full controlled update: evaluate, then refresh tournament state."""
+    """The full controlled update: evaluate (production, then shadow — the
+    shadow record never feeds ratings), then refresh tournament state."""
     evaluated = evaluate_finished_predictions(db, model_version)
+    shadow_evaluated = evaluate_finished_shadow_predictions(db)
     teams_updated = update_tournament_state(db)
-    summary = {"evaluated_new": evaluated, "teams_updated": teams_updated}
+    summary = {
+        "evaluated_new": evaluated,
+        "shadow_evaluated_new": shadow_evaluated,
+        "teams_updated": teams_updated,
+    }
     log.info("learning loop: %s", summary)
     return summary
 
@@ -257,11 +327,47 @@ def run_post_results_chain(
     precision; the 06:00 UTC pipeline re-runs at full depth.
     """
     from app.scoring import recompute_scores, knockout_results_from_db
+    from pipeline.backfill_90min import backfill_90min_scores
     from pipeline.generate_predictions import generate_predictions
 
-    summary: dict = {"learning": run_learning_loop(db, model_version)}
+    # Heal 90-minute scores BEFORE evaluating: result rows are append-only, so
+    # a match evaluated on the wrong basis can never be re-scored — the
+    # goal-events reconstruction must run first (cheap: NULL rows only).
+    summary: dict = {"backfill_90min": backfill_90min_scores(db)}
+    summary["learning"] = run_learning_loop(db, model_version)
     summary["predictions"] = generate_predictions(
         db, n_sims=n_sims, tournament_sims=tournament_sims
     )
     summary["brackets"] = recompute_scores(db, knockout_results=knockout_results_from_db(db))
+    return summary
+
+
+def run_tracked_post_results_chain(
+    db: Session,
+    model_version: str,
+    *,
+    trigger: str,
+    n_sims: int = 2000,
+    tournament_sims: int = 1000,
+) -> dict:
+    """``run_post_results_chain`` with a durable heartbeat (app/chain_status).
+
+    Records the attempt before the heavy work (committed, so even a killed
+    process leaves a trace), and advances the success watermark ONLY after the
+    full chain completed — a crash or an OOM-kill mid-run leaves the finished
+    matches marked pending, which later refreshes and the daily pipeline use
+    to retry. Failures are recorded and re-raised: swallow-or-500 is the
+    caller's policy, the bookkeeping is not.
+    """
+    covered = finished_match_count(db)  # taken BEFORE: a mid-run finish stays owed
+    record_attempt(db, trigger)
+    try:
+        summary = run_post_results_chain(
+            db, model_version, n_sims=n_sims, tournament_sims=tournament_sims
+        )
+    except Exception as exc:
+        db.rollback()  # drop any partial, uncommitted stage before the status write
+        record_failure(db, exc)
+        raise
+    record_success(db, covered)
     return summary
