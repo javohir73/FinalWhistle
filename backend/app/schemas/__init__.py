@@ -111,6 +111,13 @@ class GoalEventOut(BaseModel):
     type: str          # "goal" | "penalty" | "own_goal"
 
 
+class CardEventOut(BaseModel):
+    minute: int | None
+    side: str          # "home" | "away"
+    player: str
+    type: str          # "yellow" | "red" (a second yellow arrives as one "red")
+
+
 class MatchSummaryOut(BaseModel):
     match_id: int
     stage: str
@@ -129,6 +136,7 @@ class MatchSummaryOut(BaseModel):
     penalty_home: int | None = None
     penalty_away: int | None = None
     goal_events: list[GoalEventOut] = []
+    card_events: list[CardEventOut] = []
     teams: TeamsOut
     predicted_winner: str | None
     probabilities: ProbabilitiesOut | None
