@@ -5,7 +5,7 @@ update_live_scores() already consumes, so all the battle-tested update logic
 (orientation, freshness, periods, penalties) is reused unchanged. The win over
 football-data's free tier: the REAL live minute (status.elapsed)."""
 from app.models import Match, Team
-from pipeline.ingest.api_football import to_feed
+from pipeline.ingest.api_football import to_feed, cards_from_events
 from pipeline.ingest.live_scores import refresh_live, update_live_scores
 from pipeline.ingest.wc26_structure import load_structure
 
@@ -198,3 +198,32 @@ def test_refresh_live_api_football_stores_scorers(db_session, monkeypatch):
     m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
     assert m.goal_events == [
         {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
+
+
+def test_cards_from_events_yellow_red_and_sides():
+    events = [
+        _event("Yellow Card", "Iran", "S. Moharrami", 28, etype="Card"),
+        _event("Red Card", "New Zealand", "J. Bell", 55, etype="Card"),
+    ]
+    out = cards_from_events(events, "Iran", "New Zealand")
+    assert out == [
+        {"minute": 28, "side": "home", "player": "S. Moharrami", "type": "yellow"},
+        {"minute": 55, "side": "away", "player": "J. Bell", "type": "red"},
+    ]
+
+
+def test_cards_from_events_skips_goals_unknown_details_and_teams():
+    events = [
+        _event("Normal Goal", "Iran", "R. Rezaeian", 32),               # not a card
+        _event("Card upgrade", "Iran", "X", 40, etype="Card"),          # unknown detail
+        _event("Yellow Card", "Brazil", "Y", 50, etype="Card"),         # unknown team
+        "garbage",                                                       # malformed
+    ]
+    assert cards_from_events(events, "Iran", "New Zealand") == []
+
+
+def test_cards_from_events_defaults_missing_player():
+    e = _event("Red Card", "Iran", None, 77, etype="Card")
+    e["player"] = {}
+    assert cards_from_events([e], "Iran", "New Zealand") == [
+        {"minute": 77, "side": "home", "player": "Unknown", "type": "red"}]

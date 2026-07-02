@@ -41,6 +41,10 @@ _SHOOTOUT = frozenset({"P", "PEN"})
 # "Missed Penalty") and non-Goal events are ignored.
 _GOAL_DETAIL = {"Normal Goal": "goal", "Penalty": "penalty", "Own Goal": "own_goal"}
 
+# api-sports card-event detail -> our card type. A second yellow arrives from
+# the feed as a single "Red Card" event. Other details are ignored.
+_CARD_DETAIL = {"Yellow Card": "yellow", "Red Card": "red"}
+
 
 def fetch_fixtures(api_key: str, league: int, season: int, timeout: float = 15.0) -> list[dict]:
     """Return the raw fixture list for a league+season from api-sports.io."""
@@ -372,6 +376,33 @@ def goals_from_events(events: list[dict], home_name: str, away_name: str) -> lis
             "side": side,
             "player": (e.get("player") or {}).get("name") or "Unknown",
             "type": gtype,
+        })
+    return out
+
+
+def cards_from_events(events: list[dict], home_name: str, away_name: str) -> list[dict]:
+    """Translate api-sports /fixtures/events into card dicts in our home/away
+    orientation. Non-Card events, unknown details and unknown teams are skipped
+    (same posture as goals_from_events)."""
+    out: list[dict] = []
+    for e in events or []:
+        if not isinstance(e, dict) or e.get("type") != "Card":
+            continue
+        ctype = _CARD_DETAIL.get(e.get("detail"))
+        if ctype is None:
+            continue
+        team = (e.get("team") or {}).get("name")
+        if team == home_name:
+            side = "home"
+        elif team == away_name:
+            side = "away"
+        else:
+            continue
+        out.append({
+            "minute": (e.get("time") or {}).get("elapsed"),
+            "side": side,
+            "player": (e.get("player") or {}).get("name") or "Unknown",
+            "type": ctype,
         })
     return out
 
