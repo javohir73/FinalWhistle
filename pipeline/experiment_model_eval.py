@@ -42,6 +42,7 @@ from ml.evaluation.scoreline_metrics import (
     per_class_calibration_error,
     ranked_probability_score,
     top_k_scoreline_hit,
+    production_scoreline_pick,
 )
 from ml.evaluation.tune import tune_params, validation_window, MIN_VAL_MATCHES
 from ml.models.baseline_logistic import result_label
@@ -220,7 +221,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
     editions = tournament_editions(rows, since_year)
     # Per-candidate pooled per-match records.
     pooled: dict[str, dict] = {
-        name: {"ll": [], "rps": [], "brier": [], "esnll": [], "top1": [], "top3": [],
+        name: {"ll": [], "rps": [], "brier": [], "esnll": [], "top1": [], "top1_unrestricted": [], "top3": [],
                "top5": [], "wdl": [], "labels": []}
         for name in CANDIDATES
     }
@@ -249,7 +250,11 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
                 p["rps"].append(ranked_probability_score(wdl, label))
                 p["brier"].append(sum((wdl[k] - (1.0 if k == label else 0.0)) ** 2 for k in range(3)))
                 p["esnll"].append(exact_score_nll(grid, sh, sa))
-                p["top1"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 1) else 0.0)
+                # top1 = the PRODUCTION pick rule (band + outcome restriction):
+                # the direct offline proxy for the public exact_score_hits.
+                pick = production_scoreline_pick(grid, wdl[0], wdl[1], wdl[2])
+                p["top1"].append(1.0 if pick == (sh, sa) else 0.0)
+                p["top1_unrestricted"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 1) else 0.0)
                 p["top3"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 3) else 0.0)
                 p["top5"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 5) else 0.0)
                 p["wdl"].append(wdl)
@@ -267,6 +272,7 @@ def run(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730) -> 
             "brier": float(np.mean(p["brier"])),
             "exact_nll": float(np.mean(p["esnll"])),
             "top1": float(np.mean(p["top1"])),
+            "top1_unrestricted": float(np.mean(p["top1_unrestricted"])),
             "top3": float(np.mean(p["top3"])),
             "top5": float(np.mean(p["top5"])),
             "ece": expected_calibration_error(p["wdl"], p["labels"], bins=10),

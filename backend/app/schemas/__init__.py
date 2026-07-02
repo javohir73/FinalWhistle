@@ -130,6 +130,10 @@ class MatchSummaryOut(BaseModel):
     status: str
     score_home: int | None
     score_away: int | None
+    # Regulation-time (90') score when captured — the basis the model's
+    # scoreline prediction is judged on (FR-2.2); null falls back to the final.
+    score_home_90: int | None = None
+    score_away_90: int | None = None
     minute: int | None
     period: str | None = None
     injury_time: int | None = None

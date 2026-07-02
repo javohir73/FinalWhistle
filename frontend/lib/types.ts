@@ -127,6 +127,8 @@ export interface MatchSummary {
   status: "scheduled" | "in_play" | "finished";
   score_home: number | null;
   score_away: number | null;
+  score_home_90?: number | null;
+  score_away_90?: number | null;
   minute: number | null;
   period: LivePeriod;
   injury_time: number | null;

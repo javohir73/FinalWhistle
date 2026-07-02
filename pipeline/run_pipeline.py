@@ -69,6 +69,11 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     # adjusted ratings: evaluate finished matches, refresh tournament state.
     # Count first: a match finishing mid-pipeline stays owed for the next sweep.
     covered = finished_match_count(db)
+    # 90' basis before evaluation: fill regulation scores history/cron-gaps
+    # missed, so exact-score results land on the basis the model predicts.
+    from pipeline.backfill_90min import backfill_90min_scores
+
+    step("backfill_90min", lambda: backfill_90min_scores(db))
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
 

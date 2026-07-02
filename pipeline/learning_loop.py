@@ -62,9 +62,12 @@ def _finished_matches(db: Session) -> list[Match]:
     every user-facing verdict uses (frontend/lib/verdict.ts). A tie decided
     on penalties is level, so it evaluates and replays as a draw, matching
     the model's 90-minute basis (shootouts are deliberately unmodelled). The
-    one accepted skew: a tie decided by an extra-time goal counts at its
-    after-ET score rather than the 90-minute draw — consistent with how the
-    record is displayed, and the replay's Elo update stays conservative.
+    one accepted skew: for the WINNER verdict and the Elo replay, a tie
+    decided by an extra-time goal counts at its after-ET score rather than
+    the 90-minute draw. EXACT-SCORE hits, by contrast, score against the
+    captured 90-minute basis when present (FR-2.2; evaluate_match's
+    exact_home_goals/exact_away_goals), matching the frontend verdict's
+    scoreline comparison.
     Eligibility (finished + teams + scores) is shared with the chain-status
     watermark (app/chain_status.finished_matches_query) so "pending" counts
     exactly what this loop sweeps.
@@ -105,6 +108,10 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
             pred.predicted_score_away if pred.predicted_score_away is not None else -1,
             m.score_home,
             m.score_away,
+            # Exact-score on the 90-minute basis when captured (FR-2.2); the
+            # winner verdict keeps the after-ET final-result convention.
+            exact_home_goals=m.score_home_90,
+            exact_away_goals=m.score_away_90,
         )
         db.add(
             PredictionResult(
@@ -193,7 +200,12 @@ def update_tournament_state(db: Session) -> int:
         for m in finished
         if m.id not in skip
     ]
-    states = replay_tournament(base, replay)
+    from ml.models.params import load_params
+
+    served = load_params()
+    states = replay_tournament(
+        base, replay, goals_base=served.base, goals_beta=served.beta
+    )
 
     updated = 0
     for t in teams:
@@ -265,9 +277,14 @@ def run_post_results_chain(
     precision; the 06:00 UTC pipeline re-runs at full depth.
     """
     from app.scoring import recompute_scores, knockout_results_from_db
+    from pipeline.backfill_90min import backfill_90min_scores
     from pipeline.generate_predictions import generate_predictions
 
-    summary: dict = {"learning": run_learning_loop(db, model_version)}
+    # Heal 90-minute scores BEFORE evaluating: result rows are append-only, so
+    # a match evaluated on the wrong basis can never be re-scored — the
+    # goal-events reconstruction must run first (cheap: NULL rows only).
+    summary: dict = {"backfill_90min": backfill_90min_scores(db)}
+    summary["learning"] = run_learning_loop(db, model_version)
     summary["predictions"] = generate_predictions(
         db, n_sims=n_sims, tournament_sims=tournament_sims
     )

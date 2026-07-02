@@ -117,6 +117,8 @@ def form_adjustment(gf_residual_mean: float, ga_residual_mean: float, n: int) ->
 def replay_tournament(
     base_elos: dict[int, float],
     matches: list[TournamentMatch],
+    goals_base: float | None = None,
+    goals_beta: float | None = None,
 ) -> dict[int, TeamState]:
     """Replay finished tournament matches from the historical base ratings.
 
@@ -131,6 +133,11 @@ def replay_tournament(
     """
     states: dict[int, TeamState] = {}
     k_wc = k_factor("FIFA World Cup")
+    goal_kw = {}
+    if goals_base is not None:
+        goal_kw["base"] = goals_base
+    if goals_beta is not None:
+        goal_kw["beta"] = goals_beta
 
     for m in matches:
         if m.home_id not in base_elos or m.away_id not in base_elos:
@@ -142,7 +149,10 @@ def replay_tournament(
         eff_away = base_elos[m.away_id] + sa.elo_delta
 
         # --- form residuals vs the model's own pre-match expectation ---
-        lam_home, lam_away = expected_goals_from_elo(eff_home, eff_away, m.home_adv)
+        # Measured against the SERVED goal model (goals_base/goals_beta from
+        # model_params.json) so stored residuals carry no systematic bias;
+        # None falls back to the v0.1 constants for old callers/tests (FR-2.4).
+        lam_home, lam_away = expected_goals_from_elo(eff_home, eff_away, m.home_adv, **goal_kw)
         sh.gf_residual_sum += m.score_home - lam_home
         sh.ga_residual_sum += m.score_away - lam_away
         sa.gf_residual_sum += m.score_away - lam_away

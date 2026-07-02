@@ -105,6 +105,11 @@ class Match(Base):
     status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled/in_play/finished
     score_home: Mapped[int | None] = mapped_column(Integer)
     score_away: Mapped[int | None] = mapped_column(Integer)
+    # Regulation-time (90') score, frozen when a match first goes beyond
+    # regulation and equal to the final score otherwise. The model predicts
+    # 90-minute scores, so exact-score evaluation prefers this basis (FR-2.1).
+    score_home_90: Mapped[int | None] = mapped_column(Integer)
+    score_away_90: Mapped[int | None] = mapped_column(Integer)
     minute: Mapped[int | None] = mapped_column(Integer)  # live clock when in_play (None at HT/PENS)
     # Phase of play, refines `status` while in_play: first_half / half_time /
     # second_half / extra_time / penalty_shootout (None otherwise). Drives the
