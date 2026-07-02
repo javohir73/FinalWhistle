@@ -29,7 +29,12 @@ def matches_missing_prediction(
     cannot be proven far away, so it is treated as due — defensive).
     """
     has_prediction = (
-        db.query(Prediction.id).filter(Prediction.match_id == Match.id).exists()
+        db.query(Prediction.id)
+        .filter(Prediction.match_id == Match.id,
+                # Only a PRODUCTION row counts as coverage — a shadow twin is
+                # never served or evaluated as the record (FR-4.5).
+                Prediction.is_shadow.is_(False))
+        .exists()
     )
     q = db.query(Match).filter(
         Match.status == "scheduled",

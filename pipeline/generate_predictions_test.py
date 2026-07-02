@@ -82,7 +82,9 @@ def test_generate_predictions_writes_rows(db_session):
 
     assert summary["matches_predicted"] == 72  # all group matches
     assert summary["groups_simulated"] == 12
-    assert db_session.query(Prediction).count() == 72
+    assert db_session.query(Prediction).filter_by(is_shadow=False).count() == 72
+    # Every production row gets its shadow twin (FR-4.4) — never more, never fewer.
+    assert db_session.query(Prediction).filter_by(is_shadow=True).count() == 72
 
     # Standings: 48 teams, qualification probs sum to ~2 per group.
     standings = db_session.query(Standing).all()

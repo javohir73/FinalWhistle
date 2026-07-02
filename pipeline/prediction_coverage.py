@@ -52,7 +52,11 @@ def ensure_prediction_coverage(
     # Deferred: keep ml/pipeline imports off the module import path so the web
     # process only pays for them when there is actual work to do.
     from ml.models.params import load_params
-    from pipeline.generate_predictions import _write_prediction, build_payload
+    from pipeline.generate_predictions import (
+        _write_prediction,
+        build_payload,
+        write_shadow_prediction,
+    )
     from pipeline.learning_loop import effective_elos
 
     params = load_params()
@@ -65,6 +69,10 @@ def ensure_prediction_coverage(
         if payload is None:  # defensive: teams vanished mid-pass
             continue
         _write_prediction(db, payload, params.version)
+        # Keep the shadow record complete (FR-4.4): a sweep-generated match
+        # gets its twin too, so the production-vs-shadow comparison never has
+        # coverage holes. Cheap — one more analytic grid at most.
+        write_shadow_prediction(db, m, payload, strengths, params)
         done.append(m.id)
     db.commit()
     log.info("prediction coverage sweep generated %d prediction(s): %s", len(done), sorted(done))

@@ -110,6 +110,42 @@ def tournament_editions(rows: list[dict], since_year: int) -> list[tuple[str, in
     return out
 
 
+def infer_knockout_flags(edition_rows: list[dict]) -> list[bool]:
+    """Structural knockout detection for one edition (no stage column exists).
+
+    The modal per-team match count in an edition is the group-stage length
+    (most teams are eliminated in the groups, so the mode is what an
+    eliminated team plays). A match where BOTH sides have already played that
+    many games sits beyond the group stage — the knockout bracket, including
+    the third-place playoff and the final. A pure round robin flags nothing:
+    every team's total equals the mode, so nobody exceeds it mid-edition.
+    Returns flags index-aligned with ``edition_rows`` (any input order).
+    """
+    if not edition_rows:
+        return []
+    totals: dict = defaultdict(int)
+    for r in edition_rows:
+        totals[r["home_id"]] += 1
+        totals[r["away_id"]] += 1
+    counts = defaultdict(int)
+    for n in totals.values():
+        counts[n] += 1
+    # Ties break toward the SMALLER count: in a 16-team Euro (8 out at 3, 8
+    # advancing at 4+) the group length is the low mode, and a too-high mode
+    # would silently swallow the first knockout round.
+    mode = min(k for k, c in counts.items() if c == max(counts.values()))
+
+    order = sorted(range(len(edition_rows)), key=lambda i: (edition_rows[i]["date"], i))
+    played: dict = defaultdict(int)
+    flags = [False] * len(edition_rows)
+    for i in order:
+        r = edition_rows[i]
+        flags[i] = played[r["home_id"]] >= mode and played[r["away_id"]] >= mode
+        played[r["home_id"]] += 1
+        played[r["away_id"]] += 1
+    return flags
+
+
 # --- per-match scoring -------------------------------------------------------
 
 def _eval_adv(is_neutral: bool, params: ModelParams) -> float:
@@ -118,15 +154,21 @@ def _eval_adv(is_neutral: bool, params: ModelParams) -> float:
     return 0.0 if is_neutral else params.home_adv
 
 
-def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: float = 0.0):
+def wdl_and_grid(pre_home, pre_away, is_neutral, params: ModelParams, gamma: float = 0.0,
+                 lam_scale: float = 1.0):
     """Return (wdl_triple, normalized_grid) for one match under given params.
 
     gamma > 0 applies a close-match draw-inflation: diagonal (draw) cells are
     multiplied by exp(gamma * closeness), where closeness decays with the Elo gap,
     then the grid is renormalized (Codex's sharper alternative to global Dixon-Coles).
+
+    lam_scale multiplies BOTH lambdas before the grid is built — the
+    stage-conditional knockout multiplier candidate (FR-4.7): KO matches are
+    measurably lower-scoring than the Elo gap alone implies.
     """
     adv = _eval_adv(is_neutral, params)
     lam_h, lam_a = expected_goals_from_elo(pre_home, pre_away, adv, params.base, params.beta)
+    lam_h, lam_a = lam_h * lam_scale, lam_a * lam_scale
     grid = score_matrix(lam_h, lam_a, rho=params.rho)
     if gamma > 0.0:
         diff = (pre_home + adv) - pre_away
@@ -564,6 +606,89 @@ def run_draw_cal_gate(rows: list[dict], tail_years: int = 2, test_since: int = 2
     }
 
 
+#: Do-no-harm tolerance for the KO gate's W/D/L guardrail: the multiplier may
+#: not worsen mean log-loss beyond this on the point estimate.
+_LL_TOL = 1e-4
+
+
+def run_ko_multiplier_gate(rows: list[dict], since_year: int = 2004, n_boot: int = 2000,
+                           multipliers: tuple[float, ...] = (0.85, 0.90, 0.95),
+                           served_params: ModelParams | None = None) -> dict:
+    """Honest ship test for the stage-conditional knockout lambda multiplier
+    (FR-4.7 — the one Phase-4 candidate that IS backtestable, on historical
+    90-minute knockout scores; a shootout-decided tie is recorded level).
+
+    Fixed multipliers, no fitting — every candidate is out-of-sample by
+    construction, so no walk-forward window is needed. Scored on KNOCKOUT
+    matches only (group matches are identical under every candidate; including
+    them would only dilute the paired deltas), knockout inferred structurally
+    per edition (infer_knockout_flags). SHIP requires the exact-score NLL CI
+    to exclude 0 in the candidate's favor — the program's target metric — AND
+    W/D/L log-loss not to regress beyond _LL_TOL (do-no-harm, mirroring the
+    draw-cal gate's RPS guardrail). top1 uses the production pick rule
+    (FR-2.5 harness parity) and is reported with its own CI.
+    """
+    served = served_params if served_params is not None else load_params()
+
+    ko_rows: list[dict] = []
+    ed_keys: list[tuple] = []
+    editions = tournament_editions(rows, since_year)
+    for comp, year, target in editions:
+        flags = infer_knockout_flags(target)
+        for r, is_ko in zip(target, flags):
+            if is_ko:
+                ko_rows.append(r)
+                ed_keys.append((comp, year))
+
+    def score(r: dict, lam_scale: float) -> tuple[float, float, float]:
+        """(log_loss, exact_nll, top1_hit) for one match at one multiplier."""
+        idx = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
+        wdl, grid = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"],
+                                 served, lam_scale=lam_scale)
+        pick = production_scoreline_pick(grid, wdl[0], wdl[1], wdl[2])
+        return (
+            -math.log(max(_EPS, min(1 - _EPS, wdl[idx]))),
+            exact_score_nll(grid, r["score_home"], r["score_away"]),
+            1.0 if pick == (r["score_home"], r["score_away"]) else 0.0,
+        )
+
+    base = [score(r, 1.0) for r in ko_rows]
+    rng = np.random.default_rng(2026)
+    out_mults: dict[float, dict] = {}
+    for m in multipliers:
+        cand = [score(r, m) for r in ko_rows]
+        if not ko_rows:
+            out_mults[m] = {"d_log_loss": 0.0, "ll_ci": (0.0, 0.0),
+                            "d_exact_nll": 0.0, "es_ci": (0.0, 0.0),
+                            "d_top1": 0.0, "t1_ci": (0.0, 0.0),
+                            "verdict": "do-not-ship"}
+            continue
+        d_ll = np.array([c[0] - b[0] for c, b in zip(cand, base)])
+        d_es = np.array([c[1] - b[1] for c, b in zip(cand, base)])
+        d_t1 = np.array([c[2] - b[2] for c, b in zip(cand, base)])
+        es_ci = block_bootstrap_ci(d_es, ed_keys, n_boot, rng)
+        ll_ci = block_bootstrap_ci(d_ll, ed_keys, n_boot, rng)
+        t1_ci = block_bootstrap_ci(d_t1, ed_keys, n_boot, rng)
+        ship = bool(es_ci[1] < 0 and float(d_ll.mean()) <= _LL_TOL)
+        out_mults[m] = {
+            "d_log_loss": float(d_ll.mean()), "ll_ci": ll_ci,
+            "d_exact_nll": float(d_es.mean()), "es_ci": es_ci,
+            "d_top1": float(d_t1.mean()), "t1_ci": t1_ci,
+            "verdict": "SHIP" if ship else "do-not-ship",
+        }
+
+    return {
+        "served_version": served.version,
+        "editions": len(editions),
+        "ko_matches": len(ko_rows),
+        "base_log_loss": float(np.mean([b[0] for b in base])) if base else 0.0,
+        "base_exact_nll": float(np.mean([b[1] for b in base])) if base else 0.0,
+        "base_top1": float(np.mean([b[2] for b in base])) if base else 0.0,
+        "ll_tol": _LL_TOL,
+        "multipliers": out_mults,
+    }
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--since", type=int, default=2004)
@@ -636,6 +761,18 @@ def main() -> int:
         # Valid JSON so it can be pasted straight into model_params.json's wdl_blend.
         blob = json.dumps({"weight": bg["weight"], "calibrator": bg["calibrator"]})
         print(f"  SHIP blob (paste into model_params.json -> wdl_blend): {blob}")
+
+    print("\n==== Knockout lambda-multiplier gate (FR-4.7) ====")
+    kg = run_ko_multiplier_gate(rows, since_year=args.since, n_boot=args.boot)
+    print(f"  served={kg['served_version']}  editions={kg['editions']}  ko_matches={kg['ko_matches']}")
+    print(f"  base: logloss={kg['base_log_loss']:.4f}  exactNLL={kg['base_exact_nll']:.4f}  "
+          f"top1={kg['base_top1']:.3f}")
+    for m, cell in kg["multipliers"].items():
+        print(f"  x{m:.2f}: exactNLL d={cell['d_exact_nll']:+.4f} "
+              f"CI[{cell['es_ci'][0]:+.4f},{cell['es_ci'][1]:+.4f}]  "
+              f"top1 d={cell['d_top1']:+.4f} CI[{cell['t1_ci'][0]:+.4f},{cell['t1_ci'][1]:+.4f}]  "
+              f"logloss d={cell['d_log_loss']:+.4f} CI[{cell['ll_ci'][0]:+.4f},{cell['ll_ci'][1]:+.4f}]"
+              f"  -> {cell['verdict']}")
 
     print("\n==== Segmented draw-calibration gate ====")
     dg = run_draw_cal_gate(rows, n_boot=args.boot)

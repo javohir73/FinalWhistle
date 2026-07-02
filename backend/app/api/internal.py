@@ -140,6 +140,35 @@ def stats(
     }
 
 
+@router.get("/shadow-record")
+def shadow_record(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Production vs shadow model record, side by side (FR-4.6) — the input to
+    the MANUAL promotion decision (FR-4.8; nothing here auto-promotes).
+    Token-guarded: shadow numbers are internal until the owner says otherwise."""
+    _require_token(x_recompute_token)
+    from app.models import PredictionResult
+
+    def aggregate(shadow: bool) -> dict:
+        rows = (
+            db.query(PredictionResult)
+            .filter(PredictionResult.is_shadow.is_(shadow))
+            .all()
+        )
+        n = len(rows)
+        return {
+            "n": n,
+            "exact_hits": sum(1 for r in rows if r.exact_score_correct),
+            "winner_acc": round(sum(1 for r in rows if r.winner_correct) / n, 4) if n else None,
+            "avg_brier": round(sum(r.brier for r in rows) / n, 4) if n else None,
+            "model_versions": sorted({r.model_version for r in rows}),
+        }
+
+    return {"production": aggregate(False), "shadow": aggregate(True)}
+
+
 @router.post("/recompute-scores")
 def recompute_scores_endpoint(
     db: Session = Depends(get_db),

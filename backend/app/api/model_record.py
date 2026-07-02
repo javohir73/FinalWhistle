@@ -50,6 +50,9 @@ def model_record(db: Session = Depends(get_db)):
         db.query(PredictionResult, Prediction, Match)
         .join(Prediction, PredictionResult.prediction_id == Prediction.id)
         .join(Match, PredictionResult.match_id == Match.id)
+        # The audited public record is the PRODUCTION model's alone — shadow
+        # evaluations live behind /api/internal/shadow-record (FR-4.5/4.6).
+        .filter(PredictionResult.is_shadow.is_(False))
         .order_by(PredictionResult.evaluated_at.asc())
         .all()
     )

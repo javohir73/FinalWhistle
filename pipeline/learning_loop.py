@@ -79,12 +79,53 @@ def _finished_matches(db: Session) -> list[Match]:
     )
 
 
-def _frozen_prediction(db: Session, match: Match) -> Prediction | None:
-    """The pre-kickoff snapshot: latest prediction created while scheduled."""
-    q = db.query(Prediction).filter(Prediction.match_id == match.id)
+def _frozen_prediction(db: Session, match: Match, *, shadow: bool = False) -> Prediction | None:
+    """The pre-kickoff snapshot: latest prediction created while scheduled.
+
+    Production and shadow rows are frozen SEPARATELY (FR-4.5): the audited
+    record must never pick up an odds-anchored twin, and the shadow record
+    must never pick up a production row.
+    """
+    q = db.query(Prediction).filter(
+        Prediction.match_id == match.id,
+        Prediction.is_shadow.is_(shadow),
+    )
     if match.kickoff_utc is not None:
         q = q.filter(Prediction.created_at <= match.kickoff_utc)
     return q.order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()
+
+
+def _result_row(m: Match, pred: Prediction, model_version: str, *, shadow: bool) -> PredictionResult:
+    """Evaluate one frozen prediction against a finished match — the SAME math
+    for the production record and the shadow record (FR-4.6)."""
+    ev = evaluate_match(
+        (pred.prob_home_win, pred.prob_draw, pred.prob_away_win),
+        pred.predicted_score_home if pred.predicted_score_home is not None else -1,
+        pred.predicted_score_away if pred.predicted_score_away is not None else -1,
+        m.score_home,
+        m.score_away,
+        # Exact-score on the 90-minute basis when captured (FR-2.2); the
+        # winner verdict keeps the after-ET final-result convention.
+        exact_home_goals=m.score_home_90,
+        exact_away_goals=m.score_away_90,
+    )
+    return PredictionResult(
+        match_id=m.id,
+        prediction_id=pred.id,
+        model_version=pred.model_version or model_version,
+        actual_score_home=m.score_home,
+        actual_score_away=m.score_away,
+        outcome=_OUTCOME[ev.outcome_idx],
+        winner_correct=ev.winner_correct,
+        exact_score_correct=ev.exact_score_correct,
+        prob_assigned=(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)[
+            ev.outcome_idx
+        ],
+        brier=ev.brier,
+        log_loss=ev.log_loss,
+        goal_error=ev.goal_error,
+        is_shadow=shadow,
+    )
 
 
 def evaluate_finished_predictions(db: Session, model_version: str) -> int:
@@ -93,7 +134,12 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
     Returns the number of NEW evaluations. Never rewrites an existing row —
     the record is append-only evidence.
     """
-    evaluated_ids = {r.match_id for r in db.query(PredictionResult.match_id).all()}
+    evaluated_ids = {
+        r.match_id
+        for r in db.query(PredictionResult.match_id)
+        .filter(PredictionResult.is_shadow.is_(False))
+        .all()
+    }
     new = 0
     for m in _finished_matches(db):
         if m.id in evaluated_ids:
@@ -102,35 +148,33 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
         if pred is None:
             log.warning("finished match %s has no pre-kickoff prediction; skipping", m.id)
             continue
-        ev = evaluate_match(
-            (pred.prob_home_win, pred.prob_draw, pred.prob_away_win),
-            pred.predicted_score_home if pred.predicted_score_home is not None else -1,
-            pred.predicted_score_away if pred.predicted_score_away is not None else -1,
-            m.score_home,
-            m.score_away,
-            # Exact-score on the 90-minute basis when captured (FR-2.2); the
-            # winner verdict keeps the after-ET final-result convention.
-            exact_home_goals=m.score_home_90,
-            exact_away_goals=m.score_away_90,
-        )
-        db.add(
-            PredictionResult(
-                match_id=m.id,
-                prediction_id=pred.id,
-                model_version=pred.model_version or model_version,
-                actual_score_home=m.score_home,
-                actual_score_away=m.score_away,
-                outcome=_OUTCOME[ev.outcome_idx],
-                winner_correct=ev.winner_correct,
-                exact_score_correct=ev.exact_score_correct,
-                prob_assigned=(pred.prob_home_win, pred.prob_draw, pred.prob_away_win)[
-                    ev.outcome_idx
-                ],
-                brier=ev.brier,
-                log_loss=ev.log_loss,
-                goal_error=ev.goal_error,
-            )
-        )
+        db.add(_result_row(m, pred, model_version, shadow=False))
+        new += 1
+    if new:
+        db.commit()
+    return new
+
+
+def evaluate_finished_shadow_predictions(db: Session) -> int:
+    """Score the shadow model's frozen predictions into is_shadow=True result
+    rows (FR-4.6) — the data behind /api/internal/shadow-record. Matches with
+    no shadow twin (pre-Phase-4) are skipped silently: no twin, no comparison.
+    Append-only and idempotent, exactly like the production path.
+    """
+    evaluated_ids = {
+        r.match_id
+        for r in db.query(PredictionResult.match_id)
+        .filter(PredictionResult.is_shadow.is_(True))
+        .all()
+    }
+    new = 0
+    for m in _finished_matches(db):
+        if m.id in evaluated_ids:
+            continue
+        pred = _frozen_prediction(db, m, shadow=True)
+        if pred is None:
+            continue
+        db.add(_result_row(m, pred, pred.model_version, shadow=True))
         new += 1
     if new:
         db.commit()
@@ -252,10 +296,16 @@ def effective_elos(db: Session) -> dict[int, float]:
 
 
 def run_learning_loop(db: Session, model_version: str) -> dict:
-    """The full controlled update: evaluate, then refresh tournament state."""
+    """The full controlled update: evaluate (production, then shadow — the
+    shadow record never feeds ratings), then refresh tournament state."""
     evaluated = evaluate_finished_predictions(db, model_version)
+    shadow_evaluated = evaluate_finished_shadow_predictions(db)
     teams_updated = update_tournament_state(db)
-    summary = {"evaluated_new": evaluated, "teams_updated": teams_updated}
+    summary = {
+        "evaluated_new": evaluated,
+        "shadow_evaluated_new": shadow_evaluated,
+        "teams_updated": teams_updated,
+    }
     log.info("learning loop: %s", summary)
     return summary
 

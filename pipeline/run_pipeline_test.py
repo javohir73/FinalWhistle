@@ -30,8 +30,10 @@ def test_pipeline_runs_end_to_end(db_session):
     assert summary["elo"]["teams_rated"] > 0
     assert summary["predictions"]["matches_predicted"] == 72
 
-    # Every group match has a prediction; every team has a standing.
-    assert db_session.query(Prediction).count() == 72
+    # Every group match has a prediction (plus its shadow twin, FR-4.4);
+    # every team has a standing.
+    assert db_session.query(Prediction).filter_by(is_shadow=False).count() == 72
+    assert db_session.query(Prediction).filter_by(is_shadow=True).count() == 72
     assert db_session.query(Standing).count() == 48
 
 
@@ -78,3 +80,28 @@ def test_pipeline_reports_prediction_coverage(db_session):
     lack a frozen prediction — the coverage step proves it in the summary."""
     summary = run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
     assert summary["prediction_coverage"]["missing"] == 0
+
+
+def test_pipeline_runs_odds_step_only_with_api_key(db_session, monkeypatch):
+    """FR-4.1/FR-6.2: the odds snapshot is a normal pipeline step when the
+    API-Football key is configured, and skipped cleanly when it is not —
+    the pipeline must never depend on a bookmaker feed."""
+    from app.config import settings
+    import pipeline.run_pipeline as rp_mod
+
+    calls = []
+
+    def fake_refresh(db, api_key, window_hours=48.0):
+        calls.append(api_key)
+        return {"matches_priced": 0, "matches_skipped": 0}
+
+    monkeypatch.setattr("pipeline.ingest.odds.refresh_odds", fake_refresh)
+
+    monkeypatch.setattr(settings, "api_football_api_key", "")
+    summary = rp_mod.run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+    assert "odds" not in summary and calls == []
+
+    monkeypatch.setattr(settings, "api_football_api_key", "k")
+    summary = rp_mod.run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+    assert summary["odds"] == {"matches_priced": 0, "matches_skipped": 0}
+    assert calls == ["k"]
