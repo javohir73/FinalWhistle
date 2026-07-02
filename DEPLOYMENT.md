@@ -149,3 +149,10 @@ Click-by-click:
 - [ ] Groups page shows 12 groups with qualification %
 - [ ] No CORS errors in the browser console (fix = correct `CORS_ORIGINS`)
 - [ ] Trigger the cron once; confirm predictions exist
+
+> **Smoke tests and accounts:** the CI smoke workflow (`.github/workflows/smoke.yml`)
+> is read-only and never signs in. If a manual post-deploy check ever needs a real
+> account, do it in a throwaway browser profile, **never join the public leaderboard**
+> with it, and flag it internal afterwards (Actions → *ops-flag-internal*, by display
+> name or email) so it can't appear to visitors. Session cookies are HttpOnly — page
+> JS can't clear them; sign out or clear site data from DevTools instead.

@@ -11,6 +11,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -138,6 +139,58 @@ def stats(
         "by_country": by_country,
         "by_city": by_city,
     }
+
+
+class FlagInternalUserIn(BaseModel):
+    email: str | None = None
+    display_name: str | None = None  # bracket display name shown on the board
+    internal: bool = True
+
+
+@router.post("/flag-internal-user")
+def flag_internal_user(
+    payload: FlagInternalUserIn,
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Mark an account as internal (smoke tests, ops) so it never appears on the
+    public leaderboard, or unmark it with `"internal": false`. Select the account
+    by email or by its (unique) leaderboard display name. Token-guarded:
+    `curl -H "X-Recompute-Token: <token>" -H "Content-Type: application/json"
+    -d '{"email": "..."}' <api>/api/internal/flag-internal-user`."""
+    _require_token(x_recompute_token)
+    from app.models import AppUser, Bracket
+    from app.scoring import knockout_results_from_db, recompute_scores
+
+    if (payload.email is None) == (payload.display_name is None):
+        raise HTTPException(status_code=422, detail={
+            "code": "one_selector_required",
+            "message": "Provide exactly one of email or display_name."})
+    if payload.email is not None:
+        email = payload.email.strip().lower()
+        user = db.query(AppUser).filter(func.lower(AppUser.email) == email).one_or_none()
+    else:
+        name = payload.display_name.strip().lower()
+        matches = (
+            db.query(AppUser)
+            .join(Bracket, Bracket.user_id == AppUser.id)
+            .filter(func.lower(Bracket.display_name) == name)
+            .all()
+        )
+        if len(matches) > 1:
+            raise HTTPException(status_code=409, detail={
+                "code": "ambiguous_display_name",
+                "message": "Multiple accounts use that display name; flag by email."})
+        user = matches[0] if matches else None
+    if user is None:
+        raise HTTPException(status_code=404, detail={"code": "not_found",
+                                                     "message": "No matching account."})
+    user.is_internal = payload.internal
+    db.commit()
+    # Re-rank so leaderboard ranks stay contiguous without the flagged account.
+    recompute_scores(db, knockout_results=knockout_results_from_db(db))
+    cache.clear()
+    return {"status": "ok", "email": user.email, "is_internal": user.is_internal}
 
 
 @router.get("/shadow-record")

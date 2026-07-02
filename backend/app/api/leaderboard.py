@@ -25,13 +25,20 @@ def leaderboard(
     limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
-    """Public leaderboard, ranked by total points. No auth required (read-only)."""
-    total_public = db.query(Bracket).filter(Bracket.visibility == "public").count()
+    """Public leaderboard, ranked by total points. No auth required (read-only).
+    Internal/smoke-test accounts (AppUser.is_internal) never appear."""
+    total_public = (
+        db.query(Bracket)
+        .join(AppUser, AppUser.id == Bracket.user_id)
+        .filter(Bracket.visibility == "public", AppUser.is_internal.is_(False))
+        .count()
+    )
     rows = (
         db.query(Bracket, BracketScore, Team)
+        .join(AppUser, AppUser.id == Bracket.user_id)
         .outerjoin(BracketScore, BracketScore.bracket_id == Bracket.id)
         .outerjoin(Team, Team.id == Bracket.champion_team_id)
-        .filter(Bracket.visibility == "public")
+        .filter(Bracket.visibility == "public", AppUser.is_internal.is_(False))
         .order_by(
             BracketScore.total_points.is_(None),
             BracketScore.total_points.desc(),
@@ -43,9 +50,12 @@ def leaderboard(
     out = []
     for bracket, score, team in rows:
         rank = score.rank if score else None
+        # "Top X%" only when it's meaningful: a real population (2+) and a rank
+        # that fits inside it (a stale rank from before a visibility change
+        # could otherwise push the value negative).
         pct = (
             round(100.0 * (total_public - rank + 1) / total_public)
-            if rank and total_public
+            if rank and total_public >= 2 and rank <= total_public
             else None
         )
         out.append(
@@ -81,6 +91,11 @@ def join_leaderboard(
     b.visibility = "public" if payload.visibility != "private" else "private"
     b.submitted_at = datetime.now(timezone.utc)
     db.commit()
+    # Re-rank right away: joining (or going private) changes the leaderboard
+    # population, and ranks must stay contiguous with what it shows.
+    from app.scoring import knockout_results_from_db, recompute_scores
+
+    recompute_scores(db, knockout_results=knockout_results_from_db(db))
     db.refresh(b)
     cache.clear()
     from app.api.brackets import to_bracket_out
