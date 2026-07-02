@@ -71,6 +71,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // only 401 and spam the console — skip the fetch and resolve signed-out. A
   // returning/expired user (hint present) still reconciles against the cookie.
   useEffect(() => {
+    // One-time cleanup: the removed My Bracket builder persisted picks under
+    // these keys; nothing reads them anymore. Safe to drop once widely deployed.
+    try {
+      window.localStorage.removeItem("finalwhistle:mybracket:v1");
+      window.localStorage.removeItem("finalwhistle:mybracket:owner:v1");
+    } catch {
+      /* storage unavailable (private mode / quota) — non-fatal */
+    }
     const hint = loadUserHint();
     if (hint) {
       setUser(hint);
