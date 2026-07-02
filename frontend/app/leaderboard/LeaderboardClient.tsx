@@ -133,11 +133,11 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
         </h2>
         <p className="mb-3 max-w-xl px-0.5 text-sm text-muted">
           Public brackets ranked by points (group 3 · knockout 5 · finalist 10 · champion 20).
-          Build yours on the{" "}
-          <Link href="/my-bracket" className="text-lime-deep underline underline-offset-2">
-            My Bracket
+          See the tournament on the{" "}
+          <Link href="/brackets" className="text-lime-deep underline underline-offset-2">
+            Bracket
           </Link>{" "}
-          page, then join.
+          page.
         </p>
 
         <MyRankCard />
@@ -146,7 +146,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
         {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
         {state.status === "success" &&
           (rows.length === 0 ? (
-            <Empty label="No public brackets yet — be the first to join from My Bracket." />
+            <Empty label="No public brackets yet — check back soon." />
           ) : (
             <div className="glass overflow-x-auto rounded-2xl p-2 sm:p-4">
               <table className="w-full text-sm">
