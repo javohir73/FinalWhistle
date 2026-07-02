@@ -399,9 +399,9 @@ function PickButton({
       aria-pressed={active}
       aria-label={ariaLabel}
       className={cn(
-        "flex min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition",
+        "flex min-h-[44px] min-w-0 items-center gap-1.5 rounded-lg border px-2 py-1.5 text-xs font-medium transition",
         align === "right" && "flex-row-reverse text-right",
-        align === "center" && "justify-center",
+        align === "center" && "min-w-[64px] justify-center",
         active
           ? "border-win bg-win/10 text-foreground"
           : "border-border text-muted hover:text-foreground",
@@ -492,7 +492,7 @@ function TieCard({
           aria-pressed={!!team && picked === team}
           aria-label={team ? `Pick ${team} to beat ${other ?? "TBD"}` : "Match not yet decided"}
           className={cn(
-            "flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition",
+            "flex min-h-[44px] w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left text-sm transition",
             !team && "cursor-not-allowed border-transparent text-muted/50",
             team && picked === team
               ? "border-win bg-win/10 font-semibold text-foreground"
