@@ -365,21 +365,28 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
 
         score = am.get("score") or {}
         duration = score.get("duration")
+        # Pre-payload observation state, read BEFORE this payload mutates the
+        # row: the 90'-capture guards below must reason about what we actually
+        # watched, not what this snapshot claims.
+        was_in_regulation = match.period in ("first_half", "half_time", "second_half")
         our_home = db.get(Team, match.team_home_id)
         feed_home_is_our_home = bool(our_home and our_home.name == home_name)
         new_home, new_away = _oriented(score.get("fullTime"), feed_home_is_our_home)
         # 90-minute basis (FR-2.1): freeze the regulation score the FIRST time
-        # this match is seen beyond regulation. The stored score is the last
-        # regulation observation — ET restarts minutes after the 90' whistle,
-        # so under minute-level polling it can't include an ET goal, while the
-        # payload's own fullTime may already (same-payload flag + goal).
+        # this match is seen beyond regulation — but only from a score we
+        # actually OBSERVED during regulation. Three guards, each closing a
+        # confirmed poisoning path: (1) the stored period must be a regulation
+        # period, otherwise the "stored" score is itself an ET-inclusive
+        # aggregate from a straight-to-ET sighting one poll earlier, or an
+        # after-ET final from a re-delivered FINISHED payload; (2) knockout
+        # extra time only ever follows a LEVEL 90' score, so a non-level
+        # stored value means a late goal fell into a poll gap — reject it.
+        # Anything rejected stays NULL for the goal-events backfill.
         if (duration in ("EXTRA_TIME", "PENALTY_SHOOTOUT")
                 and match.score_home_90 is None
-                and match.score_home is not None and match.score_away is not None):
-            # Only a STORED pre-ET score qualifies — a match first sighted with
-            # the ET flag already up has no trustworthy regulation score in the
-            # payload (its fullTime may include ET goals); the goal-events
-            # backfill reconstructs those instead.
+                and match.period in ("first_half", "half_time", "second_half")
+                and match.score_home is not None and match.score_away is not None
+                and match.score_home == match.score_away):
             match.score_home_90, match.score_away_90 = match.score_home, match.score_away
         # Don't let a partial payload (score omitted / null / fullTime null) blank
         # a score we already know — that would flip the UI back to the predicted
@@ -410,11 +417,17 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
             if status == "finished":
                 finished += 1
                 # No extra time ever observed => the final IS the 90' score.
-                # (A finish first seen WITH the ET flag was captured above; a
-                # finish where every ET poll was missed stays NULL and the
-                # goal-events backfill reconstructs it.)
+                # Group matches can never have ET, so the copy is always safe
+                # there; a knockout match additionally requires that we watched
+                # regulation end (stored period from the pre-finish poll) —
+                # otherwise a lagging FINISHED snapshot that dropped the ET
+                # flag would masquerade an after-ET final as the 90' score.
+                # Anything rejected stays NULL for the goal-events backfill.
+                watched_regulation = was_in_regulation or match.stage == "group"
                 if (match.score_home_90 is None
                         and duration not in ("EXTRA_TIME", "PENALTY_SHOOTOUT")
+                        and match.penalty_home is None and match.penalty_away is None
+                        and watched_regulation
                         and match.score_home is not None
                         and match.score_away is not None):
                     match.score_home_90 = match.score_home

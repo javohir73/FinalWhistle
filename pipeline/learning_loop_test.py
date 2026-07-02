@@ -355,3 +355,34 @@ def test_evaluation_scores_exact_on_90_minute_basis(db_session):
     row = db_session.query(PredictionResult).filter_by(match_id=m.id).one()
     assert row.exact_score_correct is True  # 1-1 pick vs 1-1 at 90'
     assert row.outcome == "home"  # winner basis: final result
+
+
+def test_post_results_chain_backfills_90min_before_evaluating(db_session):
+    """Self-check fix: the whistle-time chain must run the goal-events
+    backfill BEFORE evaluation — otherwise the append-only result row locks in
+    the after-ET basis and the daily backfill can never heal it."""
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    m.stage = "R32"  # knockout: ET is possible, group-copy shortcut off
+    pred = (
+        db_session.query(Prediction)
+        .filter_by(match_id=m.id)
+        .order_by(Prediction.id.desc())
+        .first()
+    )
+    pred.predicted_score_home, pred.predicted_score_away = 1, 1
+    _finish(db_session, m, 2, 1)  # after-ET final; 90' was 1-1
+    m.goal_events = [
+        {"minute": 10, "side": "home", "player": "A", "type": "goal"},
+        {"minute": 80, "side": "away", "player": "B", "type": "goal"},
+        {"minute": 100, "side": "home", "player": "C", "type": "goal"},
+    ]
+    db_session.commit()
+    assert m.score_home_90 is None  # every live poll missed
+
+    run_post_results_chain(db_session, MV)
+
+    db_session.refresh(m)
+    assert (m.score_home_90, m.score_away_90) == (1, 1)  # healed from events
+    row = db_session.query(PredictionResult).filter_by(match_id=m.id).one()
+    assert row.exact_score_correct is True  # evaluated on the healed basis

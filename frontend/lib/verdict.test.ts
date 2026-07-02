@@ -120,3 +120,32 @@ describe("predictedOutcome (AI prefill mapping)", () => {
     expect(predictedOutcome({ ...base, probabilities: null, predicted_winner: "Nowhere" })).toBeNull();
   });
 });
+
+it("scores the exact-score verdict on the 90-minute basis when captured", () => {
+  // KO tie: 1-1 after 90', decided 2-1 in extra time. A 1-1 pick is an exact
+  // hit on the 90' basis — matching the backend's exact_score_correct.
+  const v = predictionVerdict({
+    ...base,
+    stage: "R32",
+    score_home: 2,
+    score_away: 1,
+    score_home_90: 1,
+    score_away_90: 1,
+    predicted_score: { home: 1, away: 1, probability: 0.13 },
+  });
+  expect(v?.kind).toBe("exact");
+  expect(v?.basis).toBe("90 min");
+});
+
+it("does not report exact for the after-ET final when the 90' basis differs", () => {
+  const v = predictionVerdict({
+    ...base,
+    stage: "R32",
+    score_home: 2,
+    score_away: 1,
+    score_home_90: 1,
+    score_away_90: 1,
+    predicted_score: { home: 2, away: 1, probability: 0.12 },
+  });
+  expect(v?.kind).not.toBe("exact");
+});

@@ -590,3 +590,60 @@ def test_score90_is_never_overwritten(db_session):
     m = _match_for(db_session, "Mexico", "South Africa")
     assert (m.score_home_90, m.score_away_90) == (1, 1)  # ET finish didn't clobber it
     assert (m.score_home, m.score_away) == (2, 1)
+
+
+def test_score90_not_poisoned_by_straight_to_et_sighting(db_session):
+    """Self-check repro: a match FIRST sighted during ET stores the ET-inclusive
+    aggregate; the NEXT poll must not freeze that stored value as the 90' score
+    (only a score observed during regulation qualifies)."""
+    load_structure(db_session)
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 2, 1, duration="EXTRA_TIME", minute=95)
+    )
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 2, 1, duration="EXTRA_TIME", minute=96)
+    )
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home_90 is None  # left for the goal-events backfill
+
+
+def test_score90_not_poisoned_by_redelivered_finished_et_payload(db_session):
+    """A FINISHED+EXTRA_TIME payload re-delivered on the next cron cycle must
+    not freeze the after-ET final as the regulation score."""
+    load_structure(db_session)
+    payload = _reg_feed("Mexico", "South Africa", "FINISHED", 2, 1, duration="EXTRA_TIME")
+    update_live_scores(db_session, payload)
+    update_live_scores(db_session, payload)  # identical re-delivery
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home_90 is None
+
+
+def test_score90_freeze_requires_level_regulation_score(db_session):
+    """Knockout extra time only ever follows a LEVEL 90' score — a non-level
+    stored score at the ET flag means we missed a late goal (e.g. an 89'
+    equalizer between polls) and must not freeze the stale value."""
+    load_structure(db_session)
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 0, minute=85))
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, duration="EXTRA_TIME", minute=92)
+    )
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home_90 is None  # stale 1-0 rejected; backfill reconstructs
+
+
+def test_finished_redelivery_without_duration_does_not_copy_on_ko(db_session):
+    """Provider re-delivers a finished KO match WITHOUT the ET flag (lagging
+    snapshot): the final must not be copied as the 90' score — only the
+    finish TRANSITION (or a regulation-watched match) may copy."""
+    load_structure(db_session)
+    # First sighting already finished WITH the ET flag: stays NULL (correct).
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "FINISHED", 2, 1, duration="EXTRA_TIME")
+    )
+    m = _match_for(db_session, "Mexico", "South Africa")
+    m.stage = "R32"  # knockout context
+    db_session.commit()
+    # Lagging re-delivery omits the duration flag entirely.
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "FINISHED", 2, 1))
+    db_session.refresh(m)
+    assert m.score_home_90 is None

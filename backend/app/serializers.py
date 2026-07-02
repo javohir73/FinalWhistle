@@ -196,6 +196,8 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         status=match.status,
         score_home=match.score_home,
         score_away=match.score_away,
+        score_home_90=match.score_home_90,
+        score_away_90=match.score_away_90,
         minute=match.minute,
         period=match.period,
         injury_time=match.injury_time,

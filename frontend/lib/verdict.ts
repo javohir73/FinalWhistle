@@ -73,7 +73,11 @@ export function predictionVerdict(m: MatchSummary): Verdict | null {
   const basis: "90 min" | null = isKnockout(m.stage) ? "90 min" : null;
   const shootout = shootoutOf(m);
   const ps = m.predicted_score;
-  if (ps && ps.home != null && ps.away != null && ps.home === m.score_home && ps.away === m.score_away) {
+  // Scoreline verdict on the 90-minute basis when captured (matches the model
+  // record's exact_score_correct); the final score is the fallback basis.
+  const exactHome = m.score_home_90 ?? m.score_home;
+  const exactAway = m.score_away_90 ?? m.score_away;
+  if (ps && ps.home != null && ps.away != null && ps.home === exactHome && ps.away === exactAway) {
     return { kind: "exact", label: "Exact score predicted", basis, shootout };
   }
   const actual =
