@@ -147,16 +147,18 @@ def shadow_record(
 ):
     """Production vs shadow model record, side by side (FR-4.6) — the input to
     the MANUAL promotion decision (FR-4.8; nothing here auto-promotes).
-    Token-guarded: shadow numbers are internal until the owner says otherwise."""
+    Token-guarded: shadow numbers are internal until the owner says otherwise.
+
+    Like-for-like: "production" is restricted to matches that ALSO have a
+    shadow result, so both comparison columns aggregate the same match set.
+    Matches evaluated before Phase 4 deployed have no shadow twin; letting
+    them into the comparison would skew it by sample composition alone (e.g.
+    an easy pre-deploy group-stage stretch the shadow never predicted). The
+    unrestricted record ships separately as "production_full_record"."""
     _require_token(x_recompute_token)
     from app.models import PredictionResult
 
-    def aggregate(shadow: bool) -> dict:
-        rows = (
-            db.query(PredictionResult)
-            .filter(PredictionResult.is_shadow.is_(shadow))
-            .all()
-        )
+    def aggregate(rows: list) -> dict:
         n = len(rows)
         return {
             "n": n,
@@ -166,7 +168,19 @@ def shadow_record(
             "model_versions": sorted({r.model_version for r in rows}),
         }
 
-    return {"production": aggregate(False), "shadow": aggregate(True)}
+    shadow_rows = (
+        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(True)).all()
+    )
+    production_rows = (
+        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(False)).all()
+    )
+    shadow_match_ids = {r.match_id for r in shadow_rows}
+    paired_production = [r for r in production_rows if r.match_id in shadow_match_ids]
+    return {
+        "production": aggregate(paired_production),
+        "shadow": aggregate(shadow_rows),
+        "production_full_record": aggregate(production_rows),
+    }
 
 
 @router.post("/recompute-scores")

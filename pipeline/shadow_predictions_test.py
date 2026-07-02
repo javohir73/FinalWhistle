@@ -141,6 +141,33 @@ def test_shadow_with_odds_but_weight_zero_is_identical(db_session):
         prod.prob_home_win, prod.prob_draw, prod.prob_away_win)
 
 
+def test_market_inversion_skipped_when_weight_zero(db_session, monkeypatch):
+    """Perf guard: with the shipped w_odds=0 the blend is the identity, so the
+    market total must never be computed. The 1X2 fallback inversion is a
+    double bisection costing ~0.1-0.4s per priced match, and prediction
+    generation runs synchronously inside latency-sensitive chains
+    (recompute / refresh-live / coverage sweep) — dead compute there is real
+    request time. The weight gate must come BEFORE the inversion."""
+    import pipeline.generate_predictions as gp
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    m = _first_group_match(db_session)
+    # 1X2-only consensus row — exactly the shape that hits the expensive
+    # lambda_total_from_1x2 fallback if the inversion runs.
+    db_session.add(Odds(match_id=m.id, bookmaker="median",
+                        odds_home=2.1, odds_draw=3.3, odds_away=3.6,
+                        captured_at=datetime.now(timezone.utc)))
+    db_session.commit()
+
+    calls: list[int] = []
+    monkeypatch.setattr(
+        gp, "market_lambda_total", lambda *a, **kw: calls.append(1) or None
+    )
+    generate_predictions(db_session, MV, n_sims=120, tournament_sims=50)
+    assert calls == []  # shipped default w_odds=0.0 -> inversion never invoked
+
+
 # --- frozen-prediction exclusion (FR-4.5) --------------------------------------
 
 def test_frozen_prediction_never_picks_a_shadow_row(db_session):

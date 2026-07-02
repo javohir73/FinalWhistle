@@ -225,7 +225,16 @@ def write_shadow_prediction(
     twin is internal-only and never rendered. NOTE: the anchored triple is
     pure Poisson (no W/D/L booster leg even if wdl_blend ever ships) so the
     comparison attributes divergence to the odds anchor alone.
+
+    The ``w_odds`` gate runs FIRST: with the shipped 0.0 the blend is the
+    identity, so the odds lookup and the market inversion (whose 1X2 fallback
+    is a costly double bisection) are skipped entirely — this path executes
+    synchronously inside latency-sensitive request chains.
     """
+    shadow = payload
+    if params.w_odds <= 0.0:
+        _write_prediction(db, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+        return
     odds = _latest_odds(db, match.id)
     market_total = None
     if odds is not None:
@@ -233,8 +242,7 @@ def write_shadow_prediction(
             odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
             odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
         )
-    shadow = payload
-    if market_total is not None and params.w_odds > 0.0:
+    if market_total is not None:
         lam_h, lam_a = blend_lambda_total(
             payload["lambda_home"], payload["lambda_away"], market_total, params.w_odds
         )
