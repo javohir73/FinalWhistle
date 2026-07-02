@@ -86,6 +86,13 @@ already warned grid-shape changes buy little.
 ## Production baseline
 
 - 2026-07-02 (pre-program): 82 evaluated / 51 winners (62.2%) / 9 exact (11.0%).
-- Post-Phase-2 re-base: recorded after the 90-minute basis deploys (evaluation
-  is append-only; existing rows keep their after-ET basis — only new matches
-  score on the 90' basis, so the re-base is a going-forward note, not a rewrite).
+- Post-Phase-2 re-base (2026-07-02 08:36Z, after the 90'-basis deploy): 82
+  evaluated / 51 winners (62.2%) / 9 exact (11.0%) — unchanged, as expected:
+  evaluation is append-only and existing rows keep their after-ET basis; the
+  90' basis applies from the next finished match onward.
+- Program closing state (Phases 1–5 shipped): served model remains
+  poisson-elo-v0.2 — every gated upgrade candidate (pick policies, KO
+  multiplier, attack/defence offsets, residual form) was refuted; shadow mode
+  is live with w_odds=0 awaiting an odds key + coverage probe (Phase 4 blocked
+  note above). The honest expectation band for live exact-score remains
+  13–14% on WC-like matches; hits above that are luck, not model change.

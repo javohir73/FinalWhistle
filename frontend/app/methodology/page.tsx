@@ -138,6 +138,22 @@ export default function MethodologyPage() {
         </p>
       </section>
 
+      {/* Model changelog (FR-6.1): one line per shipped model change. */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-display text-lg font-bold">Model changelog</h2>
+        <ul className="mt-3 space-y-1.5 text-sm text-muted">
+          <li>
+            <span className="text-foreground/80">poisson-elo-v0.2</span> — served
+            engine (tuned goal parameters + Dixon&ndash;Coles draw correction, shipped
+            mid-group-stage). July 2026: exact-score hits now judged on the
+            90-minute score for knockout matches (the basis the model actually
+            predicts); every proposed upgrade since is validated walk-forward and
+            ships only if it beats this model with statistical confidence — so far
+            none has, which is why the version hasn&apos;t moved.
+          </li>
+        </ul>
+      </section>
+
       {/* Glossary */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">What these numbers mean</h2>
