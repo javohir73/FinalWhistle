@@ -48,7 +48,9 @@ it("shows the account circle right after login without a second /me call", async
   await waitFor(() => expect(screen.getByLabelText("Account: Pat")).toBeInTheDocument());
   expect(screen.getByText("P")).toBeInTheDocument(); // initials
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-  expect(mockGetMe).toHaveBeenCalledTimes(1); // the fix: no post-login /me
+  // A guest with no cached hint never probes /auth/me — not on mount (it would
+  // only 401) and not after login (login() is the source of truth).
+  expect(mockGetMe).not.toHaveBeenCalled();
 
   // Opening the menu reveals the email + Sign out.
   fireEvent.click(screen.getByLabelText("Account: Pat"));

@@ -134,7 +134,7 @@ export function CountryOnboarding({
                 <Flag team={t.name} size={20} />
                 {t.name}
                 {t.is_host && (
-                  <span className="rounded bg-gold/15 px-1 text-[9px] font-bold uppercase tracking-wide text-gold">Host</span>
+                  <span className="rounded bg-gold/15 px-1 text-[9px] font-bold uppercase tracking-wide text-amber-ink">Host</span>
                 )}
               </button>
             ))}

@@ -49,7 +49,10 @@ const nextConfig = {
     return [{ source: "/:path*", headers }];
   },
   async redirects() {
-    return [{ source: "/how-it-works", destination: "/about", permanent: true }];
+    return [
+      { source: "/how-it-works", destination: "/about", permanent: true },
+      { source: "/my-bracket", destination: "/brackets", permanent: false },
+    ];
   },
   // Same-origin proxy to the backend. Client-side API calls go to /backend-api/*
   // so authenticated requests carry the session cookie (SameSite=Lax) — a cookie

@@ -37,7 +37,9 @@ beforeEach(() => {
 afterEach(() => jest.resetAllMocks());
 
 it("keeps the fresh session when a slow pre-login /me 401 resolves after login", async () => {
+  // A cached hint is present (expired session), so the mount reconcile fires;
   // /me hangs (cold start) until we resolve it manually — with a 401 (null).
+  mockLoadHint.mockReturnValue({ id: 3, email: "old@e.com", display_name: "Old", avatar_url: null });
   let resolveMe!: (u: session.SessionUser | null) => void;
   mockGetMe.mockReturnValue(new Promise((res) => { resolveMe = res; }));
 
@@ -46,15 +48,29 @@ it("keeps the fresh session when a slow pre-login /me 401 resolves after login",
       <Probe />
     </AuthProvider>,
   );
+  expect(mockGetMe).toHaveBeenCalledTimes(1); // reconcile really is in flight
 
   // User completes login while the mount-time /me is still in flight.
   fireEvent.click(screen.getByText("complete-login"));
   expect(screen.getByTestId("who")).toHaveTextContent("Pat");
 
-  // The stale anonymous 401 finally lands — it must NOT clear the session.
+  // The stale pre-login 401 finally lands — it must NOT clear the session.
   await act(async () => { resolveMe(null); });
   expect(screen.getByTestId("who")).toHaveTextContent("Pat");
   expect(mockClearHint).not.toHaveBeenCalled();
+});
+
+it("skips /me entirely for a guest with no cached hint and resolves signed-out", async () => {
+  render(
+    <AuthProvider>
+      <Probe />
+    </AuthProvider>,
+  );
+
+  // No hint (beforeEach) → no probe that would only 401, and no loading state.
+  await waitFor(() => expect(screen.getByTestId("who")).toHaveTextContent("signed-out"));
+  expect(screen.getByTestId("who")).not.toHaveTextContent("loading:");
+  expect(mockGetMe).not.toHaveBeenCalled();
 });
 
 it("paints instantly from the cached hint, then reconciles with /me", async () => {

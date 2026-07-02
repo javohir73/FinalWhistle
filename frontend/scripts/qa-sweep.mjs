@@ -41,7 +41,7 @@ const teamPath = (await firstHref(matchPath, /^\/team\/[^/]+$/)) ?? "/team/1";
 
 const ROUTES = [
   "/", "/matches", matchPath, "/groups", groupPath, "/brackets",
-  "/my-bracket", "/leaderboard", teamPath, "/methodology",
+  "/leaderboard", teamPath, "/methodology",
   "/about", "/privacy", "/terms",
 ];
 

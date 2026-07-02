@@ -68,7 +68,7 @@ export function MatchCard({
           </span>
         ) : (
           kickoffPill && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2 py-0.5 text-[11px] font-bold tabular-nums text-[#9a730f]">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2 py-0.5 text-[11px] font-bold tabular-nums text-amber-ink">
               <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
               </svg>

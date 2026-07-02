@@ -23,6 +23,7 @@ const config: Config = {
         gold: "hsl(var(--gold))",
         accent: "hsl(var(--accent))",
         "lime-deep": "hsl(var(--lime-deep))",
+        "amber-ink": "hsl(var(--amber-ink))",
         pitch: "hsl(var(--pitch))",
       },
       fontFamily: {

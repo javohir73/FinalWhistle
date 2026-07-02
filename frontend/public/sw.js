@@ -1,6 +1,7 @@
 /* FinalWhistle service worker — installability + safe offline support.
  *
- * Caching contract (fw-v2):
+ * Caching contract (fw-v3 — bumped so activate evicts the cached /my-bracket
+ * page, which now redirects to /brackets):
  *   - /backend-api/* is NEVER touched. The backend proxy is SAME-origin (a
  *     Next.js rewrite), so an origin check is not enough — auth, live scores,
  *     brackets and leaderboard data must always hit the network.
@@ -15,7 +16,7 @@
  *   - Bumping CACHE invalidates everything: activate deletes old caches and
  *     claims clients, so stale installs upgrade cleanly on next load.
  */
-const CACHE = "fw-v2";
+const CACHE = "fw-v3";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE = [OFFLINE_URL, "/icon-192.png"];
 

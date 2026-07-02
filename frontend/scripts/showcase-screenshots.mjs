@@ -7,7 +7,7 @@
  *   node scripts/showcase-screenshots.mjs [baseUrl]
  *
  * Output: ../.github/assets/
- *   matches.png / groups.png / brackets.png / my-bracket.png   1440-wide hero
+ *   matches.png / groups.png / brackets.png   1440-wide hero
  *   match-detail.png                                           full-page column
  */
 import { chromium } from "playwright-core";
@@ -22,7 +22,6 @@ const SCENES = [
   { slug: "matches", path: "/matches", mode: "hero", settle: 3000 },
   { slug: "groups", path: "/groups", mode: "hero", settle: 3000 },
   { slug: "brackets", path: "/brackets", mode: "hero", settle: 3500 },
-  { slug: "my-bracket", path: "/my-bracket", mode: "hero", settle: 3000 },
   { slug: "match-detail", path: "/match/1", mode: "page", settle: 3000 },
 ];
 

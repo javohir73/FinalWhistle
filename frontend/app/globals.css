@@ -23,6 +23,7 @@
 
   /* Daylight additions */
   --lime-deep: 108 56% 27%; /* #2f6b1e  accessible lime for TEXT/icons/links on light */
+  --amber-ink: 43 82% 33%; /* #9a730f  accessible amber for TEXT on light (AA) */
   --pitch: 151 51% 14%; /* #123723  solid deep-green hero/accent panels */
 }
 

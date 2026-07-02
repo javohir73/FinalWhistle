@@ -46,3 +46,4 @@ Thumbs.db
 # ---- Local agent tooling (machine-specific: locks, worktrees, session ids) ----
 .claude/
 .context/
+.gstack/

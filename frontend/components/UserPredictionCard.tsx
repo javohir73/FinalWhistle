@@ -35,7 +35,7 @@ function verdict(pick: Outcome, p: { home_win: number; draw: number; away_win: n
 
 const TONE: Record<"win" | "draw" | "loss", string> = {
   win: "border-win/40 bg-win/10 text-lime-deep",
-  draw: "border-draw/40 bg-draw/10 text-[#9a730f]",
+  draw: "border-draw/40 bg-draw/10 text-amber-ink",
   loss: "border-loss/40 bg-loss/10 text-loss",
 };
 

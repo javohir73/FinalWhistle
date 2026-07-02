@@ -31,7 +31,7 @@ export function FavoriteStar({
       aria-label={active ? `Remove ${team} from favorites` : `Add ${team} to favorites`}
       title={active ? "Favorited" : "Add to favorites"}
       className={cn(
-        "grid place-items-center rounded-md p-1 transition hover:bg-surface-2/70",
+        "-m-[10px] grid min-h-[44px] min-w-[44px] place-items-center rounded-md p-1 transition hover:bg-surface-2/70",
         active ? "text-gold" : "text-muted/50 hover:text-muted",
         className,
       )}

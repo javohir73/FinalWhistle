@@ -113,7 +113,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
                 .join(" · ")}
             </p>
             {team.is_host && (
-              <span className="mt-1.5 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-gold ring-1 ring-gold/30">
+              <span className="mt-1.5 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-ink ring-1 ring-gold/30">
                 Tournament host
               </span>
             )}

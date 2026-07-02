@@ -48,8 +48,7 @@ const TABS: Tab[] = [
   {
     href: "/brackets",
     label: "Bracket",
-    // The bracket tab is a hub: AI bracket (/brackets) + your picks (/my-bracket).
-    activePrefixes: ["/my-bracket"],
+    activePrefixes: [], // href "/brackets" covers the section (/my-bracket now redirects here)
     icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
   },
   {

@@ -8,7 +8,7 @@ export function QualificationBar({ prob }: { prob: number | null }) {
     <div className="flex items-center gap-2 sm:gap-2.5">
       <div className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-2 sm:w-24">
         <div
-          className="h-full rounded-full transition-all"
+          className="h-full rounded-full transition-[width]"
           style={{
             width: `${value * 100}%`,
             background: strong ? "hsl(var(--win))" : "hsl(var(--draw))",

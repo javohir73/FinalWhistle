@@ -67,10 +67,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // On mount: paint from the cached hint immediately, then reconcile with /me.
+  // A guest with no hint has never signed in on this device, so /auth/me would
+  // only 401 and spam the console — skip the fetch and resolve signed-out. A
+  // returning/expired user (hint present) still reconciles against the cookie.
   useEffect(() => {
+    // One-time cleanup: the removed My Bracket builder persisted picks under
+    // these keys; nothing reads them anymore. Safe to drop once widely deployed.
+    try {
+      window.localStorage.removeItem("finalwhistle:mybracket:v1");
+      window.localStorage.removeItem("finalwhistle:mybracket:owner:v1");
+    } catch {
+      /* storage unavailable (private mode / quota) — non-fatal */
+    }
     const hint = loadUserHint();
-    if (hint) setUser(hint);
-    void refresh();
+    if (hint) {
+      setUser(hint);
+      void refresh();
+    } else {
+      setLoading(false);
+    }
   }, [refresh]);
 
   // Pending-data flushers (e.g. the bracket auto-saver) that must run while the
