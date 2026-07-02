@@ -174,7 +174,8 @@ def test_attach_scorers_fetches_only_when_goal_total_changed(db_session, monkeyp
         return [_event("Normal Goal", "Mexico", "R. Jimenez", 30)]
     monkeypatch.setattr(af, "fetch_events", fake_events)
 
-    af.attach_scorers(db_session, feed, "dummy-key")
+    af._last_events_fetch.clear()
+    af.attach_events(db_session, feed, "dummy-key")
     assert calls["n"] == 1
     assert feed[0]["scorers"] == [
         {"minute": 30, "side": "home", "player": "R. Jimenez", "type": "goal"}]
@@ -227,3 +228,63 @@ def test_cards_from_events_defaults_missing_player():
     e["player"] = {}
     assert cards_from_events([e], "Iran", "New Zealand") == [
         {"minute": 77, "side": "home", "player": "Unknown", "type": "red"}]
+
+
+def test_attach_events_refetches_when_stale_without_goal_change(db_session, monkeypatch):
+    from app.config import settings as app_settings
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    # Neutralize the goal-count trigger: 0 feed goals == 0 stored goal events.
+    h = db_session.query(Team).filter_by(name="Mexico").one()
+    a = db_session.query(Team).filter_by(name="South Africa").one()
+    m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    m.goal_events = []
+    db_session.commit()
+
+    calls = {"n": 0}
+    def fake_events(key, fid, timeout=15.0):
+        calls["n"] += 1
+        return [_event("Red Card", "Mexico", "J. Vasquez", 50, etype="Card")]
+    monkeypatch.setattr(af, "fetch_events", fake_events)
+    monkeypatch.setattr(app_settings, "events_refetch_seconds", 180)
+    af._last_events_fetch.clear()
+
+    feed = to_feed([_fixture("2H", elapsed=55, gh=0, ga=0)])
+    feed[0]["_fixture_id"] = 778
+    af.attach_events(db_session, feed, "dummy-key")   # never fetched before -> stale
+    assert calls["n"] == 1
+    assert feed[0]["cards"] == [
+        {"minute": 50, "side": "home", "player": "J. Vasquez", "type": "red"}]
+    assert feed[0]["scorers"] == []
+
+    feed2 = to_feed([_fixture("2H", elapsed=56, gh=0, ga=0)])
+    feed2[0]["_fixture_id"] = 778
+    af.attach_events(db_session, feed2, "dummy-key")  # fresh -> no fetch
+    assert calls["n"] == 1
+    assert "cards" not in feed2[0]
+
+    af._last_events_fetch[778] -= 9999                # age past the cutoff
+    af.attach_events(db_session, feed2, "dummy-key")  # stale again -> fetch
+    assert calls["n"] == 2
+
+
+def test_attach_events_finished_fixture_keeps_goal_count_trigger_only(db_session, monkeypatch):
+    import pipeline.ingest.api_football as af
+
+    load_structure(db_session)
+    h = db_session.query(Team).filter_by(name="Mexico").one()
+    a = db_session.query(Team).filter_by(name="South Africa").one()
+    m = db_session.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    m.goal_events = []
+    db_session.commit()
+
+    calls = {"n": 0}
+    monkeypatch.setattr(af, "fetch_events",
+                        lambda *args, **kw: calls.__setitem__("n", calls["n"] + 1) or [])
+    af._last_events_fetch.clear()
+
+    feed = to_feed([_fixture("FT", gh=0, ga=0)])
+    feed[0]["_fixture_id"] = 779
+    af.attach_events(db_session, feed, "dummy-key")
+    assert calls["n"] == 0  # finished + goal totals agree: no staleness refetch
