@@ -7,7 +7,7 @@ import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
-import type { MatchSummary, PredictedScore, Probabilities, GoalEvent } from "@/lib/types";
+import type { MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
@@ -114,17 +114,31 @@ export function MatchScoreboard({
         <TeamHead name={away} teamId={awayTeamId} />
       </div>
 
-      {hasActual && summary!.goal_events.length > 0 && (
+      {hasActual &&
+        (timelineFor(summary!, "home").length > 0 ||
+          timelineFor(summary!, "away").length > 0 ||
+          yellowCount(summary!, "home") > 0 ||
+          yellowCount(summary!, "away") > 0) && (
         <div className="mt-3 grid grid-cols-2 gap-x-4 text-[11px] text-muted sm:text-xs">
           <ul className="space-y-0.5 text-right">
-            {summary!.goal_events.filter((g) => g.side === "home").map((g, i) => (
-              <li key={`h-${i}`} className="tabular-nums">{formatScorer(g)}</li>
+            {timelineFor(summary!, "home").map((label, i) => (
+              <li key={`h-${i}`} className="tabular-nums">{label}</li>
             ))}
+            {yellowCount(summary!, "home") > 0 && (
+              <li className="tabular-nums" aria-label="home yellow cards">
+                🟨 ×{yellowCount(summary!, "home")}
+              </li>
+            )}
           </ul>
           <ul className="space-y-0.5 text-left">
-            {summary!.goal_events.filter((g) => g.side === "away").map((g, i) => (
-              <li key={`a-${i}`} className="tabular-nums">{formatScorer(g)}</li>
+            {timelineFor(summary!, "away").map((label, i) => (
+              <li key={`a-${i}`} className="tabular-nums">{label}</li>
             ))}
+            {yellowCount(summary!, "away") > 0 && (
+              <li className="tabular-nums" aria-label="away yellow cards">
+                🟨 ×{yellowCount(summary!, "away")}
+              </li>
+            )}
           </ul>
         </div>
       )}
@@ -227,4 +241,27 @@ function formatScorer(g: GoalEvent): string {
   const annot = g.type === "penalty" ? " (pen)" : g.type === "own_goal" ? " (OG)" : "";
   const min = g.minute != null ? ` ${g.minute}'` : "";
   return `${g.player}${min}${annot}`;
+}
+
+/** Goals and red cards for one side, merged into one minute-ordered timeline.
+ *  Yellows stay out of the timeline (rendered as a compact count instead). */
+function timelineFor(s: MatchSummary, side: "home" | "away"): string[] {
+  const goals = s.goal_events
+    .filter((g) => g.side === side)
+    .map((g) => ({ minute: g.minute, label: formatScorer(g) }));
+  const reds = (s.card_events ?? [])
+    .filter((c) => c.side === side && c.type === "red")
+    .map((c) => ({ minute: c.minute, label: formatRedCard(c) }));
+  return [...goals, ...reds]
+    .sort((x, y) => (x.minute ?? 0) - (y.minute ?? 0))
+    .map((e) => e.label);
+}
+
+function formatRedCard(c: CardEvent): string {
+  const min = c.minute != null ? ` ${c.minute}'` : "";
+  return `🟥 ${c.player}${min}`;
+}
+
+function yellowCount(s: MatchSummary, side: "home" | "away"): number {
+  return (s.card_events ?? []).filter((c) => c.side === side && c.type === "yellow").length;
 }

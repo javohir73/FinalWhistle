@@ -123,6 +123,25 @@ def latest_prediction(db: Session, match_id: int) -> Prediction | None:
     )
 
 
+def _card_counts(card_events: list | None) -> dict[str, int]:
+    """Per-side red and ACTIVE-yellow counts for the live model. A yellow is
+    active only while its player has not been sent off — once the red arrives
+    (a second yellow comes through as one red event for the same player) the
+    booking no longer carries second-yellow risk. None/malformed -> all zero."""
+    counts = {"red_home": 0, "red_away": 0, "yellow_home": 0, "yellow_away": 0}
+    events = [e for e in (card_events or [])
+              if isinstance(e, dict) and e.get("side") in ("home", "away")]
+    sent_off = {"home": set(), "away": set()}
+    for e in events:
+        if e.get("type") == "red":
+            counts[f"red_{e['side']}"] += 1
+            sent_off[e["side"]].add(e.get("player"))
+    for e in events:
+        if e.get("type") == "yellow" and e.get("player") not in sent_off[e["side"]]:
+            counts[f"yellow_{e['side']}"] += 1
+    return counts
+
+
 def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
     home = db.get(Team, match.team_home_id) if match.team_home_id else None
     away = db.get(Team, match.team_away_id) if match.team_away_id else None
@@ -143,6 +162,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
             lam_home=pred.lambda_home,
             lam_away=pred.lambda_away,
             rho=pred.rho,
+            **_card_counts(match.card_events),
         )
         if live is not None:
             live_probabilities = schemas.ProbabilitiesOut(
@@ -182,6 +202,7 @@ def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
         penalty_home=match.penalty_home,
         penalty_away=match.penalty_away,
         goal_events=[schemas.GoalEventOut(**g) for g in (match.goal_events or [])],
+        card_events=[schemas.CardEventOut(**c) for c in (match.card_events or [])],
         teams=schemas.TeamsOut(
             home=home.name if home else "TBD", away=away.name if away else "TBD"
         ),

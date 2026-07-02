@@ -113,3 +113,67 @@ def test_for_match_none_without_lambdas():
 
 def test_for_match_none_without_clock():
     assert live_probabilities_for_match("in_play", 1, 1, None, None, 1.5, 1.1) is None
+
+
+# --- card adjustments ---------------------------------------------------------
+
+from app.live_winprob import _card_factors
+
+
+def test_zero_cards_is_bit_identical_to_unadjusted():
+    base = live_win_probabilities(1, 0, 1.6, 1.0, 30.0, rho=-0.06)
+    carded = live_win_probabilities(1, 0, 1.6, 1.0, 30.0, rho=-0.06,
+                                    red_home=0, red_away=0,
+                                    yellow_home=0, yellow_away=0)
+    assert carded == base
+
+
+def test_red_card_lowers_carded_team_and_lifts_opponent():
+    base = live_win_probabilities(0, 0, 1.4, 1.2, 60.0)
+    carded = live_win_probabilities(0, 0, 1.4, 1.2, 60.0, red_home=1)
+    assert carded[0] < base[0]
+    assert carded[2] > base[2]
+    assert abs(sum(carded) - 1.0) < 1e-9
+
+
+def test_away_red_mirrors_home():
+    base = live_win_probabilities(0, 0, 1.4, 1.2, 60.0)
+    carded = live_win_probabilities(0, 0, 1.4, 1.2, 60.0, red_away=1)
+    assert carded[2] < base[2]
+    assert carded[0] > base[0]
+
+
+def test_card_factors_by_score_state():
+    # Home leading: bunker — own rate cut hard, opponent boost small.
+    assert _card_factors(1, 0, 1, 0, 0, 0, 1.0) == (0.60, 1.05)
+    # Home trailing: must chase — opponent counter boost is largest.
+    assert _card_factors(0, 1, 1, 0, 0, 0, 1.0) == (0.75, 1.15)
+    # Level: standard mild effect.
+    assert _card_factors(0, 0, 1, 0, 0, 0, 1.0) == (0.75, 1.10)
+    # Away-side red at level mirrors onto the other factor.
+    assert _card_factors(0, 0, 0, 1, 0, 0, 1.0) == (1.10, 0.75)
+
+
+def test_reds_compound_and_cap_at_three():
+    fh, fa = _card_factors(0, 0, 2, 0, 0, 0, 1.0)
+    assert abs(fh - 0.75 ** 2) < 1e-12 and abs(fa - 1.10 ** 2) < 1e-12
+    fh5, _ = _card_factors(0, 0, 5, 0, 0, 0, 1.0)
+    fh3, _ = _card_factors(0, 0, 3, 0, 0, 0, 1.0)
+    assert fh5 == fh3  # counted reds cap at 3
+
+
+def test_yellow_effect_small_and_decays_with_clock():
+    fh_half, fa_half = _card_factors(0, 0, 0, 0, 2, 0, 0.5)  # 2 bookings, 45' left
+    assert 0.98 < fh_half < 1.0     # about a 1% shift — negligible by design
+    assert 1.0 < fa_half < 1.01
+    assert _card_factors(0, 0, 0, 0, 2, 0, 0.0) == (1.0, 1.0)  # gone at FT
+
+
+def test_for_match_threads_card_counts():
+    without = live_probabilities_for_match(
+        status="in_play", score_home=0, score_away=0, minute=30,
+        period="first_half", lam_home=1.4, lam_away=1.2, rho=0.0)
+    with_red = live_probabilities_for_match(
+        status="in_play", score_home=0, score_away=0, minute=30,
+        period="first_half", lam_home=1.4, lam_away=1.2, rho=0.0, red_home=1)
+    assert with_red[0] < without[0]

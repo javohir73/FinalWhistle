@@ -14,6 +14,7 @@ api-sports v3: GET /fixtures?league={id}&season={year}, auth via the
 from __future__ import annotations
 
 import logging
+import time
 
 import requests
 
@@ -40,6 +41,10 @@ _SHOOTOUT = frozenset({"P", "PEN"})
 # api-sports goal-event detail -> our scorer type. Other details (e.g.
 # "Missed Penalty") and non-Goal events are ignored.
 _GOAL_DETAIL = {"Normal Goal": "goal", "Penalty": "penalty", "Own Goal": "own_goal"}
+
+# api-sports card-event detail -> our card type. A second yellow arrives from
+# the feed as a single "Red Card" event. Other details are ignored.
+_CARD_DETAIL = {"Yellow Card": "yellow", "Red Card": "red"}
 
 
 def fetch_fixtures(api_key: str, league: int, season: int, timeout: float = 15.0) -> list[dict]:
@@ -376,14 +381,55 @@ def goals_from_events(events: list[dict], home_name: str, away_name: str) -> lis
     return out
 
 
+def cards_from_events(events: list[dict], home_name: str, away_name: str) -> list[dict]:
+    """Translate api-sports /fixtures/events into card dicts in our home/away
+    orientation. Non-Card events, unknown details and unknown teams are skipped
+    (same posture as goals_from_events)."""
+    out: list[dict] = []
+    for e in events or []:
+        if not isinstance(e, dict) or e.get("type") != "Card":
+            continue
+        ctype = _CARD_DETAIL.get(e.get("detail"))
+        if ctype is None:
+            continue
+        team = (e.get("team") or {}).get("name")
+        if team == home_name:
+            side = "home"
+        elif team == away_name:
+            side = "away"
+        else:
+            continue
+        out.append({
+            "minute": (e.get("time") or {}).get("elapsed"),
+            "side": side,
+            "player": (e.get("player") or {}).get("name") or "Unknown",
+            "type": ctype,
+        })
+    return out
+
+
 # Statuses where new goals can have happened and scorers are worth fetching.
 _SCORABLE = frozenset({"IN_PLAY", "PAUSED", "FINISHED"})
 
 
-def attach_scorers(db, feed: list[dict], api_key: str) -> list[dict]:
-    """Enrich feed items with a `scorers` list, fetching /fixtures/events ONLY
-    for in-play/finished fixtures whose goal total differs from what's stored
-    (so events are fetched ~once per goal, not every refresh)."""
+#: Feed statuses where the match is live and a card could arrive without a goal.
+_LIVE_STATUSES = frozenset({"IN_PLAY", "PAUSED"})
+
+#: fixture id -> time.monotonic() of the last /fixtures/events fetch. In-process
+#: on purpose (mirrors live_refresh's module state): a worker restart just
+#: refetches once per fixture.
+_last_events_fetch: dict[int, float] = {}
+
+
+def attach_events(db, feed: list[dict], api_key: str) -> list[dict]:
+    """Enrich feed items with `scorers` and `cards` from /fixtures/events.
+
+    Fetches when (a) the fixture's goal total differs from what's stored —
+    ~once per goal, and the only trigger for finished fixtures — or (b) the
+    fixture is live and the last fetch is older than
+    settings.events_refetch_seconds, so a red card with no goal around it is
+    still seen promptly."""
+    from app.config import settings
     from pipeline.ingest.live_scores import _index_by_pair
     from pipeline.team_mapping import normalize_team_name
 
@@ -401,6 +447,13 @@ def attach_scorers(db, feed: list[dict], api_key: str) -> list[dict]:
         ft = item["score"].get("fullTime") or {}
         total = (ft.get("home") or 0) + (ft.get("away") or 0)
         stored = len(match.goal_events) if match.goal_events is not None else -1
-        if stored != total:
-            item["scorers"] = goals_from_events(fetch_events(api_key, fid), home, away)
+        last = _last_events_fetch.get(fid)
+        stale = item.get("status") in _LIVE_STATUSES and (
+            last is None or time.monotonic() - last >= settings.events_refetch_seconds
+        )
+        if stored != total or stale:
+            events = fetch_events(api_key, fid)
+            _last_events_fetch[fid] = time.monotonic()
+            item["scorers"] = goals_from_events(events, home, away)
+            item["cards"] = cards_from_events(events, home, away)
     return feed

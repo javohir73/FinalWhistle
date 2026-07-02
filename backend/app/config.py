@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     # free tier → estimated minute) or "api_football" (real live minute).
     live_provider: str = "football_data"
 
+    # In-play events refetch cadence (seconds). Cards can arrive without a goal,
+    # so live fixtures refetch /fixtures/events when the last fetch is older
+    # than this. ~20 calls per live match hour on the default; the goal-count
+    # trigger still fires immediately on any goal.
+    events_refetch_seconds: int = 180
+
     # Master switch for live mode (activate near kickoff). Live updates are only
     # active when BOTH this is on and the active provider's key is set — else a
     # safe no-op.

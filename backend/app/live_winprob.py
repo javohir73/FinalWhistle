@@ -52,6 +52,69 @@ def _dixon_coles_tau(h: int, a: int, lam: float, mu: float, rho: float) -> float
     return 1.0
 
 
+# --- Card adjustments ----------------------------------------------------------
+# A sending-off changes both teams' scoring rates for the minutes REMAINING.
+# Factors are (own rate ×, opponent rate ×) per red card, chosen by the carded
+# team's CURRENT score situation — the model is recomputed per request, so the
+# state re-derives itself whenever the score changes. Values sit at the mild end
+# of published 10v11 estimates: a leading team bunkers (its goals dry up but it
+# concedes barely more, keeping the hold likely), a trailing team must chase
+# into counter-attacks. The football_data provider has no card feed — counts
+# stay 0 there and this whole block is a no-op.
+RED_FACTORS: dict[str, tuple[float, float]] = {
+    "leading": (0.60, 1.05),
+    "level": (0.75, 1.10),
+    "trailing": (0.75, 1.15),
+}
+#: Reds beyond this aren't counted (7 players = abandonment; 3 is already farce).
+MAX_REDS_COUNTED = 3
+#: Chance an ACTIVE booking becomes a second yellow over a full 90 remaining.
+#: Deliberately small — a yellow only matters as future-red risk (weak evidence,
+#: by design; see the 2026-07-02 card-aware spec).
+SECOND_YELLOW_HAZARD = 0.04
+MAX_YELLOWS_COUNTED = 5
+
+
+def _score_state(own: int, opp: int) -> str:
+    if own > opp:
+        return "leading"
+    if own < opp:
+        return "trailing"
+    return "level"
+
+
+def _card_factors(
+    score_home: int,
+    score_away: int,
+    red_home: int,
+    red_away: int,
+    yellow_home: int,
+    yellow_away: int,
+    frac: float,
+) -> tuple[float, float]:
+    """Multipliers (home, away) on the remaining-time goal rates for the current
+    card situation. Reds apply their score-state factors in full and compound;
+    each active yellow blends both rates toward those factors with weight
+    p = hazard × fraction-of-90-left, so booking risk decays to zero at full
+    time. No cards -> (1.0, 1.0) exactly."""
+    f_home = f_away = 1.0
+    p = SECOND_YELLOW_HAZARD * max(0.0, min(1.0, frac))
+
+    own_f, opp_f = RED_FACTORS[_score_state(score_home, score_away)]
+    n_red = min(max(red_home, 0), MAX_REDS_COUNTED)
+    n_yel = min(max(yellow_home, 0), MAX_YELLOWS_COUNTED)
+    f_home *= own_f ** n_red * ((1.0 - p) + p * own_f) ** n_yel
+    f_away *= opp_f ** n_red * ((1.0 - p) + p * opp_f) ** n_yel
+
+    own_f, opp_f = RED_FACTORS[_score_state(score_away, score_home)]
+    n_red = min(max(red_away, 0), MAX_REDS_COUNTED)
+    n_yel = min(max(yellow_away, 0), MAX_YELLOWS_COUNTED)
+    f_away *= own_f ** n_red * ((1.0 - p) + p * own_f) ** n_yel
+    f_home *= opp_f ** n_red * ((1.0 - p) + p * opp_f) ** n_yel
+
+    return f_home, f_away
+
+
 def regulation_remaining(
     minute: int | None, period: str | None, regulation: float = REGULATION_MINUTES
 ) -> float | None:
@@ -79,6 +142,10 @@ def live_win_probabilities(
     rho: float = 0.0,
     regulation: float = REGULATION_MINUTES,
     max_extra_goals: int = 10,
+    red_home: int = 0,
+    red_away: int = 0,
+    yellow_home: int = 0,
+    yellow_away: int = 0,
 ) -> Probs:
     """Live W/D/L given the current score, the pre-match 90-minute goal rates,
     and the minutes left. Remaining goals per team ~ Poisson(rate * left/90).
@@ -86,10 +153,18 @@ def live_win_probabilities(
     `rho` applies the same Dixon-Coles low-score correction the pre-match engine
     uses, on the REMAINING-goals grid. At kickoff (0-0, full time left) this makes
     the live triple identical to the pre-match prediction — no twitch.
+
+    Card counts scale the remaining-time rates — see `_card_factors`.
     """
     frac = max(0.0, min(1.0, minutes_remaining / regulation)) if regulation > 0 else 0.0
     lam_h_rem = max(0.0, lam_home) * frac
     lam_a_rem = max(0.0, lam_away) * frac
+
+    f_home, f_away = _card_factors(
+        score_home, score_away, red_home, red_away, yellow_home, yellow_away, frac
+    )
+    lam_h_rem *= f_home
+    lam_a_rem *= f_away
 
     p_home = p_draw = p_away = 0.0
     home_pmf = [_poisson_pmf(i, lam_h_rem) for i in range(max_extra_goals + 1)]
@@ -127,12 +202,18 @@ def live_probabilities_for_match(
     lam_home: float | None,
     lam_away: float | None,
     rho: float | None = 0.0,
+    red_home: int = 0,
+    red_away: int = 0,
+    yellow_home: int = 0,
+    yellow_away: int = 0,
 ) -> Probs | None:
     """Live W/D/L for a match row, or None when it can't/shouldn't be computed.
 
     Returns None unless the match is in play with a known score, a modellable
     clock, and stored pre-match goal rates — in which case the caller keeps the
     frozen pre-match probabilities.
+
+    Card counts scale the remaining-time rates — see `_card_factors`.
     """
     if status != "in_play":
         return None
@@ -144,5 +225,7 @@ def live_probabilities_for_match(
     if remaining is None:
         return None
     return live_win_probabilities(
-        score_home, score_away, lam_home, lam_away, remaining, rho=rho or 0.0
+        score_home, score_away, lam_home, lam_away, remaining, rho=rho or 0.0,
+        red_home=red_home, red_away=red_away,
+        yellow_home=yellow_home, yellow_away=yellow_away,
     )

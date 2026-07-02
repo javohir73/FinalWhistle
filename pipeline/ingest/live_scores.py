@@ -392,6 +392,8 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
 
         if "scorers" in am:
             match.goal_events = am["scorers"]
+        if "cards" in am:
+            match.card_events = am["cards"]
         if incoming_lu is not None:
             match.provider_last_updated = incoming_lu
         updated += 1
@@ -425,8 +427,8 @@ def refresh_live(db: Session, api_key: str | None = None, competition: str | Non
             comp = competition or settings.football_data_competition
             api_matches = fetch_matches(key, comp)
         elif provider == "api_football":
-            from pipeline.ingest.api_football import fetch_fixtures, to_feed, attach_scorers
-            api_matches = attach_scorers(db, to_feed(fetch_fixtures(
+            from pipeline.ingest.api_football import fetch_fixtures, to_feed, attach_events
+            api_matches = attach_events(db, to_feed(fetch_fixtures(
                 key, settings.api_football_league, settings.api_football_season)), key)
         else:
             log.warning("live scores skipped: unknown provider %r", provider)
