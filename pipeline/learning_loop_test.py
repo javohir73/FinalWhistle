@@ -8,6 +8,9 @@ leaderboard rescoring).
 """
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
+from app.chain_status import chain_pending, get_chain_status
 from app.models import (
     HistoricalMatch,
     Match,
@@ -23,6 +26,7 @@ from pipeline.learning_loop import (
     effective_elos,
     run_learning_loop,
     run_post_results_chain,
+    run_tracked_post_results_chain,
     update_tournament_state,
 )
 
@@ -218,6 +222,62 @@ def test_double_count_guard_skips_matches_already_in_history(db_session):
     assert states == 0  # nothing replayed -> no double counting
 
 
+def _seed_with_drawn_ko_match(db) -> Match:
+    """Structure + ratings, an R32 tie with real teams drawn, then predictions
+    (so the KO tie gets its pre-kickoff snapshot like any drawn KO match)."""
+    load_structure(db)
+    _set_elos(db)
+    ko = db.query(Match).filter(Match.stage == "R32").order_by(Match.id).first()
+    home, away = db.query(Team).order_by(Team.id).limit(2).all()
+    ko.team_home_id, ko.team_away_id = home.id, away.id
+    db.commit()
+    generate_predictions(db, MV, n_sims=120, tournament_sims=50)
+    return ko
+
+
+def test_finished_knockout_match_is_evaluated_and_updates_ratings(db_session):
+    """The daily catch-all must not stop at the group stage: a finished R32
+    match gets a PredictionResult and feeds the rating replay (stage-weighted)."""
+    ko = _seed_with_drawn_ko_match(db_session)
+    _finish(db_session, ko, 2, 0)
+
+    summary = run_learning_loop(db_session, MV)
+
+    assert summary["evaluated_new"] == 1
+    r = db_session.query(PredictionResult).one()
+    assert r.match_id == ko.id
+    assert r.outcome == "home"
+
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=ko.team_home_id).one()
+    sa = db_session.query(TeamTournamentState).filter_by(team_id=ko.team_away_id).one()
+    assert sh.matches_played == 1 and sa.matches_played == 1
+    assert abs(sh.elo_delta + sa.elo_delta) < 1e-6
+    assert sh.detail[0]["stage"] == "R32"
+
+
+def test_shootout_tie_scores_as_regulation_draw(db_session):
+    """Level after extra time, decided on penalties: the stored score stays
+    level and the shootout tally must count as neither goals nor a win — the
+    tie evaluates and replays as a draw (the model's 90-minute basis)."""
+    ko = _seed_with_drawn_ko_match(db_session)
+    _finish(db_session, ko, 1, 1)
+    ko.penalty_home, ko.penalty_away = 3, 4
+    db_session.commit()
+
+    summary = run_learning_loop(db_session, MV)
+
+    assert summary["evaluated_new"] == 1
+    r = db_session.query(PredictionResult).one()
+    assert r.outcome == "draw"
+    assert (r.actual_score_home, r.actual_score_away) == (1, 1)
+
+    # Zero-sum replay: the shootout winner gets no Elo credit for the kicks.
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=ko.team_home_id).one()
+    sa = db_session.query(TeamTournamentState).filter_by(team_id=ko.team_away_id).one()
+    assert abs(sh.elo_delta + sa.elo_delta) < 1e-6
+    assert sh.detail[0]["score"] == "1-1"
+
+
 def test_post_results_chain_runs_end_to_end_and_rescores(db_session):
     _seed(db_session)
     m = _first_group_match(db_session)
@@ -228,3 +288,45 @@ def test_post_results_chain_runs_end_to_end_and_rescores(db_session):
     assert summary["predictions"]["matches_predicted"] > 0
     assert "brackets" in summary  # leaderboard rescoring ran (0 brackets is fine)
     assert db_session.query(PredictionResult).count() == 1
+
+
+def test_tracked_chain_writes_success_watermark(db_session):
+    """A COMPLETED chain records success and covers the finished-match count,
+    so retry triggers know nothing is owed."""
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    _finish(db_session, m, 1, 0)
+    assert chain_pending(db_session) is True  # a finish nothing has covered yet
+
+    summary = run_tracked_post_results_chain(
+        db_session, MV, trigger="test", n_sims=120, tournament_sims=50
+    )
+
+    assert summary["learning"]["evaluated_new"] == 1
+    assert chain_pending(db_session) is False
+    row = get_chain_status(db_session)
+    assert row.last_success_at is not None
+    assert row.covered_finished == 1
+    assert row.last_trigger == "test"
+
+
+def test_tracked_chain_failure_stays_pending_with_error(db_session, monkeypatch):
+    """A chain that dies mid-run must NOT advance the success watermark — the
+    finish stays owed for retry — and the failure is recorded for /api/health."""
+    _seed(db_session)
+    _finish(db_session, _first_group_match(db_session), 2, 1)
+
+    def boom(db, mv, **kw):
+        raise RuntimeError("OOM-killed mid-simulation")
+
+    monkeypatch.setattr("pipeline.learning_loop.run_post_results_chain", boom)
+    with pytest.raises(RuntimeError):
+        run_tracked_post_results_chain(
+            db_session, MV, trigger="test", n_sims=120, tournament_sims=50
+        )
+
+    assert chain_pending(db_session) is True
+    row = get_chain_status(db_session)
+    assert row.last_success_at is None
+    assert row.last_attempt_at is not None
+    assert "OOM-killed" in row.last_error
