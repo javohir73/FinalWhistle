@@ -288,11 +288,18 @@ def _simulate_tournament(
         if team_id is not None:
             ko_host_by_match[m.id] = team_id
 
+    # Already-played knockout ties are facts: pin them so a finished match forces
+    # its winner forward and its loser out in every draw (analogous to a played
+    # group fixture's score). Keyed by official match number.
+    from app.scoring import knockout_played_from_db
+
+    ko_results = knockout_played_from_db(db)
+
     results = simulate_tournament(
         team_elos, groups, fixtures, n_sims=n_sims, seed=2026,
         base=params.base, beta=params.beta, rho=params.rho,
         pk_beta=params.pk_beta, home_adv=params.home_adv,
-        ko_host_by_match=ko_host_by_match,
+        ko_host_by_match=ko_host_by_match, ko_results=ko_results,
     )
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():
