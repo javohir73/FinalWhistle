@@ -211,6 +211,38 @@ def test_flag_internal_user_endpoint(env, monkeypatch):
     assert len(client.get("/api/leaderboard").json()) == 1
 
 
+def test_flag_internal_user_by_display_name(env, monkeypatch):
+    """Ops usually only knows the name shown on the board, not the email —
+    allow flagging by unique bracket display name."""
+    client, SessionF = env
+    db = SessionF()
+    _add_player(db, "smoke@example.com", "Deploy Smoke")
+    _add_player(db, "dup1@example.com", "Dup Name")
+    _add_player(db, "dup2@example.com", "Dup Name")
+    db.commit()
+    recompute_scores(db)
+    db.close()
+
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+    url = "/api/internal/flag-internal-user"
+    hdr = {"X-Recompute-Token": "secret"}
+
+    # Exactly one selector (email or display_name) is required.
+    assert client.post(url, json={}, headers=hdr).status_code == 422
+    assert client.post(
+        url, json={"email": "a@b.c", "display_name": "x"}, headers=hdr
+    ).status_code == 422
+    # An ambiguous display name must not flag anyone.
+    assert client.post(url, json={"display_name": "Dup Name"}, headers=hdr).status_code == 409
+    assert client.post(url, json={"display_name": "Nobody"}, headers=hdr).status_code == 404
+
+    r = client.post(url, json={"display_name": "deploy smoke"}, headers=hdr)  # case-insensitive
+    assert r.status_code == 200, r.text
+    assert r.json()["email"] == "smoke@example.com" and r.json()["is_internal"] is True
+    names = [row["display_name"] for row in client.get("/api/leaderboard").json()]
+    assert "Deploy Smoke" not in names and len(names) == 2
+
+
 def test_join_assigns_rank_immediately(env):
     """Joining the leaderboard rescores/reranks so the new row is never shown
     unranked (or with a rank stale against the new public population)."""
