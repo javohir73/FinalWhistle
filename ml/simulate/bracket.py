@@ -168,9 +168,15 @@ def simulate_tournament(
     home_adv: float = 0.0,
     ko_host_by_match: dict[int, int] | None = None,
     ko_results: dict[int, tuple[int, int, int]] | None = None,
+    team_offsets: dict[int, tuple[float, float]] | None = None,
 ) -> dict[int, dict]:
     """Return {team_id: {make_knockout, reach_r16, reach_qf, reach_sf,
     reach_final, win_title}} as probabilities over n_sims tournaments.
+
+    ``team_offsets`` maps team_id -> (atk, def) log-lambda offsets (FR-5.3) so
+    every simulated match — group stage and knockout — runs on the SAME
+    adjusted lambdas as the match cards. Omitted or empty -> bit-identical to
+    the historical symmetric-Elo behavior.
 
     ``ko_results`` pins already-played knockout ties as facts (analogous to a
     played ``GroupFixture.score``): ``{official_match_no: (home_id, away_id,
@@ -181,6 +187,17 @@ def simulate_tournament(
     """
     ko_host = ko_host_by_match or {}
     ko_results = ko_results or {}
+    offsets = team_offsets or {}
+
+    def _lambdas(h: int, a: int, adv: float) -> tuple[float, float]:
+        """Expected goals for one pairing, offsets included — the one lambda
+        builder for both the group stage and the knockout rounds."""
+        atk_h, def_h = offsets.get(h, (0.0, 0.0))
+        atk_a, def_a = offsets.get(a, (0.0, 0.0))
+        return expected_goals_from_elo(
+            team_elos[h], team_elos[a], home_adv=adv, base=base, beta=beta,
+            atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
+        )
     # Forced winners, keyed by match number, applied at every played tie.
     ko_win = {mno: winner for mno, (_h, _a, winner) in ko_results.items()}
     # A played R32 tie whose third-placed side is known: hold that team to its
@@ -221,10 +238,7 @@ def simulate_tournament(
                 else:
                     bp[fx.home_id] += 1; bp[fx.away_id] += 1
             else:
-                lh, la = expected_goals_from_elo(
-                    team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
-                    base=base, beta=beta,
-                )
+                lh, la = _lambdas(fx.home_id, fx.away_id, fx.home_adv)
                 lams.append((fx.home_id, fx.away_id, score_cdf(lh, la, rho)))
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
@@ -234,8 +248,7 @@ def simulate_tournament(
         Host advantage applied when ko_host maps mno to h or a."""
         host = ko_host.get(mno)
         adv = home_adv if host == h else -home_adv if host == a else 0.0
-        lh, la = expected_goals_from_elo(team_elos[h], team_elos[a], home_adv=adv,
-                                         base=base, beta=beta)
+        lh, la = _lambdas(h, a, adv)
         sh, sa = sample_scoreline(rng, lh, la, rho)
         if sh > sa:
             return h

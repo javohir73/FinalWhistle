@@ -52,9 +52,16 @@ def simulate_group(
     beta: float = ELO_TO_GOALS_BETA,
     *,
     rho: float,
+    team_offsets: dict[int, tuple[float, float]] | None = None,
 ) -> dict[int, dict]:
-    """Return {team_id: {qualification_prob, avg_points, avg_gd, avg_gf}}."""
+    """Return {team_id: {qualification_prob, avg_points, avg_gd, avg_gf}}.
+
+    ``team_offsets`` maps team_id -> (atk, def) log-lambda offsets (FR-5.3) so
+    the sims run on the SAME adjusted lambdas as the match cards. Omitted or
+    empty -> bit-identical to the historical symmetric-Elo behavior.
+    """
     rng = np.random.default_rng(seed)
+    offsets = team_offsets or {}
     team_ids = list(team_elos)
 
     # Played fixtures contribute fixed tallies; the rest get Poisson means
@@ -68,9 +75,12 @@ def simulate_group(
             _apply_result(base_points, base_gf, base_ga,
                           fx.home_id, fx.away_id, fx.score[0], fx.score[1])
         else:
+            atk_h, def_h = offsets.get(fx.home_id, (0.0, 0.0))
+            atk_a, def_a = offsets.get(fx.away_id, (0.0, 0.0))
             lh, la = expected_goals_from_elo(
                 team_elos[fx.home_id], team_elos[fx.away_id], home_adv=fx.home_adv,
                 base=base, beta=beta,
+                atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
             )
             sampled.append((fx.home_id, fx.away_id, score_cdf(lh, la, rho)))
 
