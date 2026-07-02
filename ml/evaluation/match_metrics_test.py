@@ -88,3 +88,25 @@ def test_helpers_match_dataclass():
     assert exact_score_correct(1, 0, 2, 1) is False
     assert goal_error(1, 0, 2, 1) == 2
     assert isinstance(evaluate_match(KOREA_PROBS, 1, 0, 2, 1), MatchEvaluation)
+
+
+def test_exact_score_uses_explicit_basis_when_given():
+    """FR-2.2: the exact-score comparison can run on the 90-minute basis while
+    winner/Brier keep the final-result basis (after-ET convention)."""
+    from ml.evaluation.match_metrics import evaluate_match
+
+    ev = evaluate_match(
+        (0.2, 0.5, 0.3), 1, 1, 2, 1,  # final 2-1 (home win after ET)
+        exact_home_goals=1, exact_away_goals=1,  # 90' score was 1-1
+    )
+    assert ev.exact_score_correct is True  # scored on the 90' basis
+    assert ev.outcome_idx == 0  # winner basis unchanged: home won the tie
+    assert ev.goal_error == 0  # goal distance follows the exact basis
+
+
+def test_exact_basis_defaults_to_final_score():
+    from ml.evaluation.match_metrics import evaluate_match
+
+    ev = evaluate_match((0.2, 0.5, 0.3), 1, 1, 2, 1)
+    assert ev.exact_score_correct is False
+    assert ev.goal_error == 1

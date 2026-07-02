@@ -115,3 +115,19 @@ def test_total_adjustment_composes_delta_and_form():
     s = TeamState(elo_delta=10.0, matches_played=4, gf_residual_sum=2.0, ga_residual_sum=-2.0)
     assert s.total_adjustment == pytest.approx(10.0 + s.form_adjustment)
     assert abs(s.form_adjustment) <= FORM_CAP_ELO
+
+
+def test_replay_residuals_use_served_goal_params():
+    """FR-2.4 regression: residuals must be measured against the SERVED model's
+    expected goals (base/beta from model_params.json), not the v0.1 defaults —
+    otherwise every stored residual carries a systematic bias."""
+    from ml.models.poisson import expected_goals_from_elo
+    from ml.ratings.tournament import TournamentMatch, replay_tournament
+
+    base, beta = 1.2, 0.0021
+    states = replay_tournament(
+        BASE, [TournamentMatch(MEX, RSA, 2, 0)], goals_base=base, goals_beta=beta
+    )
+    lam_h, lam_a = expected_goals_from_elo(BASE[MEX], BASE[RSA], 0.0, base=base, beta=beta)
+    assert states[MEX].gf_residual_sum == pytest.approx(2 - lam_h)
+    assert states[MEX].ga_residual_sum == pytest.approx(0 - lam_a)

@@ -517,3 +517,76 @@ def test_refresh_live_survives_prediction_generation_failure(db_session, monkeyp
 
     summary = refresh_live(db_session, api_key="k")
     assert "error" not in summary  # ingestion completed despite the crash
+
+
+# ---- FR-2.1: capture the 90-minute (regulation) score ----
+
+def _reg_feed(home, away, status, score_h, score_a, duration=None, minute=None, pens=None):
+    item = {
+        "homeTeam": {"name": home}, "awayTeam": {"name": away},
+        "status": status,
+        "score": {"fullTime": {"home": score_h, "away": score_a}},
+    }
+    if duration is not None:
+        item["score"]["duration"] = duration
+    if minute is not None:
+        item["minute"] = minute
+    if pens is not None:
+        item["score"]["penalties"] = pens
+    return [item]
+
+
+def test_score90_frozen_when_match_enters_extra_time(db_session):
+    """The regulation score must be captured from the LAST regulation
+    observation — an extra-time goal arriving in the same payload as the
+    EXTRA_TIME flag must not leak into the 90-minute score."""
+    load_structure(db_session)
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, minute=88))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert m.score_home_90 is None  # still in regulation
+
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 2, 1, duration="EXTRA_TIME", minute=95)
+    )
+    db_session.refresh(m)
+    assert (m.score_home_90, m.score_away_90) == (1, 1)  # frozen pre-ET
+    assert (m.score_home, m.score_away) == (2, 1)  # live aggregate moves on
+
+
+def test_score90_equals_final_when_no_extra_time(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "FINISHED", 2, 0))
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert (m.score_home_90, m.score_away_90) == (2, 0)
+
+
+def test_score90_survives_shootout(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, minute=90))
+    update_live_scores(
+        db_session,
+        _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, duration="PENALTY_SHOOTOUT",
+              minute=120, pens={"home": 4, "away": 2}),
+    )
+    update_live_scores(
+        db_session,
+        _reg_feed("Mexico", "South Africa", "FINISHED", 1, 1, duration="PENALTY_SHOOTOUT",
+              pens={"home": 4, "away": 2}),
+    )
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert (m.score_home_90, m.score_away_90) == (1, 1)
+    assert (m.penalty_home, m.penalty_away) == (4, 2)
+
+
+def test_score90_is_never_overwritten(db_session):
+    load_structure(db_session)
+    update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, minute=89))
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "IN_PLAY", 1, 1, duration="EXTRA_TIME", minute=91)
+    )
+    update_live_scores(
+        db_session, _reg_feed("Mexico", "South Africa", "FINISHED", 2, 1, duration="EXTRA_TIME")
+    )
+    m = _match_for(db_session, "Mexico", "South Africa")
+    assert (m.score_home_90, m.score_away_90) == (1, 1)  # ET finish didn't clobber it
+    assert (m.score_home, m.score_away) == (2, 1)

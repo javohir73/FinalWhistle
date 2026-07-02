@@ -368,6 +368,19 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
         our_home = db.get(Team, match.team_home_id)
         feed_home_is_our_home = bool(our_home and our_home.name == home_name)
         new_home, new_away = _oriented(score.get("fullTime"), feed_home_is_our_home)
+        # 90-minute basis (FR-2.1): freeze the regulation score the FIRST time
+        # this match is seen beyond regulation. The stored score is the last
+        # regulation observation — ET restarts minutes after the 90' whistle,
+        # so under minute-level polling it can't include an ET goal, while the
+        # payload's own fullTime may already (same-payload flag + goal).
+        if (duration in ("EXTRA_TIME", "PENALTY_SHOOTOUT")
+                and match.score_home_90 is None
+                and match.score_home is not None and match.score_away is not None):
+            # Only a STORED pre-ET score qualifies — a match first sighted with
+            # the ET flag already up has no trustworthy regulation score in the
+            # payload (its fullTime may include ET goals); the goal-events
+            # backfill reconstructs those instead.
+            match.score_home_90, match.score_away_90 = match.score_home, match.score_away
         # Don't let a partial payload (score omitted / null / fullTime null) blank
         # a score we already know — that would flip the UI back to the predicted
         # score under a live badge. Keep the last known score until a real one comes.
@@ -396,6 +409,16 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
             match.injury_time = None
             if status == "finished":
                 finished += 1
+                # No extra time ever observed => the final IS the 90' score.
+                # (A finish first seen WITH the ET flag was captured above; a
+                # finish where every ET poll was missed stays NULL and the
+                # goal-events backfill reconstructs it.)
+                if (match.score_home_90 is None
+                        and duration not in ("EXTRA_TIME", "PENALTY_SHOOTOUT")
+                        and match.score_home is not None
+                        and match.score_away is not None):
+                    match.score_home_90 = match.score_home
+                    match.score_away_90 = match.score_away
 
         # Shootout tally — read from score.penalties (the {home,away} OBJECT),
         # never the unrelated top-level `penalties` kick ARRAY. A finished

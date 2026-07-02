@@ -105,6 +105,10 @@ def evaluate_finished_predictions(db: Session, model_version: str) -> int:
             pred.predicted_score_away if pred.predicted_score_away is not None else -1,
             m.score_home,
             m.score_away,
+            # Exact-score on the 90-minute basis when captured (FR-2.2); the
+            # winner verdict keeps the after-ET final-result convention.
+            exact_home_goals=m.score_home_90,
+            exact_away_goals=m.score_away_90,
         )
         db.add(
             PredictionResult(
@@ -193,7 +197,12 @@ def update_tournament_state(db: Session) -> int:
         for m in finished
         if m.id not in skip
     ]
-    states = replay_tournament(base, replay)
+    from ml.models.params import load_params
+
+    served = load_params()
+    states = replay_tournament(
+        base, replay, goals_base=served.base, goals_beta=served.beta
+    )
 
     updated = 0
     for t in teams:
