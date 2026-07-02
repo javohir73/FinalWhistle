@@ -18,6 +18,7 @@ from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.params import ModelParams, load_params
 from ml.models.poisson import predict_match
+from ml.models.team_offsets import load_team_offsets, offsets_for
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
@@ -28,6 +29,18 @@ def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) 
     if match.host_team_id is None:
         return 0.0
     return home_advantage if match.host_team_id == home.id else -home_advantage
+
+
+def _offsets_by_team_id(params: ModelParams, teams: list[Team]) -> dict[int, tuple[float, float]] | None:
+    """{team_id: (atk, def)} from the enabled offsets store, or None when the
+    flag is off (the shipped default). The ONE loader for the match cards AND
+    both Monte-Carlo simulations, so a flipped team_offsets flag can never serve
+    per-match probabilities and qualification/title odds from divergent lambdas
+    (FR-5.3)."""
+    if not params.team_offsets:
+        return None
+    store = load_team_offsets(params.team_offsets.get("file"))
+    return {t.id: offsets_for(store, t.name) for t in teams}
 
 
 def _recent_appearances(db: Session, team_id: int, limit: int = 10) -> list[tuple[int, int]]:
@@ -99,10 +112,18 @@ def build_payload(
     feats.elo_home = elo_home
     feats.elo_away = elo_away
     feats.elo_diff = elo_home - elo_away
+    # Per-team attack/defence offsets (FR-5.3): opt-in via model_params.json
+    # ("team_offsets": null keeps this a strict no-op — bit-identical lambdas).
+    # Loaded through the same helper the group/tournament sims use, so the card
+    # and the simulations always agree on a team's offsets.
+    offs = _offsets_by_team_id(params, [home, away]) or {}
+    atk_h, def_h = offs.get(home.id, (0.0, 0.0))
+    atk_a, def_a = offs.get(away.id, (0.0, 0.0))
     pred = predict_match(
         elo_home, elo_away, home_adv=host_adv,
         base=params.base, beta=params.beta, rho=params.rho,
         temperature=params.temperature, calibrator=params.calibrator,
+        atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
     )
 
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
@@ -221,6 +242,7 @@ def _simulate_standings(
     results = simulate_group(
         team_elos, fixtures, n_sims=n_sims, seed=2026,
         base=params.base, beta=params.beta, rho=params.rho,
+        team_offsets=_offsets_by_team_id(params, members),
     )
     # Persist REAL tallies (finished matches only) — the table users see is the
     # actual league table; only qualification_prob comes from the simulation.
@@ -258,10 +280,12 @@ def _simulate_tournament(
     fixtures: dict[str, list[KnockoutFixture]] = {}
     team_elos: dict[int, float] = {}
     strengths = strengths or {}
+    all_members: list[Team] = []
 
     for group in db.query(Group).all():
         letter = group.name.split()[-1]  # "Group A" -> "A"
         members = [gt.team for gt in group.group_teams]
+        all_members.extend(members)
         groups[letter] = [t.id for t in members]
         for t in members:
             team_elos[t.id] = strengths.get(t.id, estimate_strength(t)[0])
@@ -300,6 +324,7 @@ def _simulate_tournament(
         base=params.base, beta=params.beta, rho=params.rho,
         pk_beta=params.pk_beta, home_adv=params.home_adv,
         ko_host_by_match=ko_host_by_match, ko_results=ko_results,
+        team_offsets=_offsets_by_team_id(params, all_members),
     )
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():

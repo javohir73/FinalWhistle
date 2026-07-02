@@ -56,6 +56,9 @@ from ml.models.poisson import (
     outcome_probabilities,
     score_matrix,
 )
+from ml.models.team_offsets import OFFSET_CAP
+from ml.ratings.tournament import FORM_FULL_WEIGHT_MATCHES
+from pipeline.fit_attack_defence import DEFAULT_HALF_LIFE_DAYS, fit_offsets
 
 _LABEL_INDEX = {"H": 0, "D": 1, "A": 2}
 _EPS = 1e-15
@@ -737,6 +740,190 @@ def run_draw_cal_gate(rows: list[dict], tail_years: int = 2, test_since: int = 2
     }
 
 
+_LL_TOL = 1e-4  # log-loss may not get worse than this on the point estimate (do-no-harm guardrail)
+
+
+def _adjusted_wdl_and_grid(r: dict, params: ModelParams,
+                           log_adj_home: float = 0.0, log_adj_away: float = 0.0):
+    """wdl_and_grid with per-match multiplicative lambda adjustments (log units).
+
+    This mirrors exactly what the choke point does when offsets are enabled
+    (ml/models/poisson.py: lambda ×= exp(adjustment)), so the gate measures the
+    engine production would actually serve. Zero adjustments = the control.
+    """
+    adv = _eval_adv(r["is_neutral"], params)
+    lam_h, lam_a = expected_goals_from_elo(
+        r["pre_home"], r["pre_away"], adv, params.base, params.beta)
+    if log_adj_home:
+        lam_h *= math.exp(log_adj_home)
+    if log_adj_away:
+        lam_a *= math.exp(log_adj_away)
+    grid = score_matrix(lam_h, lam_a, rho=params.rho)
+    wdl = outcome_probabilities(grid)
+    eff_gap = effective_gap(r["pre_home"], r["pre_away"], adv)
+    wdl = calibrate(wdl, params.calibrator, params.temperature, eff_gap=eff_gap)
+    return wdl, grid
+
+
+def _match_scores(r: dict, wdl, grid) -> tuple[float, float, float]:
+    """(log-loss, exact-score NLL, parity-top1 hit) for one scored match."""
+    idx = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
+    ll = -math.log(max(_EPS, min(1 - _EPS, wdl[idx])))
+    es = exact_score_nll(grid, r["score_home"], r["score_away"])
+    pick = production_scoreline_pick(grid, wdl[0], wdl[1], wdl[2])
+    t1 = 1.0 if pick == (r["score_home"], r["score_away"]) else 0.0
+    return ll, es, t1
+
+
+def _paired_gate_summary(base_rec: dict, cand_rec: dict, ed_keys: list, n_boot: int) -> dict:
+    """Shared deltas/CIs/verdict for the lambda-adjustment gates (FR-5.3).
+
+    SHIP iff the parity top1 CI excludes 0 upward, OR the exact-score NLL CI
+    excludes 0 downward while top1 does not regress — and the log-loss point
+    delta stays within _LL_TOL (winner-quality guardrail) either way.
+    """
+    rng = np.random.default_rng(2026)
+    d_ll = np.array(cand_rec["ll"]) - np.array(base_rec["ll"])
+    d_es = np.array(cand_rec["es"]) - np.array(base_rec["es"])
+    d_t1 = np.array(cand_rec["t1"]) - np.array(base_rec["t1"])
+    n = len(d_ll)
+    ll_ci = block_bootstrap_ci(d_ll, ed_keys, n_boot, rng) if n else (0.0, 0.0)
+    es_ci = block_bootstrap_ci(d_es, ed_keys, n_boot, rng) if n else (0.0, 0.0)
+    t1_ci = block_bootstrap_ci(d_t1, ed_keys, n_boot, rng) if n else (0.0, 0.0)
+    d_ll_mean = float(d_ll.mean()) if n else 0.0
+    d_t1_mean = float(d_t1.mean()) if n else 0.0
+    ship = bool(n and d_ll_mean <= _LL_TOL and (
+        t1_ci[0] > 0 or (es_ci[1] < 0 and d_t1_mean >= 0.0)))
+    return {
+        "test_n": n,
+        "base_top1": float(np.mean(base_rec["t1"])) if n else 0.0,
+        "cand_top1": float(np.mean(cand_rec["t1"])) if n else 0.0,
+        "d_top1": d_t1_mean,
+        "t1_ci": t1_ci,
+        "base_exact_nll": float(np.mean(base_rec["es"])) if n else 0.0,
+        "cand_exact_nll": float(np.mean(cand_rec["es"])) if n else 0.0,
+        "d_exact_nll": float(d_es.mean()) if n else 0.0,
+        "es_ci": es_ci,
+        "base_log_loss": float(np.mean(base_rec["ll"])) if n else 0.0,
+        "cand_log_loss": float(np.mean(cand_rec["ll"])) if n else 0.0,
+        "d_log_loss": d_ll_mean,
+        "ll_ci": ll_ci,
+        "ll_tol": _LL_TOL,
+        "verdict": "SHIP" if ship else "do-not-ship",
+    }
+
+
+def run_team_offsets_gate(rows: list[dict], test_since: int = 2018, n_boot: int = 2000,
+                          half_life_days: int = DEFAULT_HALF_LIFE_DAYS,
+                          served_params: ModelParams | None = None) -> dict:
+    """Honest ship test for the per-team attack/defence offsets (FR-5.1..FR-5.3).
+
+    Walk-forward: for every major edition since test_since, fit offsets ONLY on
+    rows dated strictly before the edition's first match, with the decay
+    reference at that same date — leak-free by construction — then score the
+    served engine vs served+offsets on the edition's matches with the parity
+    pick rule. The offsets enter exactly as production would apply them:
+    lambda_home ×= exp(atk_home + def_away), mirrored for away, already
+    shrunk/capped by the fit. Ship rule in _paired_gate_summary.
+    """
+    served = served_params if served_params is not None else load_params()
+    editions = tournament_editions(rows, test_since)
+    base_rec: dict = {"ll": [], "es": [], "t1": []}
+    cand_rec: dict = {"ll": [], "es": [], "t1": []}
+    ed_keys: list[tuple] = []
+    fitted = 0
+    zero = {"atk": 0.0, "def": 0.0}
+    for comp, year, target in editions:
+        first_date = min(_as_date(r["date"]) for r in target)
+        train = [r for r in rows if _as_date(r["date"]) < first_date]
+        offs = fit_offsets(train, first_date, half_life_days=half_life_days, params=served)
+        if not offs:  # no history before this edition; nothing to test
+            continue
+        fitted += 1
+        for r in target:
+            oh = offs.get(r["home_id"], zero)
+            oa = offs.get(r["away_id"], zero)
+            b_wdl, b_grid = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], served)
+            c_wdl, c_grid = _adjusted_wdl_and_grid(
+                r, served,
+                log_adj_home=oh["atk"] + oa["def"],
+                log_adj_away=oa["atk"] + oh["def"],
+            )
+            for rec, scores in ((base_rec, _match_scores(r, b_wdl, b_grid)),
+                                (cand_rec, _match_scores(r, c_wdl, c_grid))):
+                rec["ll"].append(scores[0]); rec["es"].append(scores[1]); rec["t1"].append(scores[2])
+            ed_keys.append((comp, year))
+
+    out = _paired_gate_summary(base_rec, cand_rec, ed_keys, n_boot)
+    out.update({"served_version": served.version, "half_life_days": half_life_days,
+                "editions": fitted})
+    return out
+
+
+def residual_log_adj(gf_mean: float, n_team: int, ga_mean_opp: float, n_opp: int,
+                     kappa: float) -> float:
+    """Capped asymmetric in-tournament residual adjustment for ONE lambda (FR-5.4).
+
+    The team's own attacking residual (goals scored − model expectation, per
+    match) plus the opponent's defensive residual (conceded − expected), each on
+    the form layer's √(n/FORM_FULL_WEIGHT_MATCHES) confidence ramp, scaled by
+    kappa and clamped to the same log-lambda ceiling as the static offsets.
+    """
+    ramp_t = min(1.0, math.sqrt(n_team / FORM_FULL_WEIGHT_MATCHES)) if n_team > 0 else 0.0
+    ramp_o = min(1.0, math.sqrt(n_opp / FORM_FULL_WEIGHT_MATCHES)) if n_opp > 0 else 0.0
+    raw = kappa * (ramp_t * gf_mean + ramp_o * ga_mean_opp)
+    return max(-OFFSET_CAP, min(OFFSET_CAP, raw))
+
+
+def run_residual_form_gate(rows: list[dict], kappa: float = 0.10, test_since: int = 2018,
+                           n_boot: int = 2000,
+                           served_params: ModelParams | None = None) -> dict:
+    """FR-5.4 ship test: capped asymmetric in-tournament residual adjustment.
+
+    Each edition is replayed chronologically; per-team goal residuals vs the
+    served engine's own pre-match expectation accumulate WITHIN the edition
+    (mirroring the form-layer inputs in ml/ratings/tournament.py, but applied
+    asymmetrically per lambda instead of folded into one Elo nudge). A match is
+    scored BEFORE its own residuals enter the state, so nothing leaks. Expected
+    to fail the gate at n=3–4 matches/team — run to document it either way.
+    """
+    served = served_params if served_params is not None else load_params()
+    editions = tournament_editions(rows, test_since)
+    base_rec: dict = {"ll": [], "es": [], "t1": []}
+    cand_rec: dict = {"ll": [], "es": [], "t1": []}
+    ed_keys: list[tuple] = []
+    for comp, year, target in editions:
+        state: dict = defaultdict(lambda: [0.0, 0.0, 0])  # gf_res_sum, ga_res_sum, n
+        for r in sorted(target, key=lambda m: _as_date(m["date"])):
+            hs = state[r["home_id"]]
+            aw = state[r["away_id"]]
+            gf_h = hs[0] / hs[2] if hs[2] else 0.0
+            ga_h = hs[1] / hs[2] if hs[2] else 0.0
+            gf_a = aw[0] / aw[2] if aw[2] else 0.0
+            ga_a = aw[1] / aw[2] if aw[2] else 0.0
+            adj_h = residual_log_adj(gf_h, hs[2], ga_a, aw[2], kappa)
+            adj_a = residual_log_adj(gf_a, aw[2], ga_h, hs[2], kappa)
+            b_wdl, b_grid = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], served)
+            c_wdl, c_grid = _adjusted_wdl_and_grid(r, served, adj_h, adj_a)
+            for rec, scores in ((base_rec, _match_scores(r, b_wdl, b_grid)),
+                                (cand_rec, _match_scores(r, c_wdl, c_grid))):
+                rec["ll"].append(scores[0]); rec["es"].append(scores[1]); rec["t1"].append(scores[2])
+            ed_keys.append((comp, year))
+            # Fold THIS match's residuals into the state for later matches.
+            adv = _eval_adv(r["is_neutral"], served)
+            lam_h, lam_a = expected_goals_from_elo(
+                r["pre_home"], r["pre_away"], adv, served.base, served.beta)
+            hs[0] += r["score_home"] - lam_h; hs[1] += r["score_away"] - lam_a; hs[2] += 1
+            aw[0] += r["score_away"] - lam_a; aw[1] += r["score_home"] - lam_h; aw[2] += 1
+
+    out = _paired_gate_summary(base_rec, cand_rec, ed_keys, n_boot)
+    out.update({"served_version": served.version, "kappa": kappa,
+                "editions": len(editions)})
+    return out
+
+
+
+
 def run_pick_policy(rows: list[dict], since_year: int, n_boot: int, val_days: int = 730,
                     served_params: ModelParams | None = None) -> dict:
     """Walk-forward pick-policy gate (FR-3.1/3.2).
@@ -900,6 +1087,34 @@ def main() -> int:
     if dg["verdict"] == "SHIP":
         blob = json.dumps(dg["calibrator"])
         print(f"  SHIP blob (paste into model_params.json -> calibrator): {blob}")
+
+    def print_lambda_gate(g: dict) -> None:
+        print(f"  top1     base={g['base_top1']:.4f}  cand={g['cand_top1']:.4f}  "
+              f"d={g['d_top1']:+.4f}  CI[{g['t1_ci'][0]:+.4f},{g['t1_ci'][1]:+.4f}] "
+              f"{verdict(g['t1_ci'], better_is_lower=False)}")
+        print(f"  exactNLL base={g['base_exact_nll']:.4f}  cand={g['cand_exact_nll']:.4f}  "
+              f"d={g['d_exact_nll']:+.4f}  CI[{g['es_ci'][0]:+.4f},{g['es_ci'][1]:+.4f}] "
+              f"{verdict(g['es_ci'])}")
+        print(f"  logloss  base={g['base_log_loss']:.4f}  cand={g['cand_log_loss']:.4f}  "
+              f"d={g['d_log_loss']:+.4f}  CI[{g['ll_ci'][0]:+.4f},{g['ll_ci'][1]:+.4f}] "
+              f"(guardrail tol {g['ll_tol']})")
+        print(f"  -> {g['verdict']}")
+
+    print("\n==== Team attack/defence offsets gate (FR-5.1..FR-5.3) ====")
+    tg = run_team_offsets_gate(rows, n_boot=args.boot)
+    print(f"  served={tg['served_version']}  half_life={tg['half_life_days']}d  "
+          f"editions={tg['editions']}  test_n={tg['test_n']}")
+    print_lambda_gate(tg)
+    if tg["verdict"] == "SHIP":
+        print('  SHIP: run `python -m pipeline.fit_attack_defence`, commit '
+              'ml/models/team_offsets.json, set model_params.json -> '
+              '"team_offsets": {"file": "team_offsets.json"} and bump the version.')
+
+    print("\n==== In-tournament residual form gate (FR-5.4) ====")
+    for kappa in (0.05, 0.10, 0.20):
+        rg = run_residual_form_gate(rows, kappa=kappa, n_boot=args.boot)
+        print(f"  kappa={kappa:.2f}  editions={rg['editions']}  test_n={rg['test_n']}")
+        print_lambda_gate(rg)
 
     return 0
 

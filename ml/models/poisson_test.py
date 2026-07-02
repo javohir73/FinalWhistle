@@ -179,3 +179,47 @@ def test_goal_markets_known_lambda_matches_poisson_marginals():
     assert abs(gm["away"]["to_score"] - (1 - math.exp(-0.5))) < 0.01
     # Independent => BTTS ~= P(home>=1) * P(away>=1).
     assert abs(gm["btts"] - (1 - math.exp(-2.0)) * (1 - math.exp(-0.5))) < 0.01
+
+
+# --- per-team attack/defence offsets at the choke point (FR-5.2/FR-5.3) ------
+
+def test_expected_goals_offsets_default_is_bit_identical():
+    """With every offset at its 0.0 default the lambdas are the SAME floats —
+    production behavior with team offsets disabled must be bit-identical."""
+    base = expected_goals_from_elo(1750, 1620, 60.0)
+    with_zeros = expected_goals_from_elo(
+        1750, 1620, 60.0, atk_home=0.0, def_home=0.0, atk_away=0.0, def_away=0.0
+    )
+    assert base == with_zeros
+
+
+def test_expected_goals_offsets_multiply_the_right_lambda():
+    import math
+    lam_h, lam_a = expected_goals_from_elo(1750, 1620, 60.0)
+    # atk_home and def_away lift ONLY the home lambda.
+    lh, la = expected_goals_from_elo(1750, 1620, 60.0, atk_home=0.05, def_away=0.02)
+    assert lh == lam_h * math.exp(0.05 + 0.02)
+    assert la == lam_a
+    # atk_away and def_home lift ONLY the away lambda.
+    lh, la = expected_goals_from_elo(1750, 1620, 60.0, atk_away=0.04, def_home=0.03)
+    assert lh == lam_h
+    assert la == lam_a * math.exp(0.04 + 0.03)
+
+
+def test_predict_match_identity_with_zero_offsets():
+    base = predict_match(1780, 1650, home_adv=60.0, rho=-0.06)
+    zeros = predict_match(
+        1780, 1650, home_adv=60.0, rho=-0.06,
+        atk_home=0.0, def_home=0.0, atk_away=0.0, def_away=0.0,
+    )
+    assert base == zeros  # dataclass equality: every field bit-identical
+
+
+def test_predict_match_offsets_shift_prediction():
+    base = predict_match(1780, 1650, home_adv=60.0, rho=-0.06)
+    boosted = predict_match(
+        1780, 1650, home_adv=60.0, rho=-0.06, atk_home=0.075, def_away=0.075
+    )
+    assert boosted.lambda_home > base.lambda_home
+    assert boosted.lambda_away == base.lambda_away
+    assert boosted.prob_home_win > base.prob_home_win

@@ -25,6 +25,9 @@ wins AND losses — so refuted ideas are never retried. Rules:
 | 2026-07-02 | FR-3.1e stage-conditional (group/KO) empirical blend w=0.1 | same | top1 14.49% (−0.27pp) | [−1.82, +1.52] pp | **REFUTED** — no gain |
 | 2026-07-02 | FR-3.1e stage-conditional empirical blend w=0.2 | same | top1 14.60% (−0.16pp) | [−1.85, +1.65] pp | **REFUTED** — no gain |
 | 2026-07-02 | FR-3.1e stage-conditional empirical blend w=0.3 | same | top1 15.19% (+0.43pp) | [−1.33, +2.28] pp | **NOT SHIPPED** — largest point estimate of Phase 3, CI still spans 0 |
+| 2026-07-02 | Per-team attack/defence offsets, half-life 1095d — PRIMARY (FR-5.1–5.3): time-decayed Poisson MLE on 49,403 historical matches (`pipeline/fit_attack_defence.py`), √(n_eff/30) shrinkage, ±0.075 log-λ cap (≈ FORM_CAP_ELO×β); walk-forward refit strictly before each edition (`run_team_offsets_gate`) | 750 matches / 18 major-finals editions 2018+, v0.2 served params | top1 16.13%→14.67% (−1.47pp); exact NLL +0.0020; log-loss +0.0028 | top1 [−2.66pp, +0.00pp]; NLL [−0.0080, +0.0114]; LL [−0.0024, +0.0084] | **REFUTED** — offsets HURT the modal pick (borderline-significantly) and buy nothing on grid NLL; `"team_offsets"` stays null, code path disabled |
+| 2026-07-02 | Per-team attack/defence offsets, half-life sensitivity 730d / 1460d | same | top1 −1.33pp / −1.60pp; exact NLL +0.0017 both; log-loss +0.0039 / +0.0021 | top1 [−2.43, −0.25] / [−2.73, −0.39] — significantly WORSE at both | **REFUTED** — the harm is robust to the decay choice, not a half-life artifact |
+| 2026-07-02 | In-tournament asymmetric residual λ-adjust (FR-5.4): λ ×= exp(κ·(own gf-residual + opp ga-residual)), √(n/4) ramp, ±0.075 cap, κ ∈ {0.05, 0.10, 0.20} (`run_residual_form_gate`) | same | top1 −0.53 / −1.07 / −1.33pp; exact NLL −0.0019 / −0.0019 / −0.0014 (ns); log-loss ≈0 | κ=0.05 top1 [−1.37, +0.29]; κ=0.10 [−2.18, +0.00]; κ=0.20 [−2.49, −0.28] | **REFUTED** — as predicted at n=3–4 matches/team: tiny ns NLL gain, top1 degrades monotonically with κ |
 
 FR-3.1e rows record the re-run after the stage-label truncation fix (review
 finding on `knockout_flags`): history stage flags are now computed on COMPLETE
@@ -38,6 +41,21 @@ production pick rule stands.** The wider-band and stage-w=0.3 point estimates
 land inside the design spec's expected +0 to +0.5pp — real-if-any effect too
 small to prove on ~1.8k matches. Candidates stay in `PICK_CANDIDATES`
 (`--pick-only`) for cheap re-runs as more editions accrue.
+
+## Phase 5 post-mortem (why per-team offsets lost)
+
+The infrastructure works (deterministic fit, leak-free walk-forward, identity
+when disabled) but the signal does not survive the anti-overfitting policy on
+this holdout: ~44% of teams saturate the tight ±0.075 log-λ cap, and what the
+full-history fit mostly encodes is the exp(β·diff) curve's tail curvature at
+extreme Elo gaps (minnows get "concede less / score more than the saturated
+exponential predicts") — a regime barely present in major-finals matchups.
+Meanwhile a small λ multiplier rarely moves the modal grid cell toward the
+truth but does flip 1-0/1-1 boundary picks away from football's most common
+scorelines, which is exactly the measured effect: NLL ≈ flat, top1 down ~1.5pp.
+Do not retry with a looser cap — that direction adds variance, not signal;
+the flat (base, rho) response surface from the design-phase refutations
+already warned grid-shape changes buy little.
 
 ## Production baseline
 
