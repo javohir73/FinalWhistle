@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 const STYLES: Record<string, string> = {
   High: "text-lime-deep bg-win/15",
-  Medium: "text-[#9a730f] bg-draw/15",
+  Medium: "text-amber-ink bg-draw/15",
   Low: "text-loss bg-loss/15",
 };
 

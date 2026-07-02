@@ -385,7 +385,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
             Full time
           </span>
         ) : match.kickoff_utc ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2.5 py-1 text-[11px] font-semibold text-[#9a730f]">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2.5 py-1 text-[11px] font-semibold text-amber-ink">
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
             </svg>
@@ -506,7 +506,7 @@ function AlsoTodayRow({ match, tz }: { match: MatchSummary; tz: string }) {
           ) : call ? (
             <>
               {(live || match.kickoff_utc) ? " · " : ""}
-              <span className={`font-semibold ${call.tone === "draw" ? "text-[#9a730f]" : "text-lime-deep"}`}>
+              <span className={`font-semibold ${call.tone === "draw" ? "text-amber-ink" : "text-lime-deep"}`}>
                 {call.label}
               </span>
             </>

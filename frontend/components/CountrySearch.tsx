@@ -88,7 +88,7 @@ export function CountrySearch({
                 <Flag team={t.name} size={26} />
                 <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
                 {t.is_host && (
-                  <span className="shrink-0 rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-gold">
+                  <span className="shrink-0 rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-ink">
                     Host
                   </span>
                 )}

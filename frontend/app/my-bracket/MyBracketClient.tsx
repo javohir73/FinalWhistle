@@ -173,11 +173,11 @@ export function MyBracketClient({
                 </span>
                 <span className="text-muted"> / {b.progress.totalGroupFixtures} picked</span>
                 {b.champion && (
-                  <span className="ml-2 text-muted">· champion: <span className="font-semibold text-gold">{b.champion}</span></span>
+                  <span className="ml-2 text-muted">· champion: <span className="font-semibold text-amber-ink">{b.champion}</span></span>
                 )}
               </div>
               {sync.signedIn && sync.status !== "idle" ? (
-                <span className={cn("mt-0.5 block text-xs", sync.status === "offline" ? "text-[#9a730f]" : "text-lime-deep")}>
+                <span className={cn("mt-0.5 block text-xs", sync.status === "offline" ? "text-amber-ink" : "text-lime-deep")}>
                   {sync.status === "saving"
                     ? "Saving…"
                     : sync.status === "offline"
@@ -477,7 +477,7 @@ function TieCard({
   return (
     <div className={cn("glass rounded-xl p-2", isFinal && "border-gold/40")}>
       {isUpset && (
-        <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-[#9a730f]">
+        <div className="px-1 pb-1 text-[10px] font-bold uppercase tracking-wide text-amber-ink">
           ⚡ Upset pick
         </div>
       )}

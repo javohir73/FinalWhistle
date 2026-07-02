@@ -28,7 +28,7 @@ export function VerifyEmailBanner({ user }: { user: SessionUser | null }) {
   return (
     <div
       role="status"
-      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-draw/30 bg-draw/10 px-4 py-2 text-center text-xs text-[#9a730f]"
+      className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-draw/30 bg-draw/10 px-4 py-2 text-center text-xs text-amber-ink"
     >
       <span className="font-semibold">Verify your email to secure your account.</span>
       {state === "sent" ? (

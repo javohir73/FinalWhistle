@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 
 const COLOR: Record<string, string> = {
   W: "bg-win/15 text-lime-deep",
-  D: "bg-draw/15 text-[#9a730f]",
+  D: "bg-draw/15 text-amber-ink",
   L: "bg-loss/15 text-loss",
 };
 
