@@ -8,7 +8,7 @@ from pipeline.ingest.ko_venues import apply_ko_venues, KO_VENUES
 from pipeline.ingest.live_scores import assign_knockout_teams, update_live_scores
 from pipeline.ingest.api_football import to_feed
 
-_TESTDATA = Path("pipeline/ingest/testdata")
+_TESTDATA = Path(__file__).resolve().parents[2] / "pipeline" / "ingest" / "testdata"
 
 
 def _seed_teams(db, names):
