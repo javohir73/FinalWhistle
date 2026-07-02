@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Bracket, BracketScore, Match
 
@@ -133,13 +133,17 @@ def recompute_scores(db: Session, knockout_results: dict[int, int] | None = None
     `knockout_results` maps official match number -> winning team id (supplied by
     the results job once knockout games are played). Group results are read from
     the DB. Safe to run any time; pre-tournament everything scores 0.
+
+    Ranks are leaderboard ranks: assigned only over public brackets of
+    non-internal accounts, so they stay contiguous with what the public
+    leaderboard shows. Everything else keeps its points but rank None.
     """
     knockout_results = knockout_results or {}
     group_results = group_results_from_db(db)
     now = datetime.now(timezone.utc)
 
-    scored: list[tuple[BracketScore, int]] = []
-    for b in db.query(Bracket).all():
+    scored: list[tuple[BracketScore, int, bool]] = []
+    for b in db.query(Bracket).options(joinedload(Bracket.user)).all():
         gp = {p.match_id: p.pick for p in b.group_picks}
         kp = {p.match_no: p.picked_team_id for p in b.knockout_picks}
         bd = score_bracket(gp, group_results, kp, knockout_results)
@@ -153,17 +157,22 @@ def recompute_scores(db: Session, knockout_results: dict[int, int] | None = None
         row.champion_bonus = bd["champion_bonus"]
         row.total_points = bd["total_points"]
         row.recalculated_at = now
-        scored.append((row, bd["total_points"]))
+        on_board = b.visibility == "public" and not b.user.is_internal
+        scored.append((row, bd["total_points"], on_board))
 
-    # Standard competition ranking (ties share a rank; next rank skips).
-    scored.sort(key=lambda x: x[1], reverse=True)
+    # Standard competition ranking (ties share a rank; next rank skips) over
+    # the leaderboard population only.
+    ranked = sorted((s for s in scored if s[2]), key=lambda x: x[1], reverse=True)
     last_pts: int | None = None
     last_rank = 0
-    for i, (row, pts) in enumerate(scored, start=1):
+    for i, (row, pts, _) in enumerate(ranked, start=1):
         if pts != last_pts:
             last_rank = i
             last_pts = pts
         row.rank = last_rank
+    for row, _, on_board in scored:
+        if not on_board:
+            row.rank = None
 
     db.commit()
     return len(scored)

@@ -1,0 +1,73 @@
+# Flag (or unflag) an internal smoke-test/ops account so it never appears on
+# the public leaderboard. POSTs to the API's token-guarded
+# /api/internal/flag-internal-user, which sets AppUser.is_internal and re-ranks.
+#
+# Manual-only (workflow_dispatch): give EITHER the leaderboard display name OR
+# the account email — exactly one. Uses the same secrets as refresh-live:
+#   - API_URL          the deployed API base, e.g. https://pitchprophet-api.onrender.com
+#   - RECOMPUTE_TOKEN  the SAME value as the backend's RECOMPUTE_TOKEN env var
+name: ops-flag-internal
+
+on:
+  workflow_dispatch:
+    inputs:
+      display_name:
+        description: "Leaderboard display name (leave empty when flagging by email)"
+        required: false
+        default: ""
+      email:
+        description: "Account email (leave empty when flagging by display name)"
+        required: false
+        default: ""
+      internal:
+        description: "true = hide from the public leaderboard, false = restore"
+        required: false
+        type: choice
+        options: ["true", "false"]
+        default: "true"
+
+jobs:
+  flag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: POST /api/internal/flag-internal-user
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+          DISPLAY_NAME: ${{ inputs.display_name }}
+          EMAIL: ${{ inputs.email }}
+          INTERNAL: ${{ inputs.internal }}
+        run: |
+          set -u
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set — cannot call the API." >&2
+            exit 1
+          fi
+          if [ -n "$EMAIL" ]; then
+            body=$(jq -cn --arg e "$EMAIL" --argjson i "$INTERNAL" '{email: $e, internal: $i}')
+          elif [ -n "$DISPLAY_NAME" ]; then
+            body=$(jq -cn --arg d "$DISPLAY_NAME" --argjson i "$INTERNAL" '{display_name: $d, internal: $i}')
+          else
+            echo "Provide display_name or email." >&2
+            exit 1
+          fi
+          # Retry for Render free-tier cold starts (~20s), same as smoke.yml.
+          for attempt in 1 2 3 4 5; do
+            code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" -m 60 \
+              -X POST "${API_URL%/}/api/internal/flag-internal-user" \
+              -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$body" || echo 000)
+            # Logs are public on this repo: report status + is_internal only,
+            # never the account email the endpoint echoes back.
+            echo "[$attempt/5] HTTP ${code} is_internal=$(jq -r '.is_internal // empty' /tmp/resp.json 2>/dev/null)"
+            if [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]; then exit 0; fi
+            # 4xx won't get better on retry — surface the error body and stop.
+            if [ "${code}" -ge 400 ] && [ "${code}" -lt 500 ]; then
+              jq -c '.detail // .' /tmp/resp.json 2>/dev/null || true
+              exit 1
+            fi
+            [ "$attempt" -lt 5 ] && sleep 12
+          done
+          echo "All attempts failed." >&2
+          exit 1

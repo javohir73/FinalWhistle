@@ -48,6 +48,10 @@ export function MyRankCard() {
           <span className="font-display font-bold text-lime-deep">You are #{score.rank}</span>{" "}
           <span className="text-muted">· {score.total_points} pts</span>
         </p>
+      ) : bracket.visibility !== "public" ? (
+        <p className="text-sm text-muted">
+          Your bracket is private — join the leaderboard to get ranked.
+        </p>
       ) : (
         <p className="text-sm text-muted">
           You&apos;re in — ranks appear once matches start scoring.
