@@ -46,10 +46,10 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 
 *Goal: price what B2B buyers actually consume.*
 
-- [ ] Derived markets from the existing scoreline grid (near-free): totals O/U (all lines), BTTS, Asian handicap, correct score, double chance.
-- [ ] Calibration + benchmark per market, not just 1X2 (`Odds` already captures OU 2.5).
-- [ ] Player props (goalscorer likelihoods — extends `ml/models/goalscorers.py`): needs lineup/minutes modeling. Higher effort, high B2B value.
-- [ ] Versioned public API: `/v1/markets/{match}` with model version, probabilities, explanation payload, calibration metadata.
+- [x] Derived markets from the existing scoreline grid (near-free): totals O/U (all lines), BTTS, Asian handicap, correct score, double chance. *(Shipped — `ml/models/markets.py`, pure grid math with push/half/quarter Asian-handicap handling.)*
+- [ ] Calibration + benchmark per market, not just 1X2 (`Odds` already captures OU 2.5). *(2-way benchmark infra shipped — `benchmark_binary`/`devig2`/`ou25_label`; per-market calibration fitting + live numbers deferred until matched O/U closing odds accumulate.)*
+- [ ] Player props (goalscorer likelihoods — extends `ml/models/goalscorers.py`): needs lineup/minutes modeling. Higher effort, high B2B value. *(Deferred: needs lineup/minutes data.)*
+- [x] Versioned public API: `/v1/markets/{match}` with model version, probabilities, explanation payload, calibration metadata. *(Shipped — reads the frozen prediction; additive, WC26 routes untouched.)*
 
 **Exit criterion:** ≥5 market types benchmarked vs market prices for a full half-season.
 

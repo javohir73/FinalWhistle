@@ -12,9 +12,15 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.live_winprob import live_probabilities_for_match
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
+from ml.models import markets as _markets
 from ml.models.poisson import goal_markets as _goal_markets
 
 DISCLAIMER = "For analytics and entertainment only. Not betting advice."
+
+# Per-market closing-line calibration is not yet fitted (Phase 2 exit criterion):
+# the grid markets are the raw Poisson-Elo distribution, and the 1X2 carries the
+# existing W/D/L calibration. Stated explicitly in the public payload.
+_MARKETS_CALIBRATION_BASIS = "poisson-elo grid (per-market closing-line calibration pending)"
 
 
 def _kickoff_iso(dt: datetime | None) -> str | None:
@@ -111,6 +117,50 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         odds_comparison=schemas.OddsComparisonOut(available=False),
         disclaimer=DISCLAIMER,
         goal_markets=_goal_markets_out(pred.lambda_home, pred.lambda_away, pred.rho),
+    )
+
+
+def prediction_to_markets_out(db: Session, match: Match, pred: Prediction) -> schemas.MarketsOut:
+    """Versioned public markets payload (/v1/markets/{match}, Phase 2).
+
+    1X2 and double chance are read from the STORED calibrated triple
+    (pred.prob_*), so the published triple and the double-chance sums that build
+    on it stay consistent with everything else the engine serves. Every
+    scoreline-grid market (totals/BTTS/correct-score/Asian-handicap) is priced
+    off the RAW Poisson grid on the stored lambdas via
+    markets.derive_scoreline_markets — calibration adjusts only the W/D/L triple,
+    not the grid, so the two paths are kept separate on purpose."""
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    grid = _markets.derive_scoreline_markets(pred.lambda_home, pred.lambda_away, pred.rho or 0.0)
+    double_chance = _markets.double_chance_from_triple(
+        pred.prob_home_win, pred.prob_draw, pred.prob_away_win
+    )
+    derived = schemas.DerivedMarketsOut(
+        one_x_two=schemas.ProbabilitiesOut(
+            home_win=pred.prob_home_win, draw=pred.prob_draw, away_win=pred.prob_away_win
+        ),
+        double_chance=schemas.DoubleChanceOut(**double_chance),
+        totals=[schemas.TotalsLineOut(**t) for t in grid["totals"]],
+        btts=schemas.BttsOut(**grid["btts"]),
+        correct_score=[schemas.CorrectScoreOut(**s) for s in grid["correct_score"]],
+        asian_handicap=[schemas.AsianHandicapLineOut(**h) for h in grid["asian_handicap"]],
+    )
+    return schemas.MarketsOut(
+        match_id=match.id,
+        model_version=pred.model_version,
+        generated_at=pred.created_at.isoformat() if pred.created_at else None,
+        teams=schemas.TeamsOut(home=home.name if home else "TBD", away=away.name if away else "TBD"),
+        markets=derived,
+        explanation=schemas.MarketsExplanationOut(
+            confidence=pred.confidence,
+            reasons=pred.reasons or [],
+            top_features=[schemas.FeatureWeightOut(**f) for f in (pred.top_features or [])],
+        ),
+        calibration=schemas.MarketsCalibrationOut(
+            basis=_MARKETS_CALIBRATION_BASIS, per_market_vs_close=None
+        ),
+        disclaimer=DISCLAIMER,
     )
 
 

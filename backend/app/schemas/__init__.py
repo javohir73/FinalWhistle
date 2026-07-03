@@ -381,3 +381,68 @@ class GoalscorersOut(BaseModel):
     mode: str                     # "lineup" | "squad"
     home: list[GoalscorerOut]
     away: list[GoalscorerOut]
+
+
+# ---- Versioned public markets API (/v1/markets/{match}) ----
+# Additive Phase-2 contract (docs/ROADMAP-ENGINE.md). 1X2 + double chance come
+# from the STORED calibrated triple; every scoreline-grid market is priced off
+# the raw Poisson grid on the stored lambdas — calibration only touches W/D/L.
+class DoubleChanceOut(BaseModel):
+    home_or_draw: float
+    home_or_away: float
+    draw_or_away: float
+
+
+class TotalsLineOut(BaseModel):
+    line: float
+    over: float
+    under: float
+
+
+class BttsOut(BaseModel):
+    yes: float
+    no: float
+
+
+class CorrectScoreOut(BaseModel):
+    home: int
+    away: int
+    prob: float
+
+
+class AsianHandicapLineOut(BaseModel):
+    line: float
+    home: float
+    push: float
+    away: float
+
+
+class DerivedMarketsOut(BaseModel):
+    one_x_two: ProbabilitiesOut
+    double_chance: DoubleChanceOut
+    totals: list[TotalsLineOut]
+    btts: BttsOut
+    correct_score: list[CorrectScoreOut]
+    asian_handicap: list[AsianHandicapLineOut]
+
+
+class MarketsExplanationOut(BaseModel):
+    confidence: str | None
+    reasons: list[str]
+    top_features: list[FeatureWeightOut]
+
+
+class MarketsCalibrationOut(BaseModel):
+    basis: str
+    per_market_vs_close: str | None = None
+
+
+class MarketsOut(BaseModel):
+    match_id: int
+    model_version: str
+    generated_at: str | None
+    teams: TeamsOut
+    markets: DerivedMarketsOut
+    explanation: MarketsExplanationOut
+    calibration: MarketsCalibrationOut
+    disclaimer: str
