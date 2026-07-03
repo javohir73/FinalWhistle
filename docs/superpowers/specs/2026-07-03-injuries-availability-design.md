@@ -46,21 +46,23 @@ other is ignored in favour of injuries, preserving v1's both-sides discipline.
 
 ## Components
 
-### 1. Ingestion — `refresh_injuries`
+### 1. Ingestion — `refresh_injuries` (mirrors `refresh_odds`)
 - `pipeline/ingest/api_football.py`:
-  - `fetch_injuries(api_key, league, season) -> list[dict]` — mirrors `fetch_fixtures`
-    (`GET /injuries?league&season`, `x-apisports-key`, tolerates the `errors` object).
+  - `fetch_injuries(api_key, fixture_id) -> list[dict]` — mirrors `fetch_odds`
+    (`GET /injuries?fixture={id}`, `x-apisports-key`, tolerates the `errors` object).
   - `parse_injuries(response) -> list[dict]` (pure) — each record →
-    `{provider_player_id, name, type, reason, team_name, fixture_date}`, where
-    `type = "out"` if `player.type == "Missing Fixture"` else `"doubtful"`.
-- `pipeline/ingest/injuries.py` (new): `refresh_injuries(db, api_key)` — fetch the
-  configured league+season **once**, group by (normalized team, fixture date), map to
-  scheduled `Match` rows via the existing `normalize_team_name` + kickoff-date match
-  (same mapping odds/live-scores use), and set `Match.injuries` to the per-match list
-  with `side` ("home"/"away") assigned by which team the injured player belongs to.
-  Matches checked but injury-free get `[]`.
-- Wire into `pipeline/run_pipeline.py` **before** `generate_predictions`, gated on
-  `settings.api_football_api_key` (like the odds step).
+    `{provider_player_id, name, type, reason, team_name}`, where `type = "out"` if
+    `player.type == "Missing Fixture"` else `"doubtful"`; nameless rows skipped.
+- `pipeline/ingest/injuries.py` (new): `refresh_injuries(db, api_key, window_hours=48)`
+  — mirror `refresh_odds` exactly: loop scheduled matches with both teams inside the
+  kickoff window, resolve the provider fixture id (`match.provider_fixture_id` else
+  `app.lineups._resolve_fixture_id`, the same helper odds uses), `fetch_injuries` per
+  fixture, `parse_injuries`, then assign each record a `side` by matching its
+  `team_name` (via `pipeline.team_mapping.normalize_team_name`) to the match's home/away
+  team. Set `Match.injuries` to the per-match list (or `[]` when checked and clear).
+  **Best-effort by contract — never raises** (a feed hiccup must not block predictions).
+- Wire into `pipeline/run_pipeline.py` **after** the odds step and **before**
+  `generate_predictions`, gated on `settings.api_football_api_key` (like the odds step).
 
 ### 2. The adjustment
 - `ml/models/availability.py` (extend, pure): add `DOUBTFUL_WEIGHT = 0.5` and
