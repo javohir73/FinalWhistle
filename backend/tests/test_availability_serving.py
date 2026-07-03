@@ -59,3 +59,17 @@ def test_prediction_out_availability_none_without_xi(db_session):
     _squad(db_session, h.id, 1); _squad(db_session, a.id, 2)
     out = prediction_to_out(db_session, m, pred)
     assert out.availability is None
+
+
+def test_injury_note_names_player_and_reason(db_session):
+    m, h, a, pred = _match_pred(db_session)   # helper from this file
+    _squad(db_session, h.id, 1); _squad(db_session, a.id, 2)
+    m.injuries = [{"provider_player_id": 1, "name": "Star", "type": "out",
+                   "reason": "Calf Injury", "side": "home"}]
+    db_session.commit()
+    out = prediction_to_out(db_session, m, pred)
+    assert out.availability is not None
+    home = next(t for t in out.availability.per_team if t.side == "home")
+    assert "Star" in home.note and "Calf Injury" in home.note
+    assert home.attack_delta_pct < 0.0
+    assert out.probabilities.home_win == 0.55   # published number unchanged

@@ -136,6 +136,10 @@ class Match(Base):
     # api_football provider only (football-data has no cards) — None means
     # "no card data", which every consumer treats as zero cards.
     card_events: Mapped[list | None] = mapped_column(JSON)
+    # Per-fixture availability snapshot (day-ahead), same JSON pattern as
+    # card_events: [{provider_player_id, name, type: "out"|"doubtful", reason, side}].
+    # null = not yet ingested, [] = checked/clear.
+    injuries: Mapped[list | None] = mapped_column(JSON)
 
     tournament: Mapped[Tournament] = relationship(back_populates="matches")
     group: Mapped[Group | None] = relationship(foreign_keys=[group_id])

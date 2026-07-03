@@ -51,17 +51,50 @@ def availability_inputs(
     return starters, [_player_dict(p, None) for p in squad]
 
 
+def _squad_dicts(db: Session, team_id: int) -> list[dict]:
+    from app.goalscorers import _player_dict  # lazy: avoids import cycle
+
+    return [_player_dict(p, None) for p in db.query(Player).filter_by(team_id=team_id).all()]
+
+
+def _injury_statuses(match: Match, side: str, squad_ids: set) -> dict[int, dict]:
+    """{provider_player_id: {status, reason}} for one side, restricted to players
+    in our squad (an injured player we don't track can't affect the reference XI)."""
+    out: dict[int, dict] = {}
+    for inj in match.injuries or []:
+        if inj.get("side") != side:
+            continue
+        pid = inj.get("provider_player_id")
+        if pid in squad_ids:
+            out[pid] = {"status": inj.get("type"), "reason": inj.get("reason")}
+    return out
+
+
 def availability_for_match(
     db: Session, match: Match
 ) -> tuple[float, float, dict, dict] | None:
-    """(off_home, off_away, expl_home, expl_away) or None unless BOTH sides have an
-    announced XI and both offsets are computable."""
+    """(off_home, off_away, expl_home, expl_away) from the best available signal:
+    both announced XIs -> the v1 XI path; else, if injuries are ingested, the
+    day-ahead injury path for both sides; else None."""
     home = availability_inputs(db, match, "home")
     away = availability_inputs(db, match, "away")
-    if home is None or away is None:
-        return None
-    h = availability_offset(home[0], home[1])
-    a = availability_offset(away[0], away[1])
-    if h is None or a is None:
-        return None
-    return h[0], a[0], h[1], a[1]
+    if home is not None and away is not None:
+        h = availability_offset(home[0], home[1])
+        a = availability_offset(away[0], away[1])
+        if h is None or a is None:
+            return None
+        return h[0], a[0], h[1], a[1]
+    if match.injuries:
+        from ml.models.availability import injury_availability_offset
+
+        results = []
+        for side in ("home", "away"):
+            team_id = match.team_home_id if side == "home" else match.team_away_id
+            squad = _squad_dicts(db, team_id)
+            statuses = _injury_statuses(match, side, {p.get("provider_player_id") for p in squad})
+            res = injury_availability_offset(squad, statuses)
+            if res is None:
+                return None
+            results.append(res)
+        return results[0][0], results[1][0], results[0][1], results[1][1]
+    return None

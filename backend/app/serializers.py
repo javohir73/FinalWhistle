@@ -85,12 +85,21 @@ def _head_to_head(db: Session, home_id: int, away_id: int, last_n: int = 5) -> s
 
 
 def _availability_note(team_name: str, expl: dict) -> str:
-    """One human line: who's missing from the usual XI and the attack impact."""
-    if not expl["players_out"]:
-        return f"{team_name}: announced XI at full attacking strength."
-    outs = ", ".join(p["name"] for p in expl["players_out"][:3])
+    """One human line: who's unavailable and the attack impact. Handles the
+    announced-XI path (players_out = {name, weight}) and the injury path (entries
+    also carry status/reason)."""
+    players = expl["players_out"]
+    if not players:
+        return f"{team_name}: at full attacking strength."
     pct_txt = f"{expl['attack_delta_pct'] * 100.0:+.0f}%"
-    return f"{team_name}: usual XI missing {outs} → attack {pct_txt}."
+    if any(p.get("status") for p in players):
+        def _label(p: dict) -> str:
+            det = ", ".join(x for x in (p.get("reason"), p.get("status")) if x)
+            return f"{p['name']} ({det})" if det else p["name"]
+        body = ", ".join(_label(p) for p in players[:3])
+    else:
+        body = "usual XI missing " + ", ".join(p["name"] for p in players[:3])
+    return f"{team_name}: {body} → attack {pct_txt}."
 
 
 def availability_out(db: Session, match: Match) -> schemas.AvailabilityOut | None:

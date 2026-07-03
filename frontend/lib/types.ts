@@ -68,6 +68,8 @@ export interface Goalscorers {
 export interface AvailabilityPlayer {
   name: string;
   weight: number;
+  status?: string | null;
+  reason?: string | null;
 }
 
 export interface TeamAvailability {
