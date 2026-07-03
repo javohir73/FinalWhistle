@@ -1,9 +1,10 @@
 import type { Availability } from "@/lib/types";
 
-/** Announced-XI availability context. Shows, per team, who is missing from the
- *  usual XI and the directional attack impact — explicitly NOT folded into the
+/** Availability context (announced XI or day-ahead injuries). Shows, per team, who
+ *  is missing and the directional attack impact — explicitly NOT folded into the
  *  published probabilities (the adjusted forecast is logged for evaluation).
- *  Renders nothing until both announced XIs are known. */
+ *  Renders nothing until at least one signal — an announced XI or injury report —
+ *  is available. */
 export function AvailabilityNote({
   availability,
 }: {
@@ -27,7 +28,7 @@ export function AvailabilityNote({
         ))}
       </ul>
       <p className="mt-3 text-xs leading-relaxed text-muted">
-        Context from the announced XI — not reflected in the number above; logged for evaluation.
+        Availability context (announced XI or injuries) — not reflected in the number above; logged for evaluation.
       </p>
     </section>
   );
