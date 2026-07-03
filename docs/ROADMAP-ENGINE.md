@@ -35,10 +35,10 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 *Goal: from 104 matches every 4 years to thousands per year.*
 
 - [ ] Entity layer: extend `team_mapping` to clubs + leagues (source-agnostic canonical IDs).
-- [ ] Ingestion: club fixtures/results via existing API-Football path; historical club results + closing odds via football-data.co.uk CSVs (already half-supported in `pipeline/ingest/football_data_odds.py`).
-- [ ] Ratings: club Elo replay (promotion/relegation, cross-league priors); reuse `replay_with_prematch`.
+- [ ] Ingestion: club fixtures/results via existing API-Football path; historical club results + closing odds via football-data.co.uk CSVs. *(Historical CSV ingestion shipped — `pipeline/ingest/football_data.py`, prefers CLOSING-odds columns; live API-Football club path deferred.)*
+- [x] Ratings: club Elo replay via `replay_with_prematch` (leak-free, replayed oldest-first); promotion/relegation + cross-league priors deferred to Phase 2.
 - [ ] Launch with 2–3 leagues for the 2026-27 season (kicks off mid-August — natural deadline).
-- [ ] Benchmark harness runs weekly per league; results logged, never edited.
+- [x] Benchmark harness runs per league; results logged, never edited. *(Offline runner shipped — `pipeline/run_club_benchmark.py` + `--emit-json`, reuses the Phase-0 closing-line benchmark; weekly live automation deferred to the 2026-27 season.)*
 
 **Exit criterion:** daily automated predictions + market benchmark for ≥2 leagues.
 
