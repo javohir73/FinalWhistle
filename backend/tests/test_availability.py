@@ -71,3 +71,43 @@ def test_inputs_join_stats(db_session):
     starters, squad = availability_inputs(db_session, m, "home")
     assert any(s["provider_player_id"] == 1 and s["club_goals"] == 25 for s in starters)
     assert len(squad) == 12
+
+
+def _match_inj(db, injuries):
+    h, a = Team(name="France"), Team(name="Senegal")
+    db.add_all([h, a]); db.commit()
+    m = Match(tournament_id=1, stage="group", is_neutral=True, status="scheduled",
+              team_home_id=h.id, team_away_id=a.id, injuries=injuries)
+    db.add(m); db.commit()
+    return m, h, a
+
+
+def test_injury_path_when_no_xi(db_session):
+    m, h, a = _match_inj(db_session, [
+        {"provider_player_id": 1, "name": "Star", "type": "out", "reason": "Calf", "side": "home"}])
+    _squad(db_session, h.id, 1); _squad(db_session, a.id, 2)   # helper from this file
+    result = availability_for_match(db_session, m)
+    assert result is not None
+    off_home, off_away, expl_home, expl_away = result
+    assert off_home < 0.0                       # home lost its striker to injury
+    assert off_away == 0.0                       # away clear
+    assert expl_home["players_out"][0]["status"] == "out"
+    assert expl_home["players_out"][0]["reason"] == "Calf"
+
+
+def test_xi_supersedes_injuries(db_session):
+    # Both XIs present AND injuries present -> XI path is used (injuries ignored).
+    m, h, a = _match_inj(db_session, [
+        {"provider_player_id": 1, "name": "Star", "type": "out", "reason": "Calf", "side": "home"}])
+    _squad(db_session, h.id, 1); _squad(db_session, a.id, 2)
+    _lineup(db_session, m.id, "home", [1] + [100 + i for i in range(10)])  # Star (1) IS in the XI
+    _lineup(db_session, m.id, "away", [2] + [200 + i for i in range(10)])
+    off_home, _off_away, expl_home, _expl_away = availability_for_match(db_session, m)
+    assert off_home == 0.0                       # XI path: Star present -> full strength
+    assert all("status" not in p for p in expl_home["players_out"])  # XI-path shape, no injury tags
+
+
+def test_no_adjustment_without_xi_or_injuries(db_session):
+    m, h, a = _match_inj(db_session, None)
+    _squad(db_session, h.id, 1); _squad(db_session, a.id, 2)
+    assert availability_for_match(db_session, m) is None

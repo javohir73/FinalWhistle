@@ -69,6 +69,8 @@ class GoalMarketsOut(BaseModel):
 class AvailabilityPlayerOut(BaseModel):
     name: str
     weight: float
+    status: str | None = None
+    reason: str | None = None
 
 
 class TeamAvailabilityOut(BaseModel):
