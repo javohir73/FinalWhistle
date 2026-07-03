@@ -8,10 +8,12 @@ app.models); it only marginalizes the stored distribution.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import schemas, serializers
+from app.api.auth_utils import require_api_key
+from app.config import settings
 from app.db import get_db
 from app.models import Match
 
@@ -23,7 +25,12 @@ def markets_for_match(
     match_id: int,
     live: int = Query(0, description="1 to re-price from the in-play state when the match is live"),
     db: Session = Depends(get_db),
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
 ):
+    # SANDBOX API-key gate (ROADMAP Phase 4). No-op when API_KEYS_ALLOWED is unset
+    # (the shipped default) — /v1 then stays public exactly as Phase 2/3. Checked
+    # before any DB work so a rejected caller costs nothing.
+    require_api_key(x_api_key, settings.allowed_api_keys)
     match = db.get(Match, match_id)
     if match is None:
         raise HTTPException(status_code=404, detail={"code": "not_found",
