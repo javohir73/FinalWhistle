@@ -21,6 +21,7 @@ import { ShareButton } from "@/components/ShareButton";
 import { Flag } from "@/components/Flag";
 import { GoalMarkets } from "@/components/GoalMarkets";
 import { LikelyScorers } from "@/components/LikelyScorers";
+import { AvailabilityNote } from "@/components/AvailabilityNote";
 import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
@@ -131,6 +132,9 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
             {goalscorers && (
               <LikelyScorers home={home} away={away} data={goalscorers} />
             )}
+
+            {/* Availability — announced-XI context (experimental; not in the number). */}
+            <AvailabilityNote availability={p.availability} />
 
             {/* Your prediction — segmented W/D/L pick vs the AI (anonymous, local).
                 Needs the live match summary; rendered only when it's available. */}

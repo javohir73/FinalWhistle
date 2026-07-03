@@ -65,6 +65,25 @@ export interface Goalscorers {
   away: Goalscorer[];
 }
 
+export interface AvailabilityPlayer {
+  name: string;
+  weight: number;
+}
+
+export interface TeamAvailability {
+  side: string;
+  attack_delta_pct: number;
+  players_out: AvailabilityPlayer[];
+  note: string;
+}
+
+/** Announced-XI availability context (explanation only — does not move the
+ *  published probabilities; the adjusted forecast is logged as a shadow twin). */
+export interface Availability {
+  has_lineup: boolean;
+  per_team: TeamAvailability[];
+}
+
 export interface Prediction {
   match_id: number;
   model_version: string;
@@ -89,6 +108,7 @@ export interface Prediction {
   odds_comparison: { available: boolean };
   disclaimer: string;
   goal_markets: GoalMarkets | null;
+  availability?: Availability | null;
 }
 
 /** Phase of play while a match is in progress (refines `status`). Null before
