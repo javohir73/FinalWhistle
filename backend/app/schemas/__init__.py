@@ -66,6 +66,25 @@ class GoalMarketsOut(BaseModel):
     btts: float
 
 
+class AvailabilityPlayerOut(BaseModel):
+    name: str
+    weight: float
+
+
+class TeamAvailabilityOut(BaseModel):
+    side: str  # "home" | "away"
+    attack_delta_pct: float
+    players_out: list[AvailabilityPlayerOut]
+    note: str
+
+
+class AvailabilityOut(BaseModel):
+    """Announced-XI availability context (v1). Explanation only — it does NOT move
+    the published `probabilities`; the adjusted forecast is logged as a shadow twin."""
+    has_lineup: bool
+    per_team: list[TeamAvailabilityOut]
+
+
 class PredictionOut(BaseModel):
     """PRD §17 prediction contract."""
 
@@ -92,6 +111,7 @@ class PredictionOut(BaseModel):
     odds_comparison: OddsComparisonOut
     disclaimer: str
     goal_markets: GoalMarketsOut | None = None
+    availability: AvailabilityOut | None = None
 
 
 class TeamOut(BaseModel):

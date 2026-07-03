@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app import schemas
+from app.availability import availability_for_match
 from app.live_winprob import live_probabilities_for_match, regulation_remaining
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
 from ml.models import live_markets as _live_markets
@@ -83,6 +84,37 @@ def _head_to_head(db: Session, home_id: int, away_id: int, last_n: int = 5) -> s
     return schemas.HeadToHeadOut(matches=len(rows), home_wins=hw, draws=d, away_wins=aw)
 
 
+def _availability_note(team_name: str, expl: dict) -> str:
+    """One human line: who's missing from the usual XI and the attack impact."""
+    if not expl["players_out"]:
+        return f"{team_name}: announced XI at full attacking strength."
+    outs = ", ".join(p["name"] for p in expl["players_out"][:3])
+    pct_txt = f"{expl['attack_delta_pct'] * 100.0:+.0f}%"
+    return f"{team_name}: usual XI missing {outs} → attack {pct_txt}."
+
+
+def availability_out(db: Session, match: Match) -> schemas.AvailabilityOut | None:
+    """Announced-XI availability context for the match page (Task: availability
+    signal). None unless BOTH sides have a stored XI. Explanation only — the
+    published triple is untouched; the adjusted forecast lives in the shadow log."""
+    adj = availability_for_match(db, match)
+    if adj is None:
+        return None
+    off_home, off_away, expl_home, expl_away = adj
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    names = {"home": home.name if home else "Home", "away": away.name if away else "Away"}
+    per_team = []
+    for side, expl in (("home", expl_home), ("away", expl_away)):
+        per_team.append(schemas.TeamAvailabilityOut(
+            side=side,
+            attack_delta_pct=expl["attack_delta_pct"],
+            players_out=[schemas.AvailabilityPlayerOut(**p) for p in expl["players_out"]],
+            note=_availability_note(names[side], expl),
+        ))
+    return schemas.AvailabilityOut(has_lineup=True, per_team=per_team)
+
+
 def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.PredictionOut:
     home = db.get(Team, match.team_home_id)
     away = db.get(Team, match.team_away_id)
@@ -118,6 +150,7 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         odds_comparison=schemas.OddsComparisonOut(available=False),
         disclaimer=DISCLAIMER,
         goal_markets=_goal_markets_out(pred.lambda_home, pred.lambda_away, pred.rho),
+        availability=availability_out(db, match),
     )
 
 

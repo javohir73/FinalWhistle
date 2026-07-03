@@ -8,10 +8,12 @@ probabilities. Designed to be called by the daily pipeline (task 7).
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.availability import availability_for_match
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Odds, Prediction, Standing, Team, TournamentOdds
 from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
@@ -32,6 +34,11 @@ log = logging.getLogger(__name__)
 #: twin of every production prediction. Never served, never in the public
 #: record — promotion to the headline is a manual owner decision (FR-4.8).
 SHADOW_MODEL_VERSION = "poisson-elo-v0.3-shadow"
+
+#: Version tag for the announced-XI availability twin. Mirrors SHADOW_MODEL_VERSION:
+#: an is_shadow row, never served, logged pre-kickoff for the production-vs-
+#: availability comparison (docs/superpowers/specs/2026-07-03-availability-signal-design.md).
+AVAILABILITY_MODEL_VERSION = "poisson-elo-v0.3+avail"
 
 
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
@@ -314,6 +321,48 @@ def write_shadow_prediction(
     _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
 
 
+def write_availability_prediction(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+) -> None:
+    """Write the announced-XI availability twin of a production payload, when BOTH
+    sides have a stored XI (availability_for_match gates this). The per-team attack
+    offset scales the production lambdas (lambda *= exp(offset)); the grid/triple/
+    headline are recomputed through the same calibrated pipeline
+    (predict_from_lambdas). No XI on either side -> no row (partial coverage is
+    expected). Never served — is_shadow=True, tagged AVAILABILITY_MODEL_VERSION."""
+    adj = availability_for_match(db, match)
+    if adj is None:
+        return
+    off_home, off_away, _expl_home, _expl_away = adj
+    lam_h = payload["lambda_home"] * math.exp(off_home)
+    lam_a = payload["lambda_away"] * math.exp(off_away)
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    pred = predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
+    )
+    twin = {
+        **payload,
+        "probabilities": {
+            "home_win": round(pred.prob_home_win, 4),
+            "draw": round(pred.prob_draw, 4),
+            "away_win": round(pred.prob_away_win, 4),
+        },
+        "predicted_score": {
+            "home": pred.score_home, "away": pred.score_away,
+            "probability": round(pred.score_prob, 4),
+        },
+        "lambda_home": round(pred.lambda_home, 4),
+        "lambda_away": round(pred.lambda_away, 4),
+    }
+    _write_prediction(db, match, twin, AVAILABILITY_MODEL_VERSION, is_shadow=True)
+
+
 def _played_score(m: Match) -> tuple[int, int] | None:
     """The final score when a match has actually been played, else None.
     In-play matches stay None — they aren't final until the whistle."""
@@ -503,6 +552,7 @@ def generate_predictions(
         # Shadow twin (FR-4.4): odds-anchored when a market total is stored and
         # w_odds > 0, otherwise an exact copy — either way never served.
         write_shadow_prediction(db, match, payload, strengths, params)
+        write_availability_prediction(db, match, payload, strengths, params)
         predicted += 1
 
     groups = db.query(Group).all()

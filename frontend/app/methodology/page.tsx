@@ -313,7 +313,11 @@ export default function MethodologyPage() {
         <h2 className="font-display text-lg font-bold text-gold">Limitations</h2>
         <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-muted">
           <li>{listYears(data.backtest_years).replace(/&/, "and")} ({data.reliability_n} matches) is still a small sample — treat single-tournament numbers with caution.</li>
-          <li>Team-level model: individual player form and injuries aren&apos;t factored in.</li>
+          <li>
+            The published number is team-level. When an announced XI is available we surface
+            player availability as context and log an experimental adjusted forecast — it does
+            not move the published number yet (it must first clear our accuracy gate).
+          </li>
           <li>Upset-heavy tournaments (like 2022) are inherently hard; the model can trail simple baselines there.</li>
           <li>Free, open data only: historical results, FIFA rankings, the official WC2026 draw.</li>
         </ul>

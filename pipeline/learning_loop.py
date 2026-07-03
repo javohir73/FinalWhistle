@@ -47,6 +47,7 @@ from ml.evaluation.match_metrics import evaluate_match
 from ml.features.build_features import estimate_strength
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.ratings.tournament import TournamentMatch, replay_tournament
+from pipeline.generate_predictions import SHADOW_MODEL_VERSION
 
 log = logging.getLogger(__name__)
 
@@ -85,11 +86,22 @@ def _frozen_prediction(db: Session, match: Match, *, shadow: bool = False) -> Pr
     Production and shadow rows are frozen SEPARATELY (FR-4.5): the audited
     record must never pick up an odds-anchored twin, and the shadow record
     must never pick up a production row.
+
+    Since the availability signal, TWO is_shadow=True rows exist per match —
+    the odds-anchored shadow (SHADOW_MODEL_VERSION) and the announced-XI
+    availability twin (AVAILABILITY_MODEL_VERSION) — sharing a created_at
+    (both server_default=func.now() in the same generate_predictions loop
+    iteration) with the availability twin written second and thus carrying the
+    higher id. Filtering to SHADOW_MODEL_VERSION when shadow=True keeps the
+    shadow record resolving to the odds twin regardless of the availability
+    twin's presence or write order.
     """
     q = db.query(Prediction).filter(
         Prediction.match_id == match.id,
         Prediction.is_shadow.is_(shadow),
     )
+    if shadow:
+        q = q.filter(Prediction.model_version == SHADOW_MODEL_VERSION)
     if match.kickoff_utc is not None:
         q = q.filter(Prediction.created_at <= match.kickoff_utc)
     return q.order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()

@@ -16,7 +16,11 @@ import pytest
 
 from app.models import Match, Odds, Prediction, PredictionResult, Team
 from ml.models.params import DEFAULT_PARAMS
-from pipeline.generate_predictions import SHADOW_MODEL_VERSION, generate_predictions
+from pipeline.generate_predictions import (
+    AVAILABILITY_MODEL_VERSION,
+    SHADOW_MODEL_VERSION,
+    generate_predictions,
+)
 from pipeline.ingest.wc26_structure import load_structure
 from pipeline.learning_loop import (
     _frozen_prediction,
@@ -184,6 +188,47 @@ def test_frozen_prediction_never_picks_a_shadow_row(db_session):
     frozen = _frozen_prediction(db_session, m)
     assert frozen is not None
     assert frozen.is_shadow is False
+
+
+def test_frozen_shadow_prediction_picks_the_odds_twin_not_the_availability_twin(db_session):
+    """The availability twin (FR: docs/superpowers/specs/2026-07-03-availability-
+    signal-design.md) is a SECOND is_shadow=True row per match. In production
+    (pipeline.generate_predictions.generate_predictions) it is written AFTER the
+    odds shadow inside the same loop iteration — same created_at (both
+    server_default=func.now()), higher id. Unfiltered, order_by(created_at desc,
+    id desc) would resolve to the availability twin instead of the odds-anchored
+    one, corrupting /api/internal/shadow-record. Reproduced here by writing the
+    twin rows directly (real gating on stored lineups is covered by
+    generate_predictions_test.py's availability-twin tests)."""
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    _finish(db_session, m, 1, 0)
+
+    odds_shadow = (db_session.query(Prediction)
+                   .filter_by(match_id=m.id, model_version=SHADOW_MODEL_VERSION).one())
+    # Availability twin written LAST: same created_at instant, higher id — the
+    # exact shape generate_predictions produces (odds shadow then avail twin,
+    # both server_default=func.now(), within one loop iteration).
+    avail_twin = Prediction(
+        match_id=m.id,
+        model_version=AVAILABILITY_MODEL_VERSION,
+        prob_home_win=odds_shadow.prob_home_win,
+        prob_draw=odds_shadow.prob_draw,
+        prob_away_win=odds_shadow.prob_away_win,
+        predicted_score_home=odds_shadow.predicted_score_home,
+        predicted_score_away=odds_shadow.predicted_score_away,
+        is_shadow=True,
+        created_at=odds_shadow.created_at,
+    )
+    db_session.add(avail_twin)
+    db_session.commit()
+    assert avail_twin.id > odds_shadow.id
+    assert avail_twin.created_at >= odds_shadow.created_at
+
+    frozen = _frozen_prediction(db_session, m, shadow=True)
+    assert frozen is not None
+    assert frozen.model_version == SHADOW_MODEL_VERSION
+    assert frozen.id == odds_shadow.id
 
 
 # --- shadow scoring (FR-4.6) ----------------------------------------------------
