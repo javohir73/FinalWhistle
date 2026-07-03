@@ -57,10 +57,10 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 
 *Goal: the hardest moat. Live pricing is where B2B willingness-to-pay concentrates.*
 
-- [ ] Upgrade `live_winprob` to a full in-play scoreline model (time-decayed Poisson re-pricing on score/red-card/minute state; later xG-flow features).
-- [ ] Latency budget: state change → new price in < 5s. Measure and publish.
-- [ ] Reliability engineering: uptime SLOs, feed-failure fallbacks (self-healing live state already exists — formalize it).
-- [ ] Benchmark vs in-play market snapshots where obtainable.
+- [x] Upgrade `live_winprob` to a full in-play scoreline model (time-decayed Poisson re-pricing on score/red-card/minute state; later xG-flow features). *(Shipped — `ml/models/live_grid.py` + `live_markets.py`; the live 1X2 bar reads the same shared grid, proven bit-identical. xG-flow features deferred.)*
+- [x] Latency budget: state change → new price in < 5s. Measure and publish. *(Measured 0.19 ms mean / 0.36 ms worst per re-price — `test_live_latency.py`; documented in `docs/RELIABILITY.md`.)*
+- [x] Reliability engineering: uptime SLOs, feed-failure fallbacks (self-healing live state already exists — formalize it). *(Formalized in `docs/RELIABILITY.md`: SLOs + the existing freshness guard / minute estimation / chain retry / cache invalidation.)*
+- [ ] Benchmark vs in-play market snapshots where obtainable. *(Blocked: no in-play odds feed on free/available tiers — see `docs/RELIABILITY.md`; closing-line benchmark stands in until a live feed is licensed.)*
 
 **Exit criterion:** live 1X2 + totals repricing across a full match day without manual intervention.
 

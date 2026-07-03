@@ -45,8 +45,23 @@ def client():
         Match(id=2, tournament_id=1, stage="group", team_home_id=10, team_away_id=20,
               status="scheduled")
     )
+    # An IN-PLAY match with a current score and a modellable clock — the ?live=1
+    # path re-prices off this state (same frozen lambdas as match 1).
+    seed.add(
+        Match(id=3, tournament_id=1, stage="group", team_home_id=10, team_away_id=20,
+              status="in_play", score_home=1, score_away=0, minute=70,
+              period="second_half")
+    )
     seed.add(
         Prediction(match_id=1, model_version="poisson-elo-v0.3", is_shadow=False,
+                   prob_home_win=P_HOME, prob_draw=P_DRAW, prob_away_win=P_AWAY,
+                   predicted_score_home=2, predicted_score_away=1, predicted_score_prob=0.12,
+                   lambda_home=LAM_HOME, lambda_away=LAM_AWAY, rho=RHO,
+                   confidence="Medium", reasons=["Home edge on Elo"],
+                   top_features=[{"name": "elo_diff", "weight": 0.4}])
+    )
+    seed.add(
+        Prediction(match_id=3, model_version="poisson-elo-v0.3", is_shadow=False,
                    prob_home_win=P_HOME, prob_draw=P_DRAW, prob_away_win=P_AWAY,
                    predicted_score_home=2, predicted_score_away=1, predicted_score_prob=0.12,
                    lambda_home=LAM_HOME, lambda_away=LAM_AWAY, rho=RHO,
@@ -79,6 +94,9 @@ def test_markets_200_and_shape(client):
     assert body["generated_at"]  # set (frozen prediction timestamp)
     assert body["teams"] == {"home": "Mexico", "away": "South Africa"}
     assert body["disclaimer"]
+    # Phase-2 default is byte-identical: the additive live fields default off.
+    assert body["is_live"] is False
+    assert body["live"] is None
 
 
 def test_one_x_two_is_the_stored_calibrated_triple(client):
@@ -139,3 +157,73 @@ def test_404_when_no_prediction(client):
     res = client.get("/v1/markets/2")
     assert res.status_code == 404
     assert res.json()["error"]["code"] == "no_prediction"
+
+
+# --- Live markets (?live=1, Phase 3) -----------------------------------------
+# Live state seeded on match 3: in_play, 1-0, minute 70, second_half.
+from app.live_winprob import live_win_probabilities, regulation_remaining
+
+
+def test_default_no_live_param_is_frozen_even_on_in_play_match(client):
+    # Without ?live the endpoint is byte-identical to Phase 2 regardless of the
+    # match being in play — the default never re-prices.
+    frozen = client.get("/v1/markets/3").json()
+    assert frozen["is_live"] is False
+    assert frozen["live"] is None
+    assert frozen["markets"]["one_x_two"] == {
+        "home_win": P_HOME, "draw": P_DRAW, "away_win": P_AWAY
+    }
+    expected = _markets.derive_scoreline_markets(LAM_HOME, LAM_AWAY, RHO)
+    assert frozen["markets"]["btts"]["yes"] == pytest.approx(expected["btts"]["yes"])
+
+
+def test_live_on_in_play_match_is_live_with_state_and_shifted_markets(client):
+    frozen = client.get("/v1/markets/3").json()
+    live = client.get("/v1/markets/3?live=1").json()
+
+    assert live["is_live"] is True
+    assert live["live"] == {"minute": 70, "current_home": 1, "current_away": 0}
+    # model_version + explanation still come from the frozen prediction.
+    assert live["model_version"] == "poisson-elo-v0.3"
+    assert live["explanation"]["confidence"] == "Medium"
+
+    # Home leads 1-0 with ~20' to play: live P(home) must exceed the pre-match
+    # 1X2, and the whole 1X2 differs from the frozen triple.
+    assert live["markets"]["one_x_two"] != frozen["markets"]["one_x_two"]
+    assert live["markets"]["one_x_two"]["home_win"] > P_HOME
+    # Scoreline markets are re-priced too (BTTS shifts once a goal is on the board).
+    assert live["markets"]["btts"]["yes"] != pytest.approx(
+        frozen["markets"]["btts"]["yes"]
+    )
+
+
+def test_live_one_x_two_matches_the_live_bar_exactly(client):
+    # The published live 1X2 must be the SAME triple the in-play bar shows — both
+    # read the shared live grid. Recompute the bar directly and compare.
+    live = client.get("/v1/markets/3?live=1").json()["markets"]["one_x_two"]
+    remaining = regulation_remaining(70, "second_half")
+    ph, pd, pa = live_win_probabilities(1, 0, LAM_HOME, LAM_AWAY, remaining, rho=RHO)
+    assert live["home_win"] == pytest.approx(ph)
+    assert live["draw"] == pytest.approx(pd)
+    assert live["away_win"] == pytest.approx(pa)
+
+
+def test_live_double_chance_matches_live_one_x_two(client):
+    m = client.get("/v1/markets/3?live=1").json()["markets"]
+    onextwo = m["one_x_two"]
+    dc = m["double_chance"]
+    assert dc["home_or_draw"] == pytest.approx(onextwo["home_win"] + onextwo["draw"])
+    assert dc["home_or_away"] == pytest.approx(onextwo["home_win"] + onextwo["away_win"])
+    assert dc["draw_or_away"] == pytest.approx(onextwo["draw"] + onextwo["away_win"])
+
+
+def test_live_on_scheduled_match_falls_back_to_frozen(client):
+    # ?live=1 on a match that is not in play returns the frozen Phase-2 payload.
+    live = client.get("/v1/markets/1?live=1").json()
+    frozen = client.get("/v1/markets/1").json()
+    assert live["is_live"] is False
+    assert live["live"] is None
+    assert live["markets"] == frozen["markets"]
+    assert live["markets"]["one_x_two"] == {
+        "home_win": P_HOME, "draw": P_DRAW, "away_win": P_AWAY
+    }
