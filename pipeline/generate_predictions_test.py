@@ -516,3 +516,78 @@ def test_team_offsets_shift_simulated_standings_when_enabled(db_session, tmp_pat
     baseline = qual_prob(replace(DEFAULT_PARAMS, team_offsets=None))
     boosted = qual_prob(replace(DEFAULT_PARAMS, team_offsets={"file": str(store_path)}))
     assert boosted > baseline
+
+
+from datetime import datetime, timezone
+
+from app.models import LineupPlayer, MatchLineup, Player
+from ml.models.params import DEFAULT_PARAMS
+from pipeline.generate_predictions import (
+    AVAILABILITY_MODEL_VERSION, write_availability_prediction,
+)
+
+
+def _avail_payload(match_id):
+    return {"match_id": match_id, "lambda_home": 2.0, "lambda_away": 1.0, "rho": -0.1,
+            "probabilities": {"home_win": 0.55, "draw": 0.27, "away_win": 0.18},
+            "predicted_score": {"home": 2, "away": 1, "probability": 0.12},
+            "confidence": "Medium", "reasons": ["a", "b", "c"], "top_features": []}
+
+
+def _scheduled_match_with_squads(db):
+    h, a = Team(name="France"), Team(name="Senegal")
+    db.add_all([h, a]); db.commit()
+    m = Match(tournament_id=1, stage="group", is_neutral=True, status="scheduled",
+              team_home_id=h.id, team_away_id=a.id)
+    db.add(m); db.commit()
+    h.elo_rating = a.elo_rating = 1700.0
+    for team in (h, a):
+        star = team.id
+        db.add(Player(provider_player_id=star, name="Star", team_id=team.id, position="F",
+                      club_goals=25, club_minutes=3000, wc_goals=3, wc_minutes=270))
+        for i in range(11):
+            db.add(Player(provider_player_id=star * 100 + i, name=f"reg{i}", team_id=team.id,
+                          position="M", club_goals=2, club_minutes=2400, wc_goals=0, wc_minutes=270))
+    db.commit()
+    return m, h, a
+
+
+def _add_lineup(db, match_id, side, starter_pids):
+    ml = MatchLineup(match_id=match_id, side=side, provider="api_football",
+                     fetched_at=datetime(2026, 6, 30, tzinfo=timezone.utc))
+    db.add(ml); db.commit()
+    db.add_all([LineupPlayer(match_lineup_id=ml.id, name=f"pid{pid}", is_starter=True,
+                             order=i, provider_player_id=pid)
+                for i, pid in enumerate(starter_pids)])
+    db.commit()
+
+
+def test_availability_twin_written_when_both_xi(db_session):
+    m, h, a = _scheduled_match_with_squads(db_session)
+    _add_lineup(db_session, m.id, "home", [h.id * 100 + i for i in range(11)])            # 11 regulars, Star benched
+    _add_lineup(db_session, m.id, "away", [a.id] + [a.id * 100 + i for i in range(10)])   # Star + 10 regulars
+    write_availability_prediction(db_session, m, _avail_payload(m.id), {}, DEFAULT_PARAMS)
+    db_session.commit()
+    twin = (db_session.query(Prediction)
+            .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).one())
+    assert twin.is_shadow is True
+    assert twin.lambda_home < 2.0   # home attack cut by the availability offset (lambda *= exp(offset<0))
+
+
+def test_no_availability_twin_without_lineups(db_session):
+    m, h, a = _scheduled_match_with_squads(db_session)
+    write_availability_prediction(db_session, m, _avail_payload(m.id), {}, DEFAULT_PARAMS)
+    db_session.commit()
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
+
+
+def test_availability_twin_blocked_after_kickoff(db_session):
+    m, h, a = _scheduled_match_with_squads(db_session)
+    _add_lineup(db_session, m.id, "home", [h.id] + [h.id * 100 + i for i in range(10)])
+    _add_lineup(db_session, m.id, "away", [a.id] + [a.id * 100 + i for i in range(10)])
+    m.status = "in_play"; db_session.commit()
+    write_availability_prediction(db_session, m, _avail_payload(m.id), {}, DEFAULT_PARAMS)
+    db_session.commit()
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
