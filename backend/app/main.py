@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 from app.api import (
-    auth, brackets, groups, internal, knockout, leaderboard, match_picks, matches,
+    auth, brackets, groups, internal, knockout, leaderboard, markets, match_picks, matches,
     model_record, predictions, teams,
 )
 from app.config import settings
@@ -93,6 +93,13 @@ async def cache_control(request: Request, call_next):
         and path != "/api/health"
         and not path.startswith("/api/internal")
     ):
+        response.headers.setdefault(
+            "Cache-Control", "public, max-age=60, stale-while-revalidate=300"
+        )
+    elif request.method == "GET" and path.startswith("/v1/"):
+        # Versioned public API (markets, Phase 2): shared-cacheable — the same
+        # slow-moving read policy as /api/ reads. Frozen predictions change only
+        # on the daily refresh, so a short shared TTL + SWR serves repeats cheaply.
         response.headers.setdefault(
             "Cache-Control", "public, max-age=60, stale-while-revalidate=300"
         )
@@ -251,3 +258,4 @@ app.include_router(match_picks.router)
 app.include_router(leaderboard.router)
 app.include_router(model_record.router)
 app.include_router(internal.router)
+app.include_router(markets.router)

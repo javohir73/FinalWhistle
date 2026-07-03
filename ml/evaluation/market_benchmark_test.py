@@ -8,9 +8,12 @@ import pytest
 from ml.evaluation.market_benchmark import (
     MatchedMatch,
     benchmark,
+    benchmark_binary,
     devig,
+    devig2,
     format_report,
     join_odds_to_rows,
+    ou25_label,
     result_to_json,
 )
 
@@ -171,3 +174,96 @@ def test_result_to_json_verdict_no_credible_difference():
     js = result_to_json(result, "t", "2026-07-03T00:00:00+00:00")
     assert js["verdict"] == "NO CREDIBLE DIFFERENCE (CI straddles 0)"
     assert js["verdict"] in format_report(result, "t")
+
+
+# --- devig2 (2-way) ------------------------------------------------------
+
+def test_devig2_fair_coin_is_half_half():
+    assert devig2(2.0, 2.0) == pytest.approx((0.5, 0.5))
+
+
+def test_devig2_sums_to_one_and_shorter_price_is_higher():
+    p = devig2(1.5, 3.0)
+    assert sum(p) == pytest.approx(1.0)
+    assert p[0] > p[1]  # shorter price -> higher probability
+
+
+def test_devig2_rejects_bad_odds():
+    with pytest.raises(ValueError):
+        devig2(1.0, 3.0)
+    with pytest.raises(ValueError):
+        devig2(3.0, 1.0)
+
+
+# --- benchmark_binary ----------------------------------------------------
+
+def test_benchmark_binary_identical_predictors_show_no_difference():
+    model_p = [0.6, 0.4, 0.7]
+    r = benchmark_binary(model_p, list(model_p), [1, 0, 1], n_bootstrap=200)
+    assert r["n_matches"] == 3
+    assert r["diff_log_loss"] == pytest.approx(0.0)
+    assert r["mean_edge"] == pytest.approx(0.0)
+    assert r["model_win_rate"] == 0.0  # never strictly better
+    assert r["diff_ci95"][0] <= 0.0 <= r["diff_ci95"][1]
+
+
+def test_benchmark_binary_has_same_shape_as_benchmark():
+    r = benchmark_binary([0.8] * 5, [0.5] * 5, [1] * 5, n_bootstrap=100)
+    assert set(r) == {
+        "n_matches", "model", "market", "diff_log_loss",
+        "diff_ci95", "model_win_rate", "mean_edge",
+    }
+    assert set(r["model"]) == {"log_loss", "brier", "accuracy"}
+    assert set(r["market"]) == {"log_loss", "brier", "accuracy"}
+
+
+def test_benchmark_binary_sharper_correct_model_beats_market():
+    # Model confident on the realized side, market lukewarm; outcome = 1.
+    r = benchmark_binary([0.9] * 10, [0.55] * 10, [1] * 10, n_bootstrap=200)
+    assert r["diff_log_loss"] < 0
+    assert r["model_win_rate"] == 1.0
+    assert r["mean_edge"] == pytest.approx(0.9 - 0.55)
+    assert r["diff_ci95"][1] < 0  # CI fully below 0
+
+
+def test_benchmark_binary_overconfident_wrong_model_loses():
+    # Model confident on outcome=1 but the realized outcome is 0.
+    r = benchmark_binary([0.9] * 10, [0.55] * 10, [0] * 10, n_bootstrap=200)
+    assert r["diff_log_loss"] > 0
+
+
+def test_benchmark_binary_metrics_are_correct():
+    import math
+
+    r = benchmark_binary([0.75], [0.5], [1], n_bootstrap=50)
+    assert r["model"]["log_loss"] == pytest.approx(-math.log(0.75))
+    assert r["model"]["brier"] == pytest.approx((0.75 - 1) ** 2)
+    assert r["model"]["accuracy"] == pytest.approx(1.0)  # round(0.75)==1
+    assert r["market"]["accuracy"] == pytest.approx(0.0)  # round(0.5)==0 != 1
+
+
+def test_benchmark_binary_edge_uses_realised_direction():
+    # y==0 -> edge measured on the "not-event" side: (1-pm) - (1-pk) = pk - pm.
+    r = benchmark_binary([0.3], [0.4], [0], n_bootstrap=50)
+    assert r["mean_edge"] == pytest.approx(0.4 - 0.3)
+
+
+def test_benchmark_binary_empty_input_raises():
+    with pytest.raises(ValueError):
+        benchmark_binary([], [], [])
+
+
+# --- ou25_label ----------------------------------------------------------
+
+def test_ou25_label_two_goals_is_under():
+    assert ou25_label(1, 1) == 0
+    assert ou25_label(2, 0) == 0
+
+
+def test_ou25_label_three_goals_is_over():
+    assert ou25_label(2, 1) == 1
+    assert ou25_label(0, 3) == 1
+
+
+def test_ou25_label_high_scoring_is_over():
+    assert ou25_label(3, 2) == 1

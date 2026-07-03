@@ -35,6 +35,19 @@ def devig(odds_home: float, odds_draw: float, odds_away: float) -> Probs:
     return (raw[0] / total, raw[1] / total, raw[2] / total)
 
 
+def devig2(odds_a: float, odds_b: float) -> tuple[float, float]:
+    """De-vig a 2-way market (e.g. over/under, BTTS) -> probabilities summing to 1.
+
+    Same proportional de-vig as :func:`devig`, restricted to two mutually
+    exclusive outcomes. The shorter price carries the larger probability.
+    """
+    if min(odds_a, odds_b) <= 1.0:
+        raise ValueError("decimal odds must be > 1.0")
+    raw = (1.0 / odds_a, 1.0 / odds_b)
+    total = raw[0] + raw[1]
+    return (raw[0] / total, raw[1] / total)
+
+
 @dataclass(frozen=True)
 class MatchedMatch:
     """One match where both a model and a market probability triple exist."""
@@ -157,6 +170,80 @@ def benchmark(
         "model_win_rate": sum(1 for d in diffs if d < 0) / n,
         "mean_edge": sum(edges) / n,
     }
+
+
+def _binary_log_loss(p: float, y: int) -> float:
+    p = max(_EPS, min(1.0 - _EPS, p))
+    return -(y * math.log(p) + (1 - y) * math.log(1.0 - p))
+
+
+def _binary_metrics(probs: list[float], labels: list[int]) -> dict:
+    """log-loss, Brier, and accuracy for P(outcome=1) predictions (0/1 labels)."""
+    n = len(labels)
+    ll = brier = correct = 0.0
+    for p, y in zip(probs, labels):
+        ll += _binary_log_loss(p, y)
+        brier += (p - y) ** 2
+        if round(p) == y:
+            correct += 1
+    return {"log_loss": ll / n, "brier": brier / n, "accuracy": correct / n}
+
+
+def benchmark_binary(
+    model_p: list[float],
+    market_p: list[float],
+    labels: list[int],
+    n_bootstrap: int = 2000,
+    seed: int = 26,
+) -> dict:
+    """Paired model-vs-market comparison for a binary market (e.g. Over/Under 2.5).
+
+    ``model_p`` / ``market_p`` are each P(outcome=1) (e.g. P(over)); ``labels``
+    are the realized 0/1 outcomes. Returns the same shape as :func:`benchmark`:
+
+    - ``diff_log_loss``: mean per-match (model LL - market LL). Negative =
+      model beats market.
+    - ``diff_ci95``: paired bootstrap CI for that mean; below 0 = credible edge,
+      straddling 0 = noise.
+    - ``model_win_rate``: share of matches where the model's log-loss was
+      strictly lower than the market's.
+    - ``mean_edge``: mean probability assigned to the *realized* direction, model
+      minus market — ``(pm - pk)`` when y==1, ``((1-pm) - (1-pk))`` when y==0.
+    """
+    if not labels:
+        raise ValueError("no matches to benchmark")
+
+    diffs = [
+        _binary_log_loss(mo, y) - _binary_log_loss(mk, y)
+        for mo, mk, y in zip(model_p, market_p, labels)
+    ]
+    edges = [
+        (mo - mk) if y == 1 else ((1.0 - mo) - (1.0 - mk))
+        for mo, mk, y in zip(model_p, market_p, labels)
+    ]
+
+    rng = random.Random(seed)
+    n = len(diffs)
+    boot_means = sorted(
+        sum(diffs[rng.randrange(n)] for _ in range(n)) / n for _ in range(n_bootstrap)
+    )
+    lo = boot_means[int(0.025 * n_bootstrap)]
+    hi = boot_means[int(0.975 * n_bootstrap)]
+
+    return {
+        "n_matches": n,
+        "model": _binary_metrics(model_p, labels),
+        "market": _binary_metrics(market_p, labels),
+        "diff_log_loss": sum(diffs) / n,
+        "diff_ci95": (lo, hi),
+        "model_win_rate": sum(1 for d in diffs if d < 0) / n,
+        "mean_edge": sum(edges) / n,
+    }
+
+
+def ou25_label(score_home: int, score_away: int) -> int:
+    """Over/Under 2.5 outcome: 1 if total goals >= 3 (Over), else 0 (Under)."""
+    return 1 if score_home + score_away >= 3 else 0
 
 
 def _verdict(lo: float, hi: float) -> str:
