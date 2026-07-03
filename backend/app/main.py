@@ -6,7 +6,7 @@ routers are added in task 5.0.
 """
 import logging
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -22,6 +22,7 @@ from app.api import (
 from app.config import settings
 from app.cache import cache
 from app.db import get_db
+from app.live_refresh import maybe_refresh_live
 
 # Error tracking — only active when SENTRY_DSN is set (safe no-op otherwise).
 if settings.sentry_dsn:
@@ -176,6 +177,20 @@ def health(db: Session = Depends(get_db)) -> dict:
     except Exception:  # noqa: BLE001 — health must answer even without a DB
         out["shadow_progress"] = {"status": "unavailable"}
     return out
+
+
+@app.get("/api/live/ping")
+def live_ping(background_tasks: BackgroundTasks) -> dict:
+    """Minimal keep-alive + live-refresh trigger for the every-minute cron.
+
+    Schedules the SAME rate-limited, live-window-guarded refresh that board
+    traffic triggers (maybe_refresh_live) — but returns a ~13-byte body so a
+    response-size-limited cron service (cron-job.org caps response size and
+    fails "output too large" on the full /api/matches/upcoming payload, which
+    can auto-disable the job) never fails on it. No token: it exposes nothing
+    a page load doesn't already trigger."""
+    background_tasks.add_task(maybe_refresh_live)
+    return {"ok": True}
 
 
 @app.get("/api/health/provider")

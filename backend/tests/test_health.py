@@ -133,3 +133,20 @@ def test_health_reports_shadow_progress_without_accuracy():
         assert "exact_hits" not in sp and "winner_acc" not in sp  # numbers stay internal
     finally:
         app.dependency_overrides.clear()
+
+
+def test_live_ping_is_tiny_and_triggers_refresh(monkeypatch):
+    """The every-minute cron hits this instead of the large /matches/upcoming
+    payload: it must return a minuscule body (so response-size-limited cron
+    services never fail on it) while scheduling the same live refresh."""
+    calls = []
+    monkeypatch.setattr("app.main.maybe_refresh_live", lambda *a, **k: calls.append(1))
+
+    r = client.get("/api/live/ping")
+
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+    assert len(r.content) < 40  # a handful of bytes — never "output too large"
+    # FastAPI runs the scheduled BackgroundTask after the response is sent;
+    # TestClient executes it synchronously, so the refresh was triggered.
+    assert calls == [1]
