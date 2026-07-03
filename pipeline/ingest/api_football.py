@@ -293,6 +293,45 @@ def parse_lineups(response: list[dict]) -> list[dict]:
     return out
 
 
+def fetch_injuries(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[dict]:
+    """Return the raw injury list for one fixture from api-sports.io (/injuries)."""
+    resp = requests.get(
+        f"{BASE_URL}/injuries",
+        headers={"x-apisports-key": api_key},
+        params={"fixture": fixture_id},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    if data.get("errors"):
+        log.warning("api-football injuries errors: %s", data["errors"])
+    return data.get("response") or []
+
+
+def parse_injuries(response: list[dict]) -> list[dict]:
+    """PURE mapping: api-sports /injuries response -> our injury dicts. Each row is
+    ``{provider_player_id, name, type, reason, team_name}`` where ``type`` is "out"
+    for "Missing Fixture" else "doubtful". Nameless / malformed rows are skipped
+    rather than fabricated (same posture as parse_lineups)."""
+    out: list[dict] = []
+    for rec in response or []:
+        if not isinstance(rec, dict):
+            continue
+        player = rec.get("player") or {}
+        name = player.get("name")
+        if not name:
+            continue
+        team = rec.get("team") or {}
+        out.append({
+            "provider_player_id": player.get("id"),
+            "name": name,
+            "type": "out" if player.get("type") == "Missing Fixture" else "doubtful",
+            "reason": player.get("reason"),
+            "team_name": team.get("name"),
+        })
+    return out
+
+
 def _duration(short: str) -> str:
     if short in _SHOOTOUT:
         return "PENALTY_SHOOTOUT"
