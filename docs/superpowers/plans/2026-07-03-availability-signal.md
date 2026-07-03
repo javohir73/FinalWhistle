@@ -26,7 +26,7 @@
 
 - **Create** `ml/models/availability.py` — pure core: attack capacity, reference XI, clamped offset + explanation. No I/O.
 - **Create** `ml/models/availability_test.py` — unit tests for the core.
-- **Create** `backend/app/availability.py` — DB glue: load XI+squad, produce per-team offsets. No schemas, no `app.serializers`/`app.goalscorers` imports (cycle-free).
+- **Create** `backend/app/availability.py` — DB glue: load XI+squad, produce per-team offsets. No schemas; reuses `app.goalscorers` helpers via a lazy import (cycle-free).
 - **Create** `backend/tests/test_availability.py` — DB-level tests for the glue.
 - **Modify** `pipeline/generate_predictions.py` — add `AVAILABILITY_MODEL_VERSION`, `write_availability_prediction`, wire into the loop; `import math`.
 - **Modify** `pipeline/generate_predictions_test.py` — tests for the twin writer.
@@ -251,7 +251,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 - Produces:
   - `availability_inputs(db, match, side) -> tuple[list[dict], list[dict]] | None` — `(announced_starter_dicts, full_squad_dicts)`, or None if no stored XI for that side.
   - `availability_for_match(db, match) -> tuple[float, float, dict, dict] | None` — `(off_home, off_away, expl_home, expl_away)`, or None unless BOTH sides have an XI and both offsets compute.
-- **Cycle note:** this module re-implements the tiny `_lineup_rows`/`_player_dict` helpers (mirrors `app/goalscorers.py`) instead of importing them, so it does NOT import `app.goalscorers` or `app.serializers`. That keeps `serializers → app.availability` free of the `serializers → goalscorers → serializers` cycle.
+- **Cycle note:** `app.goalscorers` imports `app.serializers` at module load and `serializers.py` imports THIS module, so `availability_inputs` imports the shared `app.goalscorers._lineup_rows`/`_player_dict` helpers LAZILY (inside the function, at call time when all modules are initialized) — DRY reuse with no circular import. `_player_dict(p, lineup_status)` adds a harmless `lineup_status` key the offset math ignores.
 
 - [ ] **Step 1: Write the failing tests**
 
@@ -349,30 +349,18 @@ the read path (the match-page note) go through here, so they never diverge.
 Requires BOTH sides to have an announced XI — mirrors the goalscorers 'lineup
 mode' gate; otherwise returns None (no adjustment, no note).
 
-Self-contained on purpose: it re-implements the small lineup/player helpers
-(mirroring app.goalscorers) rather than importing app.goalscorers or
-app.serializers, so importing this from serializers.py introduces no cycle.
+Cycle-safe: app.goalscorers imports app.serializers at module load, and
+serializers.py imports THIS module — so the shared lineup/player helpers are
+imported lazily inside availability_inputs (at call time, when every module is
+initialized), never at module load. That reuses app.goalscorers._lineup_rows /
+._player_dict (DRY) without a circular import.
 """
 from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models import LineupPlayer, Match, MatchLineup, Player
+from app.models import Match, Player
 from ml.models.availability import availability_offset
-
-
-def _lineup_rows(db: Session, match_id: int, side: str) -> list[LineupPlayer] | None:
-    lineup = db.query(MatchLineup).filter_by(match_id=match_id, side=side).one_or_none()
-    if lineup is None or not lineup.players:
-        return None
-    return list(lineup.players)
-
-
-def _player_dict(p: Player) -> dict:
-    return {"provider_player_id": p.provider_player_id, "name": p.name,
-            "position": p.position, "club_goals": p.club_goals,
-            "club_minutes": p.club_minutes, "wc_goals": p.wc_goals,
-            "wc_minutes": p.wc_minutes}
 
 
 def availability_inputs(
@@ -381,7 +369,10 @@ def availability_inputs(
     """(announced_starter_dicts, full_squad_dicts) for one side, or None when no
     announced XI is stored. Starters join the XI to Player stats by
     provider_player_id; an XI player with no stats row falls back to zeros (the
-    position prior carries it, exactly as the goalscorers path does)."""
+    position prior carries it, exactly as the goalscorers path does). Reuses the
+    goalscorers lineup/player helpers via a lazy import (see module docstring)."""
+    from app.goalscorers import _lineup_rows, _player_dict  # lazy: avoids import cycle
+
     team_id = match.team_home_id if side == "home" else match.team_away_id
     rows = _lineup_rows(db, match.id, side)
     if not rows:
@@ -394,13 +385,13 @@ def availability_inputs(
             continue
         stat = by_pid.get(lp.provider_player_id)
         if stat is not None:
-            starters.append(_player_dict(stat))
+            starters.append(_player_dict(stat, "starter"))
         else:
             starters.append({"provider_player_id": lp.provider_player_id,
                              "name": lp.name, "position": lp.position,
                              "club_goals": 0, "club_minutes": 0,
-                             "wc_goals": 0, "wc_minutes": 0})
-    return starters, [_player_dict(p) for p in squad]
+                             "wc_goals": 0, "wc_minutes": 0, "lineup_status": "starter"})
+    return starters, [_player_dict(p, None) for p in squad]
 
 
 def availability_for_match(
