@@ -69,3 +69,56 @@ def test_none_when_squad_empty():
 
 def test_attack_capacity_is_positive_for_nonempty():
     assert attack_capacity([_p(1, "F", 10, 900)]) > 0.0
+
+
+from ml.models.availability import DOUBTFUL_WEIGHT, injury_availability_offset
+
+
+def _sq():
+    # Elite striker (pid 1) + 10 ordinary regulars, all full-season minutes.
+    return [_p(1, "F", 25, 2700, name="Star")] + [_p(i, "M", 2, 2700) for i in range(2, 12)]
+
+
+def test_injury_out_removes_full_weight():
+    squad = _sq()
+    off, expl = injury_availability_offset(squad, {1: {"status": "out", "reason": "Calf"}})
+    assert off < 0.0
+    assert {"name": "Star", "weight": expl["players_out"][0]["weight"],
+            "status": "out", "reason": "Calf"} == expl["players_out"][0]
+    assert expl["attack_delta_pct"] == round(math.exp(off) - 1.0, 4)
+
+
+def test_injury_doubtful_is_half_of_out():
+    squad = _sq()
+    # Injure a mid-tier regular (pid 2), NOT the dominant striker — otherwise both
+    # offsets saturate the -0.25 clamp and the inequality can't be observed.
+    off_out, _ = injury_availability_offset(squad, {2: {"status": "out", "reason": None}})
+    off_dbt, _ = injury_availability_offset(squad, {2: {"status": "doubtful", "reason": None}})
+    assert off_out < off_dbt < 0.0  # doubtful cuts less than out, neither clamped
+
+
+def test_injury_no_injuries_is_zero_offset():
+    off, expl = injury_availability_offset(_sq(), {})
+    assert off == 0.0
+    assert expl["players_out"] == []
+
+
+def test_injury_offset_clamped_low():
+    squad = _sq()
+    statuses = {i: {"status": "out", "reason": None} for i in range(1, 12)}  # whole XI out
+    off, _ = injury_availability_offset(squad, statuses)
+    assert off == ATTACK_OFFSET_LO
+
+
+def test_injury_player_not_in_reference_has_no_effect():
+    squad = _sq()
+    off, expl = injury_availability_offset(squad, {999: {"status": "out", "reason": "x"}})
+    assert off == 0.0 and expl["players_out"] == []
+
+
+def test_injury_none_when_empty_squad():
+    assert injury_availability_offset([], {1: {"status": "out", "reason": None}}) is None
+
+
+def test_doubtful_weight_default():
+    assert DOUBTFUL_WEIGHT == 0.5
