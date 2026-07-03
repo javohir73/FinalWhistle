@@ -68,7 +68,7 @@ def ensure_prediction_coverage(
         )
         if payload is None:  # defensive: teams vanished mid-pass
             continue
-        _write_prediction(db, payload, params.version)
+        _write_prediction(db, m, payload, params.version)
         # Keep the shadow record complete (FR-4.4): a sweep-generated match
         # gets its twin too, so the production-vs-shadow comparison never has
         # coverage holes. Cheap — one more analytic grid at most.

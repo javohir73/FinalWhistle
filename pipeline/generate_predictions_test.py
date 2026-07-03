@@ -403,6 +403,84 @@ def test_simulations_receive_the_same_team_offsets_as_match_cards(db_session, tm
     assert not captured["tournament"][0]
 
 
+def test_prediction_log_is_append_only_across_runs(db_session):
+    """ROADMAP Standing Rule #2: the prediction log is append-only. Two daily
+    runs over the same scheduled match must APPEND a second production row (never
+    UPDATE in place), and the earliest row's served probabilities must stay
+    byte-for-byte unchanged — no retro-edit of what was frozen the first run."""
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+
+    def prod_rows():
+        return (
+            db_session.query(Prediction)
+            .filter_by(match_id=match.id, is_shadow=False)
+            .order_by(Prediction.id)
+            .all()
+        )
+
+    generate_predictions(db_session, n_sims=300)
+    after_first = prod_rows()
+    assert len(after_first) == 1
+    earliest = after_first[0]
+    frozen = (earliest.prob_home_win, earliest.prob_draw, earliest.prob_away_win)
+
+    generate_predictions(db_session, n_sims=300)
+    after_second = prod_rows()
+    # Appended, not replaced: the count strictly increased.
+    assert len(after_second) == 2
+    # The first-run row is untouched — same id, same served probabilities.
+    db_session.refresh(earliest)
+    assert (earliest.prob_home_win, earliest.prob_draw, earliest.prob_away_win) == frozen
+    assert after_second[0].id == earliest.id
+
+
+def test_no_prediction_written_after_kickoff(db_session):
+    """ROADMAP Standing Rule #2: the log is frozen at kickoff. Once a match is no
+    longer "scheduled", no further production row may be appended — neither via
+    generate_predictions (which filters to scheduled) nor via a direct
+    _write_prediction call (whose guard must skip a started/finished match)."""
+    from pipeline.generate_predictions import _write_prediction
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group_matches = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .order_by(Match.id)
+        .all()
+    )
+    in_play, finished = group_matches[0], group_matches[1]
+    in_play.status = "in_play"
+    finished.status = "finished"
+    finished.score_home, finished.score_away = 1, 0
+    db_session.commit()
+
+    generate_predictions(db_session, n_sims=300)
+
+    # Neither the in-play nor the finished match got a production prediction.
+    for started in (in_play, finished):
+        assert (
+            db_session.query(Prediction)
+            .filter_by(match_id=started.id, is_shadow=False)
+            .count()
+            == 0
+        ), f"a {started.status} match must not be predicted"
+
+    # A direct _write_prediction on a started match appends nothing (guard skips).
+    payload = build_payload(db_session, in_play, "poisson-elo-v0.1")
+    assert payload is not None
+    before = db_session.query(Prediction).count()
+    _write_prediction(db_session, in_play, payload, "poisson-elo-v0.1")
+    assert db_session.query(Prediction).count() == before
+
+
 def test_team_offsets_shift_simulated_standings_when_enabled(db_session, tmp_path):
     """End-to-end over the standings path: enabling a store that boosts one
     team's attack AND weakens every group rival must lift that team's simulated
