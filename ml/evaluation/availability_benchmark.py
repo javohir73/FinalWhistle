@@ -35,6 +35,12 @@ def benchmark_availability(
     diff_log_loss < 0 with diff_ci95 fully below 0 => the availability-adjusted
     forecast beats the published team-level one out of sample (the promotion
     signal). Straddling 0 => no credible difference.
+
+    Caveat: if a W/D/L booster blend (``params.wdl_blend``) is ever shipped, the
+    published production triple would be booster-blended while the availability
+    twin stays pure Poisson (like the odds shadow, per write_shadow_prediction's
+    NOTE), so this paired reading would mix the availability effect with the
+    blend effect. Not a live concern today — ``wdl_blend`` is not currently shipped.
     """
     if not labels:
         raise ValueError("no matches to benchmark")
