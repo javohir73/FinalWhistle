@@ -68,10 +68,10 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 
 *Goal: raise accuracy to its ceiling, then decide the business.*
 
-- [ ] Feature-rich challengers via the existing gated-challenger framework (`experiment_model_eval`): gradient boosting on xG, lineups/availability, schedule congestion, market-derived features. Ship only on beating champion on held-out log-loss (keep the gate).
-- [ ] A full season of immutable model-vs-close records across leagues and markets.
-- [ ] **Take the fork** (see table above) with evidence, not opinion.
-- [ ] Product-path prep in parallel: white-label widget kit (the "why this prediction" layer is the differentiator no feed vendor offers), sandbox API keys, pricing tiers, B2B licensing review (UKGC/MGA where required; content/F2P deals typically exempt — get counsel).
+- [ ] Feature-rich challengers via the existing gated-challenger framework (`experiment_model_eval`): gradient boosting on xG, lineups/availability, schedule congestion, market-derived features. Ship only on beating champion on held-out log-loss (keep the gate). *(Model is at ceiling on current signal — every challenger refuted through the gate; these feature challengers are data-blocked (no historical xG / lineups / schedule-variance / odds). Discipline captured in `docs/CHALLENGERS.md`.)*
+- [ ] A full season of immutable model-vs-close records across leagues and markets. *(Blocked on real-world time — needs Phase 1/2 to generate club + market records across a season.)*
+- [ ] **Take the fork** (see table above) with evidence, not opinion. *(Blocked: a decision to make on a season of verified data, not an engineering task.)*
+- [x] Product-path prep in parallel: white-label widget kit (the "why this prediction" layer is the differentiator no feed vendor offers), sandbox API keys, pricing tiers, B2B licensing review (UKGC/MGA where required; content/F2P deals typically exempt — get counsel). *(Shipped: embeddable widget — `docs/WIDGET-KIT.md`, `app/embed/[matchId]`; sandbox API-key gate on `/v1` (`X-API-Key`, off by default). Pricing tiers + licensing are business/legal — deferred.)*
 
 **Exit criterion:** signed pilot (product path) or verified positive CLV/log-loss edge (edge path).
 

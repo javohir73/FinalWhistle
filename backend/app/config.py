@@ -109,6 +109,17 @@ class Settings(BaseSettings):
     # the web process without cross-process cache invalidation.
     cache_ttl_seconds: int = 600
 
+    # SANDBOX API keys gating the versioned public API (/v1, ROADMAP Phase 4).
+    # Comma-separated allow-list. Empty (the shipped default) => the gate is OFF
+    # and /v1 stays public exactly as Phase 2/3 shipped. Set API_KEYS_ALLOWED to a
+    # comma-separated list of sandbox keys to require an X-API-Key header.
+    api_keys_allowed: str = ""
+
+    @property
+    def allowed_api_keys(self) -> set[str]:
+        """Sandbox API keys admitted to /v1 (empty => gate disabled, /v1 public)."""
+        return {k.strip() for k in self.api_keys_allowed.split(",") if k.strip()}
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
