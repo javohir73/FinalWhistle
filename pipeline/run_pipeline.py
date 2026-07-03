@@ -69,11 +69,14 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     # twins generated below can anchor to a fresh market total. Best-effort by
     # contract (refresh_odds never raises, FR-4.2); skipped without a key.
     if settings.api_football_api_key:
+        from pipeline.ingest.injuries import refresh_injuries
         from pipeline.ingest.odds import refresh_odds
 
         step("odds", lambda: refresh_odds(db, settings.api_football_api_key))
+        # Day-ahead availability snapshot, BEFORE predictions so the twin can use it.
+        step("injuries", lambda: refresh_injuries(db, settings.api_football_api_key))
     else:
-        log.info("step skipped: odds (no API_FOOTBALL_API_KEY)")
+        log.info("step skipped: odds + injuries (no API_FOOTBALL_API_KEY)")
 
     # Learning loop AFTER the Elo base is fresh, BEFORE predictions consume the
     # adjusted ratings: evaluate finished matches, refresh tournament state.
