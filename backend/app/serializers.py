@@ -10,8 +10,9 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app import schemas
-from app.live_winprob import live_probabilities_for_match
+from app.live_winprob import live_probabilities_for_match, regulation_remaining
 from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
+from ml.models import live_markets as _live_markets
 from ml.models import markets as _markets
 from ml.models.poisson import goal_markets as _goal_markets
 
@@ -161,6 +162,73 @@ def prediction_to_markets_out(db: Session, match: Match, pred: Prediction) -> sc
             basis=_MARKETS_CALIBRATION_BASIS, per_market_vs_close=None
         ),
         disclaimer=DISCLAIMER,
+    )
+
+
+def prediction_to_live_markets_out(
+    db: Session, match: Match, pred: Prediction
+) -> schemas.MarketsOut:
+    """In-play markets payload (/v1/markets/{match}?live=1, Phase 3).
+
+    Mirrors ``prediction_to_markets_out`` but every price comes from
+    ``ml.models.live_markets`` re-run on the CURRENT match state instead of the
+    frozen pre-match grid: the live 1X2 (identical to the in-play bar), its
+    double chance, and the scoreline markets over the FINAL-score grid. Live
+    inputs are extracted exactly as ``match_to_summary`` / the live bar do —
+    ``regulation_remaining(minute, period)`` for the clock and ``_card_counts``
+    for cards. ``model_version`` and the explanation/calibration metadata still
+    come from the frozen prediction (there is no live re-explanation).
+
+    Falls back to the frozen ``prediction_to_markets_out`` whenever the state
+    isn't priceable (no modellable clock, or ``live_markets`` returns None), so
+    the response is always a valid MarketsOut — just with ``is_live`` False."""
+    minutes_remaining = regulation_remaining(match.minute, match.period)
+    live = None
+    if minutes_remaining is not None:
+        live = _live_markets.live_markets(
+            match.score_home,
+            match.score_away,
+            pred.lambda_home,
+            pred.lambda_away,
+            minutes_remaining,
+            rho=pred.rho or 0.0,
+            **_card_counts(match.card_events),
+        )
+    if live is None:
+        return prediction_to_markets_out(db, match, pred)
+
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    p_home, p_draw, p_away = live["one_x_two"]
+    derived = schemas.DerivedMarketsOut(
+        one_x_two=schemas.ProbabilitiesOut(home_win=p_home, draw=p_draw, away_win=p_away),
+        double_chance=schemas.DoubleChanceOut(**live["double_chance"]),
+        totals=[schemas.TotalsLineOut(**t) for t in live["totals"]],
+        btts=schemas.BttsOut(**live["btts"]),
+        correct_score=[schemas.CorrectScoreOut(**s) for s in live["correct_score"]],
+        asian_handicap=[schemas.AsianHandicapLineOut(**h) for h in live["asian_handicap"]],
+    )
+    return schemas.MarketsOut(
+        match_id=match.id,
+        model_version=pred.model_version,
+        generated_at=pred.created_at.isoformat() if pred.created_at else None,
+        teams=schemas.TeamsOut(home=home.name if home else "TBD", away=away.name if away else "TBD"),
+        markets=derived,
+        explanation=schemas.MarketsExplanationOut(
+            confidence=pred.confidence,
+            reasons=pred.reasons or [],
+            top_features=[schemas.FeatureWeightOut(**f) for f in (pred.top_features or [])],
+        ),
+        calibration=schemas.MarketsCalibrationOut(
+            basis=_MARKETS_CALIBRATION_BASIS, per_market_vs_close=None
+        ),
+        disclaimer=DISCLAIMER,
+        is_live=True,
+        live=schemas.LiveMarketsStateOut(
+            minute=match.minute,
+            current_home=match.score_home,
+            current_away=match.score_away,
+        ),
     )
 
 

@@ -8,7 +8,7 @@ app.models); it only marginalizes the stored distribution.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import schemas, serializers
@@ -19,7 +19,11 @@ router = APIRouter(prefix="/v1/markets", tags=["markets-v1"])
 
 
 @router.get("/{match_id}", response_model=schemas.MarketsOut)
-def markets_for_match(match_id: int, db: Session = Depends(get_db)):
+def markets_for_match(
+    match_id: int,
+    live: int = Query(0, description="1 to re-price from the in-play state when the match is live"),
+    db: Session = Depends(get_db),
+):
     match = db.get(Match, match_id)
     if match is None:
         raise HTTPException(status_code=404, detail={"code": "not_found",
@@ -32,4 +36,10 @@ def markets_for_match(match_id: int, db: Session = Depends(get_db)):
         # A prediction without engine params can't price the scoreline grid.
         raise HTTPException(status_code=404, detail={"code": "markets_unavailable",
                                                      "message": "No scoreline model for this match"})
+    # ?live=1 on a live match re-prices from the current score/clock; the live
+    # serializer itself falls back to the frozen markets when the state isn't
+    # usable. Any other case (no ?live, or not in play) is the Phase-2 payload
+    # unchanged — the default is byte-identical to before.
+    if live == 1 and match.status == "in_play":
+        return serializers.prediction_to_live_markets_out(db, match, pred)
     return serializers.prediction_to_markets_out(db, match, pred)

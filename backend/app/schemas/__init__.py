@@ -437,6 +437,16 @@ class MarketsCalibrationOut(BaseModel):
     per_market_vs_close: str | None = None
 
 
+class LiveMarketsStateOut(BaseModel):
+    """The live match state a ``?live=1`` markets payload was priced from, so a
+    consumer can tie the numbers to a minute/scoreline. Present only on live
+    responses; every field defaults None."""
+
+    minute: int | None = None
+    current_home: int | None = None
+    current_away: int | None = None
+
+
 class MarketsOut(BaseModel):
     match_id: int
     model_version: str
@@ -446,3 +456,8 @@ class MarketsOut(BaseModel):
     explanation: MarketsExplanationOut
     calibration: MarketsCalibrationOut
     disclaimer: str
+    # Phase-3 in-play re-pricing (additive; defaults preserve the Phase-2 shape).
+    # is_live=True + live set only on a ?live=1 response for an in-play match with
+    # a usable clock; otherwise the payload is the frozen pre-match markets.
+    is_live: bool = False
+    live: LiveMarketsStateOut | None = None
