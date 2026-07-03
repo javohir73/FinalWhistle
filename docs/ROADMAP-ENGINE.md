@@ -21,12 +21,12 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 
 *Goal: stop leaking value; make the market the benchmark.*
 
-- [ ] **Repo goes private / re-license.** Apache 2.0 + public repo means the entire engine is free to every prospect. Blocker for any commercial path.
-- [ ] **Closing-odds benchmark harness** (`pipeline/run_market_benchmark.py`, `ml/evaluation/market_benchmark.py`): model probabilities vs de-vigged closing-odds implied probabilities. Log-loss, Brier, accuracy, per-match paired diffs, bootstrap CI. Two modes:
+- [x] **Repo goes private / re-license.** Apache 2.0 + public repo means the entire engine is free to every prospect. Blocker for any commercial path.
+- [x] **Closing-odds benchmark harness** (`pipeline/run_market_benchmark.py`, `ml/evaluation/market_benchmark.py`): model probabilities vs de-vigged closing-odds implied probabilities. Log-loss, Brier, accuracy, per-match paired diffs, bootstrap CI. Two modes:
   - historical CSV (WC 2018/2022 odds),
   - live DB (WC26 `Odds` snapshots vs stored `Prediction` rows).
-- [ ] **Immutable prediction log.** Every prediction timestamped pre-kickoff next to the market snapshot. The WC26 window (ends Jul 19, 2026) is a once-in-4-years verified record — page one of the track record forever.
-- [ ] Publish the benchmark result on the methodology page, whatever it says.
+- [x] **Immutable prediction log.** Every prediction timestamped pre-kickoff next to the market snapshot — the writer is append-only and frozen at kickoff (a guard refuses any post-kickoff append; regression-tested). The WC26 window (ends Jul 19, 2026) is a once-in-4-years verified record — page one of the track record forever.
+- [ ] Publish the benchmark result on the methodology page, whatever it says. *(Publish surface shipped — methodology-page section + reproducible `--emit-json` path; renders a "pending" state until the first `--live`/`--csv` run produces a number.)*
 
 **Exit criterion:** a reproducible number for "model vs market" on ≥100 matches.
 
@@ -86,7 +86,7 @@ Both paths are funded by the same roadmap. The fork is taken at Phase 4, not bef
 
 ## Immediate next actions
 
-1. Take the GitHub repo private.
+1. Take the GitHub repo private. — **done** (private as of 2026-07-03).
 2. Run `pipeline/run_market_benchmark.py --live` after each WC26 match day; archive the output.
 3. Source WC 2018/2022 closing-odds CSVs and run the historical benchmark.
 4. Pick the first two club leagues for Phase 1.

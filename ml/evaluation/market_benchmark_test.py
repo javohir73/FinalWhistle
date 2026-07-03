@@ -11,6 +11,7 @@ from ml.evaluation.market_benchmark import (
     devig,
     format_report,
     join_odds_to_rows,
+    result_to_json,
 )
 
 
@@ -126,3 +127,47 @@ def test_report_contains_headline_numbers():
     out = format_report(benchmark([_mm(p, q, "H")] * 5, n_bootstrap=100), "sample")
     assert "sample (5 matches)" in out
     assert "log-loss" in out and "verdict:" in out
+
+
+# --- result_to_json ------------------------------------------------------
+
+def test_result_to_json_shape_and_rounding():
+    matched = [_mm((0.8, 0.1, 0.1), (0.4, 0.3, 0.3), "H")] * 10
+    result = benchmark(matched, n_bootstrap=200)
+    js = result_to_json(result, "WC26 live", "2026-07-03T00:00:00+00:00")
+    assert js["status"] == "ready"
+    assert js["dataset"] == "WC26 live"
+    assert js["updated_at"] == "2026-07-03T00:00:00+00:00"
+    assert js["n_matches"] == result["n_matches"]
+    assert js["model"] == result["model"]
+    assert js["market"] == result["market"]
+    assert js["diff_log_loss"] == round(result["diff_log_loss"], 4)
+    lo, hi = result["diff_ci95"]
+    assert js["diff_ci95"] == [round(lo, 4), round(hi, 4)]
+    assert js["model_win_rate"] == round(result["model_win_rate"], 4)
+    assert js["mean_edge"] == round(result["mean_edge"], 4)
+
+
+def test_result_to_json_verdict_matches_format_report():
+    # Sharper model -> MODEL BEATS MARKET, and both surfaces must agree.
+    matched = [_mm((0.8, 0.1, 0.1), (0.4, 0.3, 0.3), "H")] * 10
+    result = benchmark(matched, n_bootstrap=200)
+    js = result_to_json(result, "t", "2026-07-03T00:00:00+00:00")
+    assert js["verdict"] == "MODEL BEATS MARKET (credible: CI fully below 0)"
+    assert js["verdict"] in format_report(result, "t")
+
+
+def test_result_to_json_verdict_market_beats_model():
+    matched = [_mm((0.8, 0.1, 0.1), (0.4, 0.3, 0.3), "A")] * 10
+    result = benchmark(matched, n_bootstrap=200)
+    js = result_to_json(result, "t", "2026-07-03T00:00:00+00:00")
+    assert js["verdict"] == "MARKET BEATS MODEL (credible: CI fully above 0)"
+    assert js["verdict"] in format_report(result, "t")
+
+
+def test_result_to_json_verdict_no_credible_difference():
+    p = (0.5, 0.3, 0.2)
+    result = benchmark([_mm(p, p, "H"), _mm(p, p, "D")], n_bootstrap=200)
+    js = result_to_json(result, "t", "2026-07-03T00:00:00+00:00")
+    assert js["verdict"] == "NO CREDIBLE DIFFERENCE (CI straddles 0)"
+    assert js["verdict"] in format_report(result, "t")

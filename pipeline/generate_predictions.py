@@ -7,6 +7,7 @@ probabilities. Designed to be called by the daily pipeline (task 7).
 """
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -24,6 +25,8 @@ from ml.models.team_offsets import load_team_offsets, offsets_for
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
+
+log = logging.getLogger(__name__)
 
 #: Version tag for shadow rows (exact-score program FR-4.4): the odds-anchored
 #: twin of every production prediction. Never served, never in the public
@@ -196,8 +199,24 @@ def build_payload(
     }
 
 
-def _write_prediction(db: Session, payload: dict, model_version: str,
+def _write_prediction(db: Session, match: Match, payload: dict, model_version: str,
                       is_shadow: bool = False) -> None:
+    """Append one prediction row for ``match`` (production or shadow twin).
+
+    Append-only, frozen at kickoff (ROADMAP Standing Rule #2): the log is never
+    UPDATEd/DELETEd, and once a match leaves "scheduled" no further row may be
+    added — the pre-kickoff prediction stays the verified record forever. Both
+    public entry points already filter to scheduled matches, so this guard is a
+    defensive no-op for them; it exists so no call path can ever append after the
+    whistle.
+    """
+    if match.status != "scheduled":
+        log.warning(
+            "skip prediction append for match %s: status=%s "
+            "(append-only log is frozen at kickoff)",
+            match.id, match.status,
+        )
+        return
     p = payload["probabilities"]
     s = payload["predicted_score"]
     db.add(
@@ -255,7 +274,7 @@ def write_shadow_prediction(
     """
     shadow = payload
     if params.w_odds <= 0.0:
-        _write_prediction(db, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+        _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
         return
     odds = _latest_odds(db, match.id)
     market_total = None
@@ -292,7 +311,7 @@ def write_shadow_prediction(
             "lambda_home": round(pred.lambda_home, 4),
             "lambda_away": round(pred.lambda_away, 4),
         }
-    _write_prediction(db, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+    _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
 
 
 def _played_score(m: Match) -> tuple[int, int] | None:
@@ -480,7 +499,7 @@ def generate_predictions(
                                 strengths=strengths, params=params, booster=booster)
         if payload is None:
             continue
-        _write_prediction(db, payload, active_model_version)
+        _write_prediction(db, match, payload, active_model_version)
         # Shadow twin (FR-4.4): odds-anchored when a market total is stored and
         # w_odds > 0, otherwise an exact copy — either way never served.
         write_shadow_prediction(db, match, payload, strengths, params)

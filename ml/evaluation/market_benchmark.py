@@ -159,17 +159,39 @@ def benchmark(
     }
 
 
+def _verdict(lo: float, hi: float) -> str:
+    """Verdict string from the paired CI95 — shared by the report and the serializer."""
+    if hi < 0:
+        return "MODEL BEATS MARKET (credible: CI fully below 0)"
+    if lo > 0:
+        return "MARKET BEATS MODEL (credible: CI fully above 0)"
+    return "NO CREDIBLE DIFFERENCE (CI straddles 0)"
+
+
+def result_to_json(result: dict, dataset: str, updated_at: str) -> dict:
+    """Serialize a benchmark result for the methodology page (rounded, JSON-ready)."""
+    lo, hi = result["diff_ci95"]
+    return {
+        "status": "ready",
+        "dataset": dataset,
+        "n_matches": result["n_matches"],
+        "updated_at": updated_at,
+        "model": result["model"],
+        "market": result["market"],
+        "diff_log_loss": round(result["diff_log_loss"], 4),
+        "diff_ci95": [round(lo, 4), round(hi, 4)],
+        "model_win_rate": round(result["model_win_rate"], 4),
+        "mean_edge": round(result["mean_edge"], 4),
+        "verdict": _verdict(lo, hi),
+    }
+
+
 def format_report(result: dict, title: str) -> str:
     """Human-readable benchmark report (stable format — archived per run)."""
     mo, mk = result["model"], result["market"]
     lo, hi = result["diff_ci95"]
     d = result["diff_log_loss"]
-    if hi < 0:
-        verdict = "MODEL BEATS MARKET (credible: CI fully below 0)"
-    elif lo > 0:
-        verdict = "MARKET BEATS MODEL (credible: CI fully above 0)"
-    else:
-        verdict = "NO CREDIBLE DIFFERENCE (CI straddles 0)"
+    verdict = _verdict(lo, hi)
     lines = [
         f"=== Closing-line benchmark: {title} ({result['n_matches']} matches) ===",
         f"  {'':14s}{'log-loss':>10s}{'brier':>10s}{'accuracy':>10s}",

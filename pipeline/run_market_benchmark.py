@@ -24,9 +24,10 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import logging
 import os
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
@@ -53,7 +54,17 @@ def load_odds_csv(path: str) -> list[dict]:
     return records
 
 
-def run_historical(csv_path: str, year: int) -> int:
+def _write_json(path: str, result: dict, title: str) -> None:
+    """Write the page-ready benchmark JSON (reproducible publish path)."""
+    from ml.evaluation.market_benchmark import result_to_json
+
+    payload = result_to_json(result, title, datetime.now(timezone.utc).isoformat())
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(json.dumps(payload, indent=2))
+    log.info("wrote benchmark JSON -> %s", path)
+
+
+def run_historical(csv_path: str, year: int, emit_json: str | None = None) -> int:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
@@ -102,11 +113,15 @@ def run_historical(csv_path: str, year: int) -> int:
         log.error("no matches joined — nothing to benchmark")
         return 1
 
-    log.info("\n%s", format_report(benchmark(matched), f"World Cup {year} (CSV closing odds)"))
+    title = f"World Cup {year} (CSV closing odds)"
+    result = benchmark(matched)
+    log.info("\n%s", format_report(result, title))
+    if emit_json:
+        _write_json(emit_json, result, title)
     return 0
 
 
-def run_live() -> int:
+def run_live(emit_json: str | None = None) -> int:
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
 
@@ -179,7 +194,11 @@ def run_live() -> int:
     if not matched:
         log.error("nothing to benchmark yet")
         return 1
-    log.info("\n%s", format_report(benchmark(matched), "WC26 live (captured closing snapshots)"))
+    title = "WC26 live (captured closing snapshots)"
+    result = benchmark(matched)
+    log.info("\n%s", format_report(result, title))
+    if emit_json:
+        _write_json(emit_json, result, title)
     return 0
 
 
@@ -189,8 +208,16 @@ def main() -> int:
     mode.add_argument("--csv", help="closing-odds CSV for a historical World Cup")
     mode.add_argument("--live", action="store_true", help="benchmark WC26 from the live DB")
     ap.add_argument("--year", type=int, default=2018, help="World Cup year for --csv mode")
+    ap.add_argument(
+        "--emit-json",
+        metavar="PATH",
+        help="also write the page-ready benchmark JSON to PATH "
+        "(e.g. frontend/lib/market-benchmark-data.json)",
+    )
     args = ap.parse_args()
-    return run_live() if args.live else run_historical(args.csv, args.year)
+    if args.live:
+        return run_live(args.emit_json)
+    return run_historical(args.csv, args.year, args.emit_json)
 
 
 if __name__ == "__main__":
