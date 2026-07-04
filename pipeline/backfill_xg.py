@@ -23,9 +23,13 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import date as date_type
 from pathlib import Path
 
 import requests
+from sqlalchemy.orm import Session
+
+from pipeline.team_mapping import normalize_team_name
 
 log = logging.getLogger(__name__)
 
@@ -143,3 +147,240 @@ def match_xg(match: dict, events: list[dict]) -> tuple[float | None, float | Non
         log.warning("match_xg failed on malformed input: %s", exc)
         return None, None
     return by_team.get(home_name), by_team.get(away_name)
+
+
+def match_statsbomb_to_rows(
+    sb_records: list[dict],
+    historical_rows: list[dict],
+    id_to_name: dict[int, "str | None"],
+    normalize=lambda s: s,
+) -> tuple[list[dict], list[dict]]:
+    """Join StatsBomb match records onto `historical_matches` rows.
+
+    Mirrors `ml/evaluation/market_benchmark.py::join_odds_to_rows`'s
+    swap-and-flip precedent: `HistoricalMatch` has no home/away, only
+    orientation-neutral `team_a`/`team_b`, so a swapped `(date, away, home)`
+    key also matches — with `xg_a`/`xg_b` flipped onto `team_a`/`team_b`.
+
+    `sb_records`: dicts with `match_date` (bare "YYYY-MM-DD"), `home_team`,
+    `away_team`, `home_score`, `away_score`, `home_xg`, `away_xg`.
+    `historical_rows`: dicts with `id`, `team_a_id`, `team_b_id`, `date`
+    (a `date`/`datetime`), `score_a`, `score_b`, `xg_a`.
+
+    Returns `(writes, unmatched)` where `writes` are `{"id", "xg_a", "xg_b"}`
+    dicts ready to apply, and `unmatched` are the input rows (StatsBomb dicts)
+    that didn't resolve to a write — no key hit, a score cross-check
+    mismatch, or an ambiguous key collision. Never writes on ambiguity or a
+    disagreeing score; both are logged and dropped rather than guessed.
+    """
+    by_key: dict[tuple, dict] = {}
+    ambiguous: set[tuple] = set()
+    for rec in sb_records:
+        home = normalize(rec.get("home_team"))
+        away = normalize(rec.get("away_team"))
+        raw_date = rec.get("match_date")
+        if not home or not away or not raw_date:
+            continue
+        # StatsBomb's match_date is a bare "YYYY-MM-DD"; historical_matches.date
+        # is a midnight-UTC-pinned civil date (pipeline/ingest/historical_results.py:106)
+        # -- compare as civil dates, no instant conversion.
+        civil_date = (
+            raw_date.date() if hasattr(raw_date, "date")
+            else date_type.fromisoformat(raw_date)
+        )
+        key = (civil_date, home, away)
+        if key in by_key:
+            ambiguous.add(key)
+            log.warning("statsbomb ambiguous fixture key collision: %s", key)
+            continue
+        by_key[key] = rec
+
+    row_by_key: dict[tuple, dict] = {}
+    for row in historical_rows:
+        d = row["date"].date() if hasattr(row["date"], "date") else row["date"]
+        name_a = normalize(id_to_name.get(row["team_a_id"]))
+        name_b = normalize(id_to_name.get(row["team_b_id"]))
+        if not name_a or not name_b:
+            continue
+        row_by_key[(d, name_a, name_b)] = row
+
+    writes: list[dict] = []
+    unmatched: list[dict] = []
+    for key, rec in by_key.items():
+        if key in ambiguous:
+            unmatched.append(rec)
+            continue
+
+        civil_date, home, away = key
+        row, swapped = row_by_key.get(key), False
+        if row is None:
+            row, swapped = row_by_key.get((civil_date, away, home)), True
+        if row is None:
+            unmatched.append(rec)
+            continue
+
+        home_score, away_score = rec.get("home_score"), rec.get("away_score")
+        expected_a, expected_b = (
+            (away_score, home_score) if swapped else (home_score, away_score)
+        )
+        if (
+            expected_a is not None
+            and expected_b is not None
+            and (expected_a, expected_b) != (row["score_a"], row["score_b"])
+        ):
+            log.warning(
+                "statsbomb score cross-check mismatch for row id=%s: "
+                "statsbomb=%s/%s vs stored=%s/%s",
+                row["id"], expected_a, expected_b, row["score_a"], row["score_b"],
+            )
+            unmatched.append(rec)
+            continue
+
+        home_xg, away_xg = rec.get("home_xg"), rec.get("away_xg")
+        xg_a, xg_b = (away_xg, home_xg) if swapped else (home_xg, away_xg)
+        writes.append({"id": row["id"], "xg_a": xg_a, "xg_b": xg_b})
+
+    return writes, unmatched
+
+
+def _resolvable_row_id(sb_match: dict, row_by_key: dict[tuple, dict], normalize) -> int | None:
+    """Cheap key lookup only: does `sb_match` resolve (direct or swapped) to a
+    row in `row_by_key`? Returns that row's id, or `None`. Used purely to
+    decide whether a match's events are worth fetching at all -- it does NOT
+    apply the score cross-check or ambiguity handling that the real
+    `match_statsbomb_to_rows` pass performs once xG is known.
+    """
+    raw_date = sb_match.get("match_date")
+    home = normalize(sb_match.get("home_team", {}).get("home_team_name"))
+    away = normalize(sb_match.get("away_team", {}).get("away_team_name"))
+    if not raw_date or not home or not away:
+        return None
+    d = date_type.fromisoformat(raw_date)
+    row = row_by_key.get((d, home, away)) or row_by_key.get((d, away, home))
+    return row["id"] if row is not None else None
+
+
+def backfill_xg(
+    db: Session,
+    cache_dir: str | Path = "pipeline/data/statsbomb_cache",
+    editions: list[tuple[int, int]] = SIX_EDITIONS,
+) -> dict:
+    """Populate `historical_matches.xg_a`/`xg_b` from StatsBomb open data.
+
+    Best-effort and idempotent: never raises; rows whose `xg_a` is already
+    non-NULL are skipped WITHOUT fetching their events (resume is free, even
+    on a cold cache). Commits once per edition so interrupted runs lose at
+    most one edition's work. Distinct log lines are emitted for an unmatched
+    fixture (name gap), an xG-absent match, and an events-fetch failure.
+
+    Returns a summary dict: `{editions, matches_seen, rows_written,
+    skipped_populated, unmatched, xg_absent}`.
+    """
+    from app.models import HistoricalMatch, Team  # local import: keep this module DB-optional
+
+    competitions_json = _get_json(f"{BASE_URL}/competitions.json")
+    verified_editions = enumerate_editions(competitions_json) if competitions_json else []
+    if not verified_editions:
+        log.warning("statsbomb backfill: no editions verified against competitions.json; using pinned list")
+        verified_editions = list(editions)
+
+    id_to_name = {t.id: t.name for t in db.query(Team).all()}
+
+    summary = {
+        "editions": len(verified_editions),
+        "matches_seen": 0,
+        "rows_written": 0,
+        "skipped_populated": 0,
+        "unmatched": 0,
+        "xg_absent": 0,
+    }
+
+    for cid, sid in verified_editions:
+        sb_matches = _get_json(f"{BASE_URL}/matches/{cid}/{sid}.json") or []
+        if not sb_matches:
+            log.warning("statsbomb backfill: no matches for (competition_id=%s, season_id=%s)", cid, sid)
+            continue
+        summary["matches_seen"] += len(sb_matches)
+
+        # In-scope national-team rows ONLY: date must fall within this
+        # edition's actual match dates, so the swapped-key fallback in
+        # match_statsbomb_to_rows can't accidentally match an unrelated
+        # same-date friendly outside this edition.
+        edition_dates = {
+            date_type.fromisoformat(m["match_date"])
+            for m in sb_matches
+            if m.get("match_date")
+        }
+        orm_rows = [
+            r for r in db.query(HistoricalMatch).filter(HistoricalMatch.date.isnot(None)).all()
+            if (r.date.date() if hasattr(r.date, "date") else r.date) in edition_dates
+        ]
+        row_by_id = {r.id: r for r in orm_rows}
+
+        # Idempotent skip: rows already populated are excluded from the join
+        # dict entirely, so their events are never fetched.
+        pending_rows = [r for r in orm_rows if r.xg_a is None]
+        summary["skipped_populated"] += len(orm_rows) - len(pending_rows)
+
+        row_dicts = [
+            {"id": r.id, "team_a_id": r.team_a_id, "team_b_id": r.team_b_id,
+             "date": r.date, "score_a": r.score_a, "score_b": r.score_b, "xg_a": r.xg_a}
+            for r in pending_rows
+        ]
+        row_by_key: dict[tuple, dict] = {}
+        for row in row_dicts:
+            name_a = normalize_team_name(id_to_name.get(row["team_a_id"]))
+            name_b = normalize_team_name(id_to_name.get(row["team_b_id"]))
+            if name_a and name_b:
+                row_by_key[(row["date"].date(), name_a, name_b)] = row
+
+        # Build the in-scope join dict ONCE per edition, then only fetch
+        # events for a match that resolves (direct or swapped) to a pending
+        # row -- an already-populated row's events file is never touched.
+        sb_records = []
+        for m in sb_matches:
+            row_id = _resolvable_row_id(m, row_by_key, normalize_team_name)
+            home_xg = away_xg = None
+            if row_id is not None:
+                events = _fetch_events(m.get("match_id"), cache_dir)
+                if not events:
+                    log.warning("statsbomb backfill: events fetch failed for match_id=%s", m.get("match_id"))
+                home_xg, away_xg = match_xg(m, events)
+                if home_xg is None and away_xg is None:
+                    summary["xg_absent"] += 1
+                    log.warning(
+                        "statsbomb backfill: no shot-xG for match_id=%s (%s vs %s)",
+                        m.get("match_id"),
+                        m.get("home_team", {}).get("home_team_name"),
+                        m.get("away_team", {}).get("away_team_name"),
+                    )
+            sb_records.append({
+                "match_date": m.get("match_date"),
+                "home_team": m.get("home_team", {}).get("home_team_name"),
+                "away_team": m.get("away_team", {}).get("away_team_name"),
+                "home_score": m.get("home_score"),
+                "away_score": m.get("away_score"),
+                "home_xg": home_xg,
+                "away_xg": away_xg,
+            })
+
+        writes, unmatched = match_statsbomb_to_rows(
+            sb_records, row_dicts, id_to_name, normalize_team_name
+        )
+
+        for w in writes:
+            row = row_by_id[w["id"]]
+            row.xg_a = w["xg_a"]
+            row.xg_b = w["xg_b"]
+            summary["rows_written"] += 1
+
+        for rec in unmatched:
+            summary["unmatched"] += 1
+            log.warning(
+                "statsbomb backfill: unmatched fixture %s vs %s on %s",
+                rec.get("home_team"), rec.get("away_team"), rec.get("match_date"),
+            )
+
+        db.commit()
+
+    return summary
