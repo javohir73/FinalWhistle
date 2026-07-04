@@ -40,6 +40,10 @@ data/processed/
 # future gate run clears, force-add the fitted file with the params flag flip.
 ml/models/team_offsets.json
 
+# StatsBomb open-data event/match cache for pipeline/backfill_xg.py — ~314
+# match blobs fetched on demand, never committed.
+pipeline/data/statsbomb_cache/
+
 # ---- OS / editor ----
 .DS_Store
 Thumbs.db
