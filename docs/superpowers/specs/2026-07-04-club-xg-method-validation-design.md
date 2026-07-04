@@ -69,13 +69,19 @@ Per league, walk-forward over seasons (leak-free: fit on prior seasons only, exc
 
 - C beats B in **point estimate on both Brier and log-loss**, aggregated.
 - **Consistent sign**: C ≤ B in the large majority of league-season cells, with **no league where
-  C is clearly worse** than B.
+  C is clearly worse** than B. The exact cell fraction (e.g. ≥⅔) is **pre-registered in the
+  implementation plan before Phase 5 produces any numbers** — never chosen after seeing the
+  results, so the threshold judges the data instead of drifting to fit it.
 - CIs are reported (not required to exclude zero) and per-cell deltas printed so consistency is
   visible, not asserted.
 
 **FAIL** → the WC feature is shelved / reconsidered, **not** built. A B-beats-A-but-C-≈-B result
 means "the offsets help but xG adds nothing" — goals-offsets could then be promoted on their own
-(separate decision), but the xG machinery isn't worth building.
+(separate decision), but the xG machinery isn't worth building. That goals-offsets promotion is
+**not** cleared by this test: its directional-and-consistent bar was calibrated for the
+small-capped xG question, not as a general green light. It still routes through the existing
+champion/challenger gate (`pipeline/experiment_model_eval.py`, CI-excludes-zero), like any other
+served-model change.
 
 ## Risks
 
