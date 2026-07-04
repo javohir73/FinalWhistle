@@ -645,7 +645,8 @@ git commit -m "feat(club-xg): clustered bootstrap CI for paired metric diff"
 
 ```python
 from datetime import date
-from pipeline.run_club_xg_validation import offsets_for_config, walk_forward, verdict
+from ml.models.params import load_params
+from pipeline.run_club_xg_validation import offsets_for_config, walk_forward, verdict, _score
 
 def _row(h, a, sh, sa, season, xgh=None, xga=None, d=None):
     return {"date": date.fromisoformat(d or f"{season}-03-01"), "season": season,
@@ -677,6 +678,29 @@ def test_verdict_fails_when_one_league_clearly_worse():
                   "A_log_loss": 1.10, "B_log_loss": 1.00, "C_log_loss": 1.05,  # +0.05 > +0.002 floor
                   "A_brier": 0.62, "B_brier": 0.60, "C_brier": 0.62})
     assert verdict(cells)["pass"] is False
+
+def test_score_applies_home_advantage_for_nonneutral():
+    params = load_params()
+    home_win = _score([_row(1, 2, 1, 0, 2022)], {}, params)  # equal Elo, home wins
+    away_win = _score([_row(1, 2, 0, 1, 2022)], {}, params)  # equal Elo, away wins
+    # Home advantage makes a home win likelier than an away win at equal Elo, so its
+    # log-loss is lower. With home_adv hardcoded to 0.0 these would be equal.
+    assert home_win["log_loss"] < away_win["log_loss"]
+
+def test_walk_forward_uses_held_season_start_across_calendar_boundary():
+    # Prior season 2021 crosses the calendar boundary (autumn 2021 -> spring 2022).
+    rows = {"L": [
+        _row(1, 2, 3, 0, 2021, d="2021-09-01"),
+        _row(2, 1, 0, 2, 2021, d="2022-03-01"),  # spring: must survive into the fit
+        _row(1, 2, 1, 1, 2022, d="2022-09-01"),
+    ]}
+    cell = next(c for c in walk_forward(rows) if c["season"] == 2022)
+    params = load_params()
+    train = [r for r in rows["L"] if r["season"] < 2022]
+    held = [r for r in rows["L"] if r["season"] == 2022]
+    ref = min(r["date"] for r in held)  # correct cutoff keeps the spring-2022 row
+    expected = _score(held, offsets_for_config(train, ref, "B"), params)
+    assert abs(cell["B_log_loss"] - expected["log_loss"]) < 1e-12
 ```
 
 - [ ] **Step 2: Run to verify it fails**
@@ -695,7 +719,6 @@ predict the held-out season, score with compute_metrics, and apply the plan's
 PRE-REGISTERED directional+consistent verdict. Offline; run via CLI."""
 from __future__ import annotations
 import argparse, logging, math
-from datetime import date
 
 from ml.evaluation.backtest import compute_metrics
 from ml.evaluation.cluster_bootstrap import paired_diff_ci
@@ -727,8 +750,9 @@ def _score(rows, offsets, params) -> dict:
     for r in rows:
         atk_h, def_h = offsets.get(r["home_id"], (0.0, 0.0))
         atk_a, def_a = offsets.get(r["away_id"], (0.0, 0.0))
+        adv = 0.0 if r["is_neutral"] else params.home_adv  # club rows are non-neutral
         p = predict_match(
-            r["pre_home"], r["pre_away"], home_adv=0.0,
+            r["pre_home"], r["pre_away"], home_adv=adv,
             base=params.base, beta=params.beta, rho=params.rho,
             atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
         )
@@ -749,7 +773,11 @@ def walk_forward(rows_by_league, params=None) -> list[dict]:
             held = [r for r in rows if r["season"] == season]
             if not train or not held:
                 continue
-            ref = date(season, 1, 1)
+            # ref is the held season's first match — the leak-free cutoff AND the
+            # decay reference. NOT date(season, 1, 1): European seasons span Aug-May,
+            # so a Jan-1 cutoff silently drops the spring half of every prior season
+            # from the fit and needlessly weakens the test.
+            ref = min(r["date"] for r in held)
             cell = {"league": league, "season": season, "n": len(held)}
             for cfg in ("A", "B", "C"):
                 offs = offsets_for_config(train, ref, cfg)
