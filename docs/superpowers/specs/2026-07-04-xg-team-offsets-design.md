@@ -110,11 +110,10 @@ goals). Let `S` = teams with any xG coverage (`n_eff_xg,t > 0`).
 
 ## Data — ingestion & backfill
 
-- **Fetch.** New `fetch_fixture_statistics(api_key, fixture_id)` in
-  `pipeline/ingest/api_football.py` → `GET /fixtures/statistics?fixture=`, same
-  `x-apisports-key` / 200-with-`errors` handling as the existing fetchers. Pure parser
-  `parse_team_xg(response) -> {side: xg}` reading the `expected_goals` statistic per team
-  (returns `None` per side when the field is absent — never fabricate).
+- **Fetch.** Reuse the shared `fetch_fixture_statistics(api_key, fixture_id)` + `parse_team_xg`
+  (built in the club-league spec) — `GET /fixtures/statistics?fixture=`, `expected_goals` per
+  team, `None` per side when absent (never fabricate), same `x-apisports-key` /
+  200-with-`errors` handling as the existing fetchers.
 - **Fixture matching.** Map each in-scope `historical_matches` row to its api-football fixture.
   Neutral venues (most of a WC) label home/away inconsistently across sources, so match on
   `(date, home, away)` **and** fall back to the swapped `(date, away, home)` with the xG sides
@@ -195,7 +194,8 @@ confirmation in the same spirit — neither is the verdict.
 0. **Coverage probe** (throwaway script) — sample `/fixtures/statistics` on recent
    internationals; confirm `expected_goals` populated for our teams. **Go/no-go gate.**
 1. **Migration** — nullable `xg_a`/`xg_b` on `historical_matches`; dispatch `refresh.yml`.
-2. **Fetch/parse** — `fetch_fixture_statistics` + `parse_team_xg`.
+2. **Wire the shared fetcher/parser** — consume `fetch_fixture_statistics` + `parse_team_xg`
+   (built in the club spec).
 3. **Backfill** — `pipeline/backfill_xg.py` over the in-scope window (idempotent).
 4. **Produce the store** — run the (club-spec-validated) offset method over the WC
    xG-backfilled history → `team_offsets_xg.json`. No new fitter logic here — this spec only
