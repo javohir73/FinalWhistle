@@ -40,6 +40,13 @@ SHADOW_MODEL_VERSION = "poisson-elo-v0.3-shadow"
 #: availability comparison (docs/superpowers/specs/2026-07-03-availability-signal-design.md).
 AVAILABILITY_MODEL_VERSION = "poisson-elo-v0.3+avail"
 
+#: Version tag for the StatsBomb xG-nudged team-offsets twin. Mirrors
+#: AVAILABILITY_MODEL_VERSION: an is_shadow row, never served, loaded from
+#: ml/models/team_offsets_xg.json INDEPENDENT of params.team_offsets (the
+#: shadow-first invariant — this twin runs whether or not the served offsets
+#: flag is ever flipped). docs/superpowers/plans/2026-07-04-statsbomb-xg-team-offsets.md.
+OFFSETS_MODEL_VERSION = "poisson-elo-v0.3+xg"
+
 
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
     """Signed host bonus: + if home is host, - if away is host (boosts away)."""
@@ -363,6 +370,56 @@ def write_availability_prediction(
     _write_prediction(db, match, twin, AVAILABILITY_MODEL_VERSION, is_shadow=True)
 
 
+def write_offsets_prediction(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+) -> None:
+    """Write the StatsBomb xG-nudged team-offsets twin of a production payload.
+
+    Loads ml/models/team_offsets_xg.json INDEPENDENT of params.team_offsets —
+    the shadow-first invariant: this twin runs whether or not the served
+    offsets flag is ever flipped, so it never depends on a promotion decision.
+    Both sides all-zero (no coverage for either team) -> no row (clean null
+    test, mirrors write_availability_prediction's ``if adj is None: return``).
+    Otherwise the production lambdas are scaled by the SAME cross-term the
+    served engine already applies when team_offsets is enabled
+    (ml/models/poisson.py:66-69): lambda_home *= exp(atk_home + def_away),
+    lambda_away *= exp(atk_away + def_home). The grid/triple/headline are
+    recomputed through the same calibrated pipeline (predict_from_lambdas).
+    Never served — is_shadow=True, tagged OFFSETS_MODEL_VERSION."""
+    store = load_team_offsets("ml/models/team_offsets_xg.json")
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    atk_h, def_h = offsets_for(store, home.name)
+    atk_a, def_a = offsets_for(store, away.name)
+    if not (atk_h or def_h or atk_a or def_a):
+        return
+    lam_h = payload["lambda_home"] * math.exp(atk_h + def_a)
+    lam_a = payload["lambda_away"] * math.exp(atk_a + def_h)
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    pred = predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
+    )
+    twin = {
+        **payload,
+        "probabilities": {
+            "home_win": round(pred.prob_home_win, 4),
+            "draw": round(pred.prob_draw, 4),
+            "away_win": round(pred.prob_away_win, 4),
+        },
+        "predicted_score": {
+            "home": pred.score_home, "away": pred.score_away,
+            "probability": round(pred.score_prob, 4),
+        },
+        "lambda_home": round(pred.lambda_home, 4),
+        "lambda_away": round(pred.lambda_away, 4),
+    }
+    _write_prediction(db, match, twin, OFFSETS_MODEL_VERSION, is_shadow=True)
+
+
 def _played_score(m: Match) -> tuple[int, int] | None:
     """The final score when a match has actually been played, else None.
     In-play matches stay None — they aren't final until the whistle."""
@@ -553,6 +610,7 @@ def generate_predictions(
         # w_odds > 0, otherwise an exact copy — either way never served.
         write_shadow_prediction(db, match, payload, strengths, params)
         write_availability_prediction(db, match, payload, strengths, params)
+        write_offsets_prediction(db, match, payload, strengths, params)
         predicted += 1
 
     groups = db.query(Group).all()

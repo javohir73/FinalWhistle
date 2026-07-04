@@ -254,6 +254,25 @@ def availability_record_endpoint(
     return availability_record(db)
 
 
+@router.get("/offsets-record")
+def offsets_record_endpoint(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """xG-offsets twin vs published forecast, paired on finished matches — the
+    StatsBomb xG-nudged team-offsets signal's evidence path
+    (docs/superpowers/plans/2026-07-04-statsbomb-xg-team-offsets.md).
+    Token-guarded and internal: the input to the MANUAL promotion decision,
+    nothing here auto-promotes. Compute-on-read over frozen Prediction rows —
+    no persistence, no prediction_results row (that stays odds-only)."""
+    _require_token(x_recompute_token)
+    # Lazy import (call-time) mirrors this module's other pipeline imports and
+    # avoids the app->pipeline cycle at load.
+    from pipeline.run_offsets_benchmark import offsets_record
+
+    return offsets_record(db)
+
+
 @router.post("/recompute-scores")
 def recompute_scores_endpoint(
     db: Session = Depends(get_db),
