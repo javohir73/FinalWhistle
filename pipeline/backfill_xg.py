@@ -61,6 +61,23 @@ def _get_json(url: str):
         return None
 
 
+def _parse_civil_date(raw) -> "date_type | None":
+    """Civil date from a bare 'YYYY-MM-DD' string or a date/datetime; `None` when
+    unparseable. Best-effort: a malformed StatsBomb match_date skips that record
+    rather than aborting the whole backfill (the never-raises contract).
+    """
+    if raw is None:
+        return None
+    if hasattr(raw, "date"):        # datetime -> its .date()
+        return raw.date()
+    if isinstance(raw, date_type):  # already a plain date
+        return raw
+    try:
+        return date_type.fromisoformat(str(raw))
+    except (ValueError, TypeError):
+        return None
+
+
 def enumerate_editions(competitions_json) -> list[tuple[int, int]]:
     """Filter-verify the pinned SIX_EDITIONS pairs against `competitions.json`.
 
@@ -183,11 +200,11 @@ def match_statsbomb_to_rows(
             continue
         # StatsBomb's match_date is a bare "YYYY-MM-DD"; historical_matches.date
         # is a midnight-UTC-pinned civil date (pipeline/ingest/historical_results.py:106)
-        # -- compare as civil dates, no instant conversion.
-        civil_date = (
-            raw_date.date() if hasattr(raw_date, "date")
-            else date_type.fromisoformat(raw_date)
-        )
+        # -- compare as civil dates, no instant conversion. A malformed date is
+        # skipped (never raises), honoring the backfill's contract.
+        civil_date = _parse_civil_date(raw_date)
+        if civil_date is None:
+            continue
         key = (civil_date, home, away)
         if key in by_key:
             ambiguous.add(key)
@@ -253,11 +270,116 @@ def _resolvable_row_id(sb_match: dict, row_by_key: dict[tuple, dict], normalize)
     raw_date = sb_match.get("match_date")
     home = normalize(sb_match.get("home_team", {}).get("home_team_name"))
     away = normalize(sb_match.get("away_team", {}).get("away_team_name"))
-    if not raw_date or not home or not away:
+    d = _parse_civil_date(raw_date)
+    if d is None or not home or not away:
         return None
-    d = date_type.fromisoformat(raw_date)
     row = row_by_key.get((d, home, away)) or row_by_key.get((d, away, home))
     return row["id"] if row is not None else None
+
+
+def _backfill_edition(
+    db: Session,
+    cid: int,
+    sid: int,
+    cache_dir: str | Path,
+    id_to_name: dict[int, "str | None"],
+    summary: dict,
+) -> None:
+    """Populate one edition's rows and commit once; mutates `summary` in place.
+
+    The caller wraps this in try/except so a single edition's failure (a bad
+    record, a DB hiccup) is logged and skipped rather than aborting the whole
+    run — the never-raises contract lives at that boundary.
+    """
+    from app.models import HistoricalMatch  # local import: keep this module DB-optional
+
+    sb_matches = _get_json(f"{BASE_URL}/matches/{cid}/{sid}.json") or []
+    if not sb_matches:
+        log.warning("statsbomb backfill: no matches for (competition_id=%s, season_id=%s)", cid, sid)
+        return
+    summary["matches_seen"] += len(sb_matches)
+
+    # In-scope national-team rows ONLY: date must fall within this edition's
+    # actual match dates, so the swapped-key fallback in match_statsbomb_to_rows
+    # can't accidentally match an unrelated same-date friendly outside it. A
+    # malformed match_date is dropped by _parse_civil_date, never raised.
+    edition_dates = {
+        d for d in (_parse_civil_date(m.get("match_date")) for m in sb_matches)
+        if d is not None
+    }
+    orm_rows = [
+        r for r in db.query(HistoricalMatch).filter(HistoricalMatch.date.isnot(None)).all()
+        if (r.date.date() if hasattr(r.date, "date") else r.date) in edition_dates
+    ]
+    row_by_id = {r.id: r for r in orm_rows}
+
+    # Idempotent skip: already-populated rows are excluded from the join dict
+    # entirely, so their events are never fetched.
+    pending_rows = [r for r in orm_rows if r.xg_a is None]
+    summary["skipped_populated"] += len(orm_rows) - len(pending_rows)
+
+    row_dicts = [
+        {"id": r.id, "team_a_id": r.team_a_id, "team_b_id": r.team_b_id,
+         "date": r.date, "score_a": r.score_a, "score_b": r.score_b, "xg_a": r.xg_a}
+        for r in pending_rows
+    ]
+    row_by_key: dict[tuple, dict] = {}
+    for row in row_dicts:
+        name_a = normalize_team_name(id_to_name.get(row["team_a_id"]))
+        name_b = normalize_team_name(id_to_name.get(row["team_b_id"]))
+        if name_a and name_b:
+            d = _parse_civil_date(row["date"])
+            if d is not None:
+                row_by_key[(d, name_a, name_b)] = row
+
+    # Build the in-scope join dict ONCE, then only fetch events for a match that
+    # resolves (direct or swapped) to a pending row -- an already-populated
+    # row's events file is never touched.
+    sb_records = []
+    for m in sb_matches:
+        row_id = _resolvable_row_id(m, row_by_key, normalize_team_name)
+        home_xg = away_xg = None
+        if row_id is not None:
+            events = _fetch_events(m.get("match_id"), cache_dir)
+            if not events:
+                log.warning("statsbomb backfill: events fetch failed for match_id=%s", m.get("match_id"))
+            home_xg, away_xg = match_xg(m, events)
+            if home_xg is None and away_xg is None:
+                summary["xg_absent"] += 1
+                log.warning(
+                    "statsbomb backfill: no shot-xG for match_id=%s (%s vs %s)",
+                    m.get("match_id"),
+                    m.get("home_team", {}).get("home_team_name"),
+                    m.get("away_team", {}).get("away_team_name"),
+                )
+        sb_records.append({
+            "match_date": m.get("match_date"),
+            "home_team": m.get("home_team", {}).get("home_team_name"),
+            "away_team": m.get("away_team", {}).get("away_team_name"),
+            "home_score": m.get("home_score"),
+            "away_score": m.get("away_score"),
+            "home_xg": home_xg,
+            "away_xg": away_xg,
+        })
+
+    writes, unmatched = match_statsbomb_to_rows(
+        sb_records, row_dicts, id_to_name, normalize_team_name
+    )
+
+    for w in writes:
+        row = row_by_id[w["id"]]
+        row.xg_a = w["xg_a"]
+        row.xg_b = w["xg_b"]
+        summary["rows_written"] += 1
+
+    for rec in unmatched:
+        summary["unmatched"] += 1
+        log.warning(
+            "statsbomb backfill: unmatched fixture %s vs %s on %s",
+            rec.get("home_team"), rec.get("away_team"), rec.get("match_date"),
+        )
+
+    db.commit()
 
 
 def backfill_xg(
@@ -276,7 +398,7 @@ def backfill_xg(
     Returns a summary dict: `{editions, matches_seen, rows_written,
     skipped_populated, unmatched, xg_absent}`.
     """
-    from app.models import HistoricalMatch, Team  # local import: keep this module DB-optional
+    from app.models import Team  # local import: keep this module DB-optional
 
     competitions_json = _get_json(f"{BASE_URL}/competitions.json")
     verified_editions = enumerate_editions(competitions_json) if competitions_json else []
@@ -296,91 +418,10 @@ def backfill_xg(
     }
 
     for cid, sid in verified_editions:
-        sb_matches = _get_json(f"{BASE_URL}/matches/{cid}/{sid}.json") or []
-        if not sb_matches:
-            log.warning("statsbomb backfill: no matches for (competition_id=%s, season_id=%s)", cid, sid)
-            continue
-        summary["matches_seen"] += len(sb_matches)
-
-        # In-scope national-team rows ONLY: date must fall within this
-        # edition's actual match dates, so the swapped-key fallback in
-        # match_statsbomb_to_rows can't accidentally match an unrelated
-        # same-date friendly outside this edition.
-        edition_dates = {
-            date_type.fromisoformat(m["match_date"])
-            for m in sb_matches
-            if m.get("match_date")
-        }
-        orm_rows = [
-            r for r in db.query(HistoricalMatch).filter(HistoricalMatch.date.isnot(None)).all()
-            if (r.date.date() if hasattr(r.date, "date") else r.date) in edition_dates
-        ]
-        row_by_id = {r.id: r for r in orm_rows}
-
-        # Idempotent skip: rows already populated are excluded from the join
-        # dict entirely, so their events are never fetched.
-        pending_rows = [r for r in orm_rows if r.xg_a is None]
-        summary["skipped_populated"] += len(orm_rows) - len(pending_rows)
-
-        row_dicts = [
-            {"id": r.id, "team_a_id": r.team_a_id, "team_b_id": r.team_b_id,
-             "date": r.date, "score_a": r.score_a, "score_b": r.score_b, "xg_a": r.xg_a}
-            for r in pending_rows
-        ]
-        row_by_key: dict[tuple, dict] = {}
-        for row in row_dicts:
-            name_a = normalize_team_name(id_to_name.get(row["team_a_id"]))
-            name_b = normalize_team_name(id_to_name.get(row["team_b_id"]))
-            if name_a and name_b:
-                row_by_key[(row["date"].date(), name_a, name_b)] = row
-
-        # Build the in-scope join dict ONCE per edition, then only fetch
-        # events for a match that resolves (direct or swapped) to a pending
-        # row -- an already-populated row's events file is never touched.
-        sb_records = []
-        for m in sb_matches:
-            row_id = _resolvable_row_id(m, row_by_key, normalize_team_name)
-            home_xg = away_xg = None
-            if row_id is not None:
-                events = _fetch_events(m.get("match_id"), cache_dir)
-                if not events:
-                    log.warning("statsbomb backfill: events fetch failed for match_id=%s", m.get("match_id"))
-                home_xg, away_xg = match_xg(m, events)
-                if home_xg is None and away_xg is None:
-                    summary["xg_absent"] += 1
-                    log.warning(
-                        "statsbomb backfill: no shot-xG for match_id=%s (%s vs %s)",
-                        m.get("match_id"),
-                        m.get("home_team", {}).get("home_team_name"),
-                        m.get("away_team", {}).get("away_team_name"),
-                    )
-            sb_records.append({
-                "match_date": m.get("match_date"),
-                "home_team": m.get("home_team", {}).get("home_team_name"),
-                "away_team": m.get("away_team", {}).get("away_team_name"),
-                "home_score": m.get("home_score"),
-                "away_score": m.get("away_score"),
-                "home_xg": home_xg,
-                "away_xg": away_xg,
-            })
-
-        writes, unmatched = match_statsbomb_to_rows(
-            sb_records, row_dicts, id_to_name, normalize_team_name
-        )
-
-        for w in writes:
-            row = row_by_id[w["id"]]
-            row.xg_a = w["xg_a"]
-            row.xg_b = w["xg_b"]
-            summary["rows_written"] += 1
-
-        for rec in unmatched:
-            summary["unmatched"] += 1
-            log.warning(
-                "statsbomb backfill: unmatched fixture %s vs %s on %s",
-                rec.get("home_team"), rec.get("away_team"), rec.get("match_date"),
-            )
-
-        db.commit()
+        try:
+            _backfill_edition(db, cid, sid, cache_dir, id_to_name, summary)
+        except Exception as exc:  # noqa: BLE001 - one edition must never abort the run
+            log.warning("statsbomb backfill: edition (%s,%s) failed: %s", cid, sid, exc)
+            db.rollback()
 
     return summary

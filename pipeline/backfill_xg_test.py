@@ -28,6 +28,7 @@ from app.models import HistoricalMatch, Team
 from pipeline.backfill_xg import (
     SIX_EDITIONS,
     backfill_xg,
+    enumerate_editions,
     match_statsbomb_to_rows,
     match_xg,
     sum_shot_xg_by_team,
@@ -284,3 +285,73 @@ def test_backfill_skips_populated_rows(tmp_path, monkeypatch):
     assert summary["rows_written"] == 0
     db.refresh(populated)
     assert populated.xg_a == 2.27 and populated.xg_b == 2.76
+
+
+def test_backfill_survives_malformed_match_date(tmp_path, monkeypatch):
+    # A malformed StatsBomb match_date must NOT abort the run (never-raises
+    # contract): the bad record is skipped, the valid match is still written.
+    db = _session()
+    france, argentina = Team(name="France"), Team(name="Argentina")
+    db.add_all([france, argentina])
+    db.flush()
+    row = HistoricalMatch(
+        date=datetime(2022, 12, 18, tzinfo=timezone.utc),
+        team_a_id=france.id, team_b_id=argentina.id,
+        score_a=3, score_b=3, xg_a=None, xg_b=None,
+    )
+    db.add(row)
+    db.commit()
+
+    cache_dir = tmp_path / "statsbomb_cache"
+    (cache_dir / "events").mkdir(parents=True)
+
+    competitions = [{"competition_id": cid, "season_id": sid} for cid, sid in SIX_EDITIONS]
+    valid = {
+        "match_id": 3869685, "match_date": "2022-12-18",
+        "home_team": {"home_team_name": "France"},
+        "away_team": {"away_team_name": "Argentina"},
+        "home_score": 3, "away_score": 3,
+    }
+    malformed = {
+        "match_id": 999, "match_date": "2022-13-99",  # fromisoformat would raise
+        "home_team": {"home_team_name": "Brazil"},
+        "away_team": {"away_team_name": "Croatia"},
+        "home_score": 1, "away_score": 1,
+    }
+    matches = {SIX_EDITIONS[1]: [valid, malformed]}
+
+    def fake_get_json(url):
+        if url.endswith("/competitions.json"):
+            return competitions
+        for (cid, sid), ms in matches.items():
+            if url.endswith(f"/matches/{cid}/{sid}.json"):
+                return ms
+        return []
+
+    def fake_fetch_events(match_id, cache_dir):
+        if match_id == 3869685:
+            return [_shot("France", 2.27), _shot("Argentina", 2.76)]
+        return []
+
+    monkeypatch.setattr("pipeline.backfill_xg._get_json", fake_get_json)
+    monkeypatch.setattr("pipeline.backfill_xg._fetch_events", fake_fetch_events)
+
+    summary = backfill_xg(db, cache_dir=str(cache_dir), editions=SIX_EDITIONS)  # must not raise
+
+    assert summary["rows_written"] == 1
+    db.refresh(row)
+    assert row.xg_a == 2.27 and row.xg_b == 2.76
+
+
+def test_enumerate_editions_keeps_282_collision():
+    # Copa America 2024 (223,282) and UEFA Euro 2024 (55,282) share season_id
+    # 282; enumerate_editions must keep BOTH (keyed on the PAIR, never season_id
+    # alone) — the collision the SIX_EDITIONS comment warns about.
+    competitions = [
+        {"competition_id": 55, "season_id": 282},
+        {"competition_id": 223, "season_id": 282},
+        {"competition_id": 43, "season_id": 3},
+    ]
+    editions = enumerate_editions(competitions)
+    assert (55, 282) in editions
+    assert (223, 282) in editions

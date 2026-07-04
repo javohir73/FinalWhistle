@@ -11,11 +11,18 @@ output). The blend:
 
     1. Goals fit  -> {t: g_hat_t}                 (today's fitter, full history)
     2. xG fit     -> {t in S: x_hat_t}             (same fitter, goal_keys=xg_a/xg_b)
-    3. Re-anchor  -> delta = sum_{t in S} n_eff_xg,t * (g_hat_t - x_hat_t)
-                             / sum_{t in S} n_eff_xg,t
-                     x_hat'_t = x_hat_t + delta
+    3. Re-anchor  -> PER CHANNEL c in {atk, def} (fit_offsets centers atk and def
+                     separately, so each has its own zero-point mismatch):
+                     delta_c = sum_{t in S} n_eff_xg,t * (g_hat_t,c - x_hat_t,c)
+                               / sum_{t in S} n_eff_xg,t
+                     x_hat'_t,c = x_hat_t,c + delta_c
     4. Blend      -> kappa_t = min(1, sqrt(n_eff_xg,t / FULL_WEIGHT_EFF_MATCHES))
-                     offset_t = g_hat_t + kappa_t * (x_hat'_t - g_hat_t)
+                     offset_t,c = clamp( g_hat_t,c + kappa_t * (x_hat'_t,c - g_hat_t,c) )
+                     re-clamped to OFFSET_CAP: delta_c can push x_hat' outside the
+                     capped region, so the convex combination is NOT cap-preserving
+                     on its own (the spec's "convexity keeps it capped for free" is
+                     wrong once delta shifts a channel out) -- enforce it here, not
+                     via offsets_for's load-time defence-in-depth clamp.
 
 S empty (no team has any xG coverage) -> delta is undefined -> skip the xG
 nudge entirely and write the goals store unchanged (the kill-switch: a null xG
@@ -35,40 +42,64 @@ from pathlib import Path
 
 from ml.features.training_rows import _as_date
 from ml.models.params import ModelParams
-from ml.models.team_offsets import FULL_WEIGHT_EFF_MATCHES
+from ml.models.team_offsets import FULL_WEIGHT_EFF_MATCHES, OFFSET_CAP
 from pipeline.fit_attack_defence import fit_offsets
 
 _OUT_FILE = Path(__file__).resolve().parents[1] / "ml" / "models" / "team_offsets_xg.json"
 
 
-def reanchor(goals_offsets: dict[int, dict], xg_offsets: dict[int, dict]) -> float:
-    """delta = the n_eff_xg-weighted mean gap (g_hat - x_hat) over S = teams
-    present in xg_offsets. 0.0 when S is empty (undefined -> no-op, not NaN).
+def reanchor(goals_offsets: dict[int, dict], xg_offsets: dict[int, dict]) -> dict[str, float]:
+    """Per-channel zero-point correction between the goals fit and the xG fit.
+
+    fit_offsets centers atk and def SEPARATELY, each to its own n_eff-weighted
+    mean (fit_attack_defence.py:146-147). The goals fit is centered over the full
+    population, the xG fit over the covered subset S, so the two fits' zero points
+    differ by a DIFFERENT scalar on each channel. Return {"atk": delta_atk,
+    "def": delta_def}, each the n_eff_xg-weighted mean gap (g_hat - x_hat) over S,
+    so x_hat + delta lands back on the goals frame per channel. Both 0.0 when S is
+    empty (undefined -> no-op, not NaN). Applying the atk shift to the def channel
+    (the earlier single-scalar form) both used the wrong frame AND could push def
+    past OFFSET_CAP.
     """
+    zero = {"atk": 0.0, "def": 0.0}
     if not xg_offsets:
-        return 0.0
-    num = sum(
-        entry["n_eff"] * (goals_offsets[t]["atk"] - entry["atk"])
+        return zero
+    shared = [
+        (goals_offsets[t], entry)
         for t, entry in xg_offsets.items()
         if t in goals_offsets
-    )
-    den = sum(
-        entry["n_eff"] for t, entry in xg_offsets.items() if t in goals_offsets
-    )
+    ]
+    den = sum(x["n_eff"] for _, x in shared)
     if den <= 0:
-        return 0.0
-    return num / den
+        return zero
+    return {
+        ch: sum(x["n_eff"] * (g[ch] - x[ch]) for g, x in shared) / den
+        for ch in ("atk", "def")
+    }
+
+
+def _clamp(v: float) -> float:
+    """Clamp a blended offset to the same +/-OFFSET_CAP the fitter caps its own
+    outputs at (ml/models/team_offsets.py)."""
+    return max(-OFFSET_CAP, min(OFFSET_CAP, v))
 
 
 def blend_offsets(
-    goals_offsets: dict[int, dict], xg_offsets: dict[int, dict], delta: float
+    goals_offsets: dict[int, dict], xg_offsets: dict[int, dict], delta: dict[str, float]
 ) -> dict[int, dict]:
-    """offset_t = g_hat_t + kappa_t * (x_hat_t + delta - g_hat_t), applied to
-    both atk and def with the SAME kappa (coverage is per-team, not per-stat).
-    Teams outside S (kappa=0) reproduce the goals offset exactly. Output shape
-    matches fit_and_write's payload: {atk, def, n_matches} (n_eff is internal
-    to this blend and not persisted, per the fitter's own store shape).
+    """offset_t,c = clamp( g_hat_t,c + kappa_t * (x_hat_t,c + delta_c - g_hat_t,c) )
+    per channel c in {atk, def}, with a per-team kappa (coverage is per-team, not
+    per-stat) and the per-channel re-anchor delta.
+
+    The final blend is re-clamped to OFFSET_CAP HERE, not left to offsets_for's
+    load-time clamp: delta_c can push (x_hat + delta_c) outside the capped region,
+    so the convex combination is not cap-preserving on its own. Re-clamping at the
+    blend keeps the PERSISTED store in-policy (the record endpoint and the A/B
+    report read these raw numbers). Teams outside S (kappa=0) reproduce the goals
+    offset exactly. Output shape matches fit_and_write's payload:
+    {atk, def, n_matches} (n_eff is internal to this blend and not persisted).
     """
+    d_atk, d_def = delta["atk"], delta["def"]
     out: dict[int, dict] = {}
     for t, g in goals_offsets.items():
         x = xg_offsets.get(t)
@@ -77,10 +108,8 @@ def blend_offsets(
         if kappa <= 0.0 or x is None:
             atk, dfn = g["atk"], g["def"]
         else:
-            x_atk = x["atk"] + delta
-            x_dfn = x["def"] + delta
-            atk = g["atk"] + kappa * (x_atk - g["atk"])
-            dfn = g["def"] + kappa * (x_dfn - g["def"])
+            atk = _clamp(g["atk"] + kappa * (x["atk"] + d_atk - g["atk"]))
+            dfn = _clamp(g["def"] + kappa * (x["def"] + d_def - g["def"]))
         out[t] = {"atk": atk, "def": dfn, "n_matches": g["n_matches"]}
     return out
 
@@ -164,7 +193,8 @@ def main() -> int:
         db.close()
     print(
         f"Built xG-nudged offsets for {summary['teams']} teams "
-        f"({summary['xg_teams']} with xG coverage, delta={summary['delta']:.6f}) "
+        f"({summary['xg_teams']} with xG coverage, "
+        f"delta_atk={summary['delta']['atk']:.6f} delta_def={summary['delta']['def']:.6f}) "
         f"-> {summary['out']}"
     )
     return 0

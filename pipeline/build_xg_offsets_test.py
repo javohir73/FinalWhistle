@@ -35,9 +35,12 @@ def test_reanchor_removes_zero_point_shift():
         2: _offs(-0.01 - shift, 0.03 - shift, n_eff=20.0),
     }
     delta = reanchor(goals, xg)
-    assert delta == pytest.approx(shift)
+    # Per-channel: both atk and def were shifted by the same scalar here, so
+    # each channel's own delta recovers it.
+    assert delta["atk"] == pytest.approx(shift)
+    assert delta["def"] == pytest.approx(shift)
 
-    reanchored = {t: xg[t]["atk"] + delta for t in xg}
+    reanchored = {t: xg[t]["atk"] + delta["atk"] for t in xg}
     # Shared-set gap (goals atk - reanchored xG atk), weighted by n_eff_xg, is
     # mean-zero by construction.
     num = sum(xg[t]["n_eff"] * (goals[t]["atk"] - reanchored[t]) for t in xg)
@@ -60,21 +63,46 @@ def test_blend_kappa_zero_is_goals_identity():
 
 
 def test_blend_stays_capped():
-    """Convexity of already-capped goals/xG inputs keeps every blended offset
-    within OFFSET_CAP, even at full kappa=1 confidence and a worst-case
-    re-anchor shift (both inputs pinned to the cap, opposite signs)."""
+    """BOTH channels of every blended offset stay within OFFSET_CAP at full
+    kappa=1 and the opposite-signed extreme. With the per-channel re-anchor,
+    def is no longer shifted by atk's delta, so it is genuinely capped (not just
+    rescued by offsets_for's load-time clamp)."""
     goals = {1: _offs(OFFSET_CAP, -OFFSET_CAP, n_eff=100.0)}
     xg = {1: _offs(-OFFSET_CAP, OFFSET_CAP, n_eff=100.0)}  # opposite-signed extreme
     delta = reanchor(goals, xg)
-    # Re-anchor is defined from the atk gap; def's blend uses the SAME delta
-    # (one scalar zero-point shift per the spec), so with atk/def flipped in
-    # sign here def is the adversarial case for the cap, not atk.
     blended = blend_offsets(goals, xg, delta)
     assert abs(blended[1]["atk"]) <= OFFSET_CAP + 1e-12
+    assert abs(blended[1]["def"]) <= OFFSET_CAP + 1e-12  # the channel that used to breach
 
     # kappa itself must saturate at 1 once n_eff_xg reaches the full-weight count.
     kappa = min(1.0, math.sqrt(100.0 / FULL_WEIGHT_EFF_MATCHES))
     assert kappa == 1.0
+
+
+def test_blend_clamps_delta_driven_breach():
+    """A multi-team re-anchor delta that does NOT cancel per team can push a
+    well-covered team's (x + delta) past the cap; the blend must clamp it. Here
+    team A's gap is 0 but team B's large gap drags delta up to 0.075 on each
+    channel, so team A's uncapped blend would be 2x OFFSET_CAP -- the clamp is
+    the real enforcement, not convexity."""
+    goals = {
+        1: _offs(OFFSET_CAP, OFFSET_CAP * 0.5, n_eff=100.0),   # team A, gap 0
+        2: _offs(OFFSET_CAP, OFFSET_CAP * 0.5, n_eff=100.0),   # team B, big gap below
+    }
+    xg = {
+        1: _offs(OFFSET_CAP, OFFSET_CAP * 0.5, n_eff=100.0),     # A: x == g (gap 0)
+        2: _offs(-OFFSET_CAP, -OFFSET_CAP * 0.5, n_eff=100.0),   # B: opposite sign
+    }
+    delta = reanchor(goals, xg)
+    assert delta["atk"] == pytest.approx(OFFSET_CAP)          # (0 + 0.15)/2
+    assert delta["def"] == pytest.approx(OFFSET_CAP * 0.5)
+    blended = blend_offsets(goals, xg, delta)
+    # Team A's raw blend would be g + (x + delta - g) = x + delta = 2*cap; clamped.
+    assert blended[1]["atk"] == pytest.approx(OFFSET_CAP)
+    assert blended[1]["def"] == pytest.approx(OFFSET_CAP)
+    for entry in blended.values():
+        assert abs(entry["atk"]) <= OFFSET_CAP + 1e-12
+        assert abs(entry["def"]) <= OFFSET_CAP + 1e-12
 
 
 def test_blend_stays_capped_same_signed_inputs():
@@ -85,7 +113,8 @@ def test_blend_stays_capped_same_signed_inputs():
     goals = {1: _offs(OFFSET_CAP, -OFFSET_CAP, n_eff=100.0)}
     xg = {1: _offs(OFFSET_CAP, -OFFSET_CAP, n_eff=100.0)}
     delta = reanchor(goals, xg)
-    assert delta == pytest.approx(0.0)
+    assert delta["atk"] == pytest.approx(0.0)
+    assert delta["def"] == pytest.approx(0.0)
     blended = blend_offsets(goals, xg, delta)
     assert abs(blended[1]["atk"]) <= OFFSET_CAP + 1e-12
     assert abs(blended[1]["def"]) <= OFFSET_CAP + 1e-12
@@ -98,7 +127,7 @@ def test_empty_S_writes_goals_store():
     goals = {1: _offs(0.05, -0.01, n_matches=9), 2: _offs(-0.02, 0.02, n_matches=7)}
     xg: dict[int, dict] = {}
     delta = reanchor(goals, xg)
-    assert delta == 0.0
+    assert delta == {"atk": 0.0, "def": 0.0}
 
     blended = blend_offsets(goals, xg, delta)
     assert blended == {

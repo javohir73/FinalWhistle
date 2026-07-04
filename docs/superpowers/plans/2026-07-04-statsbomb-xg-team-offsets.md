@@ -251,12 +251,12 @@ The spec predates this data-source swap and the grounding pass. Where it conflic
 - [ ] **Step 1: Write failing unit tests** (`pipeline/build_xg_offsets_test.py`) — pure over small synthetic offset dicts, no DB:
   - `test_reanchor_removes_zero_point_shift` — given goals-fit `{ĝ_t}` and an xG-fit `{x̂_t}` deliberately offset by a scalar over the shared set `S`, `δ̂ = Σ_{t∈S} n_eff_xg,t·(ĝ_t − x̂_t)/Σ n_eff_xg,t` and `x̂′_t = x̂_t + δ̂` makes the shared-set gap mean-zero (weighted by `n_eff_xg`).
   - `test_blend_kappa_zero_is_goals_identity` — a team with `n_eff_xg=0` (not in `S`) → `κ_t=0` → `offset_t == ĝ_t` exactly (the shadow-first identity: κ=0 teams reproduce today's served numbers through the twin).
-  - `test_blend_stays_capped` — blended `|offset_t| ≤ OFFSET_CAP = 0.075` (convexity of already-capped inputs; `κ_t = min(1, √(n_eff_xg,t/30))`).
+  - `test_blend_stays_capped` + `test_blend_clamps_delta_driven_breach` — blended `|offset_t| ≤ OFFSET_CAP = 0.075` on **both** channels. **Correction to the spec:** δ̂ is applied **per channel** (`fit_offsets` centres atk/def separately, `fit_attack_defence.py:146-147`, so each has its own zero-point) and the blend is **explicitly re-clamped** to `OFFSET_CAP` — convexity does NOT keep it capped once δ̂ shifts a channel out of the capped region (a review caught an atk-derived δ pushing def to 0.12). `κ_t = min(1, √(n_eff_xg,t/30))`.
   - `test_empty_S_writes_goals_store` — if no team has any xG coverage (`S` empty) → `δ̂` undefined → skip the xG fit, write the goals store, log the no-op loudly (kill-switch).
 
 - [ ] **Step 2: Run to verify fail.**
 
-- [ ] **Step 3: Implement `build_xg_offsets(db, out_path="ml/models/team_offsets_xg.json")`** exactly per the design's ML core (spec:73-110), calling the reused `fit_offsets` TWICE (goals over full history; xG over `xg_a`/`xg_b`-covered rows via `goal_keys`), then applying re-anchor δ̂ and the κ-blend `offset_t = ĝ_t + κ_t·(x̂′_t − ĝ_t)`. Write `{team_name: {atk, def, n_matches}}` via the same name-keyed payload shape as `fit_and_write:186-194`. **No new MLE/decay/shrink logic** — this only wires the validated blend to WC data.
+- [ ] **Step 3: Implement `build_xg_offsets(db, out_path="ml/models/team_offsets_xg.json")`** exactly per the design's ML core (spec:73-110), calling the reused `fit_offsets` TWICE (goals over full history; xG over `xg_a`/`xg_b`-covered rows via `goal_keys`), then applying the **per-channel** re-anchor δ̂_c and the κ-blend `offset_t,c = clamp(ĝ_t,c + κ_t·(x̂′_t,c − ĝ_t,c))`, re-clamped to `OFFSET_CAP`. Write `{team_name: {atk, def, n_matches}}` via the same name-keyed payload shape as `fit_and_write:186-194`. **No new MLE/decay/shrink logic** — this only wires the validated blend to WC data.
 
 - [ ] **Step 4: Run to verify pass**, then commit:
   ```bash
