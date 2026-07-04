@@ -1,7 +1,7 @@
 # xG-nudged team attack/defence offsets — design spec
 
 **Date:** 2026-07-04
-**Status:** Approved (scope: offline build + backtest + live shadow twin; **no promotion**)
+**Status:** Approved (scope: offline build + WC sanity backtest + live shadow twin; **no promotion**). **Blocked on** the club-league xG method-validation spec (see Dependencies).
 **Feature branch:** `feat/xg-team-offsets`
 
 ## Problem
@@ -54,7 +54,20 @@ doesn't — and ships it shadow-first for measurement, changing nothing users se
   benchmark runner** reading its tagged rows (clone of `run_availability_benchmark.py`), not
   through `evaluate_finished_shadow_predictions`.
 
+## Dependencies
+
+- **Club-league xG method-validation spec (blocking, built first).** The shared *method* —
+  the parametrized `fit_offsets` goal-source, the re-anchor, and the κ-blend below — is built
+  and validated there on dense club-league xG, which answers "does xG-nudging improve
+  calibration at all" with real statistical power. This WC spec **consumes** that validated
+  method; it does not begin its own build until the club spec returns a positive result.
+  Rationale: de-risk the idea on powered data before building any WC-specific
+  ingestion / backfill / twin.
+
 ## The fit (ML core)
+
+*Built and validated in the club-league spec; documented here because the WC store is produced
+by running this exact method over WC xG-backfilled history.*
 
 Notation: for each team `t`, `ĝ_t` = goals-fit offset (attack; defence identical), `x̂_t` =
 xG-fit offset. Both come out of the **same** `fit_offsets`, already shrunk to
@@ -73,6 +86,12 @@ goals). Let `S` = teams with any xG coverage (`n_eff_xg,t > 0`).
    the blend shifts every high-κ team by `κ·δ` — a **systematic bias** for well-covered teams,
    not noise. Fix: shift the xG fit onto the goals frame using the shared set,
    `δ̂ = Σ_{t∈S} n_eff_xg,t·(ĝ_t − x̂_t) / Σ_{t∈S} n_eff_xg,t`, then `x̂′_t = x̂_t + δ̂`.
+   Weighting by `n_eff_xg,t` (not uniformly over `S`) is deliberate: `x̂_t` is itself a shrunk
+   output, so a thin-coverage team's `x̂_t` is pulled toward 0 by its **own** shrinkage, not only
+   by the frame — `n_eff_xg` weighting leans on the least-shrunk teams, isolating the frame
+   shift. (A fully precision-weighted gap would also fold in the goals-fit's `n_eff`, but every
+   WC26 nation's goals history dwarfs the 30-match full-weight count, so `ĝ_t` is never the noisy
+   term — not worth the complexity.)
 4. **Blend by coverage.** `κ_t = min(1, √(n_eff_xg,t / 30))` (reuses the offset layer's
    full-weight count; tunable). Final offset:
 
@@ -96,9 +115,16 @@ goals). Let `S` = teams with any xG coverage (`n_eff_xg,t > 0`).
   `x-apisports-key` / 200-with-`errors` handling as the existing fetchers. Pure parser
   `parse_team_xg(response) -> {side: xg}` reading the `expected_goals` statistic per team
   (returns `None` per side when the field is absent — never fabricate).
-- **Fixture matching.** Map each in-scope `historical_matches` row to its api-football fixture
-  by `(date, normalized home, normalized away)`, reusing `pipeline/team_mapping.normalize_team_name`.
-  Unmatched or xG-absent rows are left `NULL` (no coverage) — expected and honest.
+- **Fixture matching.** Map each in-scope `historical_matches` row to its api-football fixture.
+  Neutral venues (most of a WC) label home/away inconsistently across sources, so match on
+  `(date, home, away)` **and** fall back to the swapped `(date, away, home)` with the xG sides
+  flipped — reusing the exact precedent in `ml/evaluation/market_benchmark.py::join_odds_to_rows`
+  (`market_benchmark.py:94`), not a re-derivation; skipping it silently loses coverage on
+  precisely the matches this feature targets. Names go through `normalize_team_name`, built
+  against the in-DB source and not guaranteed to cover api-football's spellings, so the backfill
+  **logs every unmatched fixture** — a name-shaped gap must be visible, never silent. Before
+  trusting the exact-date key, spot-check one past edition for midnight-UTC date slippage between
+  sources. Unmatched or xG-absent rows are left `NULL` (no coverage) — expected and honest.
 - **Backfill script** (`pipeline/backfill_xg.py`, offline/CLI, best-effort, never raises):
   iterate in-scope rows (WC26-team matches, date ≥ ref − ~5y), fetch stats, write `xg_a`/`xg_b`.
   Idempotent (skips rows already populated) so it can resume within the Pro daily quota.
@@ -117,21 +143,21 @@ goals). Let `S` = teams with any xG coverage (`n_eff_xg,t > 0`).
   stay offset-free. If promoted later, `_offsets_by_team_id` already carries offsets into both
   simulators; that's the promotion step, not this spec.
 
-## Evidence — walk-forward backtest
+## Evidence — two tiers
 
-`pipeline/backtest_xg_offsets.py` (offline) compares three configs on held-out past WC
-editions using the existing walk-forward harness (`build_enriched_rows`, exclusive `ref_date`
-so no edition leaks into its own fit):
+**Primary (powered) proof lives in the blocking club-league spec.** Whether xG-nudging helps
+*at all* is answered on dense club xG (hundreds of matches/season, proper CIs) before this spec
+builds — see Dependencies. That is the quantitative verdict.
 
-- **A** no offsets (today's served model), **B** goals-offsets, **C** xG-nudged offsets.
-- Predict each held-out edition's matches under each config; score **Brier** and **log-loss**
-  on W/D/L.
-- **Honest caveat:** xG only exists in the training windows of recent editions (2018, 2022),
-  so C vs B is only discriminating there; for older editions C ≈ B by construction. The report
-  states per-edition coverage so a null result isn't mistaken for "xG doesn't help."
-
-The backtest is the primary evidence; the live twin (~15 matches) is on-pattern confirmation,
-not sufficient on its own.
+**This spec's WC backtest is a sanity check, not the proof bar.** `pipeline/backtest_xg_offsets.py`
+(offline) compares **A** no-offsets / **B** goals-offsets / **C** xG-nudged on held-out past WC
+editions (walk-forward via `build_enriched_rows`, exclusive `ref_date`), scoring Brier and
+log-loss on W/D/L. But xG exists only in recent editions' training windows (2018, 2022) — ~2
+edition clusters, too few to exclude zero either way, so this is **not** treated as evidence the
+idea works. It confirms the store **behaves sanely for WC26**: no blow-ups, offsets land on
+plausible teams, C never far from B. The report prints per-edition xG coverage so a null reads as
+"underpowered here," not "xG doesn't help." The live shadow twin (~15 matches) is on-pattern
+confirmation in the same spirit — neither is the verdict.
 
 ## Edge cases
 
@@ -148,8 +174,8 @@ not sufficient on its own.
 ## Risks
 
 - **Coverage too thin (primary).** Mitigated by the Phase-0 probe as a go/no-go gate.
-- **Zero-point mismatch.** Handled by the re-anchor (step 3); the backtest is the residual
-  detector, now un-confounded.
+- **Zero-point mismatch.** Removed by the re-anchor (step 3) by construction; the club-league
+  backtest is the powered residual detector.
 - **Migration sequencing.** `xg_a`/`xg_b` must reach prod via `refresh.yml` before any code
   selecting them serves — standard stop-gate discipline.
 - **Twin never scored.** Avoided by the dedicated benchmark runner (not the
@@ -164,23 +190,29 @@ not sufficient on its own.
 
 ## Phasing (TDD, mirrors the injuries feature)
 
+*Assumes the blocking club-league validation has passed; that build is not a phase here.*
+
 0. **Coverage probe** (throwaway script) — sample `/fixtures/statistics` on recent
    internationals; confirm `expected_goals` populated for our teams. **Go/no-go gate.**
 1. **Migration** — nullable `xg_a`/`xg_b` on `historical_matches`; dispatch `refresh.yml`.
 2. **Fetch/parse** — `fetch_fixture_statistics` + `parse_team_xg`.
 3. **Backfill** — `pipeline/backfill_xg.py` over the in-scope window (idempotent).
-4. **Fitter blend** — parametrize goal source, add re-anchor + κ-blend, write
-   `team_offsets_xg.json`.
+4. **Produce the store** — run the (club-spec-validated) offset method over the WC
+   xG-backfilled history → `team_offsets_xg.json`. No new fitter logic here — this spec only
+   wires the already-validated blend to WC data.
 5. **Shadow twin + benchmark runner** — `OFFSETS_MODEL_VERSION`, `write_offsets_prediction`,
    benchmark runner.
 6. **Backtest + whole-branch verify** — A/B/C walk-forward report; full `make test`.
 
 ## Testing
 
-- Fitter: re-anchor makes the covered-set residual mean-zero; `κ=0` reproduces the goals fit
-  bit-for-bit; blend never exceeds `OFFSET_CAP`; a synthetic "clinical finisher" (goals ≫ xG)
-  gets pulled down and a "wasteful" side (xG ≫ goals) pulled up.
+(Fitter / blend / re-anchor unit tests live with the shared method in the club-league spec.)
+
 - Parser: `expected_goals` present / absent / malformed → correct `xg` / `None`.
+- Fixture matching: direct `(date, home, away)` hit; **swapped `(date, away, home)` hit flips
+  the xG sides**; no match → logged + left `NULL`.
+- Backfill: idempotent skip of already-populated rows; unmatched fixture → `NULL` + a log line.
 - Twin: null-test (no offsets → no row); with a store, λ scaled by `exp(atk+def)` and tagged
   `OFFSETS_MODEL_VERSION`; production row and the other two twins unaffected.
-- Backfill: idempotent skip; unmatched fixture → `NULL`.
+- Store wiring: the validated blend over WC-backfilled data yields a store the loader reads;
+  `κ=0` teams reproduce today's served numbers through the twin.
