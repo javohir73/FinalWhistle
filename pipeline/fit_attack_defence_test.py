@@ -191,6 +191,30 @@ def test_fit_and_write_writes_json_keyed_by_team_name(db_session, tmp_path):
     assert summary["matches"] > 0
 
 
+def test_goal_keys_default_is_bit_identical():
+    """The goal_keys refactor is a no-op on the served path: omitting it must
+    equal passing the explicit default (score_home/score_away) bit-for-bit."""
+    rows = _round_robin((2, 1))
+    default_call = fit_offsets(rows, _REF, params=DEFAULT_PARAMS)
+    explicit_call = fit_offsets(
+        rows, _REF, params=DEFAULT_PARAMS, goal_keys=("score_home", "score_away")
+    )
+    assert default_call == explicit_call
+
+
+def test_goal_keys_reads_xg_fields():
+    """The SAME fitter machinery must read an alternate goal source (xg_a/xg_b)
+    when goal_keys points at it, producing offsets distinct from the goals fit
+    on the same fixtures — proving the parametrization actually took effect."""
+    rows = _round_robin((2, 1))
+    rows = [r | {"xg_a": 3.5, "xg_b": 0.2} for r in rows]
+    goals_offs = fit_offsets(rows, _REF, params=DEFAULT_PARAMS)
+    xg_offs = fit_offsets(
+        rows, _REF, params=DEFAULT_PARAMS, goal_keys=("xg_a", "xg_b")
+    )
+    assert goals_offs != xg_offs
+
+
 def test_fitter_never_imported_by_web_request_path():
     """FR-5.1: the MLE fit runs offline only. Importing the FastAPI app must not
     pull in the fitter (or its transitive pipeline deps) — checked in a clean

@@ -68,6 +68,7 @@ def fit_offsets(
     params: ModelParams | None = None,
     max_iter: int = _MAX_ITER,
     tol: float = _TOL,
+    goal_keys: tuple[str, str] = ("score_home", "score_away"),
 ) -> dict[int, dict]:
     """Fit shrunk/capped offsets on rows dated STRICTLY before ref_date.
 
@@ -90,8 +91,8 @@ def fit_offsets(
 
     h = np.array([index[r["home_id"]] for r in train])
     a = np.array([index[r["away_id"]] for r in train])
-    gh = np.array([float(r["score_home"]) for r in train])
-    ga = np.array([float(r["score_away"]) for r in train])
+    gh = np.array([float(r[goal_keys[0]]) for r in train])
+    ga = np.array([float(r[goal_keys[1]]) for r in train])
     w = np.array([decay_weight(r["date"], ref, half_life_days) for r in train])
     mu_h = np.empty(len(train))
     mu_a = np.empty(len(train))
@@ -164,6 +165,7 @@ def fit_and_write(
     out_path: str | Path | None = None,
     half_life_days: int = DEFAULT_HALF_LIFE_DAYS,
     params: ModelParams | None = None,
+    goal_keys: tuple[str, str] = ("score_home", "score_away"),
 ) -> dict:
     """Fit on the full historical_matches replay and write team_offsets.json.
 
@@ -178,7 +180,9 @@ def fit_and_write(
         raise ValueError("historical_matches is empty — nothing to fit")
     # Cutoff is exclusive, so step one day past the newest match to include it.
     ref = max(_as_date(r["date"]) for r in rows) + timedelta(days=1)
-    offsets = fit_offsets(rows, ref, half_life_days=half_life_days, params=params)
+    offsets = fit_offsets(
+        rows, ref, half_life_days=half_life_days, params=params, goal_keys=goal_keys
+    )
 
     # Column-scoped query (id/name is all we need — and it keeps the offline
     # fitter runnable against a dev DB that lags the newest teams migrations).
