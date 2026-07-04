@@ -235,6 +235,8 @@ class HistoricalMatch(Base):
     competition: Mapped[str | None] = mapped_column(String(80))
     is_neutral: Mapped[bool] = mapped_column(default=False)
     venue: Mapped[str | None] = mapped_column(String(120))
+    xg_a: Mapped[float | None] = mapped_column(Float)
+    xg_b: Mapped[float | None] = mapped_column(Float)
 
 
 class TeamStats(Base):
