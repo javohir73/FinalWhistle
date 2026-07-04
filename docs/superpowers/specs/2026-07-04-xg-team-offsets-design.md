@@ -1,7 +1,8 @@
 # xG-nudged team attack/defence offsets — design spec
 
 **Date:** 2026-07-04
-**Status:** Approved (scope: offline build + WC sanity backtest + live shadow twin; **no promotion**). **Blocked on** the club-league xG method-validation spec (see Dependencies).
+**Status:** SHELVED 2026-07-04 — its blocking gate (club-xg-method-validation) returned STOP, and a direct probe found **no World Cup 2022 xG** in API-Football (the production source). No source can feed WC26-team xG-offsets today; revisit only with a new international xG source (e.g. a StatsBomb/FBref integration).
+_(original: Approved — offline build + WC sanity backtest + live shadow twin, no promotion; blocked on the club-league xG method-validation spec)_
 **Feature branch:** `feat/xg-team-offsets`
 
 ## Problem

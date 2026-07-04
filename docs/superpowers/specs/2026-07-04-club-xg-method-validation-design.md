@@ -1,7 +1,8 @@
 # Club-league xG method validation — design spec
 
 **Date:** 2026-07-04
-**Status:** Approved (scope: offline method validation; **hard gate** on the WC xG-offset spec)
+**Status:** SHELVED 2026-07-04 — the Task-0 depth-probe gate returned STOP. API-Football's `expected_goals` exists only from the 2023 club season (~1447 matches / 4 cells, below the pre-registered 3000-match / 6-cell gate), and a direct international probe found **no World Cup 2022 xG**, no friendlies, no qualifiers — only Euro/Copa 2024. No viable production xG source for WC26 teams. The provider-agnostic method (parametrized fitter goal-source + re-anchor/κ-blend) is banked for if coverage ever deepens.
+_(original: Approved — offline method validation; hard gate on the WC xG-offset spec)_
 **Feature branch:** `feat/xg-method-validation`
 **Gates:** `docs/superpowers/specs/2026-07-04-xg-team-offsets-design.md`
 

@@ -1,5 +1,7 @@
 # Club-league xG Method Validation — Implementation Plan
 
+> **⚠️ SHELVED 2026-07-04** — Task 0's depth-probe gate returned STOP: API-Football lacks the international xG this feature needs (no WC-2022 / friendlies / qualifier xG; only 2023+ club xG). Execution halted at Task 0; Tasks 1–8 were never built. See the design spec's status line and `.superpowers/sdd/progress.md`. The provider-agnostic pieces (parametrized fitter goal-source, re-anchor/κ-blend) remain reusable if a real xG source ever lands.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Prove-or-kill the goals-prior + xG-nudge offset method on dense API-Football club-league xG, so the WC xG-offset feature only builds if the method demonstrably helps.
