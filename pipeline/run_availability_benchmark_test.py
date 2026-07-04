@@ -6,7 +6,7 @@ from app.db import Base
 from app.models import Match, Prediction, Team, Tournament
 from ml.evaluation.availability_benchmark import benchmark_availability
 from pipeline.generate_predictions import AVAILABILITY_MODEL_VERSION
-from pipeline.run_availability_benchmark import availability_record
+from pipeline.run_availability_benchmark import _verdict, availability_record
 
 _EMPTY = {"n_matches": 0, "verdict": "insufficient", "production": None,
           "availability": None, "diff_log_loss": None, "diff_ci95": None,
@@ -56,13 +56,25 @@ def test_scores_matches_with_both_rows():
 
 
 def test_excludes_match_missing_twin():
+    # A valid BOTH-rows match alongside a published-only (twinless) match: the
+    # twinless one must be dropped WHILE the valid one survives — proving
+    # exclusion, not merely an empty result an empty DB would also produce.
     db = _session()
     wc, home, away = _fixture(db)
-    m = _finished(db, wc, home, away, 1, 0)
-    _pred(db, m, "poisson-elo-v0.2", (0.5, 0.3, 0.2), is_shadow=False)  # published only, no twin
+    good = _finished(db, wc, home, away, 2, 0)
+    _pred(db, good, "poisson-elo-v0.2", (0.55, 0.25, 0.20), is_shadow=False)
+    _pred(db, good, AVAILABILITY_MODEL_VERSION, (0.70, 0.18, 0.12), is_shadow=True)
+    twinless = _finished(db, wc, home, away, 1, 0)
+    _pred(db, twinless, "poisson-elo-v0.2", (0.5, 0.3, 0.2), is_shadow=False)  # no twin
     db.commit()
-    assert availability_record(db) == _EMPTY
+    assert availability_record(db)["n_matches"] == 1
 
 
 def test_honest_empty_with_no_data():
     assert availability_record(_session()) == _EMPTY
+
+
+def test_verdict_covers_all_three_branches():
+    assert _verdict((-0.05, -0.01)) == "availability_beats_published"  # CI hi < 0
+    assert _verdict((0.01, 0.05)) == "published_beats_availability"    # CI lo > 0
+    assert _verdict((-0.02, 0.03)) == "no_credible_difference"          # straddles 0
