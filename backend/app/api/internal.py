@@ -236,6 +236,24 @@ def shadow_record(
     }
 
 
+@router.get("/availability-record")
+def availability_record_endpoint(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Availability twin vs published forecast, paired on finished matches — the
+    availability signal's ONLY evidence path (it is live-only; no backtest gate).
+    Token-guarded and internal: the input to the MANUAL promotion decision
+    (FR-4.8), nothing here auto-promotes. Compute-on-read over frozen Prediction
+    rows — no persistence, no prediction_results row (that stays odds-only)."""
+    _require_token(x_recompute_token)
+    # Lazy import (call-time) mirrors this module's other pipeline imports and
+    # avoids the app->pipeline cycle at load.
+    from pipeline.run_availability_benchmark import availability_record
+
+    return availability_record(db)
+
+
 @router.post("/recompute-scores")
 def recompute_scores_endpoint(
     db: Session = Depends(get_db),
