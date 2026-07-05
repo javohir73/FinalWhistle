@@ -45,6 +45,7 @@ it.each([
   ["/leaderboard", "You"],
   ["/about", "You"], // relocated info pages light the You hub
   ["/methodology", "You"],
+  ["/record", "You"], // the live track record nests under the You hub
 ])("marks the right tab active on %s", (path, label) => {
   renderAt(path);
   expect(current()).toContain(label);

@@ -61,7 +61,8 @@ export default function MethodologyPage() {
         <p className="mt-3 text-muted">
           In plain terms: how the forecasts are made, and how well they&apos;ve actually
           held up when tested against past World Cups. The deeper metrics are below for
-          anyone who wants them.
+          anyone who wants them. For the live WC26 record so far, see the{" "}
+          <Link href="/record" className="text-lime-deep underline-offset-2 hover:underline">Track record</Link>.
         </p>
       </header>
 

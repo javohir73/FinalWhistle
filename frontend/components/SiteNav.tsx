@@ -22,7 +22,7 @@ const LINKS: NavLink[] = [
   {
     href: "/leaderboard",
     label: "You",
-    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
   },
 ];
 

@@ -8,6 +8,8 @@ must be reproducible from this endpoint.
 """
 from __future__ import annotations
 
+import math
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
@@ -19,6 +21,23 @@ from app.models import Match, Prediction, PredictionResult, TeamTournamentState
 router = APIRouter(prefix="/api/model", tags=["model"])
 
 _OUTCOME_IDX = {"home": 0, "draw": 1, "away": 2}
+
+
+def wilson_ci95(successes: int, n: int) -> tuple[float, float] | None:
+    """95% Wilson score interval for a binomial proportion. None when n == 0.
+
+    Wilson (not normal-approx) so the interval stays inside [0, 1] and behaves
+    at the extremes (0 or all correct) and on small samples — exactly the cases
+    this page must render honestly.
+    """
+    if n <= 0:
+        return None
+    z = 1.959963984540054  # 97.5th percentile of the standard normal
+    phat = successes / n
+    denom = 1.0 + z * z / n
+    center = (phat + z * z / (2 * n)) / denom
+    half = (z / denom) * math.sqrt(phat * (1 - phat) / n + z * z / (4 * n * n))
+    return (round(max(0.0, center - half), 4), round(min(1.0, center + half), 4))
 
 
 def _match_label(m: Match) -> str:
@@ -62,6 +81,9 @@ def model_record(db: Session = Depends(get_db)):
         out = {
             "evaluated_matches": 0,
             "winner_accuracy": None,
+            "winner_accuracy_ci95": None,
+            "exact_score_rate": None,
+            "exact_score_ci95": None,
             "winners_correct": 0,
             "exact_score_hits": 0,
             "avg_brier": None,
@@ -107,6 +129,9 @@ def model_record(db: Session = Depends(get_db)):
     out = {
         "evaluated_matches": n,
         "winner_accuracy": round(winners / n, 4),
+        "winner_accuracy_ci95": wilson_ci95(winners, n),
+        "exact_score_rate": round(exacts / n, 4),
+        "exact_score_ci95": wilson_ci95(exacts, n),
         "winners_correct": winners,
         "exact_score_hits": exacts,
         "avg_brier": round(sum(r.brier for r, _, _ in rows) / n, 4),

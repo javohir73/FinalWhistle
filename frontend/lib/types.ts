@@ -275,6 +275,9 @@ export interface CalibrationPoint {
 export interface ModelRecord {
   evaluated_matches: number;
   winner_accuracy: number | null;
+  winner_accuracy_ci95: [number, number] | null;
+  exact_score_rate: number | null;
+  exact_score_ci95: [number, number] | null;
   winners_correct: number;
   exact_score_hits: number;
   avg_brier: number | null;

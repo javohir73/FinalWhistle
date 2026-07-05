@@ -335,6 +335,10 @@ function HomeDashboard({
           AI record so far: {record.winners_correct}/{record.evaluated_matches} winners
           {" · "}
           {record.exact_score_hits} exact score{record.exact_score_hits === 1 ? "" : "s"}
+          {" · "}
+          <Link href="/record" className="font-semibold text-lime-deep underline-offset-2 hover:underline">
+            Full track record
+          </Link>
         </p>
       )}
 

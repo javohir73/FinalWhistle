@@ -94,3 +94,58 @@ def test_record_aggregates_match_evaluations(client):
     assert body["biggest_misses"] == []  # both winners called
     assert body["last_updated"] is not None
     assert isinstance(body["calibration"], list)
+
+
+from app.api.model_record import wilson_ci95
+
+
+def test_wilson_ci95_known_values():
+    lo, hi = wilson_ci95(8, 10)          # 80% of 10
+    assert lo == pytest.approx(0.490, abs=0.01)
+    assert hi == pytest.approx(0.943, abs=0.01)
+    assert wilson_ci95(0, 0) is None      # empty -> None
+    lo0, _ = wilson_ci95(0, 20)           # 0 successes -> lower bound pinned at 0
+    assert lo0 == 0.0
+    lo_all, hi_all = wilson_ci95(20, 20)  # all correct
+    assert hi_all == pytest.approx(1.0)   # upper bound is exactly 1.0 at a 100% rate
+    assert lo_all < 1.0                   # but Wilson keeps a real lower bound (not a degenerate [1, 1])
+
+
+def test_record_includes_confidence_intervals(client):
+    c, TestingSession = client
+    db = TestingSession()
+    mex = Team(name="Mexico", country_code="MX", confederation="CONCACAF")
+    rsa = Team(name="South Africa", country_code="ZA", confederation="CAF")
+    wc = Tournament(name="FIFA World Cup 2026", year=2026)
+    db.add_all([wc, mex, rsa])
+    db.flush()
+    m = Match(tournament_id=wc.id, team_home_id=mex.id, team_away_id=rsa.id,
+              stage="group", status="finished", score_home=2, score_away=0)
+    db.add(m); db.flush()
+    p = Prediction(match_id=m.id, model_version="poisson-elo-v0.1",
+                   prob_home_win=0.81, prob_draw=0.12, prob_away_win=0.07,
+                   predicted_score_home=2, predicted_score_away=0)
+    db.add(p); db.flush()
+    db.add(PredictionResult(
+        match_id=m.id, prediction_id=p.id, model_version="poisson-elo-v0.1",
+        actual_score_home=2, actual_score_away=0, outcome="home",
+        winner_correct=True, exact_score_correct=True,
+        prob_assigned=0.81, brier=0.05, log_loss=0.21, goal_error=0,
+    ))
+    db.commit()
+
+    body = c.get("/api/model/record").json()
+    assert body["exact_score_rate"] == pytest.approx(1.0)
+    assert isinstance(body["winner_accuracy_ci95"], list) and len(body["winner_accuracy_ci95"]) == 2
+    lo, hi = body["winner_accuracy_ci95"]
+    assert 0.0 <= lo <= hi <= 1.0
+    assert isinstance(body["exact_score_ci95"], list)
+
+
+def test_empty_record_ci_fields_are_null(client):
+    c, _ = client
+    body = c.get("/api/model/record").json()
+    assert body["evaluated_matches"] == 0
+    assert body["winner_accuracy_ci95"] is None
+    assert body["exact_score_rate"] is None
+    assert body["exact_score_ci95"] is None
