@@ -16,8 +16,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 from app.api import (
-    auth, brackets, groups, internal, knockout, leaderboard, markets, match_picks, matches,
-    model_record, predictions, teams,
+    auth, brackets, groups, internal, knockout, leaderboard, markets, market_record, match_picks,
+    matches, model_record, predictions, teams,
 )
 from app.config import settings
 from app.cache import cache
@@ -257,5 +257,6 @@ app.include_router(brackets.router)
 app.include_router(match_picks.router)
 app.include_router(leaderboard.router)
 app.include_router(model_record.router)
+app.include_router(market_record.router)
 app.include_router(internal.router)
 app.include_router(markets.router)
