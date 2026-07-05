@@ -1,4 +1,5 @@
-"""Public model-vs-market endpoint: the live closing-line comparison.
+"""Public model-vs-market endpoint: the live comparison against the final
+pre-kickoff consensus we captured.
 
 Compute-on-read over the captured Odds + pre-kickoff Prediction rows, mirroring
 GET /api/model/record. Lazy-imports the pipeline so the app package does not
