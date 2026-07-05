@@ -1,0 +1,1682 @@
+{
+  "Abkhazia": {
+    "atk": -0.026949,
+    "def": -0.026949,
+    "n_matches": 33
+  },
+  "Afghanistan": {
+    "atk": -0.068295,
+    "def": 0.068295,
+    "n_matches": 147
+  },
+  "Albania": {
+    "atk": -0.021396,
+    "def": -0.068364,
+    "n_matches": 398
+  },
+  "Alderney": {
+    "atk": -0.025926,
+    "def": 0.025926,
+    "n_matches": 135
+  },
+  "Algeria": {
+    "atk": 0.071528,
+    "def": -0.059835,
+    "n_matches": 617
+  },
+  "Ambazonia": {
+    "atk": -0.003457,
+    "def": 0.003457,
+    "n_matches": 6
+  },
+  "American Samoa": {
+    "atk": -0.034957,
+    "def": 0.034957,
+    "n_matches": 55
+  },
+  "Andalusia": {
+    "atk": 0.004357,
+    "def": -0.004357,
+    "n_matches": 13
+  },
+  "Andorra": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 229
+  },
+  "Angola": {
+    "atk": 0.063907,
+    "def": -0.068182,
+    "n_matches": 415
+  },
+  "Anguilla": {
+    "atk": -0.061491,
+    "def": 0.061491,
+    "n_matches": 91
+  },
+  "Antigua and Barbuda": {
+    "atk": -0.064207,
+    "def": 0.064207,
+    "n_matches": 231
+  },
+  "Arameans Suryoye": {
+    "atk": 0.008551,
+    "def": -0.008551,
+    "n_matches": 10
+  },
+  "Argentina": {
+    "atk": -0.034813,
+    "def": -0.065497,
+    "n_matches": 1069
+  },
+  "Armenia": {
+    "atk": 0.075,
+    "def": 0.075,
+    "n_matches": 272
+  },
+  "Artsakh": {
+    "atk": 0.014562,
+    "def": 0.015732,
+    "n_matches": 11
+  },
+  "Aruba": {
+    "atk": -0.005647,
+    "def": 0.063633,
+    "n_matches": 152
+  },
+  "Asturias": {
+    "atk": 0.0,
+    "def": 0.0,
+    "n_matches": 1
+  },
+  "Australia": {
+    "atk": 0.02292,
+    "def": -0.057031,
+    "n_matches": 581
+  },
+  "Austria": {
+    "atk": 0.069051,
+    "def": -0.04937,
+    "n_matches": 860
+  },
+  "Aymara": {
+    "atk": -0.012224,
+    "def": 0.012224,
+    "n_matches": 2
+  },
+  "Azerbaijan": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 310
+  },
+  "Bahamas": {
+    "atk": -0.059474,
+    "def": 0.059474,
+    "n_matches": 67
+  },
+  "Bahrain": {
+    "atk": -0.075,
+    "def": 0.028431,
+    "n_matches": 584
+  },
+  "Bangladesh": {
+    "atk": -0.075,
+    "def": -0.048948,
+    "n_matches": 305
+  },
+  "Barawa": {
+    "atk": -0.018372,
+    "def": 0.018372,
+    "n_matches": 12
+  },
+  "Barbados": {
+    "atk": -0.072914,
+    "def": 0.072914,
+    "n_matches": 302
+  },
+  "Basque Country": {
+    "atk": 0.022948,
+    "def": -0.022948,
+    "n_matches": 64
+  },
+  "Belarus": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 315
+  },
+  "Belgium": {
+    "atk": 0.043401,
+    "def": 0.037665,
+    "n_matches": 853
+  },
+  "Belize": {
+    "atk": -0.069907,
+    "def": 0.069907,
+    "n_matches": 121
+  },
+  "Benin": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 325
+  },
+  "Bermuda": {
+    "atk": 0.073842,
+    "def": 0.073842,
+    "n_matches": 198
+  },
+  "Bhutan": {
+    "atk": -0.05661,
+    "def": 0.05661,
+    "n_matches": 110
+  },
+  "Biafra": {
+    "atk": -0.014848,
+    "def": 0.014848,
+    "n_matches": 3
+  },
+  "Bolivia": {
+    "atk": 0.068691,
+    "def": 0.061349,
+    "n_matches": 534
+  },
+  "Bonaire": {
+    "atk": -0.056498,
+    "def": 0.056498,
+    "n_matches": 44
+  },
+  "Bosnia and Herzegovina": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 283
+  },
+  "Botswana": {
+    "atk": 0.00666,
+    "def": -0.075,
+    "n_matches": 332
+  },
+  "Brazil": {
+    "atk": 0.057201,
+    "def": 0.034311,
+    "n_matches": 1059
+  },
+  "British Virgin Islands": {
+    "atk": -0.051651,
+    "def": 0.064354,
+    "n_matches": 123
+  },
+  "Brittany": {
+    "atk": 0.005228,
+    "def": -0.005228,
+    "n_matches": 12
+  },
+  "Brunei": {
+    "atk": -0.055617,
+    "def": 0.06044,
+    "n_matches": 137
+  },
+  "Bulgaria": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 736
+  },
+  "Burkina Faso": {
+    "atk": 0.071764,
+    "def": -0.068221,
+    "n_matches": 464
+  },
+  "Burundi": {
+    "atk": 0.072804,
+    "def": -0.072804,
+    "n_matches": 218
+  },
+  "Cambodia": {
+    "atk": 0.075,
+    "def": 0.075,
+    "n_matches": 295
+  },
+  "Cameroon": {
+    "atk": 0.008222,
+    "def": -0.068336,
+    "n_matches": 616
+  },
+  "Canada": {
+    "atk": 0.038221,
+    "def": -0.068336,
+    "n_matches": 469
+  },
+  "Canary Islands": {
+    "atk": 0.001961,
+    "def": -0.001961,
+    "n_matches": 4
+  },
+  "Cape Verde": {
+    "atk": 0.072144,
+    "def": -0.068182,
+    "n_matches": 235
+  },
+  "Cascadia": {
+    "atk": 0.014593,
+    "def": 0.014593,
+    "n_matches": 7
+  },
+  "Catalonia": {
+    "atk": 0.011957,
+    "def": -0.011957,
+    "n_matches": 48
+  },
+  "Cayman Islands": {
+    "atk": -0.060226,
+    "def": 0.060226,
+    "n_matches": 119
+  },
+  "Central African Republic": {
+    "atk": 0.071054,
+    "def": 0.069282,
+    "n_matches": 138
+  },
+  "Central Spain": {
+    "atk": -0.0,
+    "def": 0.0,
+    "n_matches": 2
+  },
+  "Chad": {
+    "atk": -0.063221,
+    "def": -0.063221,
+    "n_matches": 138
+  },
+  "Chagos Islands": {
+    "atk": -0.018381,
+    "def": 0.018381,
+    "n_matches": 16
+  },
+  "Chameria": {
+    "atk": -0.019358,
+    "def": 0.019358,
+    "n_matches": 7
+  },
+  "Chechnya": {
+    "atk": -0.002147,
+    "def": 0.002147,
+    "n_matches": 3
+  },
+  "Chile": {
+    "atk": 0.075,
+    "def": -0.01239,
+    "n_matches": 835
+  },
+  "China": {
+    "atk": -0.075,
+    "def": 0.013505,
+    "n_matches": 702
+  },
+  "Cilento": {
+    "atk": -0.002576,
+    "def": 0.001605,
+    "n_matches": 1
+  },
+  "Colombia": {
+    "atk": 0.059173,
+    "def": -0.030824,
+    "n_matches": 638
+  },
+  "Comoros": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 151
+  },
+  "Congo": {
+    "atk": 0.065337,
+    "def": 0.055531,
+    "n_matches": 406
+  },
+  "Cook Islands": {
+    "atk": -0.033967,
+    "def": 0.033967,
+    "n_matches": 53
+  },
+  "Corsica": {
+    "atk": 0.008666,
+    "def": -0.008666,
+    "n_matches": 9
+  },
+  "Costa Rica": {
+    "atk": -0.049674,
+    "def": 0.05297,
+    "n_matches": 724
+  },
+  "County of Nice": {
+    "atk": 0.01084,
+    "def": 0.01084,
+    "n_matches": 9
+  },
+  "Crimea": {
+    "atk": -0.003194,
+    "def": 0.003194,
+    "n_matches": 5
+  },
+  "Croatia": {
+    "atk": 0.071214,
+    "def": 0.021024,
+    "n_matches": 396
+  },
+  "Cuba": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 397
+  },
+  "Curaçao": {
+    "atk": -0.002346,
+    "def": 0.075,
+    "n_matches": 385
+  },
+  "Cyprus": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 426
+  },
+  "Czechia": {
+    "atk": 0.072651,
+    "def": -0.006745,
+    "n_matches": 360
+  },
+  "Czechoslovakia": {
+    "atk": 0.002043,
+    "def": -0.002043,
+    "n_matches": 520
+  },
+  "DR Congo": {
+    "atk": 0.053275,
+    "def": -0.068502,
+    "n_matches": 524
+  },
+  "Darfur": {
+    "atk": -0.008282,
+    "def": 0.008282,
+    "n_matches": 7
+  },
+  "Denmark": {
+    "atk": 0.044004,
+    "def": -0.038101,
+    "n_matches": 874
+  },
+  "Djibouti": {
+    "atk": 0.056885,
+    "def": -0.056885,
+    "n_matches": 111
+  },
+  "Dominica": {
+    "atk": -0.064791,
+    "def": 0.064791,
+    "n_matches": 215
+  },
+  "Dominican Republic": {
+    "atk": 0.059828,
+    "def": 0.075,
+    "n_matches": 159
+  },
+  "Donetsk PR": {
+    "atk": 0.010113,
+    "def": -0.010348,
+    "n_matches": 6
+  },
+  "Délvidék": {
+    "atk": 0.004444,
+    "def": 0.006197,
+    "n_matches": 2
+  },
+  "East Turkestan": {
+    "atk": -0.023127,
+    "def": 0.023127,
+    "n_matches": 5
+  },
+  "Ecuador": {
+    "atk": -0.033967,
+    "def": -0.068181,
+    "n_matches": 591
+  },
+  "Egypt": {
+    "atk": 0.039587,
+    "def": -0.068177,
+    "n_matches": 756
+  },
+  "El Salvador": {
+    "atk": -0.075,
+    "def": -0.011289,
+    "n_matches": 614
+  },
+  "Elba Island": {
+    "atk": -0.012169,
+    "def": 0.012169,
+    "n_matches": 2
+  },
+  "Ellan Vannin": {
+    "atk": 0.020209,
+    "def": 0.020209,
+    "n_matches": 22
+  },
+  "England": {
+    "atk": 0.018707,
+    "def": -0.023814,
+    "n_matches": 1090
+  },
+  "Equatorial Guinea": {
+    "atk": -0.02746,
+    "def": -0.068222,
+    "n_matches": 179
+  },
+  "Eritrea": {
+    "atk": -0.00423,
+    "def": 0.016141,
+    "n_matches": 71
+  },
+  "Estonia": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 550
+  },
+  "Eswatini": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 274
+  },
+  "Ethiopia": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 409
+  },
+  "Falkland Islands": {
+    "atk": -0.024948,
+    "def": 0.024948,
+    "n_matches": 33
+  },
+  "Faroe Islands": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 287
+  },
+  "Felvidék": {
+    "atk": -0.014843,
+    "def": 0.014843,
+    "n_matches": 12
+  },
+  "Fiji": {
+    "atk": -0.071538,
+    "def": 0.071538,
+    "n_matches": 268
+  },
+  "Finland": {
+    "atk": 0.066862,
+    "def": -0.069328,
+    "n_matches": 818
+  },
+  "France": {
+    "atk": -0.003168,
+    "def": 0.039919,
+    "n_matches": 935
+  },
+  "Franconia": {
+    "atk": -0.008041,
+    "def": 0.008041,
+    "n_matches": 3
+  },
+  "French Guiana": {
+    "atk": -0.057412,
+    "def": 0.057412,
+    "n_matches": 179
+  },
+  "Frøya": {
+    "atk": -0.03253,
+    "def": 0.03253,
+    "n_matches": 37
+  },
+  "Gabon": {
+    "atk": 0.075,
+    "def": 0.071472,
+    "n_matches": 405
+  },
+  "Galicia": {
+    "atk": -0.012672,
+    "def": 0.012672,
+    "n_matches": 12
+  },
+  "Gambia": {
+    "atk": 0.071528,
+    "def": -0.068463,
+    "n_matches": 266
+  },
+  "Georgia": {
+    "atk": 0.071904,
+    "def": -0.055482,
+    "n_matches": 307
+  },
+  "German DR": {
+    "atk": 0.001474,
+    "def": -0.000325,
+    "n_matches": 298
+  },
+  "Germany": {
+    "atk": 0.075,
+    "def": 0.04282,
+    "n_matches": 1031
+  },
+  "Ghana": {
+    "atk": 0.072273,
+    "def": -0.054411,
+    "n_matches": 671
+  },
+  "Gibraltar": {
+    "atk": -0.068607,
+    "def": -0.075,
+    "n_matches": 159
+  },
+  "Gotland": {
+    "atk": -0.014445,
+    "def": 0.014445,
+    "n_matches": 30
+  },
+  "Gozo": {
+    "atk": -0.02949,
+    "def": 0.02949,
+    "n_matches": 14
+  },
+  "Greece": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 633
+  },
+  "Greenland": {
+    "atk": -0.026214,
+    "def": 0.026214,
+    "n_matches": 77
+  },
+  "Grenada": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 260
+  },
+  "Guadeloupe": {
+    "atk": -0.065254,
+    "def": 0.065254,
+    "n_matches": 271
+  },
+  "Guam": {
+    "atk": -0.051274,
+    "def": 0.051274,
+    "n_matches": 123
+  },
+  "Guatemala": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 554
+  },
+  "Guernsey": {
+    "atk": -0.03562,
+    "def": 0.03562,
+    "n_matches": 240
+  },
+  "Guinea": {
+    "atk": 0.072144,
+    "def": -0.068182,
+    "n_matches": 539
+  },
+  "Guinea-Bissau": {
+    "atk": -0.042517,
+    "def": -0.068464,
+    "n_matches": 190
+  },
+  "Guyana": {
+    "atk": 0.030442,
+    "def": 0.074797,
+    "n_matches": 313
+  },
+  "Găgăuzia": {
+    "atk": -0.002473,
+    "def": 0.002473,
+    "n_matches": 3
+  },
+  "Haiti": {
+    "atk": 0.051725,
+    "def": 0.075,
+    "n_matches": 510
+  },
+  "Hitra": {
+    "atk": -0.022334,
+    "def": 0.029609,
+    "n_matches": 23
+  },
+  "Hmong": {
+    "atk": -0.017063,
+    "def": 0.017063,
+    "n_matches": 3
+  },
+  "Honduras": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 620
+  },
+  "Hong Kong": {
+    "atk": -0.075,
+    "def": -0.069872,
+    "n_matches": 447
+  },
+  "Hungary": {
+    "atk": 0.044313,
+    "def": -0.029632,
+    "n_matches": 1006
+  },
+  "Iceland": {
+    "atk": 0.072103,
+    "def": -0.070495,
+    "n_matches": 522
+  },
+  "India": {
+    "atk": -0.075,
+    "def": -0.005073,
+    "n_matches": 534
+  },
+  "Indonesia": {
+    "atk": 0.061106,
+    "def": 0.075,
+    "n_matches": 728
+  },
+  "Iran": {
+    "atk": -0.014321,
+    "def": 0.00079,
+    "n_matches": 612
+  },
+  "Iraq": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 655
+  },
+  "Iraqi Kurdistan": {
+    "atk": 0.015105,
+    "def": -0.000266,
+    "n_matches": 27
+  },
+  "Ireland": {
+    "atk": 0.009785,
+    "def": -0.075,
+    "n_matches": 633
+  },
+  "Isle of Man": {
+    "atk": -0.039284,
+    "def": 0.039284,
+    "n_matches": 58
+  },
+  "Isle of Wight": {
+    "atk": -0.022296,
+    "def": 0.022296,
+    "n_matches": 48
+  },
+  "Israel": {
+    "atk": 0.075,
+    "def": 0.043515,
+    "n_matches": 498
+  },
+  "Italy": {
+    "atk": 0.013892,
+    "def": 0.019822,
+    "n_matches": 893
+  },
+  "Ivory Coast": {
+    "atk": 0.073195,
+    "def": -0.068501,
+    "n_matches": 636
+  },
+  "Jamaica": {
+    "atk": -0.056297,
+    "def": 0.061338,
+    "n_matches": 663
+  },
+  "Japan": {
+    "atk": 0.059805,
+    "def": -0.059056,
+    "n_matches": 790
+  },
+  "Jersey": {
+    "atk": -0.042931,
+    "def": 0.042931,
+    "n_matches": 235
+  },
+  "Jordan": {
+    "atk": 0.075,
+    "def": 0.075,
+    "n_matches": 485
+  },
+  "Kabylia": {
+    "atk": -0.013274,
+    "def": 0.013274,
+    "n_matches": 6
+  },
+  "Kazakhstan": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 269
+  },
+  "Kenya": {
+    "atk": 0.067523,
+    "def": -0.052829,
+    "n_matches": 706
+  },
+  "Kernow": {
+    "atk": -0.011838,
+    "def": -0.003011,
+    "n_matches": 12
+  },
+  "Kiribati": {
+    "atk": -0.005327,
+    "def": 0.005327,
+    "n_matches": 11
+  },
+  "Kosovo": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 104
+  },
+  "Kurdistan": {
+    "atk": 0.006529,
+    "def": -0.006529,
+    "n_matches": 5
+  },
+  "Kuwait": {
+    "atk": 0.075,
+    "def": 0.065473,
+    "n_matches": 684
+  },
+  "Kyrgyzstan": {
+    "atk": 0.075,
+    "def": 0.02367,
+    "n_matches": 191
+  },
+  "Kárpátalja": {
+    "atk": 0.016993,
+    "def": -0.012483,
+    "n_matches": 11
+  },
+  "Laos": {
+    "atk": 0.067071,
+    "def": 0.067071,
+    "n_matches": 224
+  },
+  "Latvia": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 461
+  },
+  "Lebanon": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 333
+  },
+  "Lesotho": {
+    "atk": -0.027661,
+    "def": -0.075,
+    "n_matches": 296
+  },
+  "Liberia": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 302
+  },
+  "Libya": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 384
+  },
+  "Liechtenstein": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 259
+  },
+  "Lithuania": {
+    "atk": 0.065299,
+    "def": -0.075,
+    "n_matches": 433
+  },
+  "Luhansk PR": {
+    "atk": 0.01201,
+    "def": 0.01201,
+    "n_matches": 6
+  },
+  "Luxembourg": {
+    "atk": 0.055308,
+    "def": -0.075,
+    "n_matches": 467
+  },
+  "Macau": {
+    "atk": -0.048133,
+    "def": 0.048133,
+    "n_matches": 148
+  },
+  "Madagascar": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 320
+  },
+  "Madrid": {
+    "atk": 0.003043,
+    "def": -0.003043,
+    "n_matches": 1
+  },
+  "Malawi": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 644
+  },
+  "Malaysia": {
+    "atk": 0.035913,
+    "def": 0.075,
+    "n_matches": 835
+  },
+  "Maldives": {
+    "atk": -0.072833,
+    "def": 0.072833,
+    "n_matches": 233
+  },
+  "Mali": {
+    "atk": 0.062129,
+    "def": -0.068182,
+    "n_matches": 569
+  },
+  "Malta": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 458
+  },
+  "Manchukuo": {
+    "atk": -1e-06,
+    "def": 1e-06,
+    "n_matches": 3
+  },
+  "Mapuche": {
+    "atk": -0.01222,
+    "def": 0.01222,
+    "n_matches": 2
+  },
+  "Marshall Islands": {
+    "atk": -0.017611,
+    "def": 0.017611,
+    "n_matches": 2
+  },
+  "Martinique": {
+    "atk": -0.064339,
+    "def": 0.064339,
+    "n_matches": 331
+  },
+  "Matabeleland": {
+    "atk": -0.019162,
+    "def": 0.019162,
+    "n_matches": 8
+  },
+  "Maule Sur": {
+    "atk": -0.012222,
+    "def": -0.012222,
+    "n_matches": 2
+  },
+  "Mauritania": {
+    "atk": -0.034579,
+    "def": -0.068222,
+    "n_matches": 273
+  },
+  "Mauritius": {
+    "atk": 0.015652,
+    "def": -0.070313,
+    "n_matches": 325
+  },
+  "Mayotte": {
+    "atk": -0.024009,
+    "def": -0.024009,
+    "n_matches": 38
+  },
+  "Menorca": {
+    "atk": -0.024835,
+    "def": 0.024835,
+    "n_matches": 25
+  },
+  "Mexico": {
+    "atk": -0.047816,
+    "def": 0.003747,
+    "n_matches": 1003
+  },
+  "Micronesia": {
+    "atk": -0.002197,
+    "def": 0.002197,
+    "n_matches": 7
+  },
+  "Moldova": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 299
+  },
+  "Monaco": {
+    "atk": -0.01037,
+    "def": 0.01037,
+    "n_matches": 24
+  },
+  "Mongolia": {
+    "atk": -0.056194,
+    "def": 0.056194,
+    "n_matches": 103
+  },
+  "Montenegro": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 170
+  },
+  "Montserrat": {
+    "atk": -0.05538,
+    "def": 0.05538,
+    "n_matches": 66
+  },
+  "Morocco": {
+    "atk": 0.009842,
+    "def": -0.069675,
+    "n_matches": 617
+  },
+  "Mozambique": {
+    "atk": 0.071528,
+    "def": -0.044048,
+    "n_matches": 375
+  },
+  "Myanmar": {
+    "atk": 0.052628,
+    "def": 0.075,
+    "n_matches": 512
+  },
+  "Namibia": {
+    "atk": -0.036661,
+    "def": -0.068222,
+    "n_matches": 279
+  },
+  "Nepal": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 268
+  },
+  "Netherlands": {
+    "atk": 0.040744,
+    "def": 0.041577,
+    "n_matches": 879
+  },
+  "New Caledonia": {
+    "atk": -0.057558,
+    "def": 0.057558,
+    "n_matches": 264
+  },
+  "New Zealand": {
+    "atk": -0.075,
+    "def": 0.045114,
+    "n_matches": 416
+  },
+  "Nicaragua": {
+    "atk": -0.075,
+    "def": 0.016738,
+    "n_matches": 222
+  },
+  "Niger": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 260
+  },
+  "Nigeria": {
+    "atk": 0.073702,
+    "def": -0.06874,
+    "n_matches": 661
+  },
+  "Niue": {
+    "atk": -0.000137,
+    "def": 0.000137,
+    "n_matches": 2
+  },
+  "North Korea": {
+    "atk": 0.040819,
+    "def": 0.013605,
+    "n_matches": 390
+  },
+  "North Macedonia": {
+    "atk": 0.071599,
+    "def": -0.064588,
+    "n_matches": 306
+  },
+  "North Vietnam": {
+    "atk": 5.5e-05,
+    "def": 5.5e-05,
+    "n_matches": 24
+  },
+  "Northern Cyprus": {
+    "atk": 0.00075,
+    "def": 0.001024,
+    "n_matches": 34
+  },
+  "Northern Ireland": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 707
+  },
+  "Northern Mariana Islands": {
+    "atk": -0.029715,
+    "def": 0.029715,
+    "n_matches": 30
+  },
+  "Norway": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 872
+  },
+  "Occitania": {
+    "atk": 0.014179,
+    "def": 0.014179,
+    "n_matches": 33
+  },
+  "Oman": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 543
+  },
+  "Orkney": {
+    "atk": -0.033941,
+    "def": 0.033941,
+    "n_matches": 28
+  },
+  "Padania": {
+    "atk": -0.027544,
+    "def": 0.027544,
+    "n_matches": 45
+  },
+  "Pakistan": {
+    "atk": -0.06001,
+    "def": -0.06001,
+    "n_matches": 251
+  },
+  "Palau": {
+    "atk": -0.000566,
+    "def": 0.000566,
+    "n_matches": 2
+  },
+  "Palestine": {
+    "atk": -0.048717,
+    "def": -0.075,
+    "n_matches": 249
+  },
+  "Panama": {
+    "atk": -0.050977,
+    "def": 0.054065,
+    "n_matches": 539
+  },
+  "Panjab": {
+    "atk": 0.021418,
+    "def": 0.021418,
+    "n_matches": 19
+  },
+  "Papua New Guinea": {
+    "atk": -0.060847,
+    "def": 0.060847,
+    "n_matches": 155
+  },
+  "Paraguay": {
+    "atk": 0.010888,
+    "def": -0.070005,
+    "n_matches": 783
+  },
+  "Parishes of Jersey": {
+    "atk": 0.010292,
+    "def": 0.002694,
+    "n_matches": 3
+  },
+  "Peru": {
+    "atk": -0.055163,
+    "def": -0.063519,
+    "n_matches": 714
+  },
+  "Philippines": {
+    "atk": 0.068971,
+    "def": 0.075,
+    "n_matches": 342
+  },
+  "Poland": {
+    "atk": 0.074356,
+    "def": 0.022355,
+    "n_matches": 892
+  },
+  "Portugal": {
+    "atk": 0.045597,
+    "def": 0.014678,
+    "n_matches": 695
+  },
+  "Provence": {
+    "atk": 0.010696,
+    "def": 0.010696,
+    "n_matches": 23
+  },
+  "Puerto Rico": {
+    "atk": -0.042352,
+    "def": 0.069565,
+    "n_matches": 163
+  },
+  "Qatar": {
+    "atk": 0.01256,
+    "def": 0.049702,
+    "n_matches": 635
+  },
+  "Quebec": {
+    "atk": 0.005301,
+    "def": -0.005301,
+    "n_matches": 3
+  },
+  "Raetia": {
+    "atk": -0.026934,
+    "def": 0.026934,
+    "n_matches": 26
+  },
+  "Republic of St. Pauli": {
+    "atk": 0.002704,
+    "def": 0.002704,
+    "n_matches": 4
+  },
+  "Rhodes": {
+    "atk": -0.00632,
+    "def": 0.00632,
+    "n_matches": 18
+  },
+  "Romani people": {
+    "atk": 0.009399,
+    "def": 0.009399,
+    "n_matches": 7
+  },
+  "Romania": {
+    "atk": 0.059199,
+    "def": -0.05548,
+    "n_matches": 766
+  },
+  "Russia": {
+    "atk": 0.057792,
+    "def": -0.059748,
+    "n_matches": 749
+  },
+  "Rwanda": {
+    "atk": 0.023027,
+    "def": -0.075,
+    "n_matches": 280
+  },
+  "Ryūkyū": {
+    "atk": -0.004546,
+    "def": 0.004546,
+    "n_matches": 1
+  },
+  "Réunion": {
+    "atk": -0.027783,
+    "def": -0.024407,
+    "n_matches": 124
+  },
+  "Saare County": {
+    "atk": -0.014453,
+    "def": 0.014453,
+    "n_matches": 35
+  },
+  "Saarland": {
+    "atk": 1.1e-05,
+    "def": 1.1e-05,
+    "n_matches": 9
+  },
+  "Saint Barthélemy": {
+    "atk": -0.019426,
+    "def": 0.019426,
+    "n_matches": 10
+  },
+  "Saint Helena": {
+    "atk": -0.023044,
+    "def": 0.023044,
+    "n_matches": 8
+  },
+  "Saint Kitts and Nevis": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 226
+  },
+  "Saint Lucia": {
+    "atk": -0.06384,
+    "def": 0.06384,
+    "n_matches": 230
+  },
+  "Saint Martin": {
+    "atk": 0.053383,
+    "def": 0.056015,
+    "n_matches": 68
+  },
+  "Saint Pierre and Miquelon": {
+    "atk": -0.006812,
+    "def": 0.006812,
+    "n_matches": 7
+  },
+  "Saint Vincent and the Grenadines": {
+    "atk": -0.003104,
+    "def": 0.075,
+    "n_matches": 236
+  },
+  "Samoa": {
+    "atk": -0.04397,
+    "def": 0.04397,
+    "n_matches": 71
+  },
+  "San Marino": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 225
+  },
+  "Sark": {
+    "atk": -0.00193,
+    "def": 0.00193,
+    "n_matches": 4
+  },
+  "Saudi Arabia": {
+    "atk": -0.041733,
+    "def": -0.05943,
+    "n_matches": 741
+  },
+  "Saugeais": {
+    "atk": -0.003064,
+    "def": 0.003064,
+    "n_matches": 1
+  },
+  "Scotland": {
+    "atk": 0.057879,
+    "def": -0.052616,
+    "n_matches": 851
+  },
+  "Sealand": {
+    "atk": -0.010547,
+    "def": 0.010547,
+    "n_matches": 12
+  },
+  "Seborga": {
+    "atk": -0.003486,
+    "def": 0.003486,
+    "n_matches": 1
+  },
+  "Senegal": {
+    "atk": 0.067751,
+    "def": -0.068753,
+    "n_matches": 638
+  },
+  "Serbia": {
+    "atk": 0.054344,
+    "def": 0.021656,
+    "n_matches": 348
+  },
+  "Seychelles": {
+    "atk": -0.065199,
+    "def": 0.065199,
+    "n_matches": 176
+  },
+  "Shetland": {
+    "atk": -0.034475,
+    "def": 0.034475,
+    "n_matches": 58
+  },
+  "Sierra Leone": {
+    "atk": 0.073849,
+    "def": -0.073849,
+    "n_matches": 301
+  },
+  "Silesia": {
+    "atk": 0.001437,
+    "def": -0.001437,
+    "n_matches": 8
+  },
+  "Singapore": {
+    "atk": -0.014796,
+    "def": 0.075,
+    "n_matches": 696
+  },
+  "Sint Maarten": {
+    "atk": -0.056067,
+    "def": 0.056067,
+    "n_matches": 60
+  },
+  "Slovakia": {
+    "atk": 0.055208,
+    "def": -0.05085,
+    "n_matches": 367
+  },
+  "Slovenia": {
+    "atk": 0.019792,
+    "def": -0.056049,
+    "n_matches": 317
+  },
+  "Solomon Islands": {
+    "atk": -0.069352,
+    "def": 0.069352,
+    "n_matches": 214
+  },
+  "Somalia": {
+    "atk": 0.052085,
+    "def": -0.052085,
+    "n_matches": 124
+  },
+  "Somaliland": {
+    "atk": 0.001158,
+    "def": 0.011028,
+    "n_matches": 6
+  },
+  "South Africa": {
+    "atk": 0.053033,
+    "def": -0.068502,
+    "n_matches": 480
+  },
+  "South Korea": {
+    "atk": 0.008651,
+    "def": 0.049391,
+    "n_matches": 1007
+  },
+  "South Ossetia": {
+    "atk": 0.02066,
+    "def": 0.02066,
+    "n_matches": 17
+  },
+  "South Sudan": {
+    "atk": -0.02536,
+    "def": -0.068961,
+    "n_matches": 78
+  },
+  "South Yemen": {
+    "atk": -0.000154,
+    "def": 0.000154,
+    "n_matches": 3
+  },
+  "Spain": {
+    "atk": 0.03707,
+    "def": 0.025418,
+    "n_matches": 783
+  },
+  "Sri Lanka": {
+    "atk": -0.069171,
+    "def": -0.069171,
+    "n_matches": 251
+  },
+  "Sudan": {
+    "atk": -0.075,
+    "def": -0.075,
+    "n_matches": 469
+  },
+  "Suriname": {
+    "atk": -0.032264,
+    "def": -0.002956,
+    "n_matches": 399
+  },
+  "Surrey": {
+    "atk": -0.005369,
+    "def": 0.005369,
+    "n_matches": 1
+  },
+  "Sweden": {
+    "atk": 0.064348,
+    "def": 0.031624,
+    "n_matches": 1101
+  },
+  "Switzerland": {
+    "atk": 0.074792,
+    "def": -0.001944,
+    "n_matches": 884
+  },
+  "Syria": {
+    "atk": -0.0197,
+    "def": 0.001101,
+    "n_matches": 484
+  },
+  "Székely Land": {
+    "atk": 0.028602,
+    "def": 0.028602,
+    "n_matches": 27
+  },
+  "Sápmi": {
+    "atk": 0.021556,
+    "def": 0.021556,
+    "n_matches": 29
+  },
+  "São Tomé and Príncipe": {
+    "atk": 0.054635,
+    "def": 0.054635,
+    "n_matches": 71
+  },
+  "Tahiti": {
+    "atk": -0.052701,
+    "def": 0.052701,
+    "n_matches": 241
+  },
+  "Taiwan": {
+    "atk": 0.066486,
+    "def": 0.066486,
+    "n_matches": 245
+  },
+  "Tajikistan": {
+    "atk": -0.075,
+    "def": -0.010826,
+    "n_matches": 201
+  },
+  "Tamil Eelam": {
+    "atk": -0.033833,
+    "def": 0.033833,
+    "n_matches": 28
+  },
+  "Tanzania": {
+    "atk": -0.051117,
+    "def": -0.068462,
+    "n_matches": 599
+  },
+  "Thailand": {
+    "atk": -0.056924,
+    "def": 0.075,
+    "n_matches": 865
+  },
+  "Tibet": {
+    "atk": -0.02759,
+    "def": 0.02759,
+    "n_matches": 21
+  },
+  "Ticino": {
+    "atk": -0.013825,
+    "def": 0.013825,
+    "n_matches": 2
+  },
+  "Timor-Leste": {
+    "atk": 0.060492,
+    "def": 0.060492,
+    "n_matches": 86
+  },
+  "Togo": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 447
+  },
+  "Tonga": {
+    "atk": -0.035375,
+    "def": 0.035375,
+    "n_matches": 68
+  },
+  "Trinidad and Tobago": {
+    "atk": -0.075,
+    "def": 0.075,
+    "n_matches": 753
+  },
+  "Tunisia": {
+    "atk": -0.02135,
+    "def": -0.05508,
+    "n_matches": 678
+  },
+  "Turkey": {
+    "atk": 0.070923,
+    "def": 0.02254,
+    "n_matches": 642
+  },
+  "Turkmenistan": {
+    "atk": -0.034728,
+    "def": 0.060715,
+    "n_matches": 175
+  },
+  "Turks and Caicos Islands": {
+    "atk": -0.051796,
+    "def": 0.051796,
+    "n_matches": 52
+  },
+  "Tuvalu": {
+    "atk": -0.030577,
+    "def": 0.030577,
+    "n_matches": 39
+  },
+  "Two Sicilies": {
+    "atk": -0.014432,
+    "def": 0.014432,
+    "n_matches": 6
+  },
+  "Uganda": {
+    "atk": -0.025589,
+    "def": -0.075,
+    "n_matches": 685
+  },
+  "Ukraine": {
+    "atk": 0.055211,
+    "def": 0.030578,
+    "n_matches": 338
+  },
+  "United Arab Emirates": {
+    "atk": 0.06392,
+    "def": 0.011098,
+    "n_matches": 612
+  },
+  "United Koreans in Japan": {
+    "atk": -0.017006,
+    "def": -0.017006,
+    "n_matches": 12
+  },
+  "United States": {
+    "atk": 0.037395,
+    "def": 0.049263,
+    "n_matches": 790
+  },
+  "United States Virgin Islands": {
+    "atk": -0.05569,
+    "def": 0.05569,
+    "n_matches": 78
+  },
+  "Uruguay": {
+    "atk": -0.049062,
+    "def": -0.068273,
+    "n_matches": 970
+  },
+  "Uzbekistan": {
+    "atk": -0.072555,
+    "def": -0.075,
+    "n_matches": 354
+  },
+  "Vanuatu": {
+    "atk": -0.062857,
+    "def": 0.062857,
+    "n_matches": 214
+  },
+  "Vatican City": {
+    "atk": -0.01278,
+    "def": 0.01278,
+    "n_matches": 8
+  },
+  "Venezuela": {
+    "atk": 0.071865,
+    "def": -0.03207,
+    "n_matches": 460
+  },
+  "Vietnam": {
+    "atk": -0.030878,
+    "def": 0.061075,
+    "n_matches": 297
+  },
+  "Vietnam Republic": {
+    "atk": 0.00026,
+    "def": 0.00026,
+    "n_matches": 195
+  },
+  "Wales": {
+    "atk": -0.013154,
+    "def": -0.047994,
+    "n_matches": 726
+  },
+  "Wallis Islands and Futuna": {
+    "atk": -0.001044,
+    "def": 0.001044,
+    "n_matches": 24
+  },
+  "West Papua": {
+    "atk": -0.011062,
+    "def": 0.011062,
+    "n_matches": 2
+  },
+  "Western Armenia": {
+    "atk": 0.020562,
+    "def": 0.021077,
+    "n_matches": 16
+  },
+  "Western Australia": {
+    "atk": 0.000145,
+    "def": 0.000145,
+    "n_matches": 32
+  },
+  "Western Isles": {
+    "atk": -0.032235,
+    "def": 0.032235,
+    "n_matches": 34
+  },
+  "Western Sahara": {
+    "atk": -0.007842,
+    "def": 0.007842,
+    "n_matches": 9
+  },
+  "Yemen": {
+    "atk": 0.069886,
+    "def": -0.026149,
+    "n_matches": 266
+  },
+  "Yemen DPR": {
+    "atk": 0.000532,
+    "def": 0.000532,
+    "n_matches": 25
+  },
+  "Ynys Môn": {
+    "atk": -0.033558,
+    "def": 0.033558,
+    "n_matches": 67
+  },
+  "Yorkshire": {
+    "atk": 0.014883,
+    "def": 0.014883,
+    "n_matches": 7
+  },
+  "Yoruba Nation": {
+    "atk": -0.012118,
+    "def": 0.012118,
+    "n_matches": 2
+  },
+  "Yugoslavia": {
+    "atk": 0.001645,
+    "def": -0.000683,
+    "n_matches": 483
+  },
+  "Zambia": {
+    "atk": 0.062893,
+    "def": 0.012124,
+    "n_matches": 793
+  },
+  "Zanzibar": {
+    "atk": 0.031628,
+    "def": -0.031628,
+    "n_matches": 209
+  },
+  "Zimbabwe": {
+    "atk": 0.075,
+    "def": -0.075,
+    "n_matches": 496
+  },
+  "Åland Islands": {
+    "atk": -0.024478,
+    "def": 0.024478,
+    "n_matches": 51
+  }
+}
