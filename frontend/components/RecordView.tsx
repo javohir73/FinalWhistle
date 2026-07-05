@@ -26,7 +26,7 @@ export function RecordView({ record }: { record: ModelRecord }) {
         <h2 className="font-display text-lg font-bold">No matches scored yet</h2>
         <p className="mt-2 text-sm text-muted">
           This fills in as WC26 fixtures finish — every prediction is graded on the
-          score after it's played, never adjusted with hindsight.
+          score after it&apos;s played, never adjusted with hindsight.
         </p>
       </section>
     );

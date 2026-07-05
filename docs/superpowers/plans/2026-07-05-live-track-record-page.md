@@ -44,8 +44,9 @@ def test_wilson_ci95_known_values():
     assert wilson_ci95(0, 0) is None      # empty -> None
     lo0, _ = wilson_ci95(0, 20)           # 0 successes -> lower bound pinned at 0
     assert lo0 == 0.0
-    _, hi_all = wilson_ci95(20, 20)       # all correct -> upper bound below 1
-    assert hi_all < 1.0
+    lo_all, hi_all = wilson_ci95(20, 20)  # all correct
+    assert hi_all == pytest.approx(1.0)   # upper bound is exactly 1.0 at a 100% rate (Wilson)
+    assert lo_all < 1.0                   # but Wilson keeps a real lower bound (not a degenerate [1, 1])
 
 
 def test_record_includes_confidence_intervals(client):
