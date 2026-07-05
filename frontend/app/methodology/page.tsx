@@ -3,7 +3,9 @@ import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
 import { CalibrationChart } from "@/components/CalibrationChart";
 import data from "@/lib/methodology-data.json";
-import rawBenchmark from "@/lib/market-benchmark-data.json";
+import { getMarketRecordServer } from "@/lib/api";
+import { MarketComparison } from "@/components/MarketComparison";
+import type { MarketBenchmark } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: `Methodology & accuracy — ${APP_NAME}`,
@@ -13,26 +15,13 @@ export const metadata: Metadata = {
 
 type YearMetrics = (typeof data.years)[number];
 
-type Metrics = { log_loss: number; brier: number; accuracy: number };
-
-/** Shape of lib/market-benchmark-data.json (pending until the first run publishes). */
-interface MarketBenchmark {
-  status: string; // "pending" | "ready" — string to avoid literal-narrowing on comparisons
-  dataset: string | null;
-  n_matches: number;
-  updated_at: string | null;
-  model: Metrics | null;
-  market: Metrics | null;
-  diff_log_loss: number | null;
-  diff_ci95: [number, number] | null;
-  model_win_rate: number | null;
-  mean_edge: number | null;
-  verdict: string | null;
-}
-
-const bench = rawBenchmark as MarketBenchmark;
-
 const fmt = (n: number) => n.toFixed(3);
+
+const PENDING_MARKET: MarketBenchmark = {
+  status: "pending", dataset: null, n_matches: 0, updated_at: null,
+  model: null, market: null, diff_log_loss: null, diff_ci95: null,
+  model_win_rate: null, mean_edge: null, verdict: null,
+};
 
 /** "2014, 2018 & 2022" */
 function listYears(years: number[]): string {
@@ -49,8 +38,14 @@ function bestLogLoss(y: YearMetrics): "model" | "favorite" | "base_rate" {
   return opts.sort((a, b) => a[1] - b[1])[0][0];
 }
 
-export default function MethodologyPage() {
+export default async function MethodologyPage() {
   const beatsBaselines = data.years.filter((y) => bestLogLoss(y) === "model").length;
+  let bench: MarketBenchmark = PENDING_MARKET;
+  try {
+    bench = (await getMarketRecordServer()) ?? PENDING_MARKET;
+  } catch {
+    bench = PENDING_MARKET;
+  }
 
   return (
     <article className="fade-up mx-auto max-w-2xl space-y-10">
@@ -139,72 +134,10 @@ export default function MethodologyPage() {
         </div>
       </section>
 
-      {/* Vs the market (closing line) — the real benchmark (ROADMAP-ENGINE Phase 0) */}
+      {/* Vs the market — the real benchmark (ROADMAP-ENGINE Phase 0), live from /api/model/market-record */}
       <section>
         <h2 className="font-display text-lg font-bold">How does it compare to the market?</h2>
-        {bench.status !== "ready" ? (
-          <div className="glass mt-4 rounded-2xl p-6">
-            <p className="text-sm leading-relaxed text-muted">
-              Beating naive baselines is the entry bar; the{" "}
-              <strong className="text-foreground/80">market&apos;s closing line</strong> — the final
-              pre-kickoff bookmaker consensus, stripped of its margin — is the real one. It&apos;s the
-              sharpest public forecast there is, so out-predicting it is the only comparison that
-              truly counts.
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-muted">
-              Every WC26 prediction is logged{" "}
-              <strong className="text-foreground/80">pre-kickoff, next to the closing odds</strong>,
-              so the two can be scored on exactly the same matches. Results publish here after the
-              first benchmarked match day.
-            </p>
-          </div>
-        ) : (
-          <div className="mt-4 space-y-5">
-            <p className="text-sm leading-relaxed text-muted">
-              The market&apos;s closing line — the final pre-kickoff bookmaker consensus with its
-              margin removed — is the sharpest public forecast there is. Each WC26 prediction is
-              logged pre-kickoff next to those odds, so both are scored on exactly the same matches.
-            </p>
-            <VerdictBadge verdict={bench.verdict!} />
-            <div className="glass rounded-2xl p-4 sm:p-5">
-              <div className="mb-3 flex items-baseline justify-between">
-                <h3 className="font-display font-bold">Model vs. market</h3>
-                <span className="text-xs text-muted">{bench.n_matches} matches</span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[11px] uppercase tracking-wider text-muted">
-                      <th className="px-2 pb-2 text-left font-medium">Predictor</th>
-                      <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Log-loss</th>
-                      <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Brier</th>
-                      <th className="px-2 pb-2 text-right font-medium" title="Higher is better">Accuracy</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <Row label="FinalWhistle model" m={bench.model!} highlight={bench.diff_log_loss! < 0} />
-                    <Row label="Market closing line" m={bench.market!} highlight={bench.diff_log_loss! > 0} />
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <p className="text-xs leading-relaxed text-muted">
-              Paired mean log-loss difference (model − market):{" "}
-              <span className="tabular-nums text-foreground/80">
-                {bench.diff_log_loss! >= 0 ? "+" : ""}{bench.diff_log_loss!.toFixed(4)}
-              </span>{" "}
-              (95% CI{" "}
-              <span className="tabular-nums text-foreground/80">
-                [{bench.diff_ci95![0].toFixed(4)}, {bench.diff_ci95![1].toFixed(4)}]
-              </span>
-              ). Model wins{" "}
-              <span className="tabular-nums text-foreground/80">
-                {Math.round(bench.model_win_rate! * 100)}%
-              </span>{" "}
-              of matches head-to-head across {bench.n_matches} games. Updated {bench.updated_at}.
-            </p>
-          </div>
-        )}
+        <MarketComparison bench={bench} />
       </section>
 
       {/* What we tested — restraint as a feature */}
@@ -355,26 +288,6 @@ function Row({
       <td className="px-2 text-right tabular-nums text-muted">{fmt(m.brier)}</td>
       <td className="px-2 text-right tabular-nums text-muted">{Math.round(m.accuracy * 100)}%</td>
     </tr>
-  );
-}
-
-function VerdictBadge({ verdict }: { verdict: string }) {
-  const modelWins = verdict.startsWith("MODEL BEATS MARKET");
-  const marketWins = verdict.startsWith("MARKET BEATS MODEL");
-  const label = modelWins
-    ? "Model beats market"
-    : marketWins
-    ? "Market beats model"
-    : "No credible difference";
-  const cls = modelWins
-    ? "bg-win/[0.06] text-lime-deep ring-1 ring-win/40"
-    : marketWins
-    ? "border-gold/20 bg-gold/[0.04] text-gold ring-1 ring-gold/30"
-    : "chip text-muted";
-  return (
-    <div className={`glass inline-flex items-center rounded-full px-4 py-1.5 text-sm font-bold ${cls}`}>
-      {label}
-    </div>
   );
 }
 

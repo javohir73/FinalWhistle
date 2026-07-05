@@ -337,3 +337,18 @@ export type KnockoutTie = {
 };
 
 export type KnockoutBracket = { ties: KnockoutTie[] };
+
+// ---- Model vs. market benchmark ----
+export interface MarketBenchmark {
+  status: string; // "pending" | "ready"
+  dataset: string | null;
+  n_matches: number;
+  updated_at: string | null;
+  model: { log_loss: number; brier: number; accuracy: number } | null;
+  market: { log_loss: number; brier: number; accuracy: number } | null;
+  diff_log_loss: number | null;
+  diff_ci95: [number, number] | null;
+  model_win_rate: number | null;
+  mean_edge: number | null;
+  verdict: string | null;
+}

@@ -5,6 +5,7 @@ import type {
   Group,
   KnockoutBracket,
   LeaderboardRow,
+  MarketBenchmark,
   MatchLineups,
   MatchSummary,
   ModelRecord,
@@ -117,3 +118,5 @@ export const getLeaderboardServer = () =>
   getServer<LeaderboardRow[]>("/api/leaderboard", 60);
 export const getModelRecordServer = () =>
   getServer<ModelRecord>("/api/model/record", 300);
+export const getMarketRecordServer = () =>
+  getServer<MarketBenchmark>("/api/model/market-record", 300);

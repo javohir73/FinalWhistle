@@ -48,5 +48,7 @@ services:
         value: "true" # session cookie Secure flag (true in prod over https)
       - key: FOOTBALL_DATA_API_KEY
         sync: false # set near kickoff to enable live in-game scores
+      - key: API_FOOTBALL_API_KEY
+        sync: false
       - key: LIVE_MODE_ENABLED
         sync: false # dashboard-managed so a Blueprint re-sync won't revert it. Code defaults to off; set "true" (with a live key set) in the dashboard to activate live updates.
