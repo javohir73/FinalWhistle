@@ -55,7 +55,7 @@ const TABS: Tab[] = [
     href: "/leaderboard",
     label: "You",
     // The You hub also houses the relocated info/settings pages.
-    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
     icon: (
       <>
         <circle cx="12" cy="8" r="4" />
