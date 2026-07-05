@@ -32,6 +32,12 @@ from datetime import date, datetime, timezone
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
+_EMPTY_MARKET_RECORD = {
+    "status": "pending", "dataset": None, "n_matches": 0, "updated_at": None,
+    "model": None, "market": None, "diff_log_loss": None, "diff_ci95": None,
+    "model_win_rate": None, "mean_edge": None, "verdict": None,
+}
+
 
 def load_odds_csv(path: str) -> list[dict]:
     """Read a closing-odds CSV into join-ready records."""
@@ -121,18 +127,12 @@ def run_historical(csv_path: str, year: int, emit_json: str | None = None) -> in
     return 0
 
 
-def run_live(emit_json: str | None = None) -> int:
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-
+def market_record(db) -> dict:
+    """Model-vs-market comparison from the live DB, page-ready. Honest-empty
+    (status='pending') when no finished match has both a pre-kickoff prediction
+    and a captured odds snapshot. Pure of HTTP."""
     from app.models import Match, Odds, Prediction, Team
-    from ml.evaluation.market_benchmark import MatchedMatch, benchmark, format_report
-
-    url = os.environ.get("DATABASE_URL")
-    if not url:
-        log.error("DATABASE_URL is not set")
-        return 1
-    db = sessionmaker(bind=create_engine(url, future=True), future=True)()
+    from ml.evaluation.market_benchmark import MatchedMatch, benchmark, result_to_json
 
     id_to_name = {t.id: t.name for t in db.query(Team).all()}
     finished = (
@@ -146,10 +146,8 @@ def run_live(emit_json: str | None = None) -> int:
     matched: list[MatchedMatch] = []
     skipped_no_odds = skipped_no_pred = 0
     for m in finished:
-        # Closing snapshot: the LAST consensus row captured before kickoff.
         odds_q = db.query(Odds).filter(
-            Odds.match_id == m.id,
-            Odds.implied_prob_home.isnot(None),
+            Odds.match_id == m.id, Odds.implied_prob_home.isnot(None)
         )
         if m.kickoff_utc is not None:
             odds_q = odds_q.filter(Odds.captured_at <= m.kickoff_utc)
@@ -158,8 +156,6 @@ def run_live(emit_json: str | None = None) -> int:
             skipped_no_odds += 1
             continue
 
-        # Serving prediction: last non-shadow row created before kickoff
-        # (falls back to latest if created_at/kickoff is missing).
         pred_q = db.query(Prediction).filter(
             Prediction.match_id == m.id, Prediction.is_shadow.is_(False)
         )
@@ -175,31 +171,47 @@ def run_live(emit_json: str | None = None) -> int:
         if sh is None or sa is None:
             continue
         label = "H" if sh > sa else ("A" if sh < sa else "D")
-
-        matched.append(
-            MatchedMatch(
-                date=(m.kickoff_utc or datetime.utcnow()).date(),
-                home=id_to_name.get(m.team_home_id, str(m.team_home_id)),
-                away=id_to_name.get(m.team_away_id, str(m.team_away_id)),
-                model_probs=(p.prob_home_win, p.prob_draw, p.prob_away_win),
-                market_probs=(o.implied_prob_home, o.implied_prob_draw, o.implied_prob_away),
-                label=label,
-            )
-        )
+        matched.append(MatchedMatch(
+            date=(m.kickoff_utc or datetime.now(timezone.utc)).date(),
+            home=id_to_name.get(m.team_home_id, str(m.team_home_id)),
+            away=id_to_name.get(m.team_away_id, str(m.team_away_id)),
+            model_probs=(p.prob_home_win, p.prob_draw, p.prob_away_win),
+            market_probs=(o.implied_prob_home, o.implied_prob_draw, o.implied_prob_away),
+            label=label,
+        ))
 
     log.info(
-        "finished matches: %d | benchmarked: %d | no odds: %d | no pre-KO prediction: %d",
+        "market record: finished=%d benchmarked=%d no_odds=%d no_pred=%d",
         len(finished), len(matched), skipped_no_odds, skipped_no_pred,
     )
     if not matched:
-        log.error("nothing to benchmark yet")
-        return 1
-    title = "WC26 live (captured closing snapshots)"
+        return dict(_EMPTY_MARKET_RECORD)
     result = benchmark(matched)
-    log.info("\n%s", format_report(result, title))
+    return result_to_json(
+        result,
+        "WC26 live (final pre-kickoff consensus we captured)",
+        datetime.now(timezone.utc).isoformat(),
+    )
+
+
+def run_live(emit_json: str | None = None) -> int:
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+
+    url = os.environ.get("DATABASE_URL")
+    if not url:
+        log.error("DATABASE_URL is not set")
+        return 1
+    db = sessionmaker(bind=create_engine(url, future=True), future=True)()
+
+    rec = market_record(db)
+    log.info("status=%s n_matches=%s verdict=%s",
+             rec["status"], rec["n_matches"], rec.get("verdict"))
     if emit_json:
-        _write_json(emit_json, result, title)
-    return 0
+        with open(emit_json, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps(rec, indent=2))
+        log.info("wrote benchmark JSON -> %s", emit_json)
+    return 0 if rec["status"] == "ready" else 1
 
 
 def main() -> int:
