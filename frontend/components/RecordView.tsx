@@ -4,20 +4,7 @@ import { cn } from "@/lib/utils";
 import type { ModelRecord, ModelRecordEntry } from "@/lib/types";
 
 const SMALL_SAMPLE = 30;
-const pct = (x: number) => `${Math.round(x * 100)}%`;
-
-/** "58% · 95% CI 44–71% · n=48" — the interval IS the honesty.
- *  `sampleFormat` distinguishes the two hero stats' rendered sample-size text
- *  (both share the same n, so the DOM text must not collide between boxes). */
-function rateLine(
-  rate: number | null,
-  ci: [number, number] | null,
-  n: number,
-  sampleFormat: (n: number) => string = (n) => `n=${n}`
-): string {
-  if (rate == null || ci == null) return "—";
-  return `${pct(rate)} · 95% CI ${Math.round(ci[0] * 100)}–${pct(ci[1])} · ${sampleFormat(n)}`;
-}
+const pct = (x: number | null) => (x == null ? "—" : `${Math.round(x * 100)}%`);
 
 export function RecordView({ record }: { record: ModelRecord }) {
   if (record.evaluated_matches === 0) {
@@ -36,18 +23,18 @@ export function RecordView({ record }: { record: ModelRecord }) {
 
   return (
     <div className="space-y-8">
-      {/* Hero honesty row */}
+      {/* Hero row — the headline rate, front and centre. */}
       <section className="grid gap-4 sm:grid-cols-2">
-        <StatCI title="Winner accuracy" line={rateLine(record.winner_accuracy, record.winner_accuracy_ci95, n)} />
+        <StatCI title="Winner accuracy" value={pct(record.winner_accuracy)} />
         <StatCI
           title="Exact scores"
-          line={rateLine(record.exact_score_rate, record.exact_score_ci95, n, (n) => `${n} scored`)}
+          value={pct(record.exact_score_rate)}
           sub={`${record.exact_score_hits} of ${n} scorelines exact`}
         />
       </section>
       {n < SMALL_SAMPLE && (
         <p className="text-center text-xs text-gold">
-          Small sample ({n} matches) — treat these with caution; the intervals are wide.
+          Small sample ({n} matches) — treat these with caution while the sample is small.
         </p>
       )}
 
@@ -97,11 +84,11 @@ export function RecordView({ record }: { record: ModelRecord }) {
   );
 }
 
-function StatCI({ title, line, sub }: { title: string; line: string; sub?: string }) {
+function StatCI({ title, value, sub }: { title: string; value: string; sub?: string }) {
   return (
     <div className="glass rounded-2xl bg-win/[0.06] p-6 text-center">
       <div className="text-xs uppercase tracking-wider text-muted">{title}</div>
-      <div className="mt-2 font-display text-lg font-bold tabular-nums text-foreground">{line}</div>
+      <div className="mt-2 font-display text-4xl font-extrabold tabular-nums text-foreground">{value}</div>
       {sub && <div className="mt-1 text-xs text-muted">{sub}</div>}
     </div>
   );

@@ -6,7 +6,7 @@ import { RecordView } from "@/components/RecordView";
 export const metadata: Metadata = {
   title: `Track record — ${APP_NAME}`,
   description:
-    "The model's live, audited World Cup record: winner accuracy, exact scores, and calibration — each shown with its sample size and 95% confidence interval.",
+    "The model's live, audited World Cup record: winner accuracy, exact scores, and calibration — every call graded pre-kickoff.",
 };
 
 export default async function RecordPage() {
@@ -24,8 +24,8 @@ export default async function RecordPage() {
           Track <span className="text-lime-deep">record</span>
         </h1>
         <p className="mt-3 text-muted">
-          How the forecasts have actually held up on WC26 — every call graded pre-kickoff
-          and shown with its sample size and 95% confidence interval, wins and misses alike.
+          How the forecasts have actually held up on WC26 — every call graded
+          pre-kickoff, wins and misses alike.
         </p>
       </header>
       {record ? (

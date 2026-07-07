@@ -32,11 +32,13 @@ const base: ModelRecord = {
   disclaimer: "For analytics and entertainment only. Not betting advice.",
 };
 
-it("shows winner accuracy with its CI and sample size", () => {
+it("shows the headline rates as plain percentages, no CI clutter", () => {
   render(<RecordView record={base} />);
-  expect(screen.getByText(/58%/)).toBeInTheDocument();
-  expect(screen.getByText(/95% CI 44–71%/)).toBeInTheDocument();
-  expect(screen.getByText(/n=48/)).toBeInTheDocument();
+  expect(screen.getByText(/^58%$/)).toBeInTheDocument();
+  expect(screen.getByText(/^13%$/)).toBeInTheDocument(); // 0.125 → 13%
+  expect(screen.getByText(/6 of 48 scorelines exact/)).toBeInTheDocument();
+  expect(screen.queryByText(/95% CI/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/n=48/)).not.toBeInTheDocument();
 });
 
 it("renders the honest empty state at n=0 with no CI", () => {
