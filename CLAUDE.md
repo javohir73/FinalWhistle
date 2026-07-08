@@ -49,11 +49,13 @@ Before claiming work is done or opening a PR, run the real suite and paste the o
   files are `*_test.py` / `test_*.py`)
 - Frontend: `cd frontend && npm run typecheck && npm run lint && npm test`
 
-## The guarded pipeline — never merge yourself
+## The guarded pipeline
 
 `branch → PR → CI → [stop: summary + "go"] → merge to main → deploy → verify`
 
-- Never merge your own PR or push to `main`. Prepare it; the human merges.
+- Merging to `main` stays behind the stop gate: show the plain-English summary,
+  wait for the human's explicit "go" — then Claude merges the PR itself
+  (CI must be green first).
 - CI runs via `.github/workflows/ci.yml`.
 - Backend auto-deploys to Render from `main` (`render.yaml`); frontend deploys to
   Vercel (see `DEPLOYMENT.md`).
