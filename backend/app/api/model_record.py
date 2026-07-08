@@ -40,6 +40,20 @@ def wilson_ci95(successes: int, n: int) -> tuple[float, float] | None:
     return (round(max(0.0, center - half), 4), round(min(1.0, center + half), 4))
 
 
+def _advancer(match: Match) -> str | None:
+    """Which side progressed a knockout tie: final score (incl. extra time),
+    then penalties. None when it cannot be determined (defensive)."""
+    sh, sa = match.score_home, match.score_away
+    if sh is None or sa is None:
+        return None
+    if sh != sa:
+        return "home" if sh > sa else "away"
+    ph, pa = match.penalty_home, match.penalty_away
+    if ph is not None and pa is not None and ph != pa:
+        return "home" if ph > pa else "away"
+    return None
+
+
 def _match_label(m: Match) -> str:
     home = m.home_team.name if m.home_team else "?"
     away = m.away_team.name if m.away_team else "?"
@@ -87,6 +101,10 @@ def model_record(db: Session = Depends(get_db)):
             "winners_correct": 0,
             "exact_score_hits": 0,
             "best_streak": 0,
+            "advancement_matches": 0,
+            "advancement_correct": 0,
+            "advancement_accuracy": None,
+            "advancement_ci95": None,
             "avg_brier": None,
             "avg_log_loss": None,
             "calibration": [],
@@ -109,6 +127,20 @@ def model_record(db: Session = Depends(get_db)):
     for r, _, _ in by_kickoff:
         streak = streak + 1 if r.winner_correct else 0
         best_streak = max(best_streak, streak)
+
+    # Knockout advancement basis (universal-engine spec §4.1): pick = higher
+    # side probability from the frozen production row; actual = side that
+    # went through. Group matches are excluded by definition.
+    adv_n = adv_ok = 0
+    for r, p, m in rows:
+        if (m.stage or "group") == "group":
+            continue
+        went = _advancer(m)
+        if went is None:
+            continue
+        pick = "home" if (p.prob_home_win or 0.0) >= (p.prob_away_win or 0.0) else "away"
+        adv_n += 1
+        adv_ok += pick == went
 
     # Calibration: reuse the same reliability-curve math as the methodology
     # backtests, fed with the live tournament outcomes.
@@ -144,6 +176,10 @@ def model_record(db: Session = Depends(get_db)):
         "winners_correct": winners,
         "exact_score_hits": exacts,
         "best_streak": best_streak,
+        "advancement_matches": adv_n,
+        "advancement_correct": adv_ok,
+        "advancement_accuracy": round(adv_ok / adv_n, 4) if adv_n else None,
+        "advancement_ci95": wilson_ci95(adv_ok, adv_n) if adv_n else None,
         "avg_brier": round(sum(r.brier for r, _, _ in rows) / n, 4),
         "avg_log_loss": round(sum(r.log_loss for r, _, _ in rows) / n, 4),
         "calibration": calibration,

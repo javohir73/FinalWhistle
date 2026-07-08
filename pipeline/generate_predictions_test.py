@@ -595,6 +595,72 @@ def test_availability_twin_blocked_after_kickoff(db_session):
             .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
 
 
+# --- use_availability serving-path integration (dual-basis plan) ------------
+
+
+def test_build_payload_use_availability_scales_lambdas(monkeypatch, db_session):
+    """With use_availability on and an availability offset present, production
+    lambdas scale by exp(offset) and the triple is recomputed; with the flag
+    off, payload is bit-identical whether or not offsets exist."""
+    import math
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    # Real return shape of app.availability.availability_for_match:
+    # (off_home, off_away, expl_home, expl_away) or None.
+    monkeypatch.setattr(gp, "availability_for_match", lambda _db, _m: (-0.20, 0.05, {}, {}))
+
+    params_off = replace(load_params(), form_channels=None, use_availability=False)
+    params_on = replace(params_off, use_availability=True)
+
+    base = gp.build_payload(db_session, match, "test-model", params=params_off)
+    adjusted = gp.build_payload(db_session, match, "test-model", params=params_on)
+
+    assert adjusted["lambda_home"] == pytest.approx(base["lambda_home"] * math.exp(-0.20), rel=1e-3)
+    assert adjusted["lambda_away"] == pytest.approx(base["lambda_away"] * math.exp(0.05), rel=1e-3)
+    assert adjusted["probabilities"] != base["probabilities"]
+
+    # Dark = bit-identical even with offsets available.
+    again = gp.build_payload(db_session, match, "test-model", params=params_off)
+    assert again["probabilities"] == base["probabilities"]
+    assert again["lambda_home"] == base["lambda_home"]
+
+
+def test_build_payload_use_availability_without_signal_is_identity(db_session):
+    """Flag on but no stored XI/injuries (the real availability_for_match
+    returns None): the payload must equal the flag-off baseline -- flipping
+    the flag before lineups exist can never perturb serving."""
+    from dataclasses import replace
+
+    from pipeline.generate_predictions import build_payload as bp
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    params_off = replace(load_params(), form_channels=None, use_availability=False)
+    params_on = replace(params_off, use_availability=True)
+
+    base = bp(db_session, match, "test-model", params=params_off)
+    on_no_signal = bp(db_session, match, "test-model", params=params_on)
+
+    for key in ("probabilities", "predicted_score", "lambda_home", "lambda_away"):
+        assert on_no_signal[key] == base[key]
+
+
 # --- form_channels serving-path integration (model v2 C1) -------------------
 
 

@@ -23,9 +23,16 @@ export function RecordView({ record }: { record: ModelRecord }) {
 
   return (
     <div className="space-y-8">
-      {/* Hero row — the headline rate, front and centre. */}
-      <section className="grid gap-4 sm:grid-cols-2">
+      {/* Hero row — the headline rates, front and centre. */}
+      <section className={cn("grid gap-4", record.advancement_matches > 0 ? "sm:grid-cols-3" : "sm:grid-cols-2")}>
         <StatCI title="Winner accuracy" value={pct(record.winner_accuracy)} />
+        {record.advancement_matches > 0 && (
+          <StatCI
+            title="Knockout progression"
+            value={pct(record.advancement_accuracy)}
+            sub={`${record.advancement_correct} of ${record.advancement_matches} ties — picked who goes through`}
+          />
+        )}
         <StatCI
           title="Exact scores"
           value={pct(record.exact_score_rate)}
@@ -73,6 +80,12 @@ export function RecordView({ record }: { record: ModelRecord }) {
         <p>
           Model {record.model_version}
           {record.last_updated ? ` · updated ${record.last_updated}` : ""}.
+        </p>
+        <p className="mt-1">
+          Winner accuracy grades every match on the 90-minute result, draws
+          included — the strictest basis. Knockout progression grades ties on
+          who went through (extra time and penalties count), the basis most
+          public picking contests use.
         </p>
         <p className="mt-1">{record.disclaimer}</p>
         <p className="mt-2">

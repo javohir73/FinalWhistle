@@ -194,3 +194,66 @@ def test_record_best_streak_counts_kickoff_order(client):
 def test_empty_record_best_streak_is_zero(client):
     c, _ = client
     assert c.get("/api/model/record").json()["best_streak"] == 0
+
+
+def test_record_advancement_basis_credits_shootout_wins(client):
+    """A knockout drawn at 90' but won on penalties by our picked side is an
+    advancement hit even though strict W/D/L grading scores it a miss; group
+    matches never enter the advancement sample."""
+    from datetime import datetime, timezone
+
+    c, TestingSession = client
+    db = TestingSession()
+    fra = Team(name="France", country_code="FR", confederation="UEFA")
+    mar = Team(name="Morocco", country_code="MA", confederation="CAF")
+    wc = Tournament(name="FIFA World Cup 2026", year=2026)
+    db.add_all([wc, fra, mar])
+    db.flush()
+
+    def make(stage, score, pens, probs, winner_ok, kick_day):
+        m = Match(tournament_id=wc.id, team_home_id=fra.id, team_away_id=mar.id,
+                  stage=stage, status="finished",
+                  score_home=score[0], score_away=score[1],
+                  penalty_home=pens[0] if pens else None,
+                  penalty_away=pens[1] if pens else None,
+                  kickoff_utc=datetime(2026, 7, kick_day, tzinfo=timezone.utc))
+        db.add(m)
+        db.flush()
+        p = Prediction(match_id=m.id, model_version="poisson-elo-v0.4",
+                       prob_home_win=probs[0], prob_draw=probs[1], prob_away_win=probs[2],
+                       predicted_score_home=1, predicted_score_away=0)
+        db.add(p)
+        db.flush()
+        db.add(PredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version="poisson-elo-v0.4",
+            actual_score_home=score[0], actual_score_away=score[1],
+            outcome="draw" if score[0] == score[1] else "home",
+            winner_correct=winner_ok, exact_score_correct=False,
+            prob_assigned=probs[0], brier=0.5, log_loss=0.9, goal_error=0,
+        ))
+
+    # QF drawn 1-1, France win the shootout; we favoured France:
+    # strict-basis miss, advancement hit.
+    make("QF", (1, 1), (4, 2), (0.55, 0.27, 0.18), False, 9)
+    # R16 won outright 2-0 by France; hit on both bases.
+    make("R16", (2, 0), None, (0.60, 0.25, 0.15), True, 5)
+    # Group draw — must NOT enter the advancement sample.
+    make("group", (0, 0), None, (0.50, 0.28, 0.22), False, 1)
+    db.commit()
+
+    body = c.get("/api/model/record").json()
+    assert body["advancement_matches"] == 2
+    assert body["advancement_correct"] == 2
+    assert body["advancement_accuracy"] == 1.0
+    assert body["advancement_ci95"] is not None
+    # Strict basis unchanged by the new fields: 1 of 3 winner calls correct.
+    assert body["winners_correct"] == 1
+
+
+def test_empty_record_advancement_fields(client):
+    c, _ = client
+    body = c.get("/api/model/record").json()
+    assert body["advancement_matches"] == 0
+    assert body["advancement_correct"] == 0
+    assert body["advancement_accuracy"] is None
+    assert body["advancement_ci95"] is None

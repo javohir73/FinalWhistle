@@ -17,6 +17,10 @@ const base: ModelRecord = {
   winners_correct: 28,
   best_streak: 6,
   exact_score_hits: 6,
+  advancement_matches: 24,
+  advancement_correct: 19,
+  advancement_accuracy: 0.7917,
+  advancement_ci95: [0.59, 0.91],
   avg_brier: 0.59,
   avg_log_loss: 0.98,
   calibration: [{ mean_predicted: 0.5, empirical_freq: 0.52, count: 20 }],
@@ -46,6 +50,7 @@ it("renders the honest empty state at n=0 with no CI", () => {
   render(<RecordView record={{
     ...base, evaluated_matches: 0, winner_accuracy: null, winner_accuracy_ci95: null,
     exact_score_rate: null, exact_score_ci95: null, winners_correct: 0, exact_score_hits: 0, best_streak: 0,
+    advancement_matches: 0, advancement_correct: 0, advancement_accuracy: null, advancement_ci95: null,
     best_calls: [], biggest_misses: [],
   }} />);
   expect(screen.getByText(/No matches scored yet/)).toBeInTheDocument();
@@ -61,4 +66,16 @@ it("surfaces both best calls and biggest misses", () => {
   render(<RecordView record={base} />);
   expect(screen.getByText(/Mexico 2–0 South Africa/)).toBeInTheDocument();
   expect(screen.getByText(/Germany 1–2 Japan/)).toBeInTheDocument();
+});
+
+it("shows the knockout progression card when advancement data exists", () => {
+  render(<RecordView record={base} />);
+  expect(screen.getByText("Knockout progression")).toBeInTheDocument();
+  expect(screen.getByText("79%")).toBeInTheDocument();
+  expect(screen.getByText(/19 of 24 ties/)).toBeInTheDocument();
+});
+
+it("hides the knockout progression card before any knockouts are graded", () => {
+  render(<RecordView record={{ ...base, advancement_matches: 0, advancement_correct: 0, advancement_accuracy: null, advancement_ci95: null }} />);
+  expect(screen.queryByText("Knockout progression")).not.toBeInTheDocument();
 });
