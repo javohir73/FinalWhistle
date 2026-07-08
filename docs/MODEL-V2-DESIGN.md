@@ -136,9 +136,14 @@ pre-tournament validation window only):
 |---|---|---|---|
 | v0.1-raw | 0.9670 | **1.0693** | 0.9264 |
 | v0.2-tuned | 0.9813 | 1.0943 | 0.9053 |
-| v0.2+form (C1) | 0.9770 | 1.1002 | 0.9132 |
+| v0.2+form (C1) | 0.9713 | 1.1071 | 0.9100 |
 | v0.2+cal (C2) | 0.9791 | 1.0942 | **0.8974** |
-| v0.2+form+cal | 0.9729 | 1.1111 | 0.9057 |
+| v0.2+form+cal | 0.9732 | 1.1178 | 0.9005 |
+
+(Numbers above are from the post-review rerun after unifying every residual
+ledger onto the served goals scale and fixing the replay's host-as-away sign —
+the original ablation had a tuner/scorer scale mismatch, caught in review. The
+C1 verdict was re-decided on these clean numbers and did not change.)
 
 Shipped-file check (v0.2 goals constants as served, on the same 71 WC26
 matches): goals-only 0.9160 → with calibrator **0.9119**; fit-window (n=2084)
