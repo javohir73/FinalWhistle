@@ -15,10 +15,10 @@ export type Verdict = {
   shootout: { winner: string; text: string } | null;
 };
 
-/** A finished match is "knockout" when it's past the group stage. The model is
+/** A match is "knockout" when it's past the group stage. The model is
  *  regulation-only, so only knockout results can diverge from the 90-min call
  *  (extra time / penalties), which is what the basis + shootout note explain. */
-function isKnockout(stage: string): boolean {
+export function isKnockout(stage: string): boolean {
   return stage.toLowerCase() !== "group";
 }
 
