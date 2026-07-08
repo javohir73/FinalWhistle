@@ -1,5 +1,11 @@
 # Dual-Basis Record + WC26 Endgame Implementation Plan
 
+> **ERRATUM (2026-07-08, commit 035fc27):** every `poisson-elo-v0.5` in the
+> snippets below is superseded by `poisson-elo-v0.6` — v0.5 was taken by the
+> knockout ET/pens model (#126) while this plan was in flight. The operative
+> artifacts (promote_blend.py, its tests, RUNBOOK-WC26-ENDGAME.md) already
+> target v0.6; do not re-execute these snippets verbatim.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Publish the knockout-advancement grading basis alongside the strict 90-minute record, and stage the odds/availability promotions so flipping them on gate-clearance day is a params-only PR.

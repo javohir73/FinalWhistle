@@ -1,8 +1,12 @@
 # WC26 Endgame Runbook
 
 ## 1. Shadow-gate readout (owner action, after each knockout round)
-- Readout: GET /api/internal/shadow-record with the internal token (or query
-  prediction_results WHERE is_shadow=true on the prod replica).
+- Odds twin readout: query prediction_results WHERE is_shadow=true on the prod
+  replica (log_loss is a column there; GET /api/internal/shadow-record reports
+  winner_acc/brier only — no log loss).
+- Availability twin readout: GET /api/internal/availability-record (paired
+  log losses + diff CI + verdict; the +avail twin writes NO prediction_results
+  rows, so shadow-record/SQL cannot answer its gate).
 - Gate: >= 30 scored shadow pairs AND the odds-anchored twin
   (poisson-elo-v0.3-shadow) ahead of production on avg log loss. Same rule
   for the availability twin (poisson-elo-v0.3+avail).
