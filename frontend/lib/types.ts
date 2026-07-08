@@ -280,6 +280,7 @@ export interface ModelRecord {
   exact_score_ci95: [number, number] | null;
   winners_correct: number;
   exact_score_hits: number;
+  best_streak: number;
   avg_brier: number | null;
   avg_log_loss: number | null;
   calibration: CalibrationPoint[];

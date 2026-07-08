@@ -6,7 +6,7 @@ import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
-import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
+import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
 import type { MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
@@ -191,6 +191,11 @@ export function MatchScoreboard({
           </strong>{" "}
           · {pct(predicted.probability)} likely
         </p>
+
+        {/* Until full time the bar's draw slice needs the knockout qualifier
+            (level after 90 → extra time / pens); once finished the verdict's
+            BasisTag + ShootoutNote take over. */}
+        {!finished && <KnockoutDrawNote stage={summary?.stage} />}
 
         {verdict && (
           <p className="mt-3">

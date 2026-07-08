@@ -3,9 +3,9 @@ import Link from "next/link";
 import { APP_NAME } from "@/lib/constants";
 import { CalibrationChart } from "@/components/CalibrationChart";
 import data from "@/lib/methodology-data.json";
-import { getMarketRecordServer } from "@/lib/api";
+import { getMarketRecordServer, getModelRecordServer } from "@/lib/api";
 import { MarketComparison } from "@/components/MarketComparison";
-import type { MarketBenchmark } from "@/lib/types";
+import type { MarketBenchmark, ModelRecord } from "@/lib/types";
 
 export const metadata: Metadata = {
   title: `Methodology & accuracy — ${APP_NAME}`,
@@ -38,6 +38,17 @@ function bestLogLoss(y: YearMetrics): "model" | "favorite" | "base_rate" {
   return opts.sort((a, b) => a[1] - b[1])[0][0];
 }
 
+// The Athletic's public WC26 picking contest, as they reported it on
+// 2026-07-08 (matches graded through the round of 16, ~94 picks). A static
+// snapshot by design: their numbers are theirs; ours stay live below.
+const EXTERNAL_PICKERS = [
+  { name: "The algorithm (The Athletic)", accuracy: "69%", correct: 65, streak: 14 },
+  { name: "The Athletic's experts", accuracy: "68%", correct: 64, streak: 11 },
+  { name: "Wilfred (age 6)", accuracy: "66%", correct: 62, streak: 7 },
+  { name: "Reader picks", accuracy: "62%", correct: 58, streak: 5 },
+  { name: "Stanley the dog", accuracy: "39%", correct: 37, streak: 4 },
+] as const;
+
 export default async function MethodologyPage() {
   const beatsBaselines = data.years.filter((y) => bestLogLoss(y) === "model").length;
   let bench: MarketBenchmark = PENDING_MARKET;
@@ -45,6 +56,12 @@ export default async function MethodologyPage() {
     bench = (await getMarketRecordServer()) ?? PENDING_MARKET;
   } catch {
     bench = PENDING_MARKET;
+  }
+  let record: ModelRecord | null = null;
+  try {
+    record = await getModelRecordServer();
+  } catch {
+    record = null;
   }
 
   return (
@@ -140,6 +157,63 @@ export default async function MethodologyPage() {
         <MarketComparison bench={bench} />
       </section>
 
+      {/* Vs other public predictors — external snapshot vs our live ledger */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-display text-lg font-bold">How does it compare to other predictors?</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          The Athletic ran this World Cup as a public picking contest — their
+          prediction algorithm, their writers, their readers, a six-year-old and a
+          dog. Their numbers below are a snapshot of what they published on July 8,
+          2026 (picks graded through the round of 16); our row is computed live from
+          the same graded ledger as the{" "}
+          <Link href="/record" className="text-lime-deep underline-offset-2 hover:underline">Track record</Link>{" "}
+          and keeps updating as matches finish.
+        </p>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-[11px] uppercase tracking-wider text-muted">
+                <th className="px-2 pb-2 text-left font-medium">Predictor</th>
+                <th className="px-2 pb-2 text-right font-medium">Overall accuracy</th>
+                <th className="px-2 pb-2 text-right font-medium">Correct picks</th>
+                <th className="px-2 pb-2 text-right font-medium">Best streak</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="rounded-lg bg-lime-deep/10 font-medium text-foreground">
+                <td className="px-2 py-1.5">FinalWhistle model (live)</td>
+                <td className="px-2 py-1.5 text-right">
+                  {record?.winner_accuracy != null
+                    ? `${(record.winner_accuracy * 100).toFixed(1)}%`
+                    : "—"}
+                </td>
+                <td className="px-2 py-1.5 text-right">
+                  {record ? `${record.winners_correct}/${record.evaluated_matches}` : "—"}
+                </td>
+                <td className="px-2 py-1.5 text-right">{record?.best_streak ?? "—"}</td>
+              </tr>
+              {EXTERNAL_PICKERS.map((p) => (
+                <tr key={p.name} className="text-muted">
+                  <td className="px-2 py-1.5">{p.name}</td>
+                  <td className="px-2 py-1.5 text-right">{p.accuracy}</td>
+                  <td className="px-2 py-1.5 text-right">{p.correct}</td>
+                  <td className="px-2 py-1.5 text-right">{p.streak}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-xs leading-relaxed text-muted">
+          Apples-to-oranges caveats, stated plainly: the contests grade slightly
+          different match sets (their table implies ~94 picks; we grade every
+          finished match with a frozen pre-kickoff prediction), and picking rules
+          differ — we grade our headline call against the 90-minute result,
+          draws included, which is a stricter test than knockout-winner-only picks.
+          We publish the comparison anyway because pretending benchmarks don&apos;t
+          exist is worse than imperfect ones. Source: The Athletic, July 2026.
+        </p>
+      </section>
+
       {/* What we tested — restraint as a feature */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">Why it isn&apos;t more complicated</h2>
@@ -149,7 +223,7 @@ export default async function MethodologyPage() {
           (walk-forward, no hindsight):
         </p>
         <ul className="mt-3 list-inside list-disc space-y-1.5 text-sm text-muted">
-          <li><span className="text-foreground/80">Probability calibration</span> (temperature scaling) — the fitted setting came out at ≈1.0, i.e. the model is already well-calibrated.</li>
+          <li><span className="text-foreground/80">Probability calibration</span> — plain temperature scaling fitted to ≈1.0 (already calibrated overall), but a <em>segmented</em> calibrator — one correction per rating-gap bracket — did clear the walk-forward gate and shipped in v0.4 (July 2026).</li>
           <li><span className="text-foreground/80">Dixon–Coles draw correction</span> and <span className="text-foreground/80">re-tuned goal parameters</span> — landed back on essentially today&apos;s values; out-of-sample gains were within noise.</li>
           <li><span className="text-foreground/80">Time-decayed (recency-weighted) Elo</span> — helped one World Cup, hurt the others; no net improvement.</li>
         </ul>
@@ -165,13 +239,22 @@ export default async function MethodologyPage() {
         <h2 className="font-display text-lg font-bold">Model changelog</h2>
         <ul className="mt-3 space-y-1.5 text-sm text-muted">
           <li>
+            <span className="text-foreground/80">poisson-elo-v0.4</span> — served
+            engine since July 8, 2026: v0.2 plus a segmented probability
+            calibrator (one correction per rating-gap bracket, fitted only on
+            matches before this World Cup). The one candidate from the July audit
+            that improved held-out log loss on every test; a redesigned recent-form
+            signal from the same audit failed its gate and ships dark until the
+            evidence is consistent.
+          </li>
+          <li>
             <span className="text-foreground/80">poisson-elo-v0.2</span> — served
-            engine (tuned goal parameters + Dixon&ndash;Coles draw correction, shipped
-            mid-group-stage). July 2026: exact-score hits now judged on the
-            90-minute score for knockout matches (the basis the model actually
-            predicts); every proposed upgrade since is validated walk-forward and
-            ships only if it beats this model with statistical confidence — so far
-            none has, which is why the version hasn&apos;t moved.
+            engine until July 2026 (tuned goal parameters + Dixon&ndash;Coles draw
+            correction, shipped mid-group-stage). July 2026: exact-score hits now
+            judged on the 90-minute score for knockout matches (the basis the model
+            actually predicts). Every proposed upgrade is validated walk-forward
+            and ships only if it beats the served model with statistical
+            confidence.
           </li>
         </ul>
       </section>
