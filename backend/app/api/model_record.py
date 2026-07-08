@@ -86,6 +86,7 @@ def model_record(db: Session = Depends(get_db)):
             "exact_score_ci95": None,
             "winners_correct": 0,
             "exact_score_hits": 0,
+            "best_streak": 0,
             "avg_brier": None,
             "avg_log_loss": None,
             "calibration": [],
@@ -100,6 +101,14 @@ def model_record(db: Session = Depends(get_db)):
 
     winners = sum(1 for r, _, _ in rows if r.winner_correct)
     exacts = sum(1 for r, _, _ in rows if r.exact_score_correct)
+
+    # Longest run of correct winner calls in kickoff order (not evaluation
+    # order — evaluations can land in batches out of match sequence).
+    by_kickoff = sorted(rows, key=lambda t: (t[2].kickoff_utc is None, t[2].kickoff_utc, t[2].id))
+    best_streak = streak = 0
+    for r, _, _ in by_kickoff:
+        streak = streak + 1 if r.winner_correct else 0
+        best_streak = max(best_streak, streak)
 
     # Calibration: reuse the same reliability-curve math as the methodology
     # backtests, fed with the live tournament outcomes.
@@ -134,6 +143,7 @@ def model_record(db: Session = Depends(get_db)):
         "exact_score_ci95": wilson_ci95(exacts, n),
         "winners_correct": winners,
         "exact_score_hits": exacts,
+        "best_streak": best_streak,
         "avg_brier": round(sum(r.brier for r, _, _ in rows) / n, 4),
         "avg_log_loss": round(sum(r.log_loss for r, _, _ in rows) / n, 4),
         "calibration": calibration,
