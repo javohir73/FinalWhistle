@@ -1,11 +1,12 @@
 {
-  "version": "poisson-elo-v0.4",
+  "version": "poisson-elo-v0.5",
   "base": 1.2,
   "beta": 0.0021,
   "home_adv": 60.0,
   "rho": -0.06,
   "temperature": 1.0,
   "pk_beta": 0.0,
+  "et_tempo": 1.0,
   "calibrator": {
     "method": "vector_scaling_segmented",
     "by": "effective_elo_gap",

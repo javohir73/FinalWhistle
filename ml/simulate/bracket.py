@@ -15,12 +15,12 @@ lands in does not change a team's own round-by-round odds materially).
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
 
 from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo, score_cdf, sample_scoreline_from_cdf, sample_scoreline
+from ml.models.knockout import PK_BAND, PK_PRIOR_WEIGHT, fit_pk_beta, shootout_p  # noqa: F401  (re-export)
 
 # --- Round of 32: each side is a group placement or a third-place slot. ---
 # ("pos", group_letter, position)  position 1 = winner, 2 = runner-up
@@ -75,35 +75,9 @@ ROUND_KEYS = [
     (6, "win_title"),
 ]
 
-# Penalty shootout: near coin-flip. Strength enters via a small, capped logistic
-# (pk_beta loaded from model_params.json; default 0.0 = pure coin-flip). The win
-# probability is clamped to PK_BAND so no parameter drift can re-introduce a
-# large skill bias (shootouts are empirically close to random).
-PK_BAND = (0.45, 0.55)
-PK_PRIOR_WEIGHT = 200  # shrinkage strength for fit_pk_beta (samples are thin)
-
-
-def shootout_p(elo_h: float, elo_a: float, pk_beta: float) -> float:
-    """P(home wins the shootout), clamped to PK_BAND."""
-    p = 1.0 / (1.0 + math.exp(-pk_beta * (elo_h - elo_a)))
-    lo, hi = PK_BAND
-    return min(hi, max(lo, p))
-
-
-def fit_pk_beta(samples: list[tuple[float, bool]]) -> float:
-    """Fit a tiny logistic slope from historical penalty-decided knockouts, then
-    SHRINK toward 0 by n/(n+PK_PRIOR_WEIGHT). `samples` = (elo_gap favorite-minus-
-    underdog, favorite_won). Returns 0.0 when data is empty/thin (-> coin-flip)."""
-    n = len(samples)
-    if n == 0:
-        return 0.0
-    num = den = 0.0
-    for gap, won in samples:
-        p = 0.5  # logistic at beta=0
-        num += gap * ((1.0 if won else 0.0) - p)
-        den += (gap * gap) * p * (1.0 - p)
-    raw = (num / den) if den > 0 else 0.0
-    return raw * (n / (n + PK_PRIOR_WEIGHT))
+# Penalty shootout model — moved to ml.models.knockout (penalties are a match-
+# model concern shared with the per-match advance decomposition). Re-exported
+# here so existing importers (tests, tuners) keep working.
 
 
 @dataclass

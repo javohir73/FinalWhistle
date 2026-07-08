@@ -30,6 +30,7 @@ from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
+from ml.models.knockout import ko_advance
 from ml.models.odds_blend import blend_lambda_total, market_lambda_total
 from ml.models.params import ModelParams, load_params
 from ml.models.poisson import predict_from_lambdas, predict_match
@@ -307,12 +308,26 @@ def build_payload(
         ) * 8
         factors = _add_form_channels_factor(factors, form_weight)
 
+    # Knockout ties resolve past the 90th minute: decompose "who goes through"
+    # into win-in-90 / extra-time / penalties on top of the SERVED triple, so
+    # the advance numbers always reconcile with the visible W/D/L bar
+    # (ml/models/knockout.py). Group games: a draw is final, no block.
+    knockout = None
+    if match.stage != "group":
+        knockout = ko_advance(
+            p_home, p_draw, p_away,
+            pred.lambda_home, pred.lambda_away,
+            elo_home, elo_away,
+            rho=params.rho, pk_beta=params.pk_beta, et_tempo=params.et_tempo,
+        ).to_payload()
+
     return {
         "match_id": match.id,
         "model_version": model_version,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "teams": {"home": home.name, "away": away.name},
         "is_neutral": match.is_neutral,
+        "knockout": knockout,
         "probabilities": {
             "home_win": round(p_home, 4),
             "draw": round(p_draw, 4),
@@ -373,6 +388,7 @@ def _write_prediction(db: Session, match: Match, payload: dict, model_version: s
             lambda_home=payload.get("lambda_home"),
             lambda_away=payload.get("lambda_away"),
             rho=payload.get("rho"),
+            knockout=payload.get("knockout"),
             confidence=payload["confidence"],
             reasons=payload["reasons"],
             top_features=payload["top_features"],

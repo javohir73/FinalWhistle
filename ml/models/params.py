@@ -29,6 +29,9 @@ class ModelParams:
     rho: float
     temperature: float
     pk_beta: float = 0.0
+    # Extra-time goals-per-minute rate relative to regulation (ml/models/knockout.py).
+    # 1.0 = same tempo; fittable later with shrinkage, like pk_beta.
+    et_tempo: float = 1.0
     calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
     wdl_blend: dict | None = None    # {"weight": float, "calibrator": dict|None} or None
     # Market-odds anchoring weight for the SHADOW model (exact-score FR-4.3):
@@ -73,6 +76,7 @@ def load_params() -> ModelParams:
         rho=float(data["rho"]),
         temperature=float(data["temperature"]),
         pk_beta=float(data.get("pk_beta", 0.0)),
+        et_tempo=float(data.get("et_tempo", 1.0)),
         calibrator=data.get("calibrator"),
         wdl_blend=data.get("wdl_blend"),
         w_odds=float(data.get("w_odds", 0.0)),

@@ -100,6 +100,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         confidence={p.confidence}
         predictedWinner={predictedWinner}
         caveat={call?.label ?? null}
+        knockout={p.knockout ?? null}
       />
 
       {/* Tabbed detail: Overview (the AI's reasoning + your pick) and Lineups.
