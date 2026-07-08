@@ -15,12 +15,12 @@ lands in does not change a team's own round-by-round odds materially).
 """
 from __future__ import annotations
 
-import math
 from dataclasses import dataclass
 
 import numpy as np
 
 from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo, score_cdf, sample_scoreline_from_cdf, sample_scoreline
+from ml.models.knockout import ET_FRACTION, PK_BAND, PK_PRIOR_WEIGHT, fit_pk_beta, shootout_p  # noqa: F401  (re-export)
 
 # --- Round of 32: each side is a group placement or a third-place slot. ---
 # ("pos", group_letter, position)  position 1 = winner, 2 = runner-up
@@ -75,35 +75,9 @@ ROUND_KEYS = [
     (6, "win_title"),
 ]
 
-# Penalty shootout: near coin-flip. Strength enters via a small, capped logistic
-# (pk_beta loaded from model_params.json; default 0.0 = pure coin-flip). The win
-# probability is clamped to PK_BAND so no parameter drift can re-introduce a
-# large skill bias (shootouts are empirically close to random).
-PK_BAND = (0.45, 0.55)
-PK_PRIOR_WEIGHT = 200  # shrinkage strength for fit_pk_beta (samples are thin)
-
-
-def shootout_p(elo_h: float, elo_a: float, pk_beta: float) -> float:
-    """P(home wins the shootout), clamped to PK_BAND."""
-    p = 1.0 / (1.0 + math.exp(-pk_beta * (elo_h - elo_a)))
-    lo, hi = PK_BAND
-    return min(hi, max(lo, p))
-
-
-def fit_pk_beta(samples: list[tuple[float, bool]]) -> float:
-    """Fit a tiny logistic slope from historical penalty-decided knockouts, then
-    SHRINK toward 0 by n/(n+PK_PRIOR_WEIGHT). `samples` = (elo_gap favorite-minus-
-    underdog, favorite_won). Returns 0.0 when data is empty/thin (-> coin-flip)."""
-    n = len(samples)
-    if n == 0:
-        return 0.0
-    num = den = 0.0
-    for gap, won in samples:
-        p = 0.5  # logistic at beta=0
-        num += gap * ((1.0 if won else 0.0) - p)
-        den += (gap * gap) * p * (1.0 - p)
-    raw = (num / den) if den > 0 else 0.0
-    return raw * (n / (n + PK_PRIOR_WEIGHT))
+# Penalty shootout model — moved to ml.models.knockout (penalties are a match-
+# model concern shared with the per-match advance decomposition). Re-exported
+# here so existing importers (tests, tuners) keep working.
 
 
 @dataclass
@@ -165,6 +139,7 @@ def simulate_tournament(
     *,
     rho: float,
     pk_beta: float = 0.0,
+    et_tempo: float = 1.0,
     home_adv: float = 0.0,
     ko_host_by_match: dict[int, int] | None = None,
     ko_results: dict[int, tuple[int, int, int]] | None = None,
@@ -243,8 +218,12 @@ def simulate_tournament(
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
 
+    # Extra time: same engine at 30-minute rates (model v0.5 — matches the
+    # per-match ko_advance decomposition, ml/models/knockout.py).
+    et_scale = ET_FRACTION * et_tempo
+
     def play(mno: int, h: int, a: int) -> int:
-        """One knockout match. Draw -> penalties via Elo logistic.
+        """One knockout match. Draw -> extra time -> penalties via Elo logistic.
         Host advantage applied when ko_host maps mno to h or a."""
         host = ko_host.get(mno)
         adv = home_adv if host == h else -home_adv if host == a else 0.0
@@ -254,6 +233,12 @@ def simulate_tournament(
             return h
         if sa > sh:
             return a
+        if et_scale > 0.0:
+            eh, ea = sample_scoreline(rng, lh * et_scale, la * et_scale, rho)
+            if eh > ea:
+                return h
+            if ea > eh:
+                return a
         return h if rng.random() < shootout_p(team_elos[h], team_elos[a], pk_beta) else a
 
     for _ in range(n_sims):

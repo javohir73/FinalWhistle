@@ -87,6 +87,29 @@ class AvailabilityOut(BaseModel):
     per_team: list[TeamAvailabilityOut]
 
 
+class KnockoutPathOut(BaseModel):
+    """One side's routes through a knockout tie. Unconditional probabilities:
+    the three sum to that side's advance probability."""
+    win_90: float
+    win_et: float
+    win_pens: float
+
+
+class KnockoutPathsOut(BaseModel):
+    home: KnockoutPathOut
+    away: KnockoutPathOut
+
+
+class KnockoutOut(BaseModel):
+    """Knockout resolution block (model v0.5, ml/models/knockout.py): who goes
+    through, decomposed past the 90th minute. Only present for stage != group."""
+    p_advance_home: float
+    p_advance_away: float
+    p_extra_time: float  # level after 90 — the regulation draw probability
+    p_shootout: float    # still level after 120
+    paths: KnockoutPathsOut
+
+
 class PredictionOut(BaseModel):
     """PRD §17 prediction contract."""
 
@@ -114,6 +137,7 @@ class PredictionOut(BaseModel):
     disclaimer: str
     goal_markets: GoalMarketsOut | None = None
     availability: AvailabilityOut | None = None
+    knockout: KnockoutOut | None = None
 
 
 class TeamOut(BaseModel):

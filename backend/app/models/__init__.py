@@ -277,6 +277,10 @@ class Prediction(Base):
     lambda_home: Mapped[float | None] = mapped_column(Float)
     lambda_away: Mapped[float | None] = mapped_column(Float)
     rho: Mapped[float | None] = mapped_column(Float)
+    # Knockout resolution (stage != group, model v0.5): advance probabilities +
+    # the win-90/extra-time/penalties path split (ml/models/knockout.py's
+    # to_payload). NULL for group games and rows written before v0.5.
+    knockout: Mapped[dict | None] = mapped_column(JSON)
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)
