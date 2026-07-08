@@ -96,15 +96,22 @@ def score_variant(rows: list[dict], variant: dict, val_rows: list[dict] | None =
     variant["calibrator"] == "fit_on_validation" fits a segmented vector-
     scaling blob on `val_rows` (required in that case — raises ValueError
     otherwise) using THIS variant's own goals params, then applies it here.
+    A dict is treated as an ALREADY-FITTED blob and applied as-is (how the
+    shipped model_params.json calibrator is scored).
     """
     calibrator_blob = None
-    if variant.get("calibrator") == "fit_on_validation":
+    cal = variant.get("calibrator")
+    if cal == "fit_on_validation":
         if not val_rows:
             raise ValueError(
                 f"variant {variant['name']!r} needs calibrator='fit_on_validation' "
                 "but no val_rows were supplied"
             )
         calibrator_blob = _fit_calibrator(val_rows, variant)
+    elif isinstance(cal, dict):
+        calibrator_blob = cal
+    elif cal is not None:
+        raise ValueError(f"variant {variant['name']!r}: unsupported calibrator {cal!r}")
 
     probs_list = [_row_probs(r, variant, calibrator_blob) for r in rows]
     labels_str = [result_label(r["score_home"], r["score_away"]) for r in rows]
@@ -113,6 +120,15 @@ def score_variant(rows: list[dict], variant: dict, val_rows: list[dict] | None =
     metrics = compute_metrics(probs_list, labels_str)
     metrics["ece"] = _ece_from_reliability(probs_list, labels)
     return metrics
+
+
+def fit_calibrator_for_params(val_rows: list[dict], params: dict) -> dict:
+    """Fit the production calibrator: segmented vector scaling on ``val_rows``
+    under the given goals params. Public entry for pipeline/fit_calibrator.py —
+    the blob it returns is exactly what ModelParams.calibrator expects."""
+    variant = {"name": "fit", "params": params, "form_channels": None,
+               "calibrator": None}
+    return _fit_calibrator(val_rows, variant)
 
 
 def _fit_calibrator(val_rows: list[dict], variant: dict) -> dict:

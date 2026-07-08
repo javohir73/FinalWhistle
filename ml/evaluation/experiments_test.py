@@ -257,3 +257,26 @@ def test_run_experiments_default_variants_include_core_four_when_available():
     for optional in ("v0.2+form", "v0.2+cal"):
         if optional in names:
             assert "log_loss" in table["variants"][optional]
+
+
+def test_score_variant_applies_prefitted_calibrator_blob():
+    """A dict calibrator is an already-fitted blob and must actually move the
+    probabilities (regression: blobs were silently ignored, so 'shipped
+    calibrator' scores looked identical to uncalibrated ones)."""
+    rows = [_row(1900, 1500, sh, sa, datetime(2018, 6, 1, tzinfo=timezone.utc))
+            for sh, sa in [(2, 0), (1, 1), (0, 1), (3, 1)]]
+    base = {"name": "raw", "params": DEFAULT_PARAMS.to_dict(),
+            "form_channels": None, "calibrator": None}
+    blob = {"method": "vector_scaling", "t": 1.0, "b": [0.0, 0.8, 0.0]}
+    calibrated = {**base, "name": "raw+blob", "calibrator": blob}
+    m_raw = score_variant(rows, base)
+    m_cal = score_variant(rows, calibrated)
+    assert m_raw["log_loss"] != m_cal["log_loss"]
+
+
+def test_score_variant_rejects_unknown_calibrator_shape():
+    rows = [_row(1900, 1500, 2, 0, datetime(2018, 6, 1, tzinfo=timezone.utc))]
+    bad = {"name": "bad", "params": DEFAULT_PARAMS.to_dict(),
+           "form_channels": None, "calibrator": 42}
+    with pytest.raises(ValueError):
+        score_variant(rows, bad)

@@ -127,6 +127,46 @@ booster feature where the regression can learn to ignore it.
 - Leakage guards: all feature computation as-of pre-kickoff; tests assert no
   post-match information enters `build_match_features` / residual ledgers.
 
+## 5b. Validation results & ship decisions (2026-07-08)
+
+Walk-forward ablations (form hyperparams + calibrator fit on each tournament's
+pre-tournament validation window only):
+
+| Variant | WC2018 LL | WC2022 LL | WC26 replay LL (n=71) |
+|---|---|---|---|
+| v0.1-raw | 0.9670 | **1.0693** | 0.9264 |
+| v0.2-tuned | 0.9813 | 1.0943 | 0.9053 |
+| v0.2+form (C1) | 0.9770 | 1.1002 | 0.9132 |
+| v0.2+cal (C2) | 0.9791 | 1.0942 | **0.8974** |
+| v0.2+form+cal | 0.9729 | 1.1111 | 0.9057 |
+
+Shipped-file check (v0.2 goals constants as served, on the same 71 WC26
+matches): goals-only 0.9160 → with calibrator **0.9119**; fit-window (n=2084)
+log loss 0.8611 → 0.8564, ECE 0.0092 → 0.0055.
+
+**Decisions:**
+- **C2 ships** (`poisson-elo-v0.4` = v0.2 goals + segmented vector-scaling
+  calibrator): the only lever that improved or held log loss on every holdout,
+  with the best calibration error. Fit by `pipeline/fit_calibrator.py`;
+  refit-able any time.
+- **C1 does NOT ship as default** (`form_channels: null`): better than v0.2 on
+  WC2018, worse on WC2022 and the WC26 replay — inconsistent ⇒ off, per the
+  "remove features that add noise" gate. Code, tuner, ledger, migration and
+  tests stay in (dark), so the harness can keep evaluating it as more WC26
+  matches finish; ablation is one config away.
+- **Goals params NOT re-tuned**: window-tuned goals beat the shipped constants
+  on the WC26 replay but lose on 2018/2022 — era-fragile, and the shipped
+  values were fit on a ~1,800-match tournament sample for exact-score quality.
+- **Case replay (Norway–Brazil)**: v0.4 gives 52.1/27.6/20.3 vs v0.2's
+  51.0/27.0/22.0 — the calibrator slightly *lowers* this upset's probability,
+  because two years of evidence says 50–150-gap underdogs win less often than
+  raw Poisson claims. Aggregate calibration and single-case vindication are
+  different objectives; the honest lever for Norway-type cases is C4 (market
+  prior) + C5 (availability), both gated on the prod shadow ledger. This
+  matches the repo's own earlier conclusion (pipeline/tune_model.py): "W/D/L
+  is still at its Elo-only ceiling; the next real outcome lever is a market
+  (odds) prior."
+
 ## 6. Open items requiring owner action
 
 - **Prod shadow-ledger readout** (gates C4/C5 promotion): read-only queries

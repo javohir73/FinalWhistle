@@ -25,7 +25,7 @@ services:
       - key: RECOMPUTE_TOKEN
         generateValue: true # Render generates a strong secret
       - key: MODEL_VERSION
-        value: poisson-elo-v0.1
+        value: poisson-elo-v0.4
       - key: CACHE_TTL_SECONDS
         value: "600"
       - key: ENVIRONMENT
