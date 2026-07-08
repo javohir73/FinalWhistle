@@ -121,7 +121,8 @@ function AIBracket({ odds }: { odds: TournamentOdds[] }) {
   return (
     <section>
       <p className="mb-4 text-sm leading-relaxed text-muted">
-        The model&apos;s most-likely path, from thousands of simulations.
+        The model&apos;s most-likely path, from thousands of simulations — level
+        knockout ties play extra time, then penalties.
       </p>
 
       <div className="space-y-5">
