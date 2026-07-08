@@ -40,17 +40,17 @@ The model ships in shadow mode (predictions returned, but `is_shadow=True` in al
 
 ### Gate A: Walk-forward test results
 
-Verify walk-forward backtest passed 3/3 seasons with the thresholds documented in `docs/superpowers/plans/2026-07-09-nrl-vertical.md` (Task 4 report).
+Gate: model log loss < favorite baseline log loss in ≥2 of the 3 held-out seasons (achieved: see table).
 
-Required numbers:
+Re-run with `PYTHONPATH=backend:. .venv/bin/python -m pipeline.sports.nrl_backtest` and compare against:
 
 | Season | Model LL | Favorite LL |
 |--------|----------|------------|
-| 2023   | 0.6771   | 0.7001     |
-| 2024   | 0.6878   | 0.6966     |
-| 2025   | 0.6988   | 0.7035     |
+| 2023   | 0.6618   | 0.6951     |
+| 2024   | 0.6760   | 0.6977     |
+| 2025   | 0.6883   | 0.7013     |
 
-The model must meet or exceed these log-loss targets to proceed.
+Result: 3/3 seasons — GATE PASS.
 
 ### Gate B: ≥2 live NRL rounds graded clean in prod
 
@@ -61,10 +61,10 @@ curl https://pitchprophet-api.onrender.com/api/nrl/model/record
 ```
 
 Confirm:
-- `evaluated_matches` count is ≥2 and growing (one entry per graded round)
+- `evaluated_matches` grows across ≥2 rounds (the ledger is one entry per graded MATCH, not per round — so this count should climb by however many matches were in each newly-graded round)
 - No 5xx errors
 - `winner_accuracy` value is sane (0.0–1.0 range)
-- `exact_score_rate` is present and sane
+- `avg_log_loss` is present
 
 Once both gates pass, the model is approved to flip to shadow=False via the go-public PR (Task 3).
 
@@ -80,6 +80,7 @@ The flip PR will:
 2. **Frontend NRL pages** — enable UI to show predictions to end users
 3. **Calibrator fit** — fit a calibration layer on the walk-forward backtest seasons (2023–2025)
 4. **Cache note** — if a live NRL scoreboard ships, ensure `/api/nrl/*` endpoints join `main.py`'s no-store cache branch
+5. **Wider-grid retune + full gate re-run** — 4 of 5 tuned params sat at grid edges: k=24/cap=1.8/p_draw=0.008 minima, season_regress=0.35 maximum. Widen the grids past these edges, retune, and re-run the gate before flipping — the current params may not be a real optimum, just the best of a grid that stopped short.
 
 The flip is irreversible and public-facing → it stops the deployment pipeline for approval.
 
@@ -103,7 +104,7 @@ Should return `200 OK` with unchanged football model status.
 curl https://pitchprophet-api.onrender.com/api/nrl/matches?season=2026
 ```
 
-Should return rounds with populated predictions (winner_probs, margin_dist, etc.).
+Should return rounds with populated predictions (p_home/p_draw/p_away, expected_margin, etc.).
 
 ### 4c: NRL record endpoint
 
@@ -125,11 +126,14 @@ git diff --name-only origin/main...HEAD
 ```
 
 Expected changes:
-- Plan files (`docs/superpowers/plans/*`)
-- Sport module additions (`backend/app/models/sport_*.py`, `backend/app/routes/api/nrl/*`)
-- Migration file (`backend/alembic/versions/c1d2e3f4a5b6_*.py`)
-- Model append (`backend/app/models/__init__.py` — append-only block for NRL imports)
-- One additive line in `backend/app/main.py` (e.g., include NRL routes)
+- Plan + runbook docs (`docs/superpowers/plans/*`, `docs/RUNBOOK-NRL-LAUNCH.md`)
+- API route (`backend/app/api/sports.py`)
+- Model append (`backend/app/models/__init__.py` — append-only block for the Sport* tables)
+- Migration file (`backend/alembic/versions/c1d2e3f4a5b6_add_sport_tables.py`)
+- Backend tests (`backend/tests/test_sport_models.py`, `backend/tests/test_sports_api.py`)
+- ML module (`ml/sports/**` — NRL Elo model, backtest/tuner, params loader + `params.json`)
+- Pipeline module (`pipeline/sports/**` — ingest, predict/grade, backtest CLI)
+- One import-list entry plus one `include_router` line in `backend/app/main.py`
 
 Should **not** include changes to football model files, football routes, or existing football data tables.
 
