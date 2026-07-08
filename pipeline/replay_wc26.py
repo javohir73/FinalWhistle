@@ -122,7 +122,24 @@ def build_wc26_rows(db: Session) -> list[dict]:
         eff_away = base_elos[m.team_away_id] + away_delta
 
         is_neutral = m.host_team_id not in (m.team_home_id, m.team_away_id)
-        adv = 0.0 if is_neutral else HOME_ADVANTAGE
+        # Signed host advantage for THIS row's own residual, mirroring
+        # production's pipeline/generate_predictions.py _host_adv exactly:
+        # +HOME_ADVANTAGE when the HOME side is host, -HOME_ADVANTAGE when
+        # the AWAY side is host, 0.0 on neutral ground. Fixed from the old
+        # `0.0 if is_neutral else HOME_ADVANTAGE`, which always boosted the
+        # home side even when the away team was the actual host (model v2
+        # review finding). NOTE: this is deliberately DIFFERENT from the
+        # `tmatches` construction above (line ~112), whose unsigned
+        # HOME_ADVANTAGE-or-0.0 convention is correct as-is for
+        # replay_tournament/TournamentMatch.home_adv (mirrors
+        # pipeline/learning_loop.py's own TournamentMatch construction) --
+        # do not "fix" that one to match this.
+        if m.host_team_id is None:
+            adv = 0.0
+        elif m.host_team_id == m.team_home_id:
+            adv = HOME_ADVANTAGE
+        else:
+            adv = -HOME_ADVANTAGE
 
         rows.append({
             "home_id": m.team_home_id,

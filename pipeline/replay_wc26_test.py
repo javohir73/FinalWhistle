@@ -187,6 +187,116 @@ def test_pretournament_ledger_tail_uses_served_goals_scale(db_session, monkeypat
     assert abs(ga - (0 - lam_away_served)) < 1e-9
 
 
+# --- home_adv sign must mirror production's _host_adv (review finding) -----
+#
+# pipeline/generate_predictions.py's _host_adv returns +HOME_ADVANTAGE when
+# the HOME side is host, -HOME_ADVANTAGE when the AWAY side is host, and 0.0
+# on neutral ground. build_wc26_rows' own in-tournament residual computation
+# (the `adv` local feeding the ledger append) must use the exact same signed
+# convention -- not `0.0 if is_neutral else HOME_ADVANTAGE`, which always
+# boosts the home side even when the AWAY team is actually the host.
+
+
+def test_in_tournament_ledger_residual_uses_signed_host_adv_when_host_is_away(
+    db_session,
+):
+    """Host-as-away fixture: South Africa hosts but plays AWAY against
+    Mexico. The row's own residual (appended to the ledger for later rows)
+    must be computed with adv = -HOME_ADVANTAGE (boosting the away/host
+    side), matching production's _host_adv sign convention -- not
+    +HOME_ADVANTAGE, which the old `0.0 if is_neutral else HOME_ADVANTAGE`
+    convention would wrongly apply to the home (non-host) side."""
+    from ml.models.poisson import expected_goals_from_elo
+    from ml.models.params import load_params
+
+    wc = _wc(db_session)
+    mex = _team(db_session, "Mexico", elo=1800.0)
+    rsa = _team(db_session, "South Africa", elo=1600.0)
+    kor = _team(db_session, "Korea", elo=1750.0)
+    # Match 1: Mexico (home) vs South Africa (away) -- South Africa is HOST
+    # despite playing away. Match 2: Mexico vs Korea, gives us a later row
+    # whose ledger_home reflects match 1's appended residual.
+    _finished(
+        db_session, wc, mex, rsa, 1, 1,
+        datetime(2026, 6, 11, 18, tzinfo=timezone.utc), host=rsa,
+    )
+    _finished(
+        db_session, wc, mex, kor, 2, 0,
+        datetime(2026, 6, 17, 18, tzinfo=timezone.utc),
+    )
+    db_session.commit()
+
+    served = load_params()
+    rows = build_wc26_rows(db_session)
+    first = rows[0]
+    assert first["is_neutral"] is False  # a host played -- not a neutral match
+
+    # Match 2's ledger_home is Mexico's appended residual from match 1, which
+    # must be computed with adv = -HOME_ADVANTAGE (South Africa, the AWAY
+    # side, is host) -- the signed production convention.
+    second = rows[1]
+    gf, ga = second["ledger_home"][0]
+
+    lam_home_signed, lam_away_signed = expected_goals_from_elo(
+        first["pre_home"], first["pre_away"], -HOME_ADVANTAGE,
+        base=served.base, beta=served.beta,
+    )
+    assert abs(gf - (first["score_home"] - lam_home_signed)) < 1e-9
+    assert abs(ga - (first["score_away"] - lam_away_signed)) < 1e-9
+
+    # Regression guard: the OLD unsigned convention (+HOME_ADVANTAGE whenever
+    # not neutral) must NOT match -- proving the fixture actually exercises
+    # the sign bug rather than passing by coincidence.
+    lam_home_unsigned, _ = expected_goals_from_elo(
+        first["pre_home"], first["pre_away"], HOME_ADVANTAGE,
+        base=served.base, beta=served.beta,
+    )
+    assert abs(lam_home_signed - lam_home_unsigned) > 1e-6
+    assert abs(gf - (first["score_home"] - lam_home_unsigned)) > 1e-9
+
+
+def test_pretournament_ledger_tail_residual_uses_signed_host_adv(db_session):
+    """Same sign convention, for _pretournament_ledger_tails' OWN residual
+    append (the pre-tournament side of the boundary-continuity ledger) --
+    reuses build_enriched_rows, so this documents the invariant rather than
+    re-testing build_enriched_rows' own (separately-owned) home_adv handling;
+    the guard here is that a host-as-away historical match feeds a
+    correctly-signed residual into the tail, matching build_wc26_rows'
+    in-tournament convention above."""
+    from app.models import HistoricalMatch, Team as TeamModel
+    from ml.models.params import load_params
+    from ml.models.poisson import expected_goals_from_elo
+    from pipeline.replay_wc26 import _pretournament_ledger_tails
+
+    alpha, beta_team = TeamModel(name="Alpha"), TeamModel(name="Beta")
+    db_session.add_all([alpha, beta_team])
+    db_session.commit()
+    # Alpha hosts historically but the historical_matches convention (unlike
+    # WC26 Match rows) has no host_team_id -- is_neutral=False here means
+    # "the home side (Alpha) had a home advantage", which build_enriched_rows
+    # already handles correctly (it is the OTHER two call sites, not this
+    # one, that had the bug). This test pins that build_wc26_rows' fix
+    # doesn't regress the (already-correct) pre-tournament tail. Elo replay
+    # starts both sides at the default 1500 rating (build_enriched_rows
+    # replays historical_matches from scratch, independent of teams.elo_rating).
+    db_session.add(HistoricalMatch(
+        date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        team_a_id=alpha.id, team_b_id=beta_team.id, score_a=2, score_b=1,
+        competition="Friendly", is_neutral=False,
+    ))
+    db_session.commit()
+
+    served = load_params()
+    tails = _pretournament_ledger_tails(db_session, served)
+    gf, ga = tails[alpha.id][0]
+
+    lam_home, lam_away = expected_goals_from_elo(
+        1500.0, 1500.0, HOME_ADVANTAGE, base=served.base, beta=served.beta,
+    )
+    assert abs(gf - (2 - lam_home)) < 1e-9
+    assert abs(ga - (1 - lam_away)) < 1e-9
+
+
 def test_matches_ordered_by_kickoff(db_session):
     wc = _wc(db_session)
     a, b, c = (_team(db_session, n) for n in ("A", "B", "C"))
