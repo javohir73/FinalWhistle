@@ -86,6 +86,26 @@ export interface Availability {
   per_team: TeamAvailability[];
 }
 
+/** One side's routes through a knockout tie. Unconditional probabilities —
+ *  the three sum to that side's advance probability. */
+export interface KnockoutPath {
+  win_90: number;
+  win_et: number;
+  win_pens: number;
+}
+
+/** Knockout resolution block (model v0.5): who goes through, decomposed past
+ *  the 90th minute. Only present for knockout fixtures. */
+export interface KnockoutAdvance {
+  p_advance_home: number;
+  p_advance_away: number;
+  /** Tie level after 90 — the regulation draw probability. */
+  p_extra_time: number;
+  /** Tie still level after 120. */
+  p_shootout: number;
+  paths: { home: KnockoutPath; away: KnockoutPath };
+}
+
 export interface Prediction {
   match_id: number;
   model_version: string;
@@ -111,6 +131,7 @@ export interface Prediction {
   disclaimer: string;
   goal_markets: GoalMarkets | null;
   availability?: Availability | null;
+  knockout?: KnockoutAdvance | null;
 }
 
 /** Phase of play while a match is in progress (refines `status`). Null before

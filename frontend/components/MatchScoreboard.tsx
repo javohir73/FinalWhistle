@@ -7,7 +7,8 @@ import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
-import type { MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
+import { KnockoutAdvanceCard } from "@/components/KnockoutAdvanceCard";
+import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
@@ -33,6 +34,7 @@ export function MatchScoreboard({
   confidence,
   predictedWinner,
   caveat,
+  knockout,
 }: {
   matchId: number;
   home: string;
@@ -47,6 +49,8 @@ export function MatchScoreboard({
   predictedWinner?: string | null;
   /** One-line plain-language caveat (e.g. "Too close to call"). */
   caveat?: string | null;
+  /** Knockout resolution block (v0.5) — who goes through, past the 90th minute. */
+  knockout?: KnockoutAdvance | null;
 }) {
   const finishedAtRender = initialSummary?.status === "finished";
   const state = useFetch<MatchSummary>(
@@ -192,10 +196,14 @@ export function MatchScoreboard({
           · {pct(predicted.probability)} likely
         </p>
 
-        {/* Until full time the bar's draw slice needs the knockout qualifier
-            (level after 90 → extra time / pens); once finished the verdict's
-            BasisTag + ShootoutNote take over. */}
-        {!finished && <KnockoutDrawNote stage={summary?.stage} />}
+        {/* Until full time a knockout tie needs resolving past the 90th minute:
+            the v0.5 advance block when the prediction carries it, else the plain
+            draw qualifier (legacy rows). Once finished the verdict's BasisTag +
+            ShootoutNote take over. */}
+        {!finished && knockout && (
+          <KnockoutAdvanceCard knockout={knockout} home={home} away={away} />
+        )}
+        {!finished && !knockout && <KnockoutDrawNote stage={summary?.stage} />}
 
         {verdict && (
           <p className="mt-3">

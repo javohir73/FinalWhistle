@@ -926,3 +926,38 @@ def test_sims_bit_identical_when_form_channels_none_regardless_of_ledger(db_sess
 
     assert before_group == after_group
     assert before_tournament == after_tournament
+
+
+def test_build_payload_knockout_block_for_ko_stage(db_session):
+    """stage != group gets the v0.5 knockout block: advance probabilities that
+    sum to 1, a path split that sums to each side's advance probability, and
+    P(extra time) equal to the served draw probability."""
+    load_structure(db_session)
+    _set_elos(db_session)
+    ko = db_session.query(Match).filter(Match.stage != "group").first()
+    home, away = db_session.query(Team).order_by(Team.id).limit(2).all()
+    ko.team_home_id, ko.team_away_id = home.id, away.id
+    db_session.commit()
+
+    payload = build_payload(db_session, ko, "poisson-elo-v0.5")
+    block = payload["knockout"]
+    assert block is not None
+    assert abs(block["p_advance_home"] + block["p_advance_away"] - 1.0) < 1e-3
+    assert abs(block["p_extra_time"] - payload["probabilities"]["draw"]) < 1e-3
+    for side in ("home", "away"):
+        paths = block["paths"][side]
+        total = paths["win_90"] + paths["win_et"] + paths["win_pens"]
+        assert abs(total - block[f"p_advance_{side}"]) < 1e-3
+
+
+def test_build_payload_no_knockout_block_for_group_stage(db_session):
+    """Group games: a draw is a final result — no knockout block."""
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    payload = build_payload(db_session, match, "poisson-elo-v0.5")
+    assert payload["knockout"] is None
