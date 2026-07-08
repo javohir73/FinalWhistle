@@ -127,7 +127,13 @@ export interface Prediction {
   reasons: string[];
   top_features: FeatureWeight[];
   head_to_head: HeadToHead;
-  odds_comparison: { available: boolean };
+  /** Market consensus vs the model: margin-free implied probabilities from
+   *  the latest pre-kickoff odds snapshot (median across bookmakers). */
+  odds_comparison: {
+    available: boolean;
+    market?: Probabilities | null;
+    captured_at?: string | null;
+  };
   disclaimer: string;
   goal_markets: GoalMarkets | null;
   availability?: Availability | null;

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app import schemas
 from app.availability import availability_for_match
 from app.live_winprob import live_probabilities_for_match, regulation_remaining
-from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Standing, Team
+from app.models import Group, GroupTeam, HistoricalMatch, Match, Odds, Prediction, Standing, Team
 from ml.models import live_markets as _live_markets
 from ml.models import markets as _markets
 from ml.models.poisson import goal_markets as _goal_markets
@@ -124,6 +124,30 @@ def availability_out(db: Session, match: Match) -> schemas.AvailabilityOut | Non
     return schemas.AvailabilityOut(has_lineup=True, per_team=per_team)
 
 
+def _odds_comparison_out(db: Session, match_id: int) -> schemas.OddsComparisonOut:
+    """Model-vs-market block from the freshest stored odds snapshot. Exposes the
+    MARGIN-FREE implied probabilities only (median bookmaker consensus) — the
+    raw prices stay a model input. No snapshot -> available=False (the shipped
+    behavior before odds ingestion existed)."""
+    row = (
+        db.query(Odds)
+        .filter(Odds.match_id == match_id)
+        .order_by(Odds.captured_at.desc(), Odds.id.desc())
+        .first()
+    )
+    if row is None or None in (row.implied_prob_home, row.implied_prob_draw, row.implied_prob_away):
+        return schemas.OddsComparisonOut(available=False)
+    return schemas.OddsComparisonOut(
+        available=True,
+        market=schemas.ProbabilitiesOut(
+            home_win=round(row.implied_prob_home, 4),
+            draw=round(row.implied_prob_draw, 4),
+            away_win=round(row.implied_prob_away, 4),
+        ),
+        captured_at=row.captured_at.isoformat() if row.captured_at else None,
+    )
+
+
 def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.PredictionOut:
     home = db.get(Team, match.team_home_id)
     away = db.get(Team, match.team_away_id)
@@ -156,7 +180,7 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         head_to_head=_head_to_head(db, match.team_home_id, match.team_away_id)
         if match.team_home_id and match.team_away_id
         else schemas.HeadToHeadOut(matches=0, home_wins=0, draws=0, away_wins=0),
-        odds_comparison=schemas.OddsComparisonOut(available=False),
+        odds_comparison=_odds_comparison_out(db, match.id),
         disclaimer=DISCLAIMER,
         goal_markets=_goal_markets_out(pred.lambda_home, pred.lambda_away, pred.rho),
         availability=availability_out(db, match),
