@@ -113,6 +113,32 @@ def _form_offsets_by_team_id(
     }
 
 
+def _combined_offsets_by_team_id(
+    db: Session, params: ModelParams, teams: list[Team]
+) -> dict[int, tuple[float, float]] | None:
+    """{team_id: (atk, def)} — the xG team offsets and the split form-channel
+    offsets ADDED together per team, exactly how build_payload composes them
+    onto atk_h/def_h/atk_a/def_a. The ONE combiner for the match cards AND
+    both Monte-Carlo simulations (mirrors _offsets_by_team_id's FR-5.3
+    invariant, extended to cover form_channels too — model v2 C1/C1-dark):
+    a flipped team_offsets or form_channels flag can never serve per-match
+    probabilities and qualification/title odds from divergent lambdas.
+    Both sources off (the shipped default) -> None, a strict no-op —
+    bit-identical to the pre-C1 sims."""
+    xg = _offsets_by_team_id(params, teams)
+    form = _form_offsets_by_team_id(db, params, teams)
+    if xg is None and form is None:
+        return None
+    xg = xg or {}
+    form = form or {}
+    combined: dict[int, tuple[float, float]] = {}
+    for t in teams:
+        atk_xg, def_xg = xg.get(t.id, (0.0, 0.0))
+        atk_form, def_form = form.get(t.id, (0.0, 0.0))
+        combined[t.id] = (atk_xg + atk_form, def_xg + def_form)
+    return combined
+
+
 def _form_channels_reason(
     home_name: str, away_name: str,
     atk_form_h: float, def_form_h: float, atk_form_a: float, def_form_a: float,
@@ -551,7 +577,11 @@ def _simulate_standings(
     results = simulate_group(
         team_elos, fixtures, n_sims=n_sims, seed=2026,
         base=params.base, beta=params.beta, rho=params.rho,
-        team_offsets=_offsets_by_team_id(params, members),
+        # Combined xG team offsets + split form-channel offsets (model v2
+        # C1): the SAME per-team sum build_payload applies to the match
+        # cards, so the standings table and the cards never disagree on a
+        # team's adjustment (FR-5.3, extended by C1).
+        team_offsets=_combined_offsets_by_team_id(db, params, members),
     )
     # Persist REAL tallies (finished matches only) — the table users see is the
     # actual league table; only qualification_prob comes from the simulation.
@@ -633,7 +663,10 @@ def _simulate_tournament(
         base=params.base, beta=params.beta, rho=params.rho,
         pk_beta=params.pk_beta, home_adv=params.home_adv,
         ko_host_by_match=ko_host_by_match, ko_results=ko_results,
-        team_offsets=_offsets_by_team_id(params, all_members),
+        # Combined xG team offsets + split form-channel offsets (model v2
+        # C1) — see _simulate_standings' comment; same invariant, extended
+        # to the full-tournament simulator.
+        team_offsets=_combined_offsets_by_team_id(db, params, all_members),
     )
     now = datetime.now(timezone.utc)
     for team_id, r in results.items():

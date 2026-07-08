@@ -760,3 +760,158 @@ def test_build_payload_no_form_factor_when_form_channels_disabled(db_session):
     payload = build_payload(db_session, match, "poisson-elo-v0.1")
     factor_names = {f["name"] for f in payload["top_features"]}
     assert "form_channels" not in factor_names
+
+
+# --- form_channels must reach BOTH Monte-Carlo simulators (review finding) --
+#
+# build_payload already folds _form_offsets_by_team_id into the match card's
+# lambdas (atk_h += atk_form_h etc). The group and tournament simulators must
+# see the SAME combined per-team offsets, or a match page would show a form-
+# adjusted card next to qualification/title odds simulated from unadjusted
+# symmetric-Elo lambdas -- the repo's card/sim agreement invariant (see the
+# existing team_offsets guard, test_simulations_receive_the_same_team_offsets_
+# as_match_cards).
+
+
+def test_simulations_receive_combined_form_and_xg_offsets(db_session, tmp_path, monkeypatch):
+    """With BOTH team_offsets (xG) and form_channels enabled, the sims must
+    receive the elementwise SUM of the two sources per team -- exactly how
+    build_payload composes them (atk_h = xg_atk_h + form_atk_h)."""
+    import json as _json
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from ml.models.team_offsets import load_team_offsets, offsets_for
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    store_path = tmp_path / "team_offsets.json"
+    store_path.write_text(_json.dumps({
+        members[0].name: {"atk": 0.075, "def": -0.075, "n_matches": 100},
+    }))
+    _set_residual_ledger(db_session, members[0].id, [(1.5, 0.0)] * 6)
+
+    captured: dict[str, list] = {"group": [], "tournament": []}
+    real_group, real_tournament = gp.simulate_group, gp.simulate_tournament
+
+    def spy_group(*args, **kwargs):
+        captured["group"].append(kwargs.get("team_offsets"))
+        return real_group(*args, **kwargs)
+
+    def spy_tournament(*args, **kwargs):
+        captured["tournament"].append(kwargs.get("team_offsets"))
+        return real_tournament(*args, **kwargs)
+
+    monkeypatch.setattr(gp, "simulate_group", spy_group)
+    monkeypatch.setattr(gp, "simulate_tournament", spy_tournament)
+
+    enabled = replace(
+        DEFAULT_PARAMS,
+        team_offsets={"file": str(store_path)},
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+    gp._simulate_standings(db_session, group, "v", n_sims=50, params=enabled)
+    gp._simulate_tournament(db_session, n_sims=20, params=enabled)
+
+    store = load_team_offsets(str(store_path))
+    xg_atk, xg_def = offsets_for(store, members[0].name)
+    form_atk, form_def = gp._form_offsets_by_team_id(
+        db_session, enabled, members
+    )[members[0].id]
+    assert form_atk != 0.0 or form_def != 0.0  # sanity: the ledger has signal
+
+    group_offsets = captured["group"][0]
+    assert group_offsets[members[0].id] == pytest.approx(
+        (xg_atk + form_atk, xg_def + form_def)
+    )
+    tournament_offsets = captured["tournament"][0]
+    assert tournament_offsets[members[0].id] == pytest.approx(
+        (xg_atk + form_atk, xg_def + form_def)
+    )
+
+
+def test_qualification_prob_shifts_same_direction_as_match_card_with_hot_ledger(
+    db_session,
+):
+    """With form_channels enabled and a hot (positive-gf) ledger for one team,
+    that team's simulated group qualification probability must rise --
+    matching the direction build_payload's card already shifts in (higher
+    lambda_home / higher win prob) for the same ledger."""
+    from dataclasses import replace
+
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.generate_predictions import _simulate_standings
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    target = members[0]
+    _set_residual_ledger(db_session, target.id, [(1.5, 0.0)] * 6)
+
+    baseline_params = replace(DEFAULT_PARAMS, form_channels=None)
+    enabled_params = replace(
+        DEFAULT_PARAMS,
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+
+    def qual_prob(params) -> float:
+        _simulate_standings(db_session, group, "v", n_sims=4000, params=params)
+        row = db_session.query(Standing).filter_by(
+            group_id=group.id, team_id=target.id
+        ).one()
+        return row.qualification_prob
+
+    baseline = qual_prob(baseline_params)
+    boosted = qual_prob(enabled_params)
+    assert boosted > baseline
+
+
+def test_sims_bit_identical_when_form_channels_none_regardless_of_ledger(db_session):
+    """form_channels=None (the shipped default): the sims must be bit-
+    identical to the no-ledger case even when a residual ledger is sitting in
+    the DB for a group member -- the same C1 dark-mode invariant build_payload
+    already guards (test_build_payload_form_channels_none_is_bit_identical_to_
+    disabled), extended to both Monte-Carlo simulators."""
+    from dataclasses import replace
+
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.generate_predictions import _simulate_standings
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    params_off = replace(DEFAULT_PARAMS, form_channels=None)
+
+    def standings_snapshot():
+        _simulate_standings(db_session, group, "v", n_sims=300, params=params_off)
+        rows = db_session.query(Standing).filter_by(group_id=group.id).all()
+        return sorted((r.team_id, r.qualification_prob) for r in rows)
+
+    def tournament_snapshot():
+        from pipeline.generate_predictions import _simulate_tournament
+        from app.models import TournamentOdds
+
+        _simulate_tournament(db_session, n_sims=100, params=params_off)
+        rows = db_session.query(TournamentOdds).all()
+        return sorted((r.team_id, r.make_knockout, r.win_title) for r in rows)
+
+    before_group = standings_snapshot()
+    before_tournament = tournament_snapshot()
+
+    _set_residual_ledger(db_session, members[0].id, [(1.5, 0.0)] * 6)
+
+    after_group = standings_snapshot()
+    after_tournament = tournament_snapshot()
+
+    assert before_group == after_group
+    assert before_tournament == after_tournament
