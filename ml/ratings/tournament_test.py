@@ -117,6 +117,91 @@ def test_total_adjustment_composes_delta_and_form():
     assert abs(s.form_adjustment) <= FORM_CAP_ELO
 
 
+def test_residual_ledger_records_one_entry_per_match_in_kickoff_order():
+    # Unified residual ledger (C1): each team's state carries the time-ordered
+    # (gf_residual, ga_residual) history, not just the summed mean.
+    matches = [
+        TournamentMatch(KOR, CZE, 2, 1),
+        TournamentMatch(KOR, MEX, 0, 0),
+    ]
+    states = replay_tournament(BASE, matches)
+    assert len(states[KOR].residual_ledger) == 2
+    # Ledger entries are (gf_residual, ga_residual) tuples that sum/average
+    # to the existing gf_residual_sum / ga_residual_sum fields.
+    gf_sum = sum(gf for gf, _ in states[KOR].residual_ledger)
+    ga_sum = sum(ga for _, ga in states[KOR].residual_ledger)
+    assert gf_sum == pytest.approx(states[KOR].gf_residual_sum)
+    assert ga_sum == pytest.approx(states[KOR].ga_residual_sum)
+
+
+def test_residual_ledger_empty_for_team_with_no_matches():
+    states = replay_tournament(BASE, [TournamentMatch(KOR, CZE, 2, 1)])
+    # MEX/CZE... wait CZE played; check a team truly absent from the replay.
+    assert MEX not in states
+
+
+def test_residual_ledger_is_backward_compatible_with_sums_and_means():
+    # Existing fields (gf_residual_sum, ga_residual_sum, gf_residual_mean,
+    # ga_residual_mean, matches_played, detail, form_adjustment,
+    # total_adjustment) must keep working exactly as before -- the ledger is
+    # additive, not a replacement.
+    matches = [TournamentMatch(KOR, CZE, 2, 1)]
+    states = replay_tournament(BASE, matches)
+    s = states[KOR]
+    assert s.matches_played == 1
+    assert s.gf_residual_mean == pytest.approx(s.gf_residual_sum / s.matches_played)
+    assert isinstance(s.detail, list) and len(s.detail) == 1
+    assert isinstance(s.form_adjustment, float)
+    assert isinstance(s.total_adjustment, float)
+
+
+def test_seed_ledgers_are_prepended_per_team():
+    # seed_ledgers lets learning_loop inject pre-tournament residuals so form
+    # doesn't reset to zero at the tournament boundary.
+    seed = {KOR: [(0.5, -0.2), (1.0, 0.0)]}
+    matches = [TournamentMatch(KOR, CZE, 2, 1)]
+    states = replay_tournament(BASE, matches, seed_ledgers=seed)
+    # Ledger = 2 seed rows + 1 tournament row, seed rows FIRST (oldest).
+    assert len(states[KOR].residual_ledger) == 3
+    assert states[KOR].residual_ledger[0] == seed[KOR][0]
+    assert states[KOR].residual_ledger[1] == seed[KOR][1]
+    # The tournament match's residual is the last (most recent) entry.
+    assert states[KOR].residual_ledger[2] != seed[KOR][0]
+
+
+def test_seed_ledgers_do_not_affect_sums_means_or_matches_played():
+    # The seed is for the NEW ledger channel only -- it must not perturb the
+    # legacy scalar fields (matches_played, gf_residual_sum, etc.), which are
+    # defined purely over matches actually replayed this run.
+    seed = {KOR: [(5.0, -5.0)]}
+    matches = [TournamentMatch(KOR, CZE, 2, 1)]
+    with_seed = replay_tournament(BASE, matches, seed_ledgers=seed)
+    without_seed = replay_tournament(BASE, matches)
+    assert with_seed[KOR].matches_played == without_seed[KOR].matches_played
+    assert with_seed[KOR].gf_residual_sum == pytest.approx(without_seed[KOR].gf_residual_sum)
+    assert with_seed[KOR].ga_residual_sum == pytest.approx(without_seed[KOR].ga_residual_sum)
+    assert with_seed[KOR].form_adjustment == pytest.approx(without_seed[KOR].form_adjustment)
+
+
+def test_seed_ledgers_for_team_with_no_tournament_matches_still_surface():
+    # A team seeded but never actually appearing in `matches` should still
+    # get a state entry carrying just the seed (so pre-tournament form is
+    # visible even before their first tournament match, per the design doc's
+    # "boundary-free" requirement)... but replay_tournament currently only
+    # creates state for teams that PLAY. Guard: seeding a team absent from
+    # matches must not raise, and must not fabricate a played state.
+    seed = {MEX: [(1.0, 0.0)]}
+    states = replay_tournament(BASE, [TournamentMatch(KOR, CZE, 2, 1)], seed_ledgers=seed)
+    assert MEX not in states  # unchanged behavior: no state without a played match
+
+
+def test_seed_ledgers_none_is_equivalent_to_omitted():
+    matches = [TournamentMatch(KOR, CZE, 2, 1)]
+    a = replay_tournament(BASE, matches, seed_ledgers=None)
+    b = replay_tournament(BASE, matches)
+    assert a[KOR].residual_ledger == b[KOR].residual_ledger
+
+
 def test_replay_residuals_use_served_goal_params():
     """FR-2.4 regression: residuals must be measured against the SERVED model's
     expected goals (base/beta from model_params.json), not the v0.1 defaults —

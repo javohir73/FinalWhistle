@@ -14,7 +14,18 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.availability import availability_for_match
-from app.models import Group, GroupTeam, HistoricalMatch, Match, Odds, Prediction, Standing, Team, TournamentOdds
+from app.models import (
+    Group,
+    GroupTeam,
+    HistoricalMatch,
+    Match,
+    Odds,
+    Prediction,
+    Standing,
+    Team,
+    TeamTournamentState,
+    TournamentOdds,
+)
 from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.features.build_features import build_match_features, estimate_strength
@@ -65,6 +76,68 @@ def _offsets_by_team_id(params: ModelParams, teams: list[Team]) -> dict[int, tup
         return None
     store = load_team_offsets(params.team_offsets.get("file"))
     return {t.id: offsets_for(store, t.name) for t in teams}
+
+
+def _form_offsets_by_team_id(
+    db: Session, params: ModelParams, teams: list[Team]
+) -> dict[int, tuple[float, float]] | None:
+    """{team_id: (atk_form, def_form)} from the split/decayed form channels
+    (model v2 C1), or None when params.form_channels is off (the shipped
+    default — bit-identical serving). Reads each team's persisted
+    TeamTournamentState.residual_ledger (written by
+    pipeline.learning_loop.update_tournament_state, optionally seeded with
+    pre-tournament history) and runs it through ml.ratings.form.form_offsets
+    with the tuned config. A team with no state row / no ledger yet gets
+    (0.0, 0.0) — the same "no evidence, no adjustment" behavior as the
+    equivalent team_offsets path."""
+    if not params.form_channels:
+        return None
+    from ml.ratings.form import FormConfig, form_offsets
+
+    cfg = FormConfig(
+        c_atk=params.form_channels["c_atk"],
+        c_def=params.form_channels["c_def"],
+        cap=params.form_channels["cap"],
+        half_life=params.form_channels["half_life"],
+    )
+    team_ids = [t.id for t in teams]
+    rows = (
+        db.query(TeamTournamentState)
+        .filter(TeamTournamentState.team_id.in_(team_ids))
+        .all()
+    )
+    ledgers = {r.team_id: r.residual_ledger for r in rows if r.residual_ledger}
+    return {
+        tid: form_offsets([tuple(pair) for pair in ledgers.get(tid, [])], cfg)
+        for tid in team_ids
+    }
+
+
+def _form_channels_reason(
+    home_name: str, away_name: str,
+    atk_form_h: float, def_form_h: float, atk_form_a: float, def_form_a: float,
+) -> str:
+    """One plain-English reason for whichever side's split form signal is
+    strongest — mirrors generate_reasons' style (ml/explain/reasons.py)."""
+    candidates = [
+        (abs(atk_form_h), f"{home_name}'s recent form shows attacking output above the model's expectation."),
+        (abs(def_form_h), f"{home_name}'s recent form shows defensive lapses above the model's expectation."),
+        (abs(atk_form_a), f"{away_name}'s recent form shows attacking output above the model's expectation."),
+        (abs(def_form_a), f"{away_name}'s recent form shows defensive lapses above the model's expectation."),
+    ]
+    _, text = max(candidates, key=lambda c: c[0])
+    return text
+
+
+def _add_form_channels_factor(factors: list[dict], weight: float) -> list[dict]:
+    """Fold a 'form_channels' entry into top_features' normalized weights,
+    re-normalizing so the list still sums to 1.0."""
+    if weight <= 0:
+        return factors
+    total = sum(f["weight"] for f in factors) + weight
+    rescaled = [{"name": f["name"], "weight": round(f["weight"] / total, 3)} for f in factors]
+    rescaled.append({"name": "form_channels", "weight": round(weight / total, 3)})
+    return sorted(rescaled, key=lambda f: f["weight"], reverse=True)
 
 
 def _recent_appearances(db: Session, team_id: int, limit: int = 10) -> list[tuple[int, int]]:
@@ -143,6 +216,21 @@ def build_payload(
     offs = _offsets_by_team_id(params, [home, away]) or {}
     atk_h, def_h = offs.get(home.id, (0.0, 0.0))
     atk_a, def_a = offs.get(away.id, (0.0, 0.0))
+    # Split, decayed, boundary-free form channels (model v2 C1): opt-in via
+    # model_params.json ("form_channels": null keeps this a strict no-op —
+    # bit-identical lambdas). Additive to the xG team offsets above — both
+    # channels are independent log-lambda nudges applied to the same
+    # atk_home/def_home/atk_away/def_away parameters (ml/models/poisson.py).
+    # When active, effective_elos() has already stopped adding the legacy
+    # scalar form_adjustment (pipeline/learning_loop.py), so these offsets
+    # are the ONLY form signal in the served lambdas — no double counting.
+    form_offs = _form_offsets_by_team_id(db, params, [home, away]) or {}
+    atk_form_h, def_form_h = form_offs.get(home.id, (0.0, 0.0))
+    atk_form_a, def_form_a = form_offs.get(away.id, (0.0, 0.0))
+    atk_h += atk_form_h
+    def_h += def_form_h
+    atk_a += atk_form_a
+    def_a += def_form_a
     pred = predict_match(
         elo_home, elo_away, home_adv=host_adv,
         base=params.base, beta=params.beta, rho=params.rho,
@@ -179,6 +267,19 @@ def build_payload(
         p_home, p_draw, p_away,
     )
     factors = top_features(feats)
+    # Surface the split form channels alongside the existing explanation
+    # layer (model v2 C1) — additive, so explanations stay consistent with
+    # the lambdas above without perturbing generate_reasons/top_features'
+    # own MatchFeatures-only contract (form_channels off is a strict no-op:
+    # both offsets are 0.0 and nothing is appended here).
+    if params.form_channels and (atk_form_h or def_form_h or atk_form_a or def_form_a):
+        reasons = reasons + [
+            _form_channels_reason(home.name, away.name, atk_form_h, def_form_h, atk_form_a, def_form_a)
+        ]
+        form_weight = (
+            abs(atk_form_h) + abs(def_form_h) + abs(atk_form_a) + abs(def_form_a)
+        ) * 8
+        factors = _add_form_channels_factor(factors, form_weight)
 
     return {
         "match_id": match.id,

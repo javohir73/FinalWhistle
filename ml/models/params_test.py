@@ -138,3 +138,52 @@ def test_json_without_team_offsets_loads_as_none(tmp_path, monkeypatch):
     monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
     assert load_params().team_offsets is None
     assert load_params().team_offsets is None
+
+
+def test_default_params_have_no_form_channels():
+    # "form_channels": null is the shipped default -- the split/decayed form
+    # channels (C1) are opt-in; None means bit-identical to today's behavior.
+    assert DEFAULT_PARAMS.form_channels is None
+
+
+def test_shipped_model_params_json_has_form_channels_disabled():
+    data = json.loads(params_mod._PARAMS_FILE.read_text())
+    assert "form_channels" in data and data["form_channels"] is None
+    assert load_params().form_channels is None
+
+
+def test_form_channels_round_trips_through_save_load(tmp_path, monkeypatch):
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", tmp_path / "model_params.json")
+    blob = {"c_atk": 0.25, "c_def": 0.2, "cap": 0.15, "half_life": 3.0}
+    p = ModelParams(version="v0.3+form", base=1.2, beta=0.0021, home_adv=60.0,
+                    rho=-0.06, temperature=1.0, pk_beta=0.0, form_channels=blob)
+    save_params(p)
+    assert load_params().form_channels == blob
+
+
+def test_json_without_form_channels_loads_as_none(tmp_path, monkeypatch):
+    # Older tuned files predate the field -- they must load with the feature off.
+    f = tmp_path / "model_params.json"
+    f.write_text(json.dumps({
+        "version": "v0.2", "base": 1.2, "beta": 0.0021, "home_adv": 60.0,
+        "rho": -0.06, "temperature": 1.0, "pk_beta": 0.0,
+    }))
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    assert load_params().form_channels is None
+
+
+def test_json_explicit_null_form_channels_loads_as_none(tmp_path, monkeypatch):
+    f = tmp_path / "model_params.json"
+    f.write_text(json.dumps({
+        "version": "v0.2", "base": 1.2, "beta": 0.0021, "home_adv": 60.0,
+        "rho": -0.06, "temperature": 1.0, "pk_beta": 0.0, "form_channels": None,
+    }))
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    assert load_params().form_channels is None
+
+
+def test_to_dict_includes_form_channels():
+    blob = {"c_atk": 0.3, "c_def": 0.25, "cap": 0.1, "half_life": 5.0}
+    p = ModelParams(version="v", base=1.2, beta=0.002, home_adv=60.0, rho=0.0,
+                    temperature=1.0, form_channels=blob)
+    assert p.to_dict()["form_channels"] == blob

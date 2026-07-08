@@ -9,5 +9,6 @@
   "calibrator": null,
   "wdl_blend": null,
   "w_odds": 0.0,
-  "team_offsets": null
+  "team_offsets": null,
+  "form_channels": null
 }
