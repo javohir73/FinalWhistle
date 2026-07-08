@@ -167,6 +167,31 @@ def _form_channels_reason(
     return text
 
 
+def _availability_reason(
+    home_name: str, away_name: str,
+    off_home: float, off_away: float,
+    expl_home: dict, expl_away: dict,
+) -> str:
+    """One plain-English reason for whichever side's availability signal is
+    strongest — mirrors _form_channels_reason, so a promoted use_availability
+    flag explains its probability shift on the card from day one."""
+    name, off, expl = (
+        (home_name, off_home, expl_home)
+        if abs(off_home) >= abs(off_away)
+        else (away_name, off_away, expl_away)
+    )
+    missing = ", ".join(
+        p["name"] for p in (expl.get("players_out") or [])[:2] if p.get("name")
+    )
+    direction = "weakened" if off < 0.0 else "boosted"
+    pct = expl.get("attack_delta_pct")
+    scale = f" {abs(pct) * 100.0:.0f}%" if pct is not None else ""
+    if missing:
+        return (f"{name}'s attack is {direction}{scale} by squad availability "
+                f"(missing: {missing}).")
+    return f"{name}'s attack is {direction}{scale} by squad availability."
+
+
 def _add_form_channels_factor(factors: list[dict], weight: float) -> list[dict]:
     """Fold a 'form_channels' entry into top_features' normalized weights,
     re-normalizing so the list still sums to 1.0."""
@@ -319,14 +344,12 @@ def build_payload(
     # (write_availability_prediction), so promotion serves exactly the signal
     # the twin has been logging. No stored XI/injuries -> availability_for_match
     # returns None -> pred is untouched (partial coverage is expected).
-    if params.use_availability:
-        adj = availability_for_match(db, match)
-        if adj is not None:
-            off_home, off_away, _expl_home, _expl_away = adj
-            pred = _availability_adjusted(
-                pred, off_home, off_away, params,
-                eff_gap=effective_gap(elo_home, elo_away, host_adv),
-            )
+    avail = availability_for_match(db, match) if params.use_availability else None
+    if avail is not None:
+        pred = _availability_adjusted(
+            pred, avail[0], avail[1], params,
+            eff_gap=effective_gap(elo_home, elo_away, host_adv),
+        )
 
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
     # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
@@ -370,6 +393,12 @@ def build_payload(
             abs(atk_form_h) + abs(def_form_h) + abs(atk_form_a) + abs(def_form_a)
         ) * 8
         factors = _add_form_channels_factor(factors, form_weight)
+    # Flip-day explainability (availability promotion): the moment
+    # use_availability moves the served lambdas, the card says why — same
+    # additive pattern as the form-channels line above, built from the
+    # explanation dicts availability_for_match already returns.
+    if avail is not None and (avail[0] or avail[1]):
+        reasons = reasons + [_availability_reason(home.name, away.name, *avail)]
 
     # Knockout ties resolve past the 90th minute: decompose "who goes through"
     # into win-in-90 / extra-time / penalties on top of the SERVED triple, so
