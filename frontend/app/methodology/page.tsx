@@ -207,10 +207,15 @@ export default async function MethodologyPage() {
           Apples-to-oranges caveats, stated plainly: the contests grade slightly
           different match sets (their table implies ~94 picks; we grade every
           finished match with a frozen pre-kickoff prediction), and picking rules
-          differ — we grade our headline call against the 90-minute result,
-          draws included, which is a stricter test than knockout-winner-only picks.
-          We publish the comparison anyway because pretending benchmarks don&apos;t
-          exist is worse than imperfect ones. Source: The Athletic, July 2026.
+          differ — our headline number grades the 90-minute result, draws
+          included, which is a stricter test than knockout-winner-only picks. On
+          the advancement basis those contests use for knockouts, our record is{" "}
+          {record && record.advancement_matches > 0
+            ? `${record.advancement_correct} of ${record.advancement_matches} (${((record.advancement_accuracy ?? 0) * 100).toFixed(1)}%)`
+            : "still building as the knockouts finish"}
+          . We publish the comparison anyway because pretending benchmarks
+          don&apos;t exist is worse than imperfect ones. Source: The Athletic,
+          July 2026.
         </p>
       </section>
 
