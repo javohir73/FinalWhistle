@@ -5,10 +5,13 @@ never-raises, best-effort idiom: fetch never raises (returns [] + logs on any
 error), parse is pure (None for malformed rows), and upsert is idempotent and
 never overwrites a stored finished match (freshness-guard spirit).
 """
+import sys
 from datetime import datetime, timezone
 
 import requests
 
+import app.db
+import pipeline.sports.nrl_ingest as nrl_ingest
 from app.models import SportMatch, SportTeam
 from pipeline.sports.nrl_ingest import fetch_season, parse_row, upsert_season
 
@@ -53,6 +56,17 @@ def test_parse_row_missing_team_name_is_malformed():
 
 def test_parse_row_unparseable_date_is_malformed():
     bad = dict(SAMPLE, DateUtc="not-a-date")
+    assert parse_row(bad) is None
+
+
+def test_parse_row_missing_match_number_is_malformed():
+    bad = dict(SAMPLE)
+    del bad["MatchNumber"]
+    assert parse_row(bad) is None
+
+
+def test_parse_row_null_match_number_is_malformed():
+    bad = dict(SAMPLE, MatchNumber=None)
     assert parse_row(bad) is None
 
 
@@ -213,3 +227,32 @@ def test_upsert_season_scoped_by_season(db_session):
     counts = upsert_season(db_session, 2027, [same_match_no_next_year])
     assert counts == {"created": 1, "updated": 0}
     assert db_session.query(SportMatch).filter_by(sport="nrl").count() == 2
+
+
+# ---- main() CLI loop (per-season error boundary) ----
+
+def test_main_one_bad_season_does_not_abort_the_backfill(monkeypatch, db_session):
+    # A season whose upsert_season blows up (e.g. an unexpected feed shape, a
+    # constraint violation) must not take down the rest of the backfill —
+    # main()'s loop rolls back and moves on, mirroring
+    # pipeline.ingest.injuries's never-raises-to-the-caller posture.
+    db_session.close = lambda: None  # the fixture owns teardown, not main()
+    monkeypatch.setattr(app.db, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(nrl_ingest, "fetch_season", lambda year, timeout=20.0: [SAMPLE])
+
+    real_upsert_season = nrl_ingest.upsert_season
+
+    def _flaky_upsert_season(db, year, rows):
+        if year == 2020:
+            raise RuntimeError("boom: season 2020 is broken")
+        return real_upsert_season(db, year, rows)
+
+    monkeypatch.setattr(nrl_ingest, "upsert_season", _flaky_upsert_season)
+    monkeypatch.setattr(sys, "argv", ["nrl_ingest.py", "--seasons", "2020", "2021"])
+
+    rc = nrl_ingest.main()
+
+    assert rc == 0
+    assert db_session.query(SportMatch).filter_by(sport="nrl", season=2020).count() == 0
+    match = db_session.query(SportMatch).filter_by(sport="nrl", season=2021).one()
+    assert match.match_no == SAMPLE["MatchNumber"]

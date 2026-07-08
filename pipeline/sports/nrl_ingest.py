@@ -10,6 +10,9 @@ Mirrors pipeline.ingest.injuries's best-effort idiom: fetch_season NEVER raises
 (any HTTP/timeout/JSON error is logged and answered with []), parse_row is pure
 (None for malformed rows), and upsert_season never overwrites a stored finished
 match — a result, once recorded, is not clobbered by a stale re-fetch.
+upsert_season itself may still raise (it's a library function); the
+best-effort boundary lives in main()'s per-season CLI loop, which rolls back
+and moves on to the next season, so one bad season can't abort the backfill.
 """
 from __future__ import annotations
 
@@ -52,13 +55,23 @@ def fetch_season(year: int, timeout: float = 20.0) -> list[dict]:
 def parse_row(row: dict) -> dict | None:
     """One feed row -> a normalized dict, or None if malformed. Pure.
 
-    Malformed = missing either team name or an unparseable DateUtc. Scores
-    are only trusted as a pair: if either is null the match is "scheduled"
-    with both scores None, otherwise "finished" with both scores set.
+    Malformed = missing either team name, a non-int MatchNumber, or an
+    unparseable DateUtc. MatchNumber anchors the (sport, season, match_no)
+    unique key downstream, so a null/absent value can't be allowed through:
+    on Postgres it would hit the NOT NULL column and abort the season's
+    single commit, and two such rows would silently dedupe each other in
+    upsert_season's within-batch collision guard, dropping a real fixture.
+    Scores are only trusted as a pair: if either is null the match is
+    "scheduled" with both scores None, otherwise "finished" with both scores
+    set.
     """
     home_team = row.get("HomeTeam")
     away_team = row.get("AwayTeam")
     if not home_team or not away_team:
+        return None
+
+    match_no = row.get("MatchNumber")
+    if not isinstance(match_no, int) or isinstance(match_no, bool):
         return None
 
     date_str = row.get("DateUtc")
@@ -80,7 +93,7 @@ def parse_row(row: dict) -> dict | None:
         status = "finished"
 
     return {
-        "match_no": row.get("MatchNumber"),
+        "match_no": match_no,
         "round": row.get("RoundNumber"),
         "kickoff_utc": kickoff_utc,
         "venue": row.get("Location"),
@@ -202,7 +215,12 @@ def main() -> int:
             if not rows:
                 log.info("%s: no data (feed empty or unavailable)", year)
                 continue
-            counts = upsert_season(db, year, rows)
+            try:
+                counts = upsert_season(db, year, rows)
+            except Exception as exc:  # noqa: BLE001 - one bad season must never abort the backfill
+                db.rollback()
+                log.warning("%s: upsert_season failed, skipping season: %s", year, exc)
+                continue
             log.info(
                 "%s: %d rows fetched, created=%d updated=%d",
                 year, len(rows), counts["created"], counts["updated"],
