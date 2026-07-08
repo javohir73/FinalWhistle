@@ -154,6 +154,11 @@ def predict(elo_home, elo_away, p: NrlParams, neutral: bool = False) -> dict
 **Interfaces:**
 - Consumes: Task 3's `NrlParams/update/regress_season/predict`; Task 2's ingested rows (CLI reads SportMatch for sport="nrl").
 - Produces: `replay_seasons(matches_by_season, params) -> dict[int, dict[int, float]]` (end-of-season Elo per team, regressed between seasons, leak-free order by kickoff); `evaluate_season(matches, elos_in, params) -> dict` (walk-forward within the season: predict each match from current state THEN update; returns log_loss, brier, winner_acc, n, and the same metrics for a favorite baseline (picks higher pre-match Elo, probabilities = training-window class frequencies) and home baseline); `tune(train_seasons, val_season, grid) -> NrlParams` (coordinate descent over k/home_adv/margin_slope/margin_sigma/p_draw/season_regress on val log loss — mirror `ml/evaluation/tune.py`'s style); CLI prints a per-season table for the 3 most recent completed seasons, each tuned only on data strictly before it.
+- **PLAN ERRATUM (controller sign-off at Task 4 review):** the implemented tune
+  grid substitutes `margin_mult_cap` for `margin_slope`/`margin_sigma` — the
+  latter two never enter the W/D/L likelihood (they shape expected_margin
+  only), so tuning them on val log loss is a provable no-op, while the cap
+  genuinely shapes the Elo trajectory. Signed off; do not "fix" back.
 - [ ] **Step 1: Failing tests** with a small synthetic two-season fixture (deterministic: strong team beats weak → walk-forward accuracy > 0.5; leak-freedom: evaluating season N must not change elos_in that season N+1 receives except via replay; predict-before-update order pinned by asserting the first match's prediction uses the seed Elo exactly).
 - [ ] **Step 2: RED → Step 3: implement → Step 4: GREEN.**
 - [ ] **Step 5: Real run + gate readout** — `PYTHONPATH=backend:. .venv/bin/python -m pipeline.sports.nrl_backtest` over the ingested seasons; paste the table. **Gate (Global Constraints): model beats the favorite baseline on log loss in ≥2 of the 3 held-out seasons.** If the gate fails, STOP — report the table and mark the plan blocked at Task 4 (tuning iteration is a controller decision, not silent grid-widening).
