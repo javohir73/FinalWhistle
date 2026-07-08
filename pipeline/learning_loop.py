@@ -257,6 +257,15 @@ def build_seed_ledgers(
     ``team_ids`` restricts the (mildly expensive, O(all history)) replay's
     OUTPUT to teams actually in the tournament (guard cost) — the replay
     itself must still cover full history for path-dependent Elo correctness.
+
+    Single-scale invariant (model v2 review finding): this is already on the
+    SERVED goals scale (``served.base``/``served.beta``, defaulted below) —
+    the same scale pipeline/backtest_data.py's build_enriched_rows and
+    pipeline/replay_wc26.py's ledger builders use by default now. Every
+    residual ledger in the repo must agree on this scale, or an ablation
+    comparing "with form" vs "without" would be comparing apples measured on
+    different scales. Leave this default as-is; do not special-case it back
+    to the v0.1 constants.
     """
     if not team_ids:
         return {}

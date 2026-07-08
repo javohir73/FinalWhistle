@@ -113,31 +113,32 @@ def _form_logloss(val_rows: list[dict], base_params: ModelParams, form_cfg: dict
     when ``form_cfg`` is None — the same "off" comparison point tune_params'
     own coordinate descent implicitly uses for every OTHER knob).
 
-    ``val_rows`` MUST carry ``home_id``/``away_id`` (the shape
-    ml.ratings.elo.replay_with_prematch produces — same rows
-    pipeline/backtest_data.py's build_enriched_rows already hands tune_params).
-    Rows are walked in DATE order, maintaining a per-team running residual
-    ledger exactly like ml.ratings.tournament.replay_tournament: each match's
-    W/D/L probability uses ONLY the ledger state BEFORE that match (no
-    leakage), then the match's own residuals are appended for the next one.
+    ``val_rows`` MUST carry ``ledger_home``/``ledger_away`` — the PRE-
+    ATTACHED, already leak-free, already-capped ledgers
+    pipeline/backtest_data.py's build_enriched_rows snapshots BEFORE each
+    row's own match (same shape ml.evaluation.experiments._row_probs
+    consumes for scoring/serving). This function used to maintain a SECOND,
+    independently-rebuilt running ledger at base_params' scale, unbounded —
+    a different scale and cap than scoring/serving ever see (model v2 review
+    finding: ablation validity requires one ledger, one scale, one cap,
+    everywhere). Reading the rows' own ledgers instead of rebuilding one also
+    means row order here no longer matters for leakage — the walk-forward
+    pre-match property already lives in how build_enriched_rows built the
+    ledgers, not in the order this function iterates them.
     """
     import math
 
     cfg = FormConfig(**form_cfg) if form_cfg else None
-    ordered = sorted(range(len(val_rows)), key=lambda i: val_rows[i]["date"])
-    ledgers: dict[int, list[tuple[float, float]]] = {}
 
     total = 0.0
     n = len(val_rows) or 1
-    for i in ordered:
-        r = val_rows[i]
-        home_id, away_id = r["home_id"], r["away_id"]
+    for r in val_rows:
         adv = 0.0 if r["is_neutral"] else base_params.home_adv
 
         atk_h = def_h = atk_a = def_a = 0.0
         if cfg is not None:
-            atk_h, def_h = form_offsets(ledgers.get(home_id, []), cfg)
-            atk_a, def_a = form_offsets(ledgers.get(away_id, []), cfg)
+            atk_h, def_h = form_offsets(r.get("ledger_home") or [], cfg)
+            atk_a, def_a = form_offsets(r.get("ledger_away") or [], cfg)
 
         lam_h, lam_a = expected_goals_from_elo(
             r["pre_home"], r["pre_away"], adv, base_params.base, base_params.beta,
@@ -149,14 +150,6 @@ def _form_logloss(val_rows: list[dict], base_params: ModelParams, form_cfg: dict
 
         idx = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
         total -= math.log(max(_EPS, min(1 - _EPS, probs[idx])))
-
-        # Residuals vs THIS match's own lambdas, appended after scoring it —
-        # mirrors replay_tournament's "measure against the model's own
-        # pre-match expectation" contract.
-        home_gf, home_ga = r["score_home"] - lam_h, r["score_away"] - lam_a
-        away_gf, away_ga = r["score_away"] - lam_a, r["score_home"] - lam_h
-        ledgers.setdefault(home_id, []).append((home_gf, home_ga))
-        ledgers.setdefault(away_id, []).append((away_gf, away_ga))
 
     return total / n
 
@@ -170,7 +163,9 @@ def tune_form(
     caller explicitly asks for it; it never runs inside tune_params and never
     changes tune_params' signature).
 
-    ``val_rows`` must carry ``home_id``/``away_id`` (see _form_logloss).
+    ``val_rows`` must carry ``ledger_home``/``ledger_away`` (see
+    _form_logloss) — the pre-attached, leak-free, capped ledgers
+    build_enriched_rows produces.
     Objective: validation log loss, identical metric to tune_params'.
     Returns a form_channels dict ({"c_atk", "c_def", "cap", "half_life"}) —
     the exact shape ModelParams.form_channels / model_params.json expects.

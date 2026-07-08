@@ -31,6 +31,7 @@ from sqlalchemy.orm import Session
 from app.models import Match, PredictionResult, Team
 from ml.evaluation.experiments import build_variant, score_variant
 from ml.features.build_features import estimate_strength
+from ml.models.params import ModelParams, load_params
 from ml.models.poisson import expected_goals_from_elo
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.ratings.tournament import TournamentMatch, replay_tournament
@@ -50,20 +51,28 @@ def _finished_group_matches(db: Session) -> list[Match]:
     )
 
 
-def _pretournament_ledger_tails(db: Session) -> dict[int, list[tuple[float, float]]]:
+def _pretournament_ledger_tails(
+    db: Session, served: ModelParams
+) -> dict[int, list[tuple[float, float]]]:
     """Each team's residual ledger as of the moment the tournament starts —
     the C1 boundary-continuity fix: pre-tournament form carries in instead of
     resetting to zero. Reuses build_enriched_rows' own ledger construction
-    (LEDGER_CAP, v0.1 base/beta) so the convention matches deliverable 1
-    exactly: walk the enriched rows oldest-first and keep each team's latest
-    ledger snapshot PLUS its own match residual appended — the last time a
-    team appears is its full pre-tournament tail."""
-    rows = build_enriched_rows(db)
+    (LEDGER_CAP, now defaulting to the SERVED goals scale itself) so the
+    convention matches deliverable 1 exactly: walk the enriched rows
+    oldest-first and keep each team's latest ledger snapshot PLUS its own
+    match residual appended — the last time a team appears is its full
+    pre-tournament tail. The "own match residual" computed here uses the SAME
+    ``served`` base/beta (not the v0.1 constants) so every residual in the
+    ledger — pre-tournament and in-tournament alike — is measured on one
+    consistent scale (model v2 review finding: ablation validity)."""
+    rows = build_enriched_rows(db, base=served.base, beta=served.beta)
     tails: dict[int, list[tuple[float, float]]] = {}
     for row in rows:
         home_id, away_id = row["home_id"], row["away_id"]
         adv = 0.0 if row["is_neutral"] else HOME_ADVANTAGE
-        lam_home, lam_away = expected_goals_from_elo(row["pre_home"], row["pre_away"], adv)
+        lam_home, lam_away = expected_goals_from_elo(
+            row["pre_home"], row["pre_away"], adv, base=served.base, beta=served.beta,
+        )
         gf_home, ga_home = row["score_home"] - lam_home, row["score_away"] - lam_away
         tails[home_id] = (tails.get(home_id, []) + [(gf_home, ga_home)])[-LEDGER_CAP:]
         tails[away_id] = (tails.get(away_id, []) + [(-ga_home, -gf_home)])[-LEDGER_CAP:]
@@ -81,13 +90,15 @@ def build_wc26_rows(db: Session) -> list[dict]:
     if not finished:
         return []
 
+    served = load_params()
     teams = db.query(Team).all()
     base_elos = {t.id: estimate_strength(t)[0] for t in teams}
 
     # Running per-team ledger: starts at the pre-tournament tail and grows one
     # entry per match AFTER that match's row has been built (never before).
     running_ledgers: dict[int, list[tuple[float, float]]] = {
-        tid: list(entries) for tid, entries in _pretournament_ledger_tails(db).items()
+        tid: list(entries)
+        for tid, entries in _pretournament_ledger_tails(db, served).items()
     }
 
     rows: list[dict] = []
@@ -102,7 +113,9 @@ def build_wc26_rows(db: Session) -> list[dict]:
             )
             for p in prefix
         ]
-        states = replay_tournament(base_elos, tmatches)
+        states = replay_tournament(
+            base_elos, tmatches, goals_base=served.base, goals_beta=served.beta,
+        )
         home_delta = states[m.team_home_id].elo_delta if m.team_home_id in states else 0.0
         away_delta = states[m.team_away_id].elo_delta if m.team_away_id in states else 0.0
         eff_home = base_elos[m.team_home_id] + home_delta
@@ -127,8 +140,11 @@ def build_wc26_rows(db: Session) -> list[dict]:
 
         # Append THIS match's own residual for LATER rows only — the row just
         # built above already had its ledger snapshotted, so it can never see
-        # its own result.
-        lam_home, lam_away = expected_goals_from_elo(eff_home, eff_away, adv)
+        # its own result. Served scale (not v0.1 constants), matching every
+        # other residual in this ledger (model v2 review finding).
+        lam_home, lam_away = expected_goals_from_elo(
+            eff_home, eff_away, adv, base=served.base, beta=served.beta,
+        )
         gf_home, ga_home = m.score_home - lam_home, m.score_away - lam_away
         running_ledgers[m.team_home_id] = (running_ledgers.get(m.team_home_id, []) + [(gf_home, ga_home)])[-LEDGER_CAP:]
         running_ledgers[m.team_away_id] = (running_ledgers.get(m.team_away_id, []) + [(-ga_home, -gf_home)])[-LEDGER_CAP:]

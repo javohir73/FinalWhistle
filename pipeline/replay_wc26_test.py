@@ -113,6 +113,80 @@ def test_leakage_second_match_ledger_has_exactly_one_in_tournament_entry(db_sess
     assert len(rows[1]["ledger_home"]) == 1  # Mexico's opener, nothing from match 2 itself
 
 
+def test_in_tournament_ledger_residual_uses_served_goals_scale(db_session, monkeypatch):
+    """Model v2 review finding (ablation validity): the in-tournament residual
+    appended to the running ledger must be measured against the SERVED goals
+    params (ml.models.params.load_params()), not the hardcoded v0.1
+    constants -- otherwise this file's ledger and the served model disagree
+    on what counts as "above expectation"."""
+    import pipeline.replay_wc26 as rw_mod
+    from ml.models.params import DEFAULT_PARAMS
+    from ml.models.poisson import expected_goals_from_elo
+
+    tuned = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(), "base": 1.2, "beta": 0.0021}
+    )
+    monkeypatch.setattr(rw_mod, "load_params", lambda: tuned)
+
+    wc = _wc(db_session)
+    mex = _team(db_session, "Mexico", elo=1800.0)
+    rsa = _team(db_session, "South Africa", elo=1600.0)
+    kor = _team(db_session, "Korea", elo=1750.0)
+    _finished(db_session, wc, mex, rsa, 3, 0, datetime(2026, 6, 11, 18, tzinfo=timezone.utc), host=mex)
+    _finished(db_session, wc, mex, kor, 1, 1, datetime(2026, 6, 17, 18, tzinfo=timezone.utc), host=mex)
+    db_session.commit()
+
+    rows = build_wc26_rows(db_session)
+    second = rows[1]
+    gf, ga = second["ledger_home"][0]  # Mexico's opener residual, seen going into match 2
+
+    first = rows[0]
+    lam_home_served, lam_away_served = expected_goals_from_elo(
+        first["pre_home"], first["pre_away"], 0.0 if first["is_neutral"] else HOME_ADVANTAGE,
+        base=tuned.base, beta=tuned.beta,
+    )
+    lam_home_v01, _ = expected_goals_from_elo(
+        first["pre_home"], first["pre_away"], 0.0 if first["is_neutral"] else HOME_ADVANTAGE,
+    )
+    assert abs(lam_home_served - lam_home_v01) > 1e-6  # sanity: scales actually differ
+    assert abs(gf - (first["score_home"] - lam_home_served)) < 1e-9
+    assert abs(ga - (first["score_away"] - lam_away_served)) < 1e-9
+
+
+def test_pretournament_ledger_tail_uses_served_goals_scale(db_session, monkeypatch):
+    """Same invariant as the in-tournament case, for the pre-tournament tail
+    (_pretournament_ledger_tails / build_enriched_rows' own default)."""
+    import pipeline.replay_wc26 as rw_mod
+    from app.models import HistoricalMatch, Team as TeamModel
+    from ml.models.params import DEFAULT_PARAMS
+    from ml.models.poisson import expected_goals_from_elo
+    from pipeline.replay_wc26 import _pretournament_ledger_tails
+
+    tuned = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(), "base": 1.2, "beta": 0.0021}
+    )
+    monkeypatch.setattr(rw_mod, "load_params", lambda: tuned)
+
+    alpha, beta_team = TeamModel(name="Alpha"), TeamModel(name="Beta")
+    db_session.add_all([alpha, beta_team])
+    db_session.commit()
+    db_session.add(HistoricalMatch(
+        date=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        team_a_id=alpha.id, team_b_id=beta_team.id, score_a=3, score_b=0,
+        competition="Friendly", is_neutral=True,
+    ))
+    db_session.commit()
+
+    tails = _pretournament_ledger_tails(db_session, tuned)
+    gf, ga = tails[alpha.id][0]
+
+    lam_home_served, lam_away_served = expected_goals_from_elo(
+        1500.0, 1500.0, 0.0, base=tuned.base, beta=tuned.beta,
+    )
+    assert abs(gf - (3 - lam_home_served)) < 1e-9
+    assert abs(ga - (0 - lam_away_served)) < 1e-9
+
+
 def test_matches_ordered_by_kickoff(db_session):
     wc = _wc(db_session)
     a, b, c = (_team(db_session, n) for n in ("A", "B", "C"))

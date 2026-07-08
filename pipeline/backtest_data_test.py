@@ -71,9 +71,16 @@ def test_leakage_second_match_sees_only_strictly_prior_result(db_session):
     # The one ledger entry must reflect the FIRST match's residual, computed
     # from Alpha's PRE-match Elo at the time of that first match (1500, since
     # it was Alpha's own first match too) — not anything from match two.
+    # build_enriched_rows defaults to the SERVED goals scale (model v2 review
+    # finding), so the expectation here must be computed on that same scale.
+    from ml.models.params import load_params
+
+    served = load_params()
     pre_home_at_match1 = first["pre_home"]
     pre_away_at_match1 = first["pre_away"]
-    lam_home, lam_away = expected_goals_from_elo(pre_home_at_match1, pre_away_at_match1)
+    lam_home, lam_away = expected_goals_from_elo(
+        pre_home_at_match1, pre_away_at_match1, base=served.base, beta=served.beta,
+    )
     expected_gf_residual = 3 - lam_home  # Alpha scored 3
     expected_ga_residual = 0 - lam_away  # Alpha conceded 0
     gf, ga = second["ledger_home"][0]
@@ -128,8 +135,14 @@ def test_ledger_uses_away_side_residual_convention(db_session):
     assert len(second["ledger_away"]) == 1
     gf, ga = second["ledger_away"][0]
     # Beta scored 3, conceded 0 in the first match (as the away side there).
+    # Served-scale default (model v2 review finding) -- see the leakage test above.
+    from ml.models.params import load_params
+
+    served = load_params()
     first = rows[0]
-    lam_home, lam_away = expected_goals_from_elo(first["pre_home"], first["pre_away"])
+    lam_home, lam_away = expected_goals_from_elo(
+        first["pre_home"], first["pre_away"], base=served.base, beta=served.beta,
+    )
     assert abs(gf - (3 - lam_away)) < 1e-9
     assert abs(ga - (0 - lam_home)) < 1e-9
 
@@ -153,17 +166,51 @@ def test_ledger_parameterized_by_base_and_beta(db_session):
     assert abs(default_gf - custom_gf) > 1e-6
 
 
-def test_default_base_beta_match_v01_constants(db_session):
-    """Default call uses the v0.1 constants, matching the task's default."""
+def test_default_base_beta_match_served_params(db_session):
+    """Default call uses the SERVED goals params (ml.models.params.load_params()),
+    not the hardcoded v0.1 constants (model v2 review finding: ablation
+    validity requires every ledger builder to measure residuals on the same
+    scale the model actually serves predictions on)."""
+    from ml.models.params import load_params
+
     _seed(db_session, [("Alpha", "Beta", 3, 0, _d(2020, 1, 1)),
                         ("Alpha", "Gamma", 1, 1, _d(2020, 6, 1))])
+    served = load_params()
     rows = build_enriched_rows(db_session)
     lam_home, lam_away = expected_goals_from_elo(
-        rows[0]["pre_home"], rows[0]["pre_away"], base=BASE_GOALS, beta=ELO_TO_GOALS_BETA,
+        rows[0]["pre_home"], rows[0]["pre_away"], base=served.base, beta=served.beta,
     )
     gf, ga = rows[1]["ledger_home"][0]
     assert abs(gf - (3 - lam_home)) < 1e-9
     assert abs(ga - (0 - lam_away)) < 1e-9
+
+
+def test_default_base_beta_differs_from_v01_constants_when_served_params_are_tuned(
+    db_session, monkeypatch
+):
+    """Regression guard for the fix itself: if the served params' base/beta
+    differ from the v0.1 constants, the default ledger must reflect the
+    served values, not silently fall back to BASE_GOALS/ELO_TO_GOALS_BETA."""
+    import pipeline.backtest_data as bd_mod
+    from ml.models.params import DEFAULT_PARAMS
+
+    tuned = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(), "base": 1.2, "beta": 0.0021}
+    )
+    monkeypatch.setattr(bd_mod, "load_params", lambda: tuned)
+
+    _seed(db_session, [("Alpha", "Beta", 3, 0, _d(2020, 1, 1)),
+                        ("Alpha", "Gamma", 1, 1, _d(2020, 6, 1))])
+    rows = build_enriched_rows(db_session)
+    lam_home_served, _ = expected_goals_from_elo(
+        rows[0]["pre_home"], rows[0]["pre_away"], base=tuned.base, beta=tuned.beta,
+    )
+    lam_home_v01, _ = expected_goals_from_elo(
+        rows[0]["pre_home"], rows[0]["pre_away"], base=BASE_GOALS, beta=ELO_TO_GOALS_BETA,
+    )
+    assert abs(lam_home_served - lam_home_v01) > 1e-6  # sanity: the two scales differ
+    gf, _ = rows[1]["ledger_home"][0]
+    assert abs(gf - (3 - lam_home_served)) < 1e-9
 
 
 def test_existing_row_keys_unaffected(db_session):

@@ -18,7 +18,8 @@ from collections import defaultdict, deque
 from sqlalchemy.orm import Session
 
 from app.models import HistoricalMatch
-from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo
+from ml.models.params import load_params
+from ml.models.poisson import expected_goals_from_elo
 from ml.ratings.elo import HOME_ADVANTAGE, MatchInput, replay_with_prematch
 
 # Cap on how many prior matches feed a team's residual ledger. 15 is plenty
@@ -27,15 +28,23 @@ LEDGER_CAP = 15
 
 
 def build_enriched_rows(
-    db: Session, base: float = BASE_GOALS, beta: float = ELO_TO_GOALS_BETA
+    db: Session, base: float | None = None, beta: float | None = None
 ) -> list[dict]:
     """Leak-free rows for the backtest/tuning/experiment harnesses.
 
     `base`/`beta` parameterize the expected-goals mapping used to compute the
     residual ledgers (ledger_home/ledger_away) — the variant that later reads
     them decides which goals params represent "what the model expected", so
-    callers may override; defaults to the v0.1 constants.
+    callers may override. Default to the SERVED goals params
+    (ml.models.params.load_params()) rather than the v0.1 constants: every
+    ledger builder in the repo must measure residuals on the same scale the
+    model actually serves predictions on, or an ablation comparing "with
+    form" vs "without" is comparing apples measured on different scales
+    (model v2 review finding).
     """
+    served = load_params()
+    base = served.base if base is None else base
+    beta = served.beta if beta is None else beta
     ordered = (
         db.query(HistoricalMatch)
         .order_by(HistoricalMatch.date.asc(), HistoricalMatch.id.asc())
