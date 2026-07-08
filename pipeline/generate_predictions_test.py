@@ -613,7 +613,14 @@ def test_build_payload_form_channels_none_is_bit_identical_to_disabled(db_sessio
     """None-config bit-identity: with form_channels=None (the shipped
     default), the payload must be EXACTLY what it was before C1 -- even if a
     residual ledger happens to be sitting in the DB (e.g. left by a run where
-    the feature was later disabled)."""
+    the feature was later disabled).
+
+    Regression note: an earlier version of this test only called
+    build_payload TWICE with the SAME (ledger-populated) DB state and the
+    same params -- that proves determinism, not that the ledger is ignored.
+    The real guard compares a run WITH a populated ledger against a run with
+    NO ledger at all, both under form_channels=None -- the triples and
+    lambdas must be identical, proving the ledger is never read while dark."""
     from dataclasses import replace
 
     from ml.models.params import DEFAULT_PARAMS
@@ -625,13 +632,17 @@ def test_build_payload_form_channels_none_is_bit_identical_to_disabled(db_sessio
         .filter(Match.stage == "group", Match.team_home_id.isnot(None))
         .first()
     )
-    _set_residual_ledger(db_session, match.team_home_id, [(1.5, -0.3), (0.8, 0.1)])
-
     params_off = replace(DEFAULT_PARAMS, form_channels=None)
-    a = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
-    b = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
+
+    # No ledger anywhere in the DB.
+    without_ledger = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
+
+    # A populated, clearly-non-trivial ledger for the home team.
+    _set_residual_ledger(db_session, match.team_home_id, [(1.5, -0.3), (0.8, 0.1)])
+    with_ledger = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
+
     for key in ("probabilities", "predicted_score", "lambda_home", "lambda_away"):
-        assert a[key] == b[key]
+        assert with_ledger[key] == without_ledger[key]
 
 
 def test_build_payload_form_channels_on_shifts_lambdas_via_ledger(db_session):
