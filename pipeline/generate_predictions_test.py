@@ -661,6 +661,68 @@ def test_build_payload_use_availability_without_signal_is_identity(db_session):
         assert on_no_signal[key] == base[key]
 
 
+def test_build_payload_use_availability_adds_reason(monkeypatch, db_session):
+    """Flip-day explainability: the moment a promoted use_availability moves
+    the served lambdas, the card grows one reason naming the missing players —
+    with the flag off, no such line exists."""
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    expl_home = {"attack_delta_pct": -0.14,
+                 "players_out": [{"name": "Star Striker", "weight": 0.31}]}
+    monkeypatch.setattr(gp, "availability_for_match",
+                        lambda _db, _m: (-0.15, 0.0, expl_home, {}))
+
+    params_off = replace(load_params(), form_channels=None, use_availability=False)
+    params_on = replace(params_off, use_availability=True)
+
+    base = gp.build_payload(db_session, match, "test-model", params=params_off)
+    served = gp.build_payload(db_session, match, "test-model", params=params_on)
+
+    assert not any("Star Striker" in x for x in base["reasons"])
+    assert len(served["reasons"]) == len(base["reasons"]) + 1
+    assert sum("Star Striker" in x for x in served["reasons"]) == 1
+
+
+def test_build_payload_use_availability_zero_offset_adds_no_reason(monkeypatch, db_session):
+    """Full-strength XIs (offsets 0.0/0.0) don't move the numbers, so they must
+    not grow a phantom availability line either."""
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    monkeypatch.setattr(
+        gp, "availability_for_match",
+        lambda _db, _m: (0.0, 0.0, {"attack_delta_pct": 0.0, "players_out": []}, {}),
+    )
+
+    params_off = replace(load_params(), form_channels=None, use_availability=False)
+    params_on = replace(params_off, use_availability=True)
+
+    base = gp.build_payload(db_session, match, "test-model", params=params_off)
+    served = gp.build_payload(db_session, match, "test-model", params=params_on)
+
+    assert served["reasons"] == base["reasons"]
+    assert served["probabilities"] == base["probabilities"]
+
+
 # --- form_channels serving-path integration (model v2 C1) -------------------
 
 
