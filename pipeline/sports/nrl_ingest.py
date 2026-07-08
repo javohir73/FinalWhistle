@@ -113,16 +113,32 @@ def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
     scores flips to finished, but a finished match is immutable once written.
     Malformed rows are skipped silently (parse_row already logs nothing; the
     caller sees them simply absent from the counts).
+
+    fixturedownload's 2020 COVID-restart season reuses MatchNumber within a
+    single feed response (round 1 and round 3 both have MatchNumber=1, etc.) —
+    a real feed defect, not a re-fetch. Since (sport, season, match_no) is the
+    unique key, only the first row for a given match_no in this batch is kept;
+    later collisions are logged and skipped rather than crashing the backfill.
     """
     created = 0
     updated = 0
     team_cache: dict[str, SportTeam] = {}
+    seen_in_batch: set[int] = set()
 
     for raw in rows:
         parsed = parse_row(raw)
         if parsed is None:
             log.warning("nrl upsert_season(%s): skipping malformed row %r", year, raw)
             continue
+
+        if parsed["match_no"] in seen_in_batch:
+            log.warning(
+                "nrl upsert_season(%s): duplicate match_no=%s within feed batch, "
+                "keeping first-seen and skipping %r",
+                year, parsed["match_no"], raw,
+            )
+            continue
+        seen_in_batch.add(parsed["match_no"])
 
         home = _get_or_create_team(db, team_cache, parsed["home_team"])
         away = _get_or_create_team(db, team_cache, parsed["away_team"])

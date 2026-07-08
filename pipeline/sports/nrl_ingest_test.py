@@ -193,6 +193,20 @@ def test_upsert_season_skips_malformed_rows(db_session):
     assert db_session.query(SportMatch).count() == 0
 
 
+def test_upsert_season_dedupes_match_no_collisions_within_a_batch(db_session):
+    # fixturedownload's 2020 COVID-restart feed reuses MatchNumber across
+    # distinct fixtures in the same response (round 1 and round 3 both use
+    # MatchNumber=1). The batch must not crash on the unique constraint —
+    # first-seen wins, later collisions are dropped.
+    first = dict(SAMPLE, MatchNumber=1, RoundNumber=1)
+    collides = dict(SAMPLE, MatchNumber=1, RoundNumber=3,
+                     HomeTeam="Broncos", AwayTeam="Storm")
+    counts = upsert_season(db_session, 2020, [first, collides])
+    assert counts == {"created": 1, "updated": 0}
+    match = db_session.query(SportMatch).filter_by(sport="nrl", season=2020, match_no=1).one()
+    assert match.round == 1  # first-seen kept
+
+
 def test_upsert_season_scoped_by_season(db_session):
     upsert_season(db_session, 2026, [SAMPLE])
     same_match_no_next_year = dict(SAMPLE)
