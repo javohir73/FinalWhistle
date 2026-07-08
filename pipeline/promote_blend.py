@@ -40,7 +40,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--w-odds", type=float, default=0.0)
     parser.add_argument("--use-availability", action="store_true")
-    parser.add_argument("--version", default="poisson-elo-v0.5")
+    parser.add_argument("--version", default="poisson-elo-v0.6")
     parser.add_argument("--ship", action="store_true")
     args = parser.parse_args()
 

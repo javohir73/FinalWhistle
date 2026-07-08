@@ -9,11 +9,11 @@
 
 ## 2. Promotion (only after the gate clears)
 1. `PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --w-odds <weight from shadow readout, cap 0.5> [--use-availability] --ship`
-2. Bump MODEL_VERSION in render.yaml to poisson-elo-v0.5 (lockstep with params).
+2. Bump MODEL_VERSION in render.yaml to poisson-elo-v0.6 (lockstep with params).
 3. Branch, PR with the shadow-readout numbers in the description, CI green,
    stop gate, human merges. No migration involved.
 4. Verify: /api/health ok; next pipeline run writes model_version
-   poisson-elo-v0.5 rows for the remaining scheduled matches.
+   poisson-elo-v0.6 rows for the remaining scheduled matches.
 
 ## 3. Form-channel re-gate (after the QFs)
 1. `PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_experiments --years 2018 2022`
