@@ -302,6 +302,10 @@ export interface ModelRecord {
   winners_correct: number;
   exact_score_hits: number;
   best_streak: number;
+  advancement_matches: number;
+  advancement_correct: number;
+  advancement_accuracy: number | null;
+  advancement_ci95: [number, number] | null;
   avg_brier: number | null;
   avg_log_loss: number | null;
   calibration: CalibrationPoint[];
