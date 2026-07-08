@@ -53,6 +53,7 @@ def _fmt(m: dict) -> str:
 def main() -> int:
     from app.db import SessionLocal
     from ml.sports.nrl.backtest import class_freqs_from_matches, evaluate_season, replay_seasons, tune
+    from ml.sports.nrl.model import regress_season
 
     db = SessionLocal()
     try:
@@ -82,7 +83,11 @@ def main() -> int:
 
         replay_rows_by_season = {s: matches_by_season[s] for s in replay_through}
         elos = replay_seasons(replay_rows_by_season, params)
-        starting_elos = elos[replay_through[-1]]
+        # replay_seasons' snapshot is end-of-season, pre-boundary-regression
+        # for the NEXT season -- regress here so held_out is entered with the
+        # same composition the serving path uses (nrl_predict._current_elos),
+        # matching the val-entry regression applied inside tune().
+        starting_elos = regress_season(elos[replay_through[-1]], params)
 
         class_freqs = class_freqs_from_matches(
             [m for s in train_seasons + [val_season] for m in matches_by_season[s]]

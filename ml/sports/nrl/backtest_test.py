@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from ml.sports.nrl.backtest import evaluate_season, replay_seasons, tune
-from ml.sports.nrl.model import NrlParams, predict
+from ml.sports.nrl.model import NrlParams, predict, regress_season
 
 STRONG, WEAK_A, WEAK_B = 1, 2, 3
 
@@ -190,3 +190,52 @@ def test_tune_returns_params_from_grid_with_val_logloss_not_worse_than_default()
 
     assert tuned_ll <= default_ll + 1e-9
     assert isinstance(tuned, NrlParams)
+
+
+def test_tune_regresses_at_the_val_season_boundary_train_serve_parity(monkeypatch):
+    """tune()'s val evaluation must enter the val season from the REGRESSED
+    end-of-train-season Elo, not the raw replay_seasons snapshot -- matching
+    the serving path's season-boundary regression (nrl_predict._current_elos)
+    and the CLI gate's held-out entry. Pin this by intercepting the elos_in
+    tune() actually hands to evaluate_season and comparing it to the
+    regressed snapshot (elos differ from the raw snapshot by exactly the
+    regress fraction toward 1500)."""
+    matches_by_season = _two_season_fixture()
+    train_rows_by_season = {2024: matches_by_season[2024]}
+    val_matches = matches_by_season[2025]
+    params = NrlParams()
+
+    single_grid = {
+        "k": [params.k],
+        "home_adv": [params.home_adv],
+        "margin_mult_cap": [params.margin_mult_cap],
+        "season_regress": [params.season_regress],
+        "p_draw": [params.p_draw],
+    }
+
+    captured_elos_in: list[dict[int, float]] = []
+    import ml.sports.nrl.backtest as backtest_mod
+    real_evaluate_season = backtest_mod.evaluate_season
+
+    def _spy_evaluate_season(matches, elos_in, p, class_freqs):
+        captured_elos_in.append(dict(elos_in))
+        return real_evaluate_season(matches, elos_in, p, class_freqs)
+
+    monkeypatch.setattr(backtest_mod, "evaluate_season", _spy_evaluate_season)
+
+    tuned = tune(train_rows_by_season, val_matches, grid=single_grid)
+    assert tuned == params  # single-value grid -> tune is a no-op on the params
+    assert captured_elos_in  # tune must have called evaluate_season at least once
+
+    raw_snapshot = replay_seasons(train_rows_by_season, params)[2024]
+    regressed_snapshot = regress_season(raw_snapshot, params)
+    assert raw_snapshot != regressed_snapshot  # fixture must make the two distinguishable
+
+    used_elos_in = captured_elos_in[0]
+    assert used_elos_in == regressed_snapshot
+    assert used_elos_in != raw_snapshot
+
+    # Pin the exact regression math: entry elo == raw + season_regress*(1500-raw).
+    for team_id, raw_elo in raw_snapshot.items():
+        expected = raw_elo + params.season_regress * (1500.0 - raw_elo)
+        assert abs(used_elos_in[team_id] - expected) < 1e-9

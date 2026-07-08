@@ -233,7 +233,12 @@ def tune(
     def val_logloss(p: NrlParams) -> float:
         elos_in = replay_seasons(train_rows_by_season, p)
         last_train_season = max(train_rows_by_season) if train_rows_by_season else None
-        starting_elos = elos_in.get(last_train_season, {}) if last_train_season is not None else {}
+        end_of_train = elos_in.get(last_train_season, {}) if last_train_season is not None else {}
+        # replay_seasons' snapshots are end-of-season, pre-boundary-regression
+        # for the NEXT season -- regress here so the val season is entered
+        # with the same composition the serving path uses at a season
+        # boundary (pipeline.sports.nrl_predict._current_elos).
+        starting_elos = regress_season(end_of_train, p) if end_of_train else end_of_train
         return evaluate_season(val_season_matches, starting_elos, p, class_freqs)["log_loss"]
 
     params = NrlParams()
