@@ -16,7 +16,11 @@ Two idempotent, append-only sweeps over sport="nrl" rows:
 
   grade(db) -- for every finished match with >=1 prediction and no
     SportPredictionResult yet, scores the LATEST prediction row against the
-    final score and appends one result row. Never re-grades (idempotent).
+    final score and appends one result row. When kickoff_utc is set, only
+    predictions with created_at <= kickoff_utc are eligible (same backstop as
+    football's pipeline.learning_loop._prediction_row) -- a match whose only
+    rows were written after kickoff grades nothing, like no-prediction at all.
+    Never re-grades (idempotent).
 
 CLI: python -m pipeline.sports.nrl_predict --generate --grade
 """
@@ -159,9 +163,10 @@ def _clamp(p: float) -> float:
 
 
 def grade(db: Session) -> int:
-    """Grade every finished nrl match that has a prediction and hasn't been
-    graded yet, using the latest prediction row. Append-only: never re-grades.
-    Returns the number of SportPredictionResult rows written this run."""
+    """Grade every finished nrl match that has a pre-kickoff prediction and
+    hasn't been graded yet, using the latest such prediction row. Append-only:
+    never re-grades. Returns the number of SportPredictionResult rows written
+    this run."""
     finished = (
         db.query(SportMatch)
         .filter_by(sport=SPORT, status="finished")
@@ -174,12 +179,10 @@ def grade(db: Session) -> int:
         if already is not None:
             continue
 
-        latest = (
-            db.query(SportPrediction)
-            .filter_by(match_id=m.id)
-            .order_by(SportPrediction.created_at.desc(), SportPrediction.id.desc())
-            .first()
-        )
+        q = db.query(SportPrediction).filter_by(match_id=m.id)
+        if m.kickoff_utc is not None:
+            q = q.filter(SportPrediction.created_at <= m.kickoff_utc)
+        latest = q.order_by(SportPrediction.created_at.desc(), SportPrediction.id.desc()).first()
         if latest is None:
             continue
 

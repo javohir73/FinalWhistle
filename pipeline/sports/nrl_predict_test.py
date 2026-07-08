@@ -10,7 +10,7 @@ match rather than mutating a team row directly.
 from __future__ import annotations
 
 import math
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
 from ml.sports.nrl.model import NrlParams, predict
@@ -169,6 +169,8 @@ def test_grade_computes_exact_log_loss_and_brier_for_known_triple(db_session):
     )
     db_session.add(pred)
     db_session.commit()
+    pred.created_at = match.kickoff_utc - timedelta(days=1)
+    db_session.commit()
 
     n = grade(db_session)
     assert n == 1
@@ -196,6 +198,8 @@ def test_grade_draw_outcome_winner_correct_false_when_argmax_is_a_side(db_sessio
     )
     db_session.add(pred)
     db_session.commit()
+    pred.created_at = match.kickoff_utc - timedelta(days=1)
+    db_session.commit()
 
     grade(db_session)
 
@@ -219,6 +223,8 @@ def test_grade_never_re_grades_an_already_graded_match(db_session):
     )
     db_session.add(pred)
     db_session.commit()
+    pred.created_at = match.kickoff_utc - timedelta(days=1)
+    db_session.commit()
 
     first = grade(db_session)
     second = grade(db_session)
@@ -233,16 +239,22 @@ def test_grade_uses_latest_prediction_row(db_session):
     away = _team(db_session, "Storm")
     match = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
                     status="finished", score_home=20, score_away=16)
-    db_session.add(SportPrediction(
+    first = SportPrediction(
         match_id=match.id, model_version="nrl-elo-v0.1",
         p_home=0.40, p_draw=0.02, p_away=0.58, expected_margin=-2.0, is_shadow=True,
-    ))
+    )
+    db_session.add(first)
     db_session.commit()
+    first.created_at = match.kickoff_utc - timedelta(days=2)
+    db_session.commit()
+
     latest = SportPrediction(
         match_id=match.id, model_version="nrl-elo-v0.1",
         p_home=0.60, p_draw=0.02, p_away=0.38, expected_margin=6.0, is_shadow=True,
     )
     db_session.add(latest)
+    db_session.commit()
+    latest.created_at = match.kickoff_utc - timedelta(days=1)
     db_session.commit()
 
     grade(db_session)
@@ -250,6 +262,63 @@ def test_grade_uses_latest_prediction_row(db_session):
     result = db_session.query(SportPredictionResult).one()
     assert result.prediction_id == latest.id
     assert abs(result.prob_assigned - 0.60) < 1e-9
+
+
+# ---- grade: pre-kickoff backstop (football-parity) ----
+
+def test_grade_scores_pre_kickoff_row_when_a_post_kickoff_row_also_exists(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    match = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+                    status="finished", score_home=20, score_away=16)
+
+    pre = SportPrediction(
+        match_id=match.id, model_version="nrl-elo-v0.1",
+        p_home=0.55, p_draw=0.02, p_away=0.43, expected_margin=5.0, is_shadow=True,
+    )
+    db_session.add(pre)
+    db_session.commit()
+    pre.created_at = match.kickoff_utc - timedelta(days=1)
+    db_session.commit()
+
+    # A later row written after kickoff (e.g. a stray re-run) -- must NOT be
+    # the one graded even though it's newest by created_at.
+    post = SportPrediction(
+        match_id=match.id, model_version="nrl-elo-v0.1",
+        p_home=0.10, p_draw=0.02, p_away=0.88, expected_margin=-9.0, is_shadow=True,
+    )
+    db_session.add(post)
+    db_session.commit()
+    post.created_at = match.kickoff_utc + timedelta(days=1)
+    db_session.commit()
+
+    n = grade(db_session)
+    assert n == 1
+
+    result = db_session.query(SportPredictionResult).one()
+    assert result.prediction_id == pre.id
+    assert abs(result.prob_assigned - 0.55) < 1e-9
+
+
+def test_grade_skips_match_with_only_post_kickoff_prediction(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    match = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+                    status="finished", score_home=20, score_away=16)
+
+    post = SportPrediction(
+        match_id=match.id, model_version="nrl-elo-v0.1",
+        p_home=0.55, p_draw=0.02, p_away=0.43, expected_margin=5.0, is_shadow=True,
+    )
+    db_session.add(post)
+    db_session.commit()
+    post.created_at = match.kickoff_utc + timedelta(days=1)
+    db_session.commit()
+
+    n = grade(db_session)
+
+    assert n == 0
+    assert db_session.query(SportPredictionResult).count() == 0
 
 
 def test_grade_skips_finished_match_with_no_prediction(db_session):
@@ -285,10 +354,13 @@ def test_grade_away_win_outcome(db_session):
     away = _team(db_session, "Storm")
     match = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
                    status="finished", score_home=10, score_away=24)
-    db_session.add(SportPrediction(
+    pred = SportPrediction(
         match_id=match.id, model_version="nrl-elo-v0.1",
         p_home=0.45, p_draw=0.02, p_away=0.53, expected_margin=-3.0, is_shadow=True,
-    ))
+    )
+    db_session.add(pred)
+    db_session.commit()
+    pred.created_at = match.kickoff_utc - timedelta(days=1)
     db_session.commit()
 
     grade(db_session)
