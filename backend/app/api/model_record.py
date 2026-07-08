@@ -54,6 +54,23 @@ def _advancer(match: Match) -> str | None:
     return None
 
 
+def _advance_pick(p: Prediction) -> str | None:
+    """The side the model said would go through: the frozen knockout payload's
+    advance split when present — the same p_advance_* the match card displayed
+    (ml/models/knockout.py) — else the regulation side probabilities for legacy
+    pre-v0.5 rows. In a near-coin-flip tie the two can order differently, and
+    the audited record must grade the number the product showed. None on
+    missing probabilities or a dead heat: an abstention, not a home-side
+    default."""
+    ko = p.knockout if isinstance(p.knockout, dict) else {}
+    ph, pa = ko.get("p_advance_home"), ko.get("p_advance_away")
+    if ph is None or pa is None:
+        ph, pa = p.prob_home_win, p.prob_away_win
+    if ph is None or pa is None or ph == pa:
+        return None
+    return "home" if ph > pa else "away"
+
+
 def _match_label(m: Match) -> str:
     home = m.home_team.name if m.home_team else "?"
     away = m.away_team.name if m.away_team else "?"
@@ -128,17 +145,18 @@ def model_record(db: Session = Depends(get_db)):
         streak = streak + 1 if r.winner_correct else 0
         best_streak = max(best_streak, streak)
 
-    # Knockout advancement basis (universal-engine spec §4.1): pick = higher
-    # side probability from the frozen production row; actual = side that
-    # went through. Group matches are excluded by definition.
+    # Knockout advancement basis (universal-engine spec §4.1): pick = the
+    # frozen row's advance split (what the card showed; side probabilities for
+    # legacy rows); actual = side that went through. Group matches are
+    # excluded by definition, dead-heat picks abstain.
     adv_n = adv_ok = 0
     for r, p, m in rows:
         if (m.stage or "group") == "group":
             continue
         went = _advancer(m)
-        if went is None:
+        pick = _advance_pick(p)
+        if went is None or pick is None:
             continue
-        pick = "home" if (p.prob_home_win or 0.0) >= (p.prob_away_win or 0.0) else "away"
         adv_n += 1
         adv_ok += pick == went
 

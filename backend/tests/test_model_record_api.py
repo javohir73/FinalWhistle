@@ -257,3 +257,95 @@ def test_empty_record_advancement_fields(client):
     assert body["advancement_correct"] == 0
     assert body["advancement_accuracy"] is None
     assert body["advancement_ci95"] is None
+
+
+def test_record_advancement_grades_from_frozen_advance_split(client):
+    """Near-coin-flip tie where the calibrated triple and the ET/pens advance
+    split ORDER DIFFERENTLY: regulation leans home (0.36 vs 0.34) but the frozen
+    knockout payload — the p_advance_* the match card displayed — leans away.
+    The advancement basis must grade the displayed pick, not re-derive a
+    different favorite from the side probabilities."""
+    from datetime import datetime, timezone
+
+    c, TestingSession = client
+    db = TestingSession()
+    arg = Team(name="Argentina", country_code="AR", confederation="CONMEBOL")
+    ned = Team(name="Netherlands", country_code="NL", confederation="UEFA")
+    wc = Tournament(name="FIFA World Cup 2026", year=2026)
+    db.add_all([wc, arg, ned])
+    db.flush()
+
+    m = Match(tournament_id=wc.id, team_home_id=arg.id, team_away_id=ned.id,
+              stage="SF", status="finished", score_home=1, score_away=1,
+              penalty_home=3, penalty_away=4,
+              kickoff_utc=datetime(2026, 7, 14, tzinfo=timezone.utc))
+    db.add(m)
+    db.flush()
+    p = Prediction(match_id=m.id, model_version="poisson-elo-v0.5",
+                   prob_home_win=0.36, prob_draw=0.30, prob_away_win=0.34,
+                   predicted_score_home=1, predicted_score_away=1,
+                   knockout={"p_advance_home": 0.47, "p_advance_away": 0.53,
+                             "p_extra_time": 0.30, "p_shootout": 0.12})
+    db.add(p)
+    db.flush()
+    db.add(PredictionResult(
+        match_id=m.id, prediction_id=p.id, model_version="poisson-elo-v0.5",
+        actual_score_home=1, actual_score_away=1, outcome="draw",
+        winner_correct=False, exact_score_correct=False,
+        prob_assigned=0.30, brier=0.5, log_loss=0.9, goal_error=0,
+    ))
+    db.commit()
+
+    body = c.get("/api/model/record").json()
+    # Netherlands went through on pens — exactly the side the frozen payload
+    # favoured, even though the regulation triple leaned Argentina.
+    assert body["advancement_matches"] == 1
+    assert body["advancement_correct"] == 1
+
+
+def test_record_advancement_dead_heat_abstains(client):
+    """A dead-level pick is no pick: a legacy row (no knockout payload) with
+    prob_home == prob_away, and a frozen split at exactly 0.5/0.5, both stay
+    OUT of the advancement sample instead of defaulting to the home side."""
+    from datetime import datetime, timezone
+
+    c, TestingSession = client
+    db = TestingSession()
+    esp = Team(name="Spain", country_code="ES", confederation="UEFA")
+    uru = Team(name="Uruguay", country_code="UY", confederation="CONMEBOL")
+    wc = Tournament(name="FIFA World Cup 2026", year=2026)
+    db.add_all([wc, esp, uru])
+    db.flush()
+
+    def make(kick_day, score, pens, knockout):
+        m = Match(tournament_id=wc.id, team_home_id=esp.id, team_away_id=uru.id,
+                  stage="QF", status="finished",
+                  score_home=score[0], score_away=score[1],
+                  penalty_home=pens[0] if pens else None,
+                  penalty_away=pens[1] if pens else None,
+                  kickoff_utc=datetime(2026, 7, kick_day, tzinfo=timezone.utc))
+        db.add(m)
+        db.flush()
+        p = Prediction(match_id=m.id, model_version="poisson-elo-v0.5",
+                       prob_home_win=0.35, prob_draw=0.30, prob_away_win=0.35,
+                       predicted_score_home=1, predicted_score_away=1,
+                       knockout=knockout)
+        db.add(p)
+        db.flush()
+        db.add(PredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version="poisson-elo-v0.5",
+            actual_score_home=score[0], actual_score_away=score[1],
+            outcome="home" if score[0] > score[1] else "draw",
+            winner_correct=False, exact_score_correct=False,
+            prob_assigned=0.35, brier=0.5, log_loss=0.9, goal_error=0,
+        ))
+
+    make(9, (2, 0), None, None)  # legacy row: level side probs, home won outright
+    make(10, (1, 1), (4, 5), {"p_advance_home": 0.5, "p_advance_away": 0.5,
+                              "p_extra_time": 0.30, "p_shootout": 0.12})
+    db.commit()
+
+    body = c.get("/api/model/record").json()
+    assert body["advancement_matches"] == 0
+    assert body["advancement_correct"] == 0
+    assert body["advancement_accuracy"] is None
