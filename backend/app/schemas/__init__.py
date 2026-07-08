@@ -43,7 +43,12 @@ class HeadToHeadOut(BaseModel):
 
 
 class OddsComparisonOut(BaseModel):
+    """Market consensus vs the model. ``market`` is the margin-free implied
+    1X2 triple from the latest pre-kickoff odds snapshot (median across
+    bookmakers) — probabilities only, never prices or bookmaker names."""
     available: bool = False
+    market: ProbabilitiesOut | None = None
+    captured_at: str | None = None
 
 
 class TeamGoalBandsOut(BaseModel):

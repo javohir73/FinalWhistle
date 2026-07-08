@@ -74,7 +74,9 @@ def test_match_detail_matches_section_17_shape(client):
         assert key in body
     p = body["probabilities"]
     assert abs(p["home_win"] + p["draw"] + p["away_win"] - 1.0) < 0.01
-    assert body["odds_comparison"] == {"available": False}
+    # No odds snapshot seeded -> the market block reports unavailable.
+    assert body["odds_comparison"]["available"] is False
+    assert body["odds_comparison"]["market"] is None
     assert len(body["reasons"]) >= 3
 
 

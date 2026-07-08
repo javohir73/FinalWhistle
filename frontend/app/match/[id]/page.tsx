@@ -15,6 +15,7 @@ import { FeatureImportanceChart } from "@/components/FeatureImportanceChart";
 import { MatchScoreboard } from "@/components/MatchScoreboard";
 import { MatchLineups } from "@/components/MatchLineups";
 import { MatchTabs } from "@/components/MatchTabs";
+import { ModelVsMarket } from "@/components/ModelVsMarket";
 import { MatchUserPrediction } from "@/components/MatchUserPrediction";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
@@ -123,6 +124,10 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
                 </>
               )}
             </section>
+
+            {/* Model vs market — W/D/L against the bookmaker consensus (hidden
+                until an odds snapshot exists for this match). */}
+            <ModelVsMarket prediction={p} home={home} away={away} />
 
             {/* Goals — per-team bands, over/under and BTTS (hidden until predicted). */}
             {p.goal_markets && (
