@@ -149,3 +149,48 @@ def test_empty_record_ci_fields_are_null(client):
     assert body["winner_accuracy_ci95"] is None
     assert body["exact_score_rate"] is None
     assert body["exact_score_ci95"] is None
+
+
+def test_record_best_streak_counts_kickoff_order(client):
+    """best_streak is the longest run of correct winner calls in KICKOFF order,
+    even when evaluations land out of sequence."""
+    from datetime import datetime, timedelta, timezone
+
+    c, TestingSession = client
+    db = TestingSession()
+    a = Team(name="Argentina", country_code="AR", confederation="CONMEBOL")
+    b = Team(name="Belgium", country_code="BE", confederation="UEFA")
+    wc = Tournament(name="FIFA World Cup 2026", year=2026)
+    db.add_all([wc, a, b])
+    db.flush()
+
+    kick = datetime(2026, 6, 12, tzinfo=timezone.utc)
+    # Kickoff-order correctness: T T F T T T -> best streak 3.
+    pattern = [True, True, False, True, True, True]
+    # Insert in reverse so evaluation order disagrees with kickoff order.
+    for i, ok in reversed(list(enumerate(pattern))):
+        m = Match(tournament_id=wc.id, team_home_id=a.id, team_away_id=b.id,
+                  stage="group", status="finished", score_home=1, score_away=0,
+                  kickoff_utc=kick + timedelta(days=i))
+        db.add(m)
+        db.flush()
+        p = Prediction(match_id=m.id, model_version="poisson-elo-v0.1",
+                       prob_home_win=0.5, prob_draw=0.3, prob_away_win=0.2,
+                       predicted_score_home=1, predicted_score_away=0)
+        db.add(p)
+        db.flush()
+        db.add(PredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version="poisson-elo-v0.1",
+            actual_score_home=1, actual_score_away=0, outcome="home",
+            winner_correct=ok, exact_score_correct=False,
+            prob_assigned=0.5, brier=0.5, log_loss=0.7, goal_error=0,
+        ))
+    db.commit()
+
+    body = c.get("/api/model/record").json()
+    assert body["best_streak"] == 3
+
+
+def test_empty_record_best_streak_is_zero(client):
+    c, _ = client
+    assert c.get("/api/model/record").json()["best_streak"] == 0

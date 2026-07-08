@@ -15,6 +15,7 @@ const base: ModelRecord = {
   exact_score_rate: 0.125,
   exact_score_ci95: [0.05, 0.25],
   winners_correct: 28,
+  best_streak: 6,
   exact_score_hits: 6,
   avg_brier: 0.59,
   avg_log_loss: 0.98,
@@ -44,7 +45,7 @@ it("shows the headline rates as plain percentages, no CI clutter", () => {
 it("renders the honest empty state at n=0 with no CI", () => {
   render(<RecordView record={{
     ...base, evaluated_matches: 0, winner_accuracy: null, winner_accuracy_ci95: null,
-    exact_score_rate: null, exact_score_ci95: null, winners_correct: 0, exact_score_hits: 0,
+    exact_score_rate: null, exact_score_ci95: null, winners_correct: 0, exact_score_hits: 0, best_streak: 0,
     best_calls: [], biggest_misses: [],
   }} />);
   expect(screen.getByText(/No matches scored yet/)).toBeInTheDocument();
