@@ -140,19 +140,19 @@ def evaluate_season(
     home_ll = home_brier = 0.0
     home_correct = 0
 
-    freq_sorted = sorted(class_freqs, reverse=True)  # [largest, mid, smallest]
+    home_freq, draw_freq, away_freq = class_freqs
+    home_away_sorted = sorted((home_freq, away_freq), reverse=True)  # [larger, smaller]
 
     def _reordered_for_favorite(idx_favored: int) -> tuple[float, float, float]:
-        """class_freqs with the largest mass placed on idx_favored, the
-        smallest on the other of {home, away}, and the draw slot (index 1)
-        always getting the middle-ranked mass — this keeps the "reordered
-        class frequencies" prior internally consistent for both baselines."""
-        largest, mid, smallest = freq_sorted
-        probs = [0.0, 0.0, 0.0]
-        probs[1] = mid
-        probs[idx_favored] = largest
+        """class_freqs with the draw slot (index 1) kept as-is and the
+        larger of the home/away masses placed on idx_favored — i.e. only
+        home vs away is reordered by who's favored; the draw prior is never
+        moved, since neither baseline ever "picks" a draw."""
+        larger, smaller = home_away_sorted
+        probs = [0.0, draw_freq, 0.0]
+        probs[idx_favored] = larger
         other = 0 if idx_favored == 2 else 2
-        probs[other] = smallest
+        probs[other] = smaller
         return tuple(probs)
 
     for m in matches:
