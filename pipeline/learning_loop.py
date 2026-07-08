@@ -341,6 +341,17 @@ def update_tournament_state(db: Session) -> int:
         seed_ledgers=seed_ledgers,
     )
 
+    # Deploy-window hardening: residual_ledger is only ever read or written
+    # here when form_channels is actually enabled. Render auto-deploys code
+    # before refresh.yml applies migrations, so touching this column while
+    # dark (the shipped default) would 500 every request-time call --
+    # including /api/internal/refresh-live, which hits this function every
+    # ~5 min mid-tournament -- against a DB that hasn't been migrated yet.
+    # The column is also ORM-deferred (app/models/__init__.py) so a plain
+    # SELECT never includes it; this gate keeps this function's explicit
+    # attribute access off the column too.
+    form_channels_active = bool(served.form_channels)
+
     updated = 0
     for t in teams:
         st = states.get(t.id)
@@ -348,14 +359,18 @@ def update_tournament_state(db: Session) -> int:
             db.query(TeamTournamentState).filter_by(team_id=t.id).one_or_none()
         )
         if st is None:
-            if row is not None and (row.elo_delta or row.form_adjustment or row.residual_ledger):
+            stale = row is not None and (row.elo_delta or row.form_adjustment)
+            if form_channels_active and row is not None and row.residual_ledger:
+                stale = True
+            if stale:
                 row.elo_delta = 0.0
                 row.form_adjustment = 0.0
                 row.gf_residual_mean = 0.0
                 row.ga_residual_mean = 0.0
                 row.matches_played = 0
                 row.detail = []
-                row.residual_ledger = []
+                if form_channels_active:
+                    row.residual_ledger = []
             continue
         if row is None:
             row = TeamTournamentState(team_id=t.id)
@@ -366,9 +381,10 @@ def update_tournament_state(db: Session) -> int:
         row.ga_residual_mean = st.ga_residual_mean
         row.matches_played = st.matches_played
         row.detail = st.detail
-        # Persist as lists (JSON has no tuple type) -- form_offsets only
-        # needs the (gf, ga) pairing, which round-trips fine as [gf, ga].
-        row.residual_ledger = [list(pair) for pair in st.residual_ledger]
+        if form_channels_active:
+            # Persist as lists (JSON has no tuple type) -- form_offsets only
+            # needs the (gf, ga) pairing, which round-trips fine as [gf, ga].
+            row.residual_ledger = [list(pair) for pair in st.residual_ledger]
         updated += 1
     db.commit()
     if skip:

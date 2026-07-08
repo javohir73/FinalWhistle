@@ -398,10 +398,22 @@ def test_post_results_chain_backfills_90min_before_evaluating(db_session):
 # --- residual ledger persistence + pre-tournament seeding (model v2 C1) -----
 
 
-def test_update_tournament_state_persists_residual_ledger(db_session):
+def test_update_tournament_state_persists_residual_ledger_when_form_channels_enabled(
+    db_session, monkeypatch
+):
+    """With form_channels ON, the ledger is written same as before."""
+    from ml.models.params import DEFAULT_PARAMS
+    import pipeline.learning_loop as ll_mod
+
     _seed(db_session)
     m = _first_group_match(db_session)
     _finish(db_session, m, 2, 0)
+
+    enabled = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(),
+           "form_channels": {"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0}}
+    )
+    monkeypatch.setattr(ll_mod, "load_params", lambda: enabled)
 
     update_tournament_state(db_session)
 
@@ -521,7 +533,8 @@ def test_update_tournament_state_seeds_ledger_when_form_channels_enabled(db_sess
 
 
 def test_update_tournament_state_no_seed_when_form_channels_disabled(db_session):
-    # form_channels is None by default -- no seeding cost/behavior change.
+    # form_channels is None by default -- no seeding cost/behavior change, and
+    # (deploy-window hardening) the ledger column itself is never written.
     _seed(db_session)
     m = _first_group_match(db_session)
     now = datetime.now(timezone.utc)
@@ -537,8 +550,8 @@ def test_update_tournament_state_no_seed_when_form_channels_disabled(db_session)
     update_tournament_state(db_session)
 
     sh = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
-    # Only the tournament match, no seed -- ledger length 1.
-    assert len(sh.residual_ledger) == 1
+    # form_channels dark -- the column is never touched, not even zeroed.
+    assert sh.residual_ledger is None
 
 
 # --- no-double-count guard: legacy scalar OFF when form_channels active -----
@@ -570,3 +583,69 @@ def test_effective_elos_excludes_legacy_form_scalar_when_form_channels_enabled(d
     assert on_elos[m.team_home_id] != off_elos[m.team_home_id]
     base_plus_delta = off_elos[m.team_home_id] - row.form_adjustment
     assert on_elos[m.team_home_id] == pytest.approx(base_plus_delta)
+
+
+# --- deploy-window hardening: residual_ledger dark-mode never touched -------
+#
+# Render auto-deploys code before refresh.yml applies migrations. If the
+# residual_ledger column is read or written by a request-time path while
+# form_channels is dark (the shipped default), a not-yet-migrated prod DB
+# would 500 on every full-entity query -- and /api/internal/refresh-live hits
+# update_tournament_state -> effective_elos every ~5 min mid-tournament. Two
+# guards: the column is ORM-deferred (excluded from SELECT * unless
+# explicitly accessed -- see app/models/__init__.py) and update_tournament_state
+# only ever assigns to it when form_channels is enabled.
+
+
+def test_update_tournament_state_never_sets_residual_ledger_when_form_channels_dark(
+    db_session,
+):
+    """form_channels=None (the shipped state): update_tournament_state must
+    never assign row.residual_ledger at all -- not even to []. A freshly
+    created row's attribute stays at the SQLAlchemy default (None/unset), and
+    a PRE-EXISTING row's prior value is left completely alone."""
+    _seed(db_session)
+    m = _first_group_match(db_session)
+
+    # Pre-existing row with a stale ledger from a prior form_channels-enabled
+    # run -- the write-side gate must leave it untouched, not zero it.
+    stale_row = TeamTournamentState(
+        team_id=m.team_home_id, residual_ledger=[[9.9, -9.9]]
+    )
+    db_session.add(stale_row)
+    db_session.commit()
+
+    _finish(db_session, m, 2, 0)
+    update_tournament_state(db_session)
+
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
+    assert sh.residual_ledger == [[9.9, -9.9]]  # untouched, stale value preserved
+
+    # A brand-new row (away team had no prior TeamTournamentState) must also
+    # never get its residual_ledger set while dark.
+    sa = db_session.query(TeamTournamentState).filter_by(team_id=m.team_away_id).one()
+    assert sa.residual_ledger is None
+
+
+def test_effective_elos_select_never_references_residual_ledger_column(db_session):
+    """Compile the exact query effective_elos issues
+    (db.query(TeamTournamentState).all()) and inspect the generated SQL: the
+    residual_ledger column must not appear, proving the deferred mapping
+    actually protects this request-time path against an unmigrated DB."""
+    from sqlalchemy import inspect as sa_inspect
+
+    _seed(db_session)
+    q = db_session.query(TeamTournamentState)
+    compiled = str(q.statement.compile(db_session.get_bind()))
+    assert "residual_ledger" not in compiled
+
+    # Sanity: the column is genuinely mapped as deferred, not just absent from
+    # this particular query by coincidence.
+    mapper = sa_inspect(TeamTournamentState)
+    prop = mapper.attrs["residual_ledger"]
+    assert prop.deferred is True
+
+    # effective_elos itself must not 500 or touch the column under a
+    # form_channels=None load (the request-time path this guards).
+    result = effective_elos(db_session)
+    assert isinstance(result, dict) and result
