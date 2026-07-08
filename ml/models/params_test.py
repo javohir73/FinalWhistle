@@ -187,3 +187,33 @@ def test_to_dict_includes_form_channels():
     p = ModelParams(version="v", base=1.2, beta=0.002, home_adv=60.0, rho=0.0,
                     temperature=1.0, form_channels=blob)
     assert p.to_dict()["form_channels"] == blob
+
+
+def test_use_availability_round_trips_and_defaults_false(tmp_path, monkeypatch):
+    from dataclasses import replace
+
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", tmp_path / "model_params.json")
+    assert load_params().use_availability is False  # absent key -> False
+    save_params(replace(load_params(), use_availability=True))
+    assert load_params().use_availability is True
+
+
+def test_default_params_have_use_availability_off():
+    assert DEFAULT_PARAMS.use_availability is False
+
+
+def test_json_without_use_availability_loads_as_false(tmp_path, monkeypatch):
+    # Older tuned files predate the field -- they must load with it off.
+    f = tmp_path / "model_params.json"
+    f.write_text(json.dumps({
+        "version": "v0.2", "base": 1.2, "beta": 0.0021, "home_adv": 60.0,
+        "rho": -0.06, "temperature": 1.0, "pk_beta": 0.0,
+    }))
+    monkeypatch.setattr(params_mod, "_PARAMS_FILE", f)
+    assert load_params().use_availability is False
+
+
+def test_to_dict_includes_use_availability():
+    p = ModelParams(version="v", base=1.2, beta=0.002, home_adv=60.0, rho=0.0,
+                    temperature=1.0, use_availability=True)
+    assert p.to_dict()["use_availability"] is True

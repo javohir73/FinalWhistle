@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import math
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from sqlalchemy.orm import Session
 
@@ -206,6 +207,21 @@ def _boost_features(db: Session, home: Team, away: Team,
     )
 
 
+def _availability_adjusted(pred, off_home, off_away, params, eff_gap):
+    """Rebuild a MatchPrediction from availability-scaled lambdas (lambda *=
+    exp(offset)) through the same calibrated pipeline (predict_from_lambdas).
+    Shared by the production path (params.use_availability) and the shadow
+    twin (write_availability_prediction), so a promoted flag serves exactly
+    the signal the twin has been logging. ``pred`` only needs lambda_home/
+    lambda_away — the twin passes its payload's (rounded) pair unchanged."""
+    lam_h = pred.lambda_home * math.exp(off_home)
+    lam_a = pred.lambda_away * math.exp(off_away)
+    return predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator, eff_gap=eff_gap,
+    )
+
+
 def build_payload(
     db: Session, match: Match, model_version: str,
     strengths: dict[int, float] | None = None,
@@ -264,6 +280,21 @@ def build_payload(
         temperature=params.temperature, calibrator=params.calibrator,
         atk_home=atk_h, def_home=def_h, atk_away=atk_a, def_away=def_a,
     )
+    # Announced-XI / injury availability offsets in the SERVED lambdas: opt-in
+    # via model_params.json ("use_availability": false — the shipped default —
+    # keeps this a strict no-op, bit-identical payloads even when offsets
+    # exist). Shares _availability_adjusted with the shadow twin
+    # (write_availability_prediction), so promotion serves exactly the signal
+    # the twin has been logging. No stored XI/injuries -> availability_for_match
+    # returns None -> pred is untouched (partial coverage is expected).
+    if params.use_availability:
+        adj = availability_for_match(db, match)
+        if adj is not None:
+            off_home, off_away, _expl_home, _expl_away = adj
+            pred = _availability_adjusted(
+                pred, off_home, off_away, params,
+                eff_gap=effective_gap(elo_home, elo_away, host_adv),
+            )
 
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
     # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
@@ -485,15 +516,13 @@ def write_availability_prediction(
     if adj is None:
         return
     off_home, off_away, _expl_home, _expl_away = adj
-    lam_h = payload["lambda_home"] * math.exp(off_home)
-    lam_a = payload["lambda_away"] * math.exp(off_away)
     home = db.get(Team, match.team_home_id)
     away = db.get(Team, match.team_away_id)
     elo_home = strengths.get(home.id, estimate_strength(home)[0])
     elo_away = strengths.get(away.id, estimate_strength(away)[0])
-    pred = predict_from_lambdas(
-        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
-        calibrator=params.calibrator,
+    pred = _availability_adjusted(
+        SimpleNamespace(lambda_home=payload["lambda_home"], lambda_away=payload["lambda_away"]),
+        off_home, off_away, params,
         eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
     )
     twin = {
