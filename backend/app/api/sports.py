@@ -89,6 +89,7 @@ def nrl_matches(round: int | None = None, season: int | None = None,
                 "expected_margin": pred.expected_margin,
                 "model_version": pred.model_version,
                 "created_at": pred.created_at.isoformat() if pred.created_at else None,
+                "is_shadow": pred.is_shadow,
             }
         rounds.setdefault(m.round, []).append({
             "match_no": m.match_no,
@@ -108,6 +109,7 @@ def nrl_matches(round: int | None = None, season: int | None = None,
             {"round": r, "matches": matches}
             for r, matches in sorted(rounds.items(), key=lambda kv: (kv[0] is None, kv[0]))
         ],
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }
 
 

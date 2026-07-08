@@ -73,6 +73,7 @@ def test_matches_returns_rounds_with_latest_prediction(client):
     assert r.status_code == 200
     body = r.json()
     assert body["season"] == 2026
+    assert "disclaimer" in body
     assert len(body["rounds"]) == 1
     round1 = body["rounds"][0]
     assert round1["round"] == 1
@@ -84,6 +85,7 @@ def test_matches_returns_rounds_with_latest_prediction(client):
     assert match["prediction"]["p_home"] == pytest.approx(0.61)
     assert match["prediction"]["expected_margin"] == pytest.approx(4.5)
     assert match["prediction"]["model_version"] == "nrl-elo-v0.1"
+    assert match["prediction"]["is_shadow"] is True
 
 
 def test_matches_filters_by_round(client):
@@ -150,6 +152,25 @@ def test_matches_defaults_to_latest_season(client):
     assert r.json()["season"] == 2026
 
 
+def test_matches_disclaimer_matches_record_endpoint(client):
+    """The /matches surface must carry the same disclaimer string as
+    /model/record -- same rationale for both: raw model output, not betting
+    advice."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+    m = SportMatch(sport="nrl", season=2026, round=1, match_no=1,
+                   kickoff_utc=datetime(2026, 3, 5, tzinfo=timezone.utc),
+                   home_team_id=storm.id, away_team_id=eels.id, status="scheduled")
+    db.add(m)
+    db.commit()
+
+    matches_disclaimer = c.get("/api/nrl/matches", params={"season": 2026}).json()["disclaimer"]
+    record_disclaimer = c.get("/api/nrl/model/record").json()["disclaimer"]
+    assert matches_disclaimer == record_disclaimer
+
+
 def test_shadow_prediction_is_visible_on_matches_endpoint(client):
     """By design (pre-launch): /api/nrl/matches IS the shadow surface — unlike
     football's public /api/matches, nothing links to /api/nrl yet, so shadow
@@ -175,6 +196,7 @@ def test_shadow_prediction_is_visible_on_matches_endpoint(client):
     match = body["rounds"][0]["matches"][0]
     assert match["prediction"] is not None
     assert match["prediction"]["p_home"] == pytest.approx(0.6)
+    assert match["prediction"]["is_shadow"] is True
 
 
 def test_empty_record_is_honest(client):
