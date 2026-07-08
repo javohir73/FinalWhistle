@@ -46,9 +46,13 @@ ET_FRACTION = 30.0 / 90.0
 ET_TEMPO_DEFAULT = 1.0
 
 
-def shootout_p(elo_h: float, elo_a: float, pk_beta: float) -> float:
-    """P(home wins the shootout), clamped to PK_BAND."""
-    p = 1.0 / (1.0 + math.exp(-pk_beta * (elo_h - elo_a)))
+def shootout_p(elo_h: float, elo_a: float, pk_beta: float, shift: float = 0.0) -> float:
+    """P(home wins the shootout), clamped to PK_BAND.
+
+    ``shift`` is an additive probability nudge for shootout-specific context —
+    today a missing first-choice goalkeeper (params.pk_keeper_delta, default
+    0.0 = no-op). Applied BEFORE the clamp, so no shift can escape the band."""
+    p = 1.0 / (1.0 + math.exp(-pk_beta * (elo_h - elo_a))) + shift
     lo, hi = PK_BAND
     return min(hi, max(lo, p))
 
@@ -117,6 +121,7 @@ def ko_advance(
     rho: float = 0.0,
     pk_beta: float = 0.0,
     et_tempo: float = ET_TEMPO_DEFAULT,
+    pk_shift: float = 0.0,
 ) -> KnockoutAdvance:
     """Resolve a knockout tie past the 90th minute.
 
@@ -136,7 +141,7 @@ def ko_advance(
     et_h, et_d, et_a = outcome_probabilities(
         score_matrix(lam_home * et_scale, lam_away * et_scale, rho=rho)
     )
-    pk_h = shootout_p(elo_home, elo_away, pk_beta)
+    pk_h = shootout_p(elo_home, elo_away, pk_beta, shift=pk_shift)
 
     p_shootout = p_draw * et_d
     home_win_et = p_draw * et_h

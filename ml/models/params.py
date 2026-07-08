@@ -32,6 +32,9 @@ class ModelParams:
     # Extra-time goals-per-minute rate relative to regulation (ml/models/knockout.py).
     # 1.0 = same tempo; fittable later with shrinkage, like pk_beta.
     et_tempo: float = 1.0
+    # Shootout shift when a first-choice keeper is out (ml/models/knockout.py
+    # shootout_p ``shift``; pipeline/suspensions.keeper_pk_shift). 0.0 = no-op.
+    pk_keeper_delta: float = 0.0
     calibrator: dict | None = None  # vector-scaling blob or None (temperature-only)
     wdl_blend: dict | None = None    # {"weight": float, "calibrator": dict|None} or None
     # Market-odds anchoring weight for the SHADOW model (exact-score FR-4.3):
@@ -50,6 +53,12 @@ class ModelParams:
     # bit-identical to today's legacy single-scalar form_adjustment; enabling
     # it also turns OFF that legacy scalar so the two never double-count.
     form_channels: dict | None = None
+    # Suspension signal (signal pack, v0.5): {"enabled": true} or None (off —
+    # the shipped default). The +bans shadow twin runs regardless.
+    suspensions: dict | None = None
+    # Rest-days signal: {"coef": float, "cap": float} or None (off — the
+    # shipped default). The +rest shadow twin runs on DEFAULT_REST regardless.
+    rest_days: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -82,12 +91,15 @@ def load_params() -> ModelParams:
         temperature=float(data["temperature"]),
         pk_beta=float(data.get("pk_beta", 0.0)),
         et_tempo=float(data.get("et_tempo", 1.0)),
+        pk_keeper_delta=float(data.get("pk_keeper_delta", 0.0)),
         calibrator=data.get("calibrator"),
         wdl_blend=data.get("wdl_blend"),
         w_odds=float(data.get("w_odds", 0.0)),
         use_availability=bool(data.get("use_availability", False)),
         team_offsets=data.get("team_offsets"),
         form_channels=data.get("form_channels"),
+        suspensions=data.get("suspensions"),
+        rest_days=data.get("rest_days"),
     )
 
 

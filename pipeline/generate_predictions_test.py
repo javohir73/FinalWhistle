@@ -1027,3 +1027,97 @@ def test_build_payload_no_knockout_block_for_group_stage(db_session):
     )
     payload = build_payload(db_session, match, "poisson-elo-v0.5")
     assert payload["knockout"] is None
+
+
+def _rig_signal_fixture(db):
+    """Two teams with prior finished matches (unequal rest, one red card) and an
+    upcoming R32 tie between them. Returns (upcoming, home_team, away_team)."""
+    from datetime import datetime, timedelta
+
+    from app.models import Player
+
+    load_structure(db)
+    _set_elos(db)
+    home, away = db.query(Team).order_by(Team.id).limit(2).all()
+    t0 = datetime(2026, 6, 20, 18, 0)
+    priors = db.query(Match).filter(Match.stage == "group").order_by(Match.id).limit(2).all()
+    # Home side played 2 days before the tie (and saw red); away side 5 days before.
+    priors[0].team_home_id, priors[0].team_away_id = home.id, 999_001
+    priors[0].kickoff_utc, priors[0].status, priors[0].stage = t0 + timedelta(days=3), "finished", "group"
+    priors[0].card_events = [{"minute": 88, "side": "home", "player": "Star Striker", "type": "red"}]
+    priors[1].team_home_id, priors[1].team_away_id = away.id, 999_002
+    priors[1].kickoff_utc, priors[1].status, priors[1].stage = t0, "finished", "group"
+    priors[1].card_events = []
+    upcoming = db.query(Match).filter(Match.stage != "group").first()
+    upcoming.team_home_id, upcoming.team_away_id = home.id, away.id
+    upcoming.kickoff_utc, upcoming.status = t0 + timedelta(days=5), "scheduled"
+    db.add(Player(provider_player_id=11, name="Star Striker", team_id=home.id, position="F",
+                  club_goals=25, club_minutes=2700, wc_goals=2, wc_minutes=270))
+    db.add(Player(provider_player_id=12, name="Squad Filler", team_id=home.id, position="M",
+                  club_goals=2, club_minutes=2000, wc_goals=0, wc_minutes=180))
+    db.add(Player(provider_player_id=21, name="Away Anchor", team_id=away.id, position="M",
+                  club_goals=8, club_minutes=2600, wc_goals=1, wc_minutes=270))
+    db.commit()
+    return upcoming, home, away
+
+
+def test_suspension_twin_written_for_red_card(db_session):
+    from pipeline.generate_predictions import BANS_MODEL_VERSION, write_suspension_prediction
+
+    upcoming, home, _away = _rig_signal_fixture(db_session)
+    payload = build_payload(db_session, upcoming, "poisson-elo-v0.5")
+    write_suspension_prediction(db_session, upcoming, payload, {}, load_params_for_test())
+    db_session.commit()
+    twin = (
+        db_session.query(Prediction)
+        .filter_by(match_id=upcoming.id, model_version=BANS_MODEL_VERSION, is_shadow=True)
+        .one()
+    )
+    # The banned striker weakens the home attack: twin lambda below production.
+    assert twin.lambda_home < payload["lambda_home"]
+    assert twin.lambda_away == round(payload["lambda_away"], 4)
+
+
+def test_rest_twin_written_for_unequal_rest(db_session):
+    from pipeline.generate_predictions import REST_MODEL_VERSION, write_rest_prediction
+
+    upcoming, _home, _away = _rig_signal_fixture(db_session)
+    payload = build_payload(db_session, upcoming, "poisson-elo-v0.5")
+    write_rest_prediction(db_session, upcoming, payload, {}, load_params_for_test())
+    db_session.commit()
+    twin = (
+        db_session.query(Prediction)
+        .filter_by(match_id=upcoming.id, model_version=REST_MODEL_VERSION, is_shadow=True)
+        .one()
+    )
+    # Away rested 5 days vs home's 2: the twin tilts toward the away side.
+    assert twin.lambda_away > round(payload["lambda_away"], 4) - 1e-9
+    assert twin.lambda_home < payload["lambda_home"] + 1e-9
+    assert twin.lambda_home != payload["lambda_home"] or twin.lambda_away != payload["lambda_away"]
+
+
+def test_signals_default_off_is_a_noop_in_served_payload(db_session):
+    """model_params.json nulls: enabling the code paths must not move a single
+    served number until a param is explicitly flipped."""
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    upcoming, _home, _away = _rig_signal_fixture(db_session)
+    off = replace(DEFAULT_PARAMS, suspensions=None, rest_days=None, pk_keeper_delta=0.0)
+    on = replace(DEFAULT_PARAMS, suspensions={"enabled": True},
+                 rest_days={"coef": 0.02, "cap": 0.08})
+    p_off = build_payload(db_session, upcoming, "v", params=off)
+    p_on = build_payload(db_session, upcoming, "v", params=on)
+    # The signals genuinely fire when enabled...
+    assert p_on["lambda_home"] != p_off["lambda_home"]
+    # ...and a second disabled build is bit-identical to the first.
+    p_off2 = build_payload(db_session, upcoming, "v", params=off)
+    assert p_off2["probabilities"] == p_off["probabilities"]
+    assert p_off2["lambda_home"] == p_off["lambda_home"]
+
+
+def load_params_for_test():
+    from ml.models.params import DEFAULT_PARAMS
+
+    return DEFAULT_PARAMS
