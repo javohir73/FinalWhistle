@@ -45,7 +45,7 @@ from app.models import (
 )
 from ml.evaluation.match_metrics import evaluate_match
 from ml.features.build_features import estimate_strength
-from ml.models.params import load_params
+from ml.models.params import ModelParams, load_params
 from ml.models.poisson import expected_goals_from_elo
 from ml.ratings.elo import HOME_ADVANTAGE, MatchInput, replay_with_prematch
 from ml.ratings.tournament import TournamentMatch, replay_tournament
@@ -240,7 +240,7 @@ def _already_in_history(db: Session, matches: list[Match]) -> set[int]:
 
 
 def build_seed_ledgers(
-    db: Session, team_ids: set[int], served: "ModelParams | None" = None
+    db: Session, team_ids: set[int], served: ModelParams | None = None
 ) -> dict[int, list[tuple[float, float]]]:
     """Pre-tournament residual seeds for the unified ledger (model v2 C1).
 
