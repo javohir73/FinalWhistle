@@ -23,6 +23,7 @@ from ml.ratings.tournament import FORM_CAP_ELO
 from pipeline.generate_predictions import generate_predictions
 from pipeline.ingest.wc26_structure import load_structure
 from pipeline.learning_loop import (
+    build_seed_ledgers,
     effective_elos,
     evaluate_finished_predictions,
     run_learning_loop,
@@ -392,3 +393,180 @@ def test_post_results_chain_backfills_90min_before_evaluating(db_session):
     assert (m.score_home_90, m.score_away_90) == (1, 1)  # healed from events
     row = db_session.query(PredictionResult).filter_by(match_id=m.id, is_shadow=False).one()
     assert row.exact_score_correct is True  # evaluated on the healed basis
+
+
+# --- residual ledger persistence + pre-tournament seeding (model v2 C1) -----
+
+
+def test_update_tournament_state_persists_residual_ledger(db_session):
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    _finish(db_session, m, 2, 0)
+
+    update_tournament_state(db_session)
+
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
+    assert sh.residual_ledger is not None
+    assert len(sh.residual_ledger) == 1
+    gf, ga = sh.residual_ledger[0]
+    assert isinstance(gf, float) and isinstance(ga, float)
+
+
+def test_ledger_zeroed_out_for_team_with_no_finished_matches(db_session):
+    _seed(db_session)
+    update_tournament_state(db_session)
+    # No finished matches at all -> every team's ledger is empty/None, never
+    # stale data from a previous run.
+    rows = db_session.query(TeamTournamentState).all()
+    for row in rows:
+        assert not row.residual_ledger
+
+
+def test_build_seed_ledgers_only_covers_requested_team_ids(db_session):
+    """Guard cost: seeds are computed only for teams in the tournament, not
+    every team with historical_matches."""
+    load_structure(db_session)
+    teams = db_session.query(Team).order_by(Team.id).limit(4).all()
+    t1, t2, t3, t4 = teams
+    now = datetime.now(timezone.utc)
+    for i in range(3):
+        db_session.add(HistoricalMatch(
+            date=now - timedelta(days=(3 - i) * 30),
+            team_a_id=t1.id, team_b_id=t2.id, score_a=2, score_b=0,
+            competition="Friendly", is_neutral=True,
+        ))
+    for i in range(3):
+        db_session.add(HistoricalMatch(
+            date=now - timedelta(days=(3 - i) * 30),
+            team_a_id=t3.id, team_b_id=t4.id, score_a=1, score_b=1,
+            competition="Friendly", is_neutral=True,
+        ))
+    db_session.commit()
+
+    seeds = build_seed_ledgers(db_session, {t1.id, t2.id})
+    assert set(seeds.keys()) <= {t1.id, t2.id}
+    assert t3.id not in seeds
+    assert t4.id not in seeds
+
+
+def test_build_seed_ledgers_caps_at_last_ten_matches(db_session):
+    load_structure(db_session)
+    teams = db_session.query(Team).order_by(Team.id).limit(2).all()
+    t1, t2 = teams
+    now = datetime.now(timezone.utc)
+    for i in range(15):
+        db_session.add(HistoricalMatch(
+            date=now - timedelta(days=(15 - i) * 10),
+            team_a_id=t1.id, team_b_id=t2.id, score_a=1, score_b=0,
+            competition="Friendly", is_neutral=True,
+        ))
+    db_session.commit()
+
+    seeds = build_seed_ledgers(db_session, {t1.id})
+    assert len(seeds[t1.id]) == 10
+
+
+def test_build_seed_ledgers_oldest_first_ordering(db_session):
+    load_structure(db_session)
+    teams = db_session.query(Team).order_by(Team.id).limit(2).all()
+    t1, t2 = teams
+    now = datetime.now(timezone.utc)
+    # Distinct scorelines so we can tell ordering apart: oldest scores 0, most
+    # recent scores 5.
+    for i in range(3):
+        db_session.add(HistoricalMatch(
+            date=now - timedelta(days=(3 - i) * 10),
+            team_a_id=t1.id, team_b_id=t2.id, score_a=i, score_b=0,
+            competition="Friendly", is_neutral=True,
+        ))
+    db_session.commit()
+
+    seeds = build_seed_ledgers(db_session, {t1.id})
+    ledger = seeds[t1.id]
+    assert len(ledger) == 3
+    # gf residual should be monotonically increasing across the ledger since
+    # score_a increases 0, 1, 2 while expectation stays roughly flat.
+    assert ledger[0][0] < ledger[1][0] < ledger[2][0]
+
+
+def test_update_tournament_state_seeds_ledger_when_form_channels_enabled(db_session, monkeypatch):
+    from ml.models.params import DEFAULT_PARAMS
+    import pipeline.learning_loop as ll_mod
+
+    _seed(db_session)
+    m = _first_group_match(db_session)
+
+    # Give the home team pre-tournament history to seed from.
+    now = datetime.now(timezone.utc)
+    other = db_session.query(Team).filter(Team.id != m.team_home_id).first()
+    db_session.add(HistoricalMatch(
+        date=now - timedelta(days=60),
+        team_a_id=m.team_home_id, team_b_id=other.id, score_a=3, score_b=0,
+        competition="Friendly", is_neutral=True,
+    ))
+    db_session.commit()
+    _finish(db_session, m, 2, 0)
+
+    enabled = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(),
+           "form_channels": {"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0}}
+    )
+    monkeypatch.setattr(ll_mod, "load_params", lambda: enabled)
+
+    update_tournament_state(db_session)
+
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
+    # Seeded ledger has the pre-tournament match PLUS the tournament match.
+    assert len(sh.residual_ledger) == 2
+
+
+def test_update_tournament_state_no_seed_when_form_channels_disabled(db_session):
+    # form_channels is None by default -- no seeding cost/behavior change.
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    now = datetime.now(timezone.utc)
+    other = db_session.query(Team).filter(Team.id != m.team_home_id).first()
+    db_session.add(HistoricalMatch(
+        date=now - timedelta(days=60),
+        team_a_id=m.team_home_id, team_b_id=other.id, score_a=3, score_b=0,
+        competition="Friendly", is_neutral=True,
+    ))
+    db_session.commit()
+    _finish(db_session, m, 2, 0)
+
+    update_tournament_state(db_session)
+
+    sh = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
+    # Only the tournament match, no seed -- ledger length 1.
+    assert len(sh.residual_ledger) == 1
+
+
+# --- no-double-count guard: legacy scalar OFF when form_channels active -----
+
+
+def test_effective_elos_excludes_legacy_form_scalar_when_form_channels_enabled(db_session, monkeypatch):
+    from ml.models.params import DEFAULT_PARAMS
+    import pipeline.learning_loop as ll_mod
+
+    _seed(db_session)
+    m = _first_group_match(db_session)
+    _finish(db_session, m, 3, 0)  # a decisive result -> non-zero form_adjustment
+    update_tournament_state(db_session)
+
+    row = db_session.query(TeamTournamentState).filter_by(team_id=m.team_home_id).one()
+    assert row.form_adjustment != 0.0  # sanity: the legacy scalar is non-trivial
+
+    off_elos = effective_elos(db_session)
+
+    enabled = DEFAULT_PARAMS.__class__(
+        **{**DEFAULT_PARAMS.to_dict(),
+           "form_channels": {"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0}}
+    )
+    monkeypatch.setattr(ll_mod, "load_params", lambda: enabled)
+    on_elos = effective_elos(db_session)
+
+    # With form_channels active, the legacy scalar must NOT be added -- the
+    # effective elo for this team drops back toward base+elo_delta only.
+    assert on_elos[m.team_home_id] != off_elos[m.team_home_id]
+    base_plus_delta = off_elos[m.team_home_id] - row.form_adjustment
+    assert on_elos[m.team_home_id] == pytest.approx(base_plus_delta)
