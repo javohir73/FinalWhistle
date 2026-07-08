@@ -677,7 +677,7 @@ def _simulate_tournament(
     results = simulate_tournament(
         team_elos, groups, fixtures, n_sims=n_sims, seed=2026,
         base=params.base, beta=params.beta, rho=params.rho,
-        pk_beta=params.pk_beta, home_adv=params.home_adv,
+        pk_beta=params.pk_beta, et_tempo=params.et_tempo, home_adv=params.home_adv,
         ko_host_by_match=ko_host_by_match, ko_results=ko_results,
         # Combined xG team offsets + split form-channel offsets (model v2
         # C1) — see _simulate_standings' comment; same invariant, extended

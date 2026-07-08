@@ -20,7 +20,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ml.models.poisson import BASE_GOALS, ELO_TO_GOALS_BETA, expected_goals_from_elo, score_cdf, sample_scoreline_from_cdf, sample_scoreline
-from ml.models.knockout import PK_BAND, PK_PRIOR_WEIGHT, fit_pk_beta, shootout_p  # noqa: F401  (re-export)
+from ml.models.knockout import ET_FRACTION, PK_BAND, PK_PRIOR_WEIGHT, fit_pk_beta, shootout_p  # noqa: F401  (re-export)
 
 # --- Round of 32: each side is a group placement or a third-place slot. ---
 # ("pos", group_letter, position)  position 1 = winner, 2 = runner-up
@@ -139,6 +139,7 @@ def simulate_tournament(
     *,
     rho: float,
     pk_beta: float = 0.0,
+    et_tempo: float = 1.0,
     home_adv: float = 0.0,
     ko_host_by_match: dict[int, int] | None = None,
     ko_results: dict[int, tuple[int, int, int]] | None = None,
@@ -217,8 +218,12 @@ def simulate_tournament(
         base_tallies[letter] = (bp, bgf, bga)
         sampled[letter] = lams
 
+    # Extra time: same engine at 30-minute rates (model v0.5 — matches the
+    # per-match ko_advance decomposition, ml/models/knockout.py).
+    et_scale = ET_FRACTION * et_tempo
+
     def play(mno: int, h: int, a: int) -> int:
-        """One knockout match. Draw -> penalties via Elo logistic.
+        """One knockout match. Draw -> extra time -> penalties via Elo logistic.
         Host advantage applied when ko_host maps mno to h or a."""
         host = ko_host.get(mno)
         adv = home_adv if host == h else -home_adv if host == a else 0.0
@@ -228,6 +233,12 @@ def simulate_tournament(
             return h
         if sa > sh:
             return a
+        if et_scale > 0.0:
+            eh, ea = sample_scoreline(rng, lh * et_scale, la * et_scale, rho)
+            if eh > ea:
+                return h
+            if ea > eh:
+                return a
         return h if rng.random() < shootout_p(team_elos[h], team_elos[a], pk_beta) else a
 
     for _ in range(n_sims):

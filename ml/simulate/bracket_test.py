@@ -196,3 +196,29 @@ def test_team_offsets_shift_knockout_odds_and_default_is_identity():
                                   team_offsets={weakest: (0.7, -0.7)})
     assert boosted[weakest]["make_knockout"] > base[weakest]["make_knockout"]
     assert boosted[weakest]["win_title"] > base[weakest]["win_title"]
+
+
+def test_extra_time_favors_the_stronger_side_over_a_coin_flip():
+    """Level knockout ties now play 30 minutes of extra time before penalties
+    (model v0.5). With pk_beta=0 the shootout is a pure coin flip, so routing
+    draws through ET — where the Elo edge still applies — must lift the title
+    odds of the strongest teams relative to et_tempo=0 (ET off -> straight to
+    pens, the pre-v0.5 behavior)."""
+    elos, groups, fixtures = _build_tournament()
+    kw = dict(n_sims=4000, seed=7, rho=0.0, pk_beta=0.0)
+    with_et = simulate_tournament(elos, groups, fixtures, et_tempo=1.0, **kw)
+    no_et = simulate_tournament(elos, groups, fixtures, et_tempo=0.0, **kw)
+    # Aggregate over the top-8 favorites to keep the check well out of MC noise.
+    top8 = sorted(elos, key=elos.get, reverse=True)[:8]
+    assert sum(with_et[t]["win_title"] for t in top8) > sum(no_et[t]["win_title"] for t in top8)
+
+
+def test_et_tempo_zero_is_the_draw_to_pens_shortcut():
+    """et_tempo=0 must reproduce the straight-to-penalties path exactly: the ET
+    branch consumes no rng draws, so results are bit-identical to a run where
+    the ET stage never existed (same seed, same stream)."""
+    elos, groups, fixtures = _build_tournament()
+    kw = dict(n_sims=500, seed=42, rho=0.0)
+    r1 = simulate_tournament(elos, groups, fixtures, et_tempo=0.0, **kw)
+    r2 = simulate_tournament(elos, groups, fixtures, et_tempo=0.0, **kw)
+    assert r1 == r2
