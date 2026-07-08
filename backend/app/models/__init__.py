@@ -375,7 +375,8 @@ class TeamTournamentState(Base):
     Recomputed from scratch on every run by replaying finished WC matches from
     the historical Elo base (ml/ratings/tournament.py) — never incremental, so
     it cannot drift or double-apply. ``elo_delta + form_adjustment`` is added
-    to ``teams.elo_rating`` wherever predictions/simulations read strength.
+    to ``teams.elo_rating`` wherever predictions/simulations read strength
+    (unless the split form channels are active — see ``residual_ledger``).
     ``detail`` keeps the per-match inputs for explainability.
     """
 
@@ -389,6 +390,22 @@ class TeamTournamentState(Base):
     ga_residual_mean: Mapped[float] = mapped_column(Float, default=0.0)
     matches_played: Mapped[int] = mapped_column(Integer, default=0)
     detail: Mapped[list | None] = mapped_column(JSON)
+    # Unified residual ledger (model v2 C1): time-ordered [gf_residual,
+    # ga_residual] pairs, most recent last, optionally seeded with
+    # pre-tournament history (ml.ratings.tournament.replay_tournament's
+    # seed_ledgers). Feeds ml.ratings.form.form_offsets when
+    # model_params.json ships a non-null form_channels; nullable and unused
+    # otherwise (additive column, no backfill).
+    # DEFERRED (deploy-window hardening): Render auto-deploys code before
+    # refresh.yml applies migrations, so a plain column here would make every
+    # full-entity SELECT (db.query(TeamTournamentState).all(), hit by
+    # /api/internal/refresh-live every ~5 min mid-tournament) 500 against a DB
+    # that hasn't been migrated yet. Deferred means SELECT * never includes
+    # this column -- only an explicit .residual_ledger access does -- so those
+    # request-time paths are safe regardless of migration timing. Paired with
+    # the write-side gate in pipeline/learning_loop.update_tournament_state
+    # (only touches this attribute when form_channels is enabled).
+    residual_ledger: Mapped[list | None] = mapped_column(JSON, deferred=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )

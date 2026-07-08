@@ -1,13 +1,59 @@
 {
-  "version": "poisson-elo-v0.2",
+  "version": "poisson-elo-v0.4",
   "base": 1.2,
   "beta": 0.0021,
   "home_adv": 60.0,
   "rho": -0.06,
   "temperature": 1.0,
   "pk_beta": 0.0,
-  "calibrator": null,
+  "calibrator": {
+    "method": "vector_scaling_segmented",
+    "by": "effective_elo_gap",
+    "buckets": {
+      "0-50": {
+        "t": 1.2,
+        "b": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "50-150": {
+        "t": 1.0,
+        "b": [
+          0.0,
+          0.0,
+          -0.1
+        ]
+      },
+      "150-300": {
+        "t": 1.0,
+        "b": [
+          0.0,
+          0.1,
+          -0.3
+        ]
+      },
+      "300+": {
+        "t": 1.1,
+        "b": [
+          0.0,
+          -0.2,
+          -0.3
+        ]
+      }
+    },
+    "default": {
+      "t": 1.0,
+      "b": [
+        0.0,
+        0.0,
+        -0.2
+      ]
+    }
+  },
   "wdl_blend": null,
   "w_odds": 0.0,
-  "team_offsets": null
+  "team_offsets": null,
+  "form_channels": null
 }

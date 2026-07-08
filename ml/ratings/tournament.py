@@ -75,6 +75,14 @@ class TeamState:
     gf_residual_sum: float = 0.0  # actual goals − expected goals (attack)
     ga_residual_sum: float = 0.0  # conceded − expected conceded (defense)
     detail: list[dict] = field(default_factory=list)
+    # Unified residual ledger (model v2 C1): time-ordered (gf_residual,
+    # ga_residual) per match, most recent LAST, feeding ml.ratings.form's
+    # split/decayed offsets. Additive to the fields above -- gf_residual_sum
+    # etc. stay defined purely over matches replayed THIS run; the ledger can
+    # additionally carry a prepended pre-tournament seed (see seed_ledgers on
+    # replay_tournament) so form doesn't reset to zero at the tournament
+    # boundary.
+    residual_ledger: list[tuple[float, float]] = field(default_factory=list)
 
     @property
     def gf_residual_mean(self) -> float:
@@ -119,6 +127,7 @@ def replay_tournament(
     matches: list[TournamentMatch],
     goals_base: float | None = None,
     goals_beta: float | None = None,
+    seed_ledgers: dict[int, list[tuple[float, float]]] | None = None,
 ) -> dict[int, TeamState]:
     """Replay finished tournament matches from the historical base ratings.
 
@@ -130,6 +139,16 @@ def replay_tournament(
     (base + delta-so-far), mirroring exactly what the model would have
     predicted at that point — so "overperformance" means beating the model,
     not beating a fixed pre-tournament view.
+
+    ``seed_ledgers`` (model v2 C1): {team_id: [(gf_residual, ga_residual), ...]}
+    of PRE-tournament residuals, oldest-first, prepended to that team's
+    ``residual_ledger`` before any tournament matches are appended — so form
+    doesn't reset to zero at the tournament boundary. Purely additive to the
+    new ledger channel: it never touches ``gf_residual_sum`` / ``matches_played``
+    / the legacy ``form_adjustment``, which stay defined over matches replayed
+    THIS run only. A team present only in ``seed_ledgers`` (never actually
+    playing in ``matches``) gets no state entry — states are created for
+    teams that play, matching existing behavior.
     """
     states: dict[int, TeamState] = {}
     k_wc = k_factor("FIFA World Cup")
@@ -138,12 +157,20 @@ def replay_tournament(
         goal_kw["base"] = goals_base
     if goals_beta is not None:
         goal_kw["beta"] = goals_beta
+    seeds = seed_ledgers or {}
+
+    def _get_state(team_id: int) -> TeamState:
+        if team_id not in states:
+            st = TeamState()
+            st.residual_ledger.extend(seeds.get(team_id, []))
+            states[team_id] = st
+        return states[team_id]
 
     for m in matches:
         if m.home_id not in base_elos or m.away_id not in base_elos:
             continue
-        sh = states.setdefault(m.home_id, TeamState())
-        sa = states.setdefault(m.away_id, TeamState())
+        sh = _get_state(m.home_id)
+        sa = _get_state(m.away_id)
 
         eff_home = base_elos[m.home_id] + sh.elo_delta
         eff_away = base_elos[m.away_id] + sa.elo_delta
@@ -153,10 +180,16 @@ def replay_tournament(
         # model_params.json) so stored residuals carry no systematic bias;
         # None falls back to the v0.1 constants for old callers/tests (FR-2.4).
         lam_home, lam_away = expected_goals_from_elo(eff_home, eff_away, m.home_adv, **goal_kw)
-        sh.gf_residual_sum += m.score_home - lam_home
-        sh.ga_residual_sum += m.score_away - lam_away
-        sa.gf_residual_sum += m.score_away - lam_away
-        sa.ga_residual_sum += m.score_home - lam_home
+        home_gf_resid = m.score_home - lam_home
+        home_ga_resid = m.score_away - lam_away
+        away_gf_resid = m.score_away - lam_away
+        away_ga_resid = m.score_home - lam_home
+        sh.gf_residual_sum += home_gf_resid
+        sh.ga_residual_sum += home_ga_resid
+        sa.gf_residual_sum += away_gf_resid
+        sa.ga_residual_sum += away_ga_resid
+        sh.residual_ledger.append((home_gf_resid, home_ga_resid))
+        sa.residual_ledger.append((away_gf_resid, away_ga_resid))
 
         # --- conservative, stage-weighted Elo delta (zero-sum) ---
         exp_home = expected_score(eff_home, eff_away, m.home_adv)

@@ -45,9 +45,16 @@ from app.models import (
 )
 from ml.evaluation.match_metrics import evaluate_match
 from ml.features.build_features import estimate_strength
-from ml.ratings.elo import HOME_ADVANTAGE
+from ml.models.params import ModelParams, load_params
+from ml.models.poisson import expected_goals_from_elo
+from ml.ratings.elo import HOME_ADVANTAGE, MatchInput, replay_with_prematch
 from ml.ratings.tournament import TournamentMatch, replay_tournament
 from pipeline.generate_predictions import SHADOW_MODEL_VERSION
+
+#: How many pre-tournament matches feed the seed ledger per team (model v2
+#: C1) -- matches the brief's N=10 and the existing _recent_appearances/
+#: window_stats "last 10" convention used elsewhere in the pipeline.
+SEED_LEDGER_MATCHES = 10
 
 log = logging.getLogger(__name__)
 
@@ -232,6 +239,77 @@ def _already_in_history(db: Session, matches: list[Match]) -> set[int]:
     return dupes
 
 
+def build_seed_ledgers(
+    db: Session, team_ids: set[int], served: ModelParams | None = None
+) -> dict[int, list[tuple[float, float]]]:
+    """Pre-tournament residual seeds for the unified ledger (model v2 C1).
+
+    Replays ALL of historical_matches (Elo is path-dependent, so the full
+    history is needed for correct pre-match ratings — same replay
+    compute_elo.py uses to produce teams.elo_rating) via
+    ml.ratings.elo.replay_with_prematch, then for each requested team keeps
+    only their last SEED_LEDGER_MATCHES appearances and turns each into a
+    (gf_residual, ga_residual) pair against the SERVED goals model
+    (expected_goals_from_elo with the served base/beta), oldest-first —
+    exactly the ledger shape ml.ratings.tournament.replay_tournament's
+    seed_ledgers expects.
+
+    ``team_ids`` restricts the (mildly expensive, O(all history)) replay's
+    OUTPUT to teams actually in the tournament (guard cost) — the replay
+    itself must still cover full history for path-dependent Elo correctness.
+
+    Single-scale invariant (model v2 review finding): this is already on the
+    SERVED goals scale (``served.base``/``served.beta``, defaulted below) —
+    the same scale pipeline/backtest_data.py's build_enriched_rows and
+    pipeline/replay_wc26.py's ledger builders use by default now. Every
+    residual ledger in the repo must agree on this scale, or an ablation
+    comparing "with form" vs "without" would be comparing apples measured on
+    different scales. Leave this default as-is; do not special-case it back
+    to the v0.1 constants.
+    """
+    if not team_ids:
+        return {}
+    served = served or load_params()
+    rows = (
+        db.query(HistoricalMatch)
+        .order_by(HistoricalMatch.date.asc(), HistoricalMatch.id.asc())
+        .all()
+    )
+    inputs = [
+        MatchInput(
+            home_id=r.team_a_id, away_id=r.team_b_id,
+            score_home=r.score_a, score_away=r.score_b,
+            competition=r.competition, is_neutral=r.is_neutral,
+        )
+        for r in rows
+    ]
+    prematch_rows, _ = replay_with_prematch(inputs)
+
+    per_team: dict[int, list[tuple[float, float]]] = {tid: [] for tid in team_ids}
+    for row in prematch_rows:
+        home_id, away_id = row["home_id"], row["away_id"]
+        if home_id not in team_ids and away_id not in team_ids:
+            continue
+        adv = 0.0 if row["is_neutral"] else HOME_ADVANTAGE
+        lam_home, lam_away = expected_goals_from_elo(
+            row["pre_home"], row["pre_away"], adv, base=served.base, beta=served.beta
+        )
+        home_gf = row["score_home"] - lam_home
+        home_ga = row["score_away"] - lam_away
+        away_gf = row["score_away"] - lam_away
+        away_ga = row["score_home"] - lam_home
+        if home_id in team_ids:
+            per_team[home_id].append((home_gf, home_ga))
+        if away_id in team_ids:
+            per_team[away_id].append((away_gf, away_ga))
+
+    return {
+        tid: ledger[-SEED_LEDGER_MATCHES:]
+        for tid, ledger in per_team.items()
+        if ledger
+    }
+
+
 def update_tournament_state(db: Session) -> int:
     """Replay finished WC matches from the Elo base; upsert per-team state.
 
@@ -256,12 +334,32 @@ def update_tournament_state(db: Session) -> int:
         for m in finished
         if m.id not in skip
     ]
-    from ml.models.params import load_params
 
     served = load_params()
+    # Pre-tournament seed (model v2 C1): only computed when form_channels is
+    # active, since it's an O(all history) replay -- a no-op cost with the
+    # feature off (the shipped default). Restricted to teams that actually
+    # play a replayed match (the ones replay_tournament will create state for).
+    seed_ledgers = None
+    if served.form_channels:
+        seed_team_ids = {m.home_id for m in replay} | {m.away_id for m in replay}
+        seed_ledgers = build_seed_ledgers(db, seed_team_ids, served=served)
+
     states = replay_tournament(
-        base, replay, goals_base=served.base, goals_beta=served.beta
+        base, replay, goals_base=served.base, goals_beta=served.beta,
+        seed_ledgers=seed_ledgers,
     )
+
+    # Deploy-window hardening: residual_ledger is only ever read or written
+    # here when form_channels is actually enabled. Render auto-deploys code
+    # before refresh.yml applies migrations, so touching this column while
+    # dark (the shipped default) would 500 every request-time call --
+    # including /api/internal/refresh-live, which hits this function every
+    # ~5 min mid-tournament -- against a DB that hasn't been migrated yet.
+    # The column is also ORM-deferred (app/models/__init__.py) so a plain
+    # SELECT never includes it; this gate keeps this function's explicit
+    # attribute access off the column too.
+    form_channels_active = bool(served.form_channels)
 
     updated = 0
     for t in teams:
@@ -270,13 +368,18 @@ def update_tournament_state(db: Session) -> int:
             db.query(TeamTournamentState).filter_by(team_id=t.id).one_or_none()
         )
         if st is None:
-            if row is not None and (row.elo_delta or row.form_adjustment):
+            stale = row is not None and (row.elo_delta or row.form_adjustment)
+            if form_channels_active and row is not None and row.residual_ledger:
+                stale = True
+            if stale:
                 row.elo_delta = 0.0
                 row.form_adjustment = 0.0
                 row.gf_residual_mean = 0.0
                 row.ga_residual_mean = 0.0
                 row.matches_played = 0
                 row.detail = []
+                if form_channels_active:
+                    row.residual_ledger = []
             continue
         if row is None:
             row = TeamTournamentState(team_id=t.id)
@@ -287,6 +390,10 @@ def update_tournament_state(db: Session) -> int:
         row.ga_residual_mean = st.ga_residual_mean
         row.matches_played = st.matches_played
         row.detail = st.detail
+        if form_channels_active:
+            # Persist as lists (JSON has no tuple type) -- form_offsets only
+            # needs the (gf, ga) pairing, which round-trips fine as [gf, ga].
+            row.residual_ledger = [list(pair) for pair in st.residual_ledger]
         updated += 1
     db.commit()
     if skip:
@@ -296,11 +403,22 @@ def update_tournament_state(db: Session) -> int:
 
 def effective_elos(db: Session) -> dict[int, float]:
     """Strength map used by prediction generation and the simulators:
-    historical base + tournament Elo delta + capped form adjustment."""
-    adjustments = {
-        s.team_id: (s.elo_delta or 0.0) + (s.form_adjustment or 0.0)
-        for s in db.query(TeamTournamentState).all()
-    }
+    historical base + tournament Elo delta + capped form adjustment.
+
+    When model_params.json ships a non-null form_channels, the legacy
+    single-scalar form_adjustment is deliberately EXCLUDED here (base +
+    elo_delta only) -- the split atk_form/def_form offsets take over as
+    PER-TEAM log-lambda offsets applied in the goals model instead (see
+    pipeline/generate_predictions.py's build_payload), so adding the legacy
+    scalar on top would double-count the same signal (model v2 C1).
+    """
+    include_legacy_form = not load_params().form_channels
+    adjustments = {}
+    for s in db.query(TeamTournamentState).all():
+        adj = s.elo_delta or 0.0
+        if include_legacy_form:
+            adj += s.form_adjustment or 0.0
+        adjustments[s.team_id] = adj
     return {
         t.id: estimate_strength(t)[0] + adjustments.get(t.id, 0.0)
         for t in db.query(Team).all()

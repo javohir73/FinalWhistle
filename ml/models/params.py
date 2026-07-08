@@ -36,6 +36,12 @@ class ModelParams:
     # the shipped default; promotion is a manual owner decision (FR-4.8).
     w_odds: float = 0.0
     team_offsets: dict | None = None  # {"file": "team_offsets.json"} or None (disabled, FR-5.3)
+    # Split, decayed, boundary-free form channels (model v2 C1):
+    # {"c_atk": float, "c_def": float, "cap": float, "half_life": float} or
+    # None (disabled — the shipped default). None means the serving path is
+    # bit-identical to today's legacy single-scalar form_adjustment; enabling
+    # it also turns OFF that legacy scalar so the two never double-count.
+    form_channels: dict | None = None
 
     def to_dict(self) -> dict:
         return asdict(self)
@@ -71,6 +77,7 @@ def load_params() -> ModelParams:
         wdl_blend=data.get("wdl_blend"),
         w_odds=float(data.get("w_odds", 0.0)),
         team_offsets=data.get("team_offsets"),
+        form_channels=data.get("form_channels"),
     )
 
 

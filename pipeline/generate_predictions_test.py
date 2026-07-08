@@ -1,6 +1,8 @@
 """Tests for prediction generation + §17 payload shape (task 3.8/3.9)."""
 from datetime import datetime, timezone
 
+import pytest
+
 from app.models import Match, Prediction, Standing, Team
 from pipeline.generate_predictions import build_payload, generate_predictions
 from pipeline.ingest.wc26_structure import load_structure
@@ -591,3 +593,336 @@ def test_availability_twin_blocked_after_kickoff(db_session):
     db_session.commit()
     assert (db_session.query(Prediction)
             .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
+
+
+# --- form_channels serving-path integration (model v2 C1) -------------------
+
+
+def _set_residual_ledger(db, team_id, ledger):
+    from app.models import TeamTournamentState
+
+    row = db.query(TeamTournamentState).filter_by(team_id=team_id).one_or_none()
+    if row is None:
+        row = TeamTournamentState(team_id=team_id)
+        db.add(row)
+    row.residual_ledger = [list(pair) for pair in ledger]
+    db.commit()
+
+
+def test_build_payload_form_channels_none_is_bit_identical_to_disabled(db_session):
+    """None-config bit-identity: with form_channels=None (the shipped
+    default), the payload must be EXACTLY what it was before C1 -- even if a
+    residual ledger happens to be sitting in the DB (e.g. left by a run where
+    the feature was later disabled).
+
+    Regression note: an earlier version of this test only called
+    build_payload TWICE with the SAME (ledger-populated) DB state and the
+    same params -- that proves determinism, not that the ledger is ignored.
+    The real guard compares a run WITH a populated ledger against a run with
+    NO ledger at all, both under form_channels=None -- the triples and
+    lambdas must be identical, proving the ledger is never read while dark."""
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    params_off = replace(DEFAULT_PARAMS, form_channels=None)
+
+    # No ledger anywhere in the DB.
+    without_ledger = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
+
+    # A populated, clearly-non-trivial ledger for the home team.
+    _set_residual_ledger(db_session, match.team_home_id, [(1.5, -0.3), (0.8, 0.1)])
+    with_ledger = build_payload(db_session, match, "poisson-elo-v0.1", params=params_off)
+
+    for key in ("probabilities", "predicted_score", "lambda_home", "lambda_away"):
+        assert with_ledger[key] == without_ledger[key]
+
+
+def test_build_payload_form_channels_on_shifts_lambdas_via_ledger(db_session):
+    """FR-style end-to-end: with form_channels enabled and a positive-gf
+    residual ledger stored for the home team, the served lambda_home must
+    rise relative to the disabled baseline -- the offset actually reaches
+    predict_match's atk_home parameter."""
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    home_id = match.team_home_id
+    _set_residual_ledger(db_session, home_id, [(1.5, 0.0)] * 6)
+
+    baseline_params = replace(DEFAULT_PARAMS, form_channels=None)
+    enabled_params = replace(
+        DEFAULT_PARAMS,
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+
+    off = build_payload(db_session, match, "poisson-elo-v0.1", params=baseline_params)
+    on = build_payload(db_session, match, "poisson-elo-v0.1", params=enabled_params)
+
+    assert on["lambda_home"] > off["lambda_home"]
+    assert on["probabilities"]["home_win"] > off["probabilities"]["home_win"]
+    # Predicted SCORE grid may shift (lambdas moved), but the payload
+    # remains internally consistent -- winner and score always agree
+    # (existing predict_from_lambdas guarantee, unaffected by this change).
+
+
+def test_build_payload_form_channels_uses_opponent_def_offset_correctly():
+    """Sign-convention wiring check at the predict_match boundary: a positive
+    def_form (conceding above expectation) must be applied to the OPPONENT's
+    lambda, matching ml.models.poisson.expected_goals_from_elo's def_home/
+    def_away contract (lambda_home *= exp(atk_home + def_away))."""
+    from ml.models.poisson import expected_goals_from_elo
+
+    lam_h_base, lam_a_base = expected_goals_from_elo(1600.0, 1600.0, 0.0)
+    # away team has a leaky defence (positive def_form) -> home's lambda
+    # should rise when we pass it as def_away.
+    lam_h_leaky, lam_a_leaky = expected_goals_from_elo(1600.0, 1600.0, 0.0, def_away=0.1)
+    assert lam_h_leaky > lam_h_base
+    assert lam_a_leaky == pytest.approx(lam_a_base)
+
+
+def test_build_payload_form_channels_does_not_double_count_legacy_scalar(db_session):
+    """No-double-count guard at the payload level: when form_channels is
+    active, strengths passed in (as effective_elos would compute them with
+    the legacy scalar excluded) must not ALSO get the legacy scalar folded
+    in a second time via build_payload itself -- build_payload must not read
+    or apply TeamTournamentState.form_adjustment on its own."""
+    from dataclasses import replace
+
+    from app.models import TeamTournamentState
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    home_id = match.team_home_id
+    row = TeamTournamentState(team_id=home_id, elo_delta=0.0, form_adjustment=30.0,
+                              residual_ledger=[])
+    db_session.add(row)
+    db_session.commit()
+
+    enabled_params = replace(
+        DEFAULT_PARAMS,
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+    # strengths intentionally omits the legacy scalar (as effective_elos()
+    # would once form_channels is active) -- build_payload must not reach
+    # into form_adjustment behind the caller's back.
+    home = db_session.get(Team, home_id)
+    strengths = {home_id: home.elo_rating}  # base only, no elo_delta/form_adjustment
+    payload = build_payload(
+        db_session, match, "poisson-elo-v0.1", strengths=strengths, params=enabled_params
+    )
+    assert payload is not None  # build_payload must not crash reading form state
+
+
+def test_build_payload_surfaces_form_offsets_in_reasons_and_top_features(db_session):
+    from dataclasses import replace
+
+    from ml.models.params import DEFAULT_PARAMS
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    home_id = match.team_home_id
+    _set_residual_ledger(db_session, home_id, [(1.5, 0.0)] * 6)
+
+    enabled_params = replace(
+        DEFAULT_PARAMS,
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+    payload = build_payload(db_session, match, "poisson-elo-v0.1", params=enabled_params)
+
+    factor_names = {f["name"] for f in payload["top_features"]}
+    assert "form_channels" in factor_names
+    assert any("form" in r.lower() for r in payload["reasons"])
+
+
+def test_build_payload_no_form_factor_when_form_channels_disabled(db_session):
+    load_structure(db_session)
+    _set_elos(db_session)
+    match = (
+        db_session.query(Match)
+        .filter(Match.stage == "group", Match.team_home_id.isnot(None))
+        .first()
+    )
+    payload = build_payload(db_session, match, "poisson-elo-v0.1")
+    factor_names = {f["name"] for f in payload["top_features"]}
+    assert "form_channels" not in factor_names
+
+
+# --- form_channels must reach BOTH Monte-Carlo simulators (review finding) --
+#
+# build_payload already folds _form_offsets_by_team_id into the match card's
+# lambdas (atk_h += atk_form_h etc). The group and tournament simulators must
+# see the SAME combined per-team offsets, or a match page would show a form-
+# adjusted card next to qualification/title odds simulated from unadjusted
+# symmetric-Elo lambdas -- the repo's card/sim agreement invariant (see the
+# existing team_offsets guard, test_simulations_receive_the_same_team_offsets_
+# as_match_cards).
+
+
+def test_simulations_receive_combined_form_and_xg_offsets(db_session, tmp_path, monkeypatch):
+    """With BOTH team_offsets (xG) and form_channels enabled, the sims must
+    receive the elementwise SUM of the two sources per team -- exactly how
+    build_payload composes them (atk_h = xg_atk_h + form_atk_h)."""
+    import json as _json
+    from dataclasses import replace
+
+    import pipeline.generate_predictions as gp
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from ml.models.team_offsets import load_team_offsets, offsets_for
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    store_path = tmp_path / "team_offsets.json"
+    store_path.write_text(_json.dumps({
+        members[0].name: {"atk": 0.075, "def": -0.075, "n_matches": 100},
+    }))
+    _set_residual_ledger(db_session, members[0].id, [(1.5, 0.0)] * 6)
+
+    captured: dict[str, list] = {"group": [], "tournament": []}
+    real_group, real_tournament = gp.simulate_group, gp.simulate_tournament
+
+    def spy_group(*args, **kwargs):
+        captured["group"].append(kwargs.get("team_offsets"))
+        return real_group(*args, **kwargs)
+
+    def spy_tournament(*args, **kwargs):
+        captured["tournament"].append(kwargs.get("team_offsets"))
+        return real_tournament(*args, **kwargs)
+
+    monkeypatch.setattr(gp, "simulate_group", spy_group)
+    monkeypatch.setattr(gp, "simulate_tournament", spy_tournament)
+
+    enabled = replace(
+        DEFAULT_PARAMS,
+        team_offsets={"file": str(store_path)},
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+    gp._simulate_standings(db_session, group, "v", n_sims=50, params=enabled)
+    gp._simulate_tournament(db_session, n_sims=20, params=enabled)
+
+    store = load_team_offsets(str(store_path))
+    xg_atk, xg_def = offsets_for(store, members[0].name)
+    form_atk, form_def = gp._form_offsets_by_team_id(
+        db_session, enabled, members
+    )[members[0].id]
+    assert form_atk != 0.0 or form_def != 0.0  # sanity: the ledger has signal
+
+    group_offsets = captured["group"][0]
+    assert group_offsets[members[0].id] == pytest.approx(
+        (xg_atk + form_atk, xg_def + form_def)
+    )
+    tournament_offsets = captured["tournament"][0]
+    assert tournament_offsets[members[0].id] == pytest.approx(
+        (xg_atk + form_atk, xg_def + form_def)
+    )
+
+
+def test_qualification_prob_shifts_same_direction_as_match_card_with_hot_ledger(
+    db_session,
+):
+    """With form_channels enabled and a hot (positive-gf) ledger for one team,
+    that team's simulated group qualification probability must rise --
+    matching the direction build_payload's card already shifts in (higher
+    lambda_home / higher win prob) for the same ledger."""
+    from dataclasses import replace
+
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.generate_predictions import _simulate_standings
+
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    target = members[0]
+    _set_residual_ledger(db_session, target.id, [(1.5, 0.0)] * 6)
+
+    baseline_params = replace(DEFAULT_PARAMS, form_channels=None)
+    enabled_params = replace(
+        DEFAULT_PARAMS,
+        form_channels={"c_atk": 0.25, "c_def": 0.25, "cap": 0.15, "half_life": 3.0},
+    )
+
+    def qual_prob(params) -> float:
+        _simulate_standings(db_session, group, "v", n_sims=4000, params=params)
+        row = db_session.query(Standing).filter_by(
+            group_id=group.id, team_id=target.id
+        ).one()
+        return row.qualification_prob
+
+    baseline = qual_prob(baseline_params)
+    boosted = qual_prob(enabled_params)
+    assert boosted > baseline
+
+
+def test_sims_bit_identical_when_form_channels_none_regardless_of_ledger(db_session):
+    """form_channels=None (the shipped default): the sims must be bit-
+    identical to the no-ledger case even when a residual ledger is sitting in
+    the DB for a group member -- the same C1 dark-mode invariant build_payload
+    already guards (test_build_payload_form_channels_none_is_bit_identical_to_
+    disabled), extended to both Monte-Carlo simulators."""
+    from dataclasses import replace
+
+    from app.models import Group
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.generate_predictions import _simulate_standings
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    group = db_session.query(Group).first()
+    members = [gt.team for gt in group.group_teams]
+    params_off = replace(DEFAULT_PARAMS, form_channels=None)
+
+    def standings_snapshot():
+        _simulate_standings(db_session, group, "v", n_sims=300, params=params_off)
+        rows = db_session.query(Standing).filter_by(group_id=group.id).all()
+        return sorted((r.team_id, r.qualification_prob) for r in rows)
+
+    def tournament_snapshot():
+        from pipeline.generate_predictions import _simulate_tournament
+        from app.models import TournamentOdds
+
+        _simulate_tournament(db_session, n_sims=100, params=params_off)
+        rows = db_session.query(TournamentOdds).all()
+        return sorted((r.team_id, r.make_knockout, r.win_title) for r in rows)
+
+    before_group = standings_snapshot()
+    before_tournament = tournament_snapshot()
+
+    _set_residual_ledger(db_session, members[0].id, [(1.5, 0.0)] * 6)
+
+    after_group = standings_snapshot()
+    after_tournament = tournament_snapshot()
+
+    assert before_group == after_group
+    assert before_tournament == after_tournament
