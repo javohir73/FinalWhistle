@@ -102,3 +102,22 @@ def test_shootout_helpers_still_importable_from_bracket():
     from ml.simulate.bracket import fit_pk_beta as bracket_fit, shootout_p as bracket_p
     assert bracket_p is shootout_p
     assert bracket_fit is fit_pk_beta
+
+
+def test_pk_shift_moves_the_pens_split_within_the_band():
+    base = _adv()
+    shifted = _adv(pk_shift=0.03)
+    # Away keeper out (+shift toward home): home pens share rises, ET untouched.
+    assert shifted.home_win_pens > base.home_win_pens
+    assert shifted.home_win_et == base.home_win_et
+    # Advance probabilities still sum to 1.
+    assert abs(shifted.p_advance_home + shifted.p_advance_away - 1.0) < 1e-9
+    # No shift can escape the clamp.
+    extreme = _adv(pk_shift=5.0)
+    assert extreme.home_win_pens <= extreme.p_shootout * PK_BAND[1] + 1e-12
+
+
+def test_shootout_p_shift_clamps_to_band():
+    assert shootout_p(1800, 1800, 0.0, shift=0.2) == PK_BAND[1]
+    assert shootout_p(1800, 1800, 0.0, shift=-0.2) == PK_BAND[0]
+    assert shootout_p(1800, 1800, 0.0, shift=0.0) == 0.5

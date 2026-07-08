@@ -33,6 +33,7 @@ from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.knockout import ko_advance
 from ml.models.odds_blend import blend_lambda_total, market_lambda_total
 from ml.models.params import ModelParams, load_params
+from ml.models.rest import DEFAULT_REST, rest_offsets
 from ml.models.poisson import predict_from_lambdas, predict_match
 from ml.models.poisson import predict_match
 from ml.models.team_offsets import load_team_offsets, offsets_for
@@ -58,6 +59,15 @@ AVAILABILITY_MODEL_VERSION = "poisson-elo-v0.3+avail"
 #: shadow-first invariant — this twin runs whether or not the served offsets
 #: flag is ever flipped). docs/superpowers/plans/2026-07-04-statsbomb-xg-team-offsets.md.
 OFFSETS_MODEL_VERSION = "poisson-elo-v0.3+xg"
+
+#: Suspension twin (signal pack, v0.5): banned players (red card / yellow
+#: accumulation) removed from the reference XI via the availability weights.
+#: is_shadow, never served.
+BANS_MODEL_VERSION = "poisson-elo-v0.5+bans"
+
+#: Rest-days twin (signal pack, v0.5): schedule differential as a bounded
+#: attack offset (ml/models/rest.py DEFAULT_REST). is_shadow, never served.
+REST_MODEL_VERSION = "poisson-elo-v0.5+rest"
 
 
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
@@ -258,6 +268,28 @@ def build_payload(
     def_h += def_form_h
     atk_a += atk_form_a
     def_a += def_form_a
+    # Signal pack (v0.5): suspensions + rest days join the same additive
+    # log-lambda channel. Both ship OFF (model_params.json nulls keep this a
+    # strict no-op); flipping the param is the promotion step once their
+    # shadow twins validate against the record.
+    if params.suspensions:
+        from pipeline.suspensions import suspension_offsets_for_match  # lazy: avoids cycle
+
+        susp = suspension_offsets_for_match(db, match)
+        if susp is not None:
+            atk_h += susp[0]
+            atk_a += susp[1]
+    if params.rest_days:
+        rest = _rest_days_for_match(db, match)
+        if rest is not None:
+            r_offs = rest_offsets(
+                rest[0], rest[1],
+                float(params.rest_days.get("coef", DEFAULT_REST["coef"])),
+                float(params.rest_days.get("cap", DEFAULT_REST["cap"])),
+            )
+            if r_offs is not None:
+                atk_h += r_offs[0]
+                atk_a += r_offs[1]
     pred = predict_match(
         elo_home, elo_away, home_adv=host_adv,
         base=params.base, beta=params.beta, rho=params.rho,
@@ -314,11 +346,16 @@ def build_payload(
     # (ml/models/knockout.py). Group games: a draw is final, no block.
     knockout = None
     if match.stage != "group":
+        # Shootout context (v0.5): a missing first-choice keeper nudges the
+        # pens split by params.pk_keeper_delta (0.0 = no-op, the shipped
+        # default; shootout_p clamps inside PK_BAND regardless).
+        pk_shift = _keeper_pk_shift_for_match(db, match, params) if params.pk_keeper_delta else 0.0
         knockout = ko_advance(
             p_home, p_draw, p_away,
             pred.lambda_home, pred.lambda_away,
             elo_home, elo_away,
             rho=params.rho, pk_beta=params.pk_beta, et_tempo=params.et_tempo,
+            pk_shift=pk_shift,
         ).to_payload()
 
     return {
@@ -563,6 +600,108 @@ def write_offsets_prediction(
     _write_prediction(db, match, twin, OFFSETS_MODEL_VERSION, is_shadow=True)
 
 
+def _rest_days_for_match(db: Session, match: Match) -> tuple[float, float] | None:
+    """Days since each side's last finished match, or None when either side has
+    no prior tournament match (openers — the signal is undefined there)."""
+    from pipeline.suspensions import _finished_before  # lazy: avoids cycle
+
+    out = []
+    for team_id in (match.team_home_id, match.team_away_id):
+        if team_id is None:
+            return None
+        prior = _finished_before(db, team_id, match)
+        if not prior:
+            return None
+        out.append((match.kickoff_utc - prior[-1].kickoff_utc).total_seconds() / 86400.0)
+    return out[0], out[1]
+
+
+def _keeper_pk_shift_for_match(db: Session, match: Match, params: ModelParams) -> float:
+    """params.pk_keeper_delta resolved against this match: suspension statuses
+    plus any ingested injury statuses, checked for the first-choice keeper."""
+    from app.availability import _injury_statuses, _squad_dicts  # lazy: avoids cycle
+    from pipeline.suspensions import keeper_pk_shift, suspension_statuses
+
+    squads: dict[str, list[dict]] = {}
+    statuses: dict[str, dict[int, dict]] = {}
+    for side in ("home", "away"):
+        team_id = match.team_home_id if side == "home" else match.team_away_id
+        squads[side] = _squad_dicts(db, team_id)
+        st = dict(suspension_statuses(db, match, side, squads[side]))
+        st.update(_injury_statuses(match, side, {p.get("provider_player_id") for p in squads[side]}))
+        statuses[side] = st
+    return keeper_pk_shift(squads, statuses, params.pk_keeper_delta)
+
+
+def _write_scaled_twin(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+    off_home: float, off_away: float, version: str,
+) -> None:
+    """Shared body of the attack-offset twins (+bans, +rest): scale the
+    production lambdas by exp(offset), recompute grid/triple/headline through
+    the same calibrated pipeline, append as is_shadow. Mirrors
+    write_availability_prediction, which predates this helper."""
+    lam_h = payload["lambda_home"] * math.exp(off_home)
+    lam_a = payload["lambda_away"] * math.exp(off_away)
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    pred = predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
+    )
+    twin = {
+        **payload,
+        "probabilities": {
+            "home_win": round(pred.prob_home_win, 4),
+            "draw": round(pred.prob_draw, 4),
+            "away_win": round(pred.prob_away_win, 4),
+        },
+        "predicted_score": {
+            "home": pred.score_home, "away": pred.score_away,
+            "probability": round(pred.score_prob, 4),
+        },
+        "lambda_home": round(pred.lambda_home, 4),
+        "lambda_away": round(pred.lambda_away, 4),
+    }
+    _write_prediction(db, match, twin, version, is_shadow=True)
+
+
+def write_suspension_prediction(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+) -> None:
+    """+bans twin: suspended players (red card / yellow accumulation) removed
+    from the reference XI via the availability weight machinery. Runs whether
+    or not params.suspensions is ever flipped (shadow-first invariant). No
+    suspension on either side -> no row (clean null, like the other twins)."""
+    from pipeline.suspensions import suspension_offsets_for_match  # lazy: avoids cycle
+
+    res = suspension_offsets_for_match(db, match)
+    if res is None:
+        return
+    _write_scaled_twin(db, match, payload, strengths, params, res[0], res[1], BANS_MODEL_VERSION)
+
+
+def write_rest_prediction(
+    db: Session, match: Match, payload: dict,
+    strengths: dict[int, float], params: ModelParams,
+) -> None:
+    """+rest twin on DEFAULT_REST, independent of params.rest_days (shadow-first
+    invariant). Openers and equal-rest matches produce no row — the twin would
+    be bit-identical to production and grade nothing."""
+    rest = _rest_days_for_match(db, match)
+    if rest is None:
+        return
+    offs = rest_offsets(rest[0], rest[1], DEFAULT_REST["coef"], DEFAULT_REST["cap"])
+    if offs is None or (offs[0] == 0.0 and offs[1] == 0.0):
+        return
+    _write_scaled_twin(db, match, payload, strengths, params, offs[0], offs[1], REST_MODEL_VERSION)
+
+
 def _played_score(m: Match) -> tuple[int, int] | None:
     """The final score when a match has actually been played, else None.
     In-play matches stay None — they aren't final until the whistle."""
@@ -761,6 +900,8 @@ def generate_predictions(
         write_shadow_prediction(db, match, payload, strengths, params)
         write_availability_prediction(db, match, payload, strengths, params)
         write_offsets_prediction(db, match, payload, strengths, params)
+        write_suspension_prediction(db, match, payload, strengths, params)
+        write_rest_prediction(db, match, payload, strengths, params)
         predicted += 1
 
     groups = db.query(Group).all()
