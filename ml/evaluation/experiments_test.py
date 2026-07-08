@@ -21,11 +21,17 @@ from ml.models.params import DEFAULT_PARAMS
 
 
 def _row(pre_home, pre_away, sh, sa, date, is_neutral=True, competition="Friendly",
-         ledger_home=None, ledger_away=None):
+         ledger_home=None, ledger_away=None, home_id=None, away_id=None):
+    # tune_form walks a per-team running ledger, so rows need stable team ids
+    # (real enriched rows carry them from backtest_data). The synthetic fixtures
+    # reuse the same strong/weak pair everywhere, so "one id per rating" is a
+    # faithful default.
     return {
         "pre_home": pre_home, "pre_away": pre_away, "is_neutral": is_neutral,
         "score_home": sh, "score_away": sa, "date": date, "competition": competition,
         "ledger_home": ledger_home or [], "ledger_away": ledger_away or [],
+        "home_id": home_id if home_id is not None else int(pre_home),
+        "away_id": away_id if away_id is not None else int(pre_away),
     }
 
 

@@ -133,10 +133,13 @@ def _fit_calibrator(val_rows: list[dict], variant: dict) -> dict:
 # Named built-in variants
 # ---------------------------------------------------------------------------
 
-#: Default form-channel knobs used by the "+form" built-ins when the design
-#: doc's tuner (ml/evaluation/tune.py's future tune_form) hasn't fitted real
-#: ones yet. Deliberately conservative — small coefficients, short cap.
-_DEFAULT_FORM_CHANNELS = {"c_atk": 0.03, "c_def": 0.03, "cap": 0.15, "half_life": 6.0}
+def _tuned_form_channels(val_rows: list[dict], tuned) -> dict:
+    """Fit the form-channel knobs on the validation window (walk-forward: the
+    held-out tournament never sees this data). Second-stage grid on top of the
+    already-tuned goals params, per the design doc's C1."""
+    from ml.evaluation.tune import tune_form
+
+    return tune_form(val_rows, tuned)
 
 
 def build_variant(name: str, val_rows: list[dict]) -> dict:
@@ -167,7 +170,8 @@ def build_variant(name: str, val_rows: list[dict]) -> dict:
         _assert_form_module_available(name)
         tuned = tune_params(val_rows)
         return {"name": name, "params": tuned.to_dict(),
-                "form_channels": dict(_DEFAULT_FORM_CHANNELS), "calibrator": None}
+                "form_channels": _tuned_form_channels(val_rows, tuned),
+                "calibrator": None}
 
     if name == "v0.2+cal":
         tuned = tune_params(val_rows)
@@ -178,7 +182,8 @@ def build_variant(name: str, val_rows: list[dict]) -> dict:
         _assert_form_module_available(name)
         tuned = tune_params(val_rows)
         return {"name": name, "params": tuned.to_dict(),
-                "form_channels": dict(_DEFAULT_FORM_CHANNELS), "calibrator": "fit_on_validation"}
+                "form_channels": _tuned_form_channels(val_rows, tuned),
+                "calibrator": "fit_on_validation"}
 
     raise ValueError(f"unknown variant {name!r}")
 
