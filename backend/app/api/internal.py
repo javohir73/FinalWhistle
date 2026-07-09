@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.cache import cache
 from app.config import settings
 from app.db import get_db
+from app.model_meta import current_model_version
 
 router = APIRouter(prefix="/api/internal", tags=["internal"])
 
@@ -52,7 +53,7 @@ def recompute(
     from pipeline.learning_loop import run_tracked_post_results_chain
 
     summary = run_tracked_post_results_chain(
-        db, settings.model_version, trigger="recompute", n_sims=5000, tournament_sims=2000
+        db, current_model_version(), trigger="recompute", n_sims=5000, tournament_sims=2000
     )
     cache.clear()
     return {"status": "ok", "recomputed": summary}

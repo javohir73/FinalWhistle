@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
 from app.main import app
+from ml.models.params import load_params
 
 client = TestClient(app)
 
@@ -17,6 +18,17 @@ def test_health_returns_200_and_payload():
     assert body["status"] == "ok"
     assert body["app"] == "FinalWhistle"
     assert "model_version" in body
+
+
+def test_health_model_version_matches_load_params():
+    """Health must report whatever ml/models/model_params.json actually says
+    (via app.model_meta.current_model_version()), not the app/config.py
+    settings default or a stale env pin — regression test for the v0.1/v0.4/
+    v0.5 label-drift fix. Asserted against load_params() itself (not a
+    hardcoded string) so a future version bump can't silently break this."""
+    res = client.get("/api/health")
+    assert res.status_code == 200
+    assert res.json()["model_version"] == load_params().version
 
 
 def _client_with_db():

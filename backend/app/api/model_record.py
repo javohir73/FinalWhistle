@@ -14,8 +14,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.cache import cache
-from app.config import settings
 from app.db import get_db
+from app.model_meta import current_model_version
 from app.models import Match, Prediction, PredictionResult, TeamTournamentState
 
 router = APIRouter(prefix="/api/model", tags=["model"])
@@ -111,7 +111,7 @@ def model_record(db: Session = Depends(get_db)):
             "best_calls": [],
             "biggest_misses": [],
             "last_updated": None,
-            "model_version": settings.model_version,
+            "model_version": current_model_version(),
             "disclaimer": "For analytics and entertainment only. Not betting advice.",
         }
         cache.set("model:record", out)
@@ -186,7 +186,7 @@ def model_record(db: Session = Depends(get_db)):
         "best_calls": [_entry(r, p, m) for r, p, m in best],
         "biggest_misses": [_entry(r, p, m) for r, p, m in misses],
         "last_updated": last_updated.isoformat() if last_updated else None,
-        "model_version": settings.model_version,
+        "model_version": current_model_version(),
         "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }
     cache.set("model:record", out)

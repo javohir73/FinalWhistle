@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 
 from app.cache import cache
 from app.config import settings
+from app.model_meta import current_model_version
 from app.models import Match
 
 log = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ def maybe_run_post_results_chain(db: Session, summary: dict, trigger: str = "liv
 
             chain = run_tracked_post_results_chain(
                 db,
-                settings.model_version,
+                current_model_version(),
                 trigger=trigger,
                 n_sims=settings.chain_n_sims,
                 tournament_sims=settings.chain_tournament_sims,

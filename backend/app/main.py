@@ -23,6 +23,7 @@ from app.config import settings
 from app.cache import cache
 from app.db import get_db
 from app.live_refresh import maybe_refresh_live
+from app.model_meta import current_model_version
 
 # Error tracking — only active when SENTRY_DSN is set (safe no-op otherwise).
 if settings.sentry_dsn:
@@ -34,7 +35,7 @@ if settings.sentry_dsn:
         traces_sample_rate=0.0,  # errors only; no perf tracing on the free tier
         send_default_pii=False,
     )
-    sentry_sdk.set_tag("model_version", settings.model_version)
+    sentry_sdk.set_tag("model_version", current_model_version())
 
 app = FastAPI(title=settings.app_name)
 
@@ -136,7 +137,7 @@ def health(db: Session = Depends(get_db)) -> dict:
     out = {
         "status": "ok",
         "app": settings.app_name,
-        "model_version": settings.model_version,
+        "model_version": current_model_version(),
         "live_updates": "ready" if settings.live_updates_active else "inactive",
         "email": settings.email_status,
     }

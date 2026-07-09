@@ -14,6 +14,7 @@ from app.cache import cache
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
+from app.model_meta import current_model_version
 from app.models import Match
 
 
@@ -131,7 +132,7 @@ def test_final_whistle_triggers_post_results_chain(monkeypatch):
 
     summary = live_refresh.maybe_refresh_live(session_factory=factory)
 
-    assert chain_calls == [settings.model_version]
+    assert chain_calls == [current_model_version()]
     assert summary["post_results"] == {"learning": {"evaluated_new": 1}}
 
 
