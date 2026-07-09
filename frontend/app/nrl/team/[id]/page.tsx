@@ -49,7 +49,7 @@ export async function generateMetadata({
     .join(", ");
   const description =
     `${team.name} in the ${season} NRL season` +
-    `${standing ? ` — ${standing}` : ""}. Form, results and AI match predictions.`;
+    `${standing ? ` — ${standing}` : ""}. Form, results and predictions from the FinalWhistle ML model.`;
   return {
     title, description,
     alternates: { canonical: `/nrl/team/${id}` },
@@ -198,7 +198,7 @@ export default async function NrlTeamPage({
       {model && (
         <section className="glass rounded-2xl p-6">
           <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-lime-deep">
-            The AI on the {team.name}
+            The ML model on the {team.name}
           </span>
           <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
             The model has called {model.called} of {model.graded} graded{" "}
@@ -336,9 +336,9 @@ function ResultRow({ result: r, season }: { result: NrlTeamResult; season: numbe
       {r.model_called != null && (
         <span
           className={`text-xs font-semibold ${r.model_called ? "text-lime-deep" : "text-loss"}`}
-          title={r.model_called ? "The AI called this one" : "The AI missed this one"}
+          title={r.model_called ? "The ML model called this one" : "The ML model missed this one"}
         >
-          <span aria-hidden>{r.model_called ? "✓" : "✕"}</span> AI
+          <span aria-hidden>{r.model_called ? "✓" : "✕"}</span> ML model
         </span>
       )}
       <span className="font-display text-base font-extrabold tabular-nums">

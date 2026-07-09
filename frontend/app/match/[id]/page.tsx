@@ -34,7 +34,7 @@ export async function generateMetadata({
   const p = await getMatchServer(id);
   if (!p) return { title: `Match — ${APP_NAME}` };
   const title = `${p.teams.home} vs ${p.teams.away} — prediction | ${APP_NAME}`;
-  const description = `AI prediction for ${p.teams.home} vs ${p.teams.away}: ${p.teams.home} ${pct(
+  const description = `ML model prediction for ${p.teams.home} vs ${p.teams.away}: ${p.teams.home} ${pct(
     p.probabilities.home_win,
   )}, draw ${pct(p.probabilities.draw)}, ${p.teams.away} ${pct(
     p.probabilities.away_win,
@@ -230,7 +230,7 @@ function PredictionPending({ summary }: { summary: MatchSummary }) {
 
       {/* Prediction-pending note */}
       <section className="glass rounded-2xl p-6 text-center">
-        <h2 className="font-display text-base font-bold text-foreground">AI prediction on the way</h2>
+        <h2 className="font-display text-base font-bold text-foreground">ML model prediction on the way</h2>
         <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
           The model generates this match&apos;s prediction shortly after both teams are
           confirmed. Check back soon for the full breakdown.

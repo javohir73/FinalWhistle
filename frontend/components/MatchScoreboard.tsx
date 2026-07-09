@@ -182,7 +182,7 @@ export function MatchScoreboard({
       {/* ===== The AI's call ===== */}
       <section className="glass mt-5 rounded-2xl p-6 text-center">
         <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
-          The AI&apos;s call
+          The FinalWhistle ML model&apos;s call
         </span>
         <p className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-[25px]">
           {/* Only say "X to win" when the most-likely scoreline actually has a

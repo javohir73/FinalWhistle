@@ -86,7 +86,7 @@ export function AICalculationReveal({
       className="mx-auto flex max-w-lg flex-col items-center py-16 text-center sm:py-24"
       role="status"
       aria-live="polite"
-      aria-label="Preparing your AI forecast"
+      aria-label="Preparing your ML model forecast"
       onClick={finish}
     >
       {/* ===== Thinking orb ===== */}
@@ -169,7 +169,7 @@ export function AICalculationReveal({
       </div>
 
       <h2 className="mt-6 font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-        {ready ? "Prediction ready" : "Preparing your AI forecast"}
+        {ready ? "Prediction ready" : "Preparing your ML model forecast"}
       </h2>
       <p className="mt-2 h-6 text-muted" aria-hidden>
         {ready ? `${team}’s outlook is ready.` : STAGES[stageIdx]}

@@ -243,7 +243,7 @@ function HomeDashboard({
       {/* ===== AI record so far (real, verified track record) ===== */}
       {record && record.evaluated_matches > 0 && (
         <p className="mt-8 text-center text-sm text-muted">
-          AI record so far: {record.winners_correct}/{record.evaluated_matches} winners
+          ML model record so far: {record.winners_correct}/{record.evaluated_matches} winners
           {" · "}
           {record.exact_score_hits} exact score{record.exact_score_hits === 1 ? "" : "s"}
           {" · "}
@@ -344,7 +344,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
         </div>
         <div className="shrink-0 text-center">
           <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">
-            {showActual ? (live ? "Live" : "Final") : "AI predicts"}
+            {showActual ? (live ? "Live" : "Final") : "ML model predicts"}
           </p>
           <p className="mt-0.5 font-display text-3xl font-extrabold tabular-nums tracking-tight">
             {showActual ? formatScore(match.score_home, match.score_away) : (predScore ?? "—")}
@@ -389,7 +389,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
               <path d="M13 2 4.5 13H11l-1 9 9.5-12H13l0-8Z" strokeLinejoin="round" />
             </svg>
             <span className="text-[13px] font-medium text-foreground">
-              {live ? "In play now." : call ? `${call.label}.` : "AI prediction ready."}{" "}
+              {live ? "In play now." : call ? `${call.label}.` : "ML model prediction ready."}{" "}
               <span className="font-semibold text-lime-deep">See why →</span>
             </span>
           </>

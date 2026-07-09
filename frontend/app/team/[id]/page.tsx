@@ -125,7 +125,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       {teamOdds && (
         <section className="glass rounded-2xl p-6">
           <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-lime-deep">
-            AI outlook
+            ML model outlook
           </span>
           <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
             {outlookSentence(teamOdds.make_knockout, teamOdds.reach_final, teamOdds.win_title)}

@@ -127,7 +127,7 @@ export function MatchCard({
         {predicted_score && (
           <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
             <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
-              AI
+              ML model
             </span>
             {formatScore(predicted_score.home, predicted_score.away)}
           </span>

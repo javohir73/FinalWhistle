@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: `${APP_NAME} — FIFA World Cup 2026 Predictions`,
   description:
-    "Explainable AI predictions for the FIFA World Cup 2026. For analytics and entertainment only.",
+    "Explainable predictions for the FIFA World Cup 2026 from FinalWhistle's in-house ML model. For analytics and entertainment only.",
   applicationName: APP_NAME,
   twitter: { card: "summary_large_image" },
   appleWebApp: {

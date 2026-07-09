@@ -73,7 +73,7 @@ function FixtureRow({ match, tz }: { match: MatchSummary; tz: string }) {
         </span>
       ) : predicted_score ? (
         <span className="inline-flex shrink-0 items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
-          <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">AI</span>
+          <span className="mr-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted">ML model</span>
           {formatScore(predicted_score.home, predicted_score.away)}
         </span>
       ) : null}
