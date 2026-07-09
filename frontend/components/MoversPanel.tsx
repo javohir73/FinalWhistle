@@ -37,9 +37,19 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    let active = true;
+    setMovers(null);
+    setFailed(false);
     getMovers(sport)
-      .then((res) => setMovers(res.movers))
-      .catch(() => setFailed(true));
+      .then((res) => {
+        if (active) setMovers(res.movers);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
   }, [sport]);
 
   if (failed || (movers !== null && movers.length === 0)) return null;
