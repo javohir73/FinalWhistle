@@ -17,10 +17,24 @@ describe("sport config", () => {
     expect(switchSportHref("/", "nrl")).toBe("/nrl");
   });
 
+  it("maps the leaderboard (You) page between sports so context is preserved", () => {
+    expect(switchSportHref("/leaderboard", "nrl")).toBe("/nrl/leaderboard");
+    expect(switchSportHref("/nrl/leaderboard", "football")).toBe("/leaderboard");
+  });
+
   it("keeps football nav unchanged and gives NRL its five links", () => {
     expect(SPORTS.football.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Groups", "Bracket", "You"]);
     expect(SPORTS.nrl.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Ladder", "Record", "You"]);
+  });
+
+  it("gives NRL's You link its own aliased route so the pathname carries NRL context", () => {
+    const youLink = SPORTS.nrl.navLinks.find((l) => l.label === "You");
+    expect(youLink?.href).toBe("/nrl/leaderboard");
+  });
+
+  it("recognizes /nrl/leaderboard as NRL context", () => {
+    expect(sportFromPathname("/nrl/leaderboard")).toBe("nrl");
   });
 });

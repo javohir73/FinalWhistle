@@ -37,7 +37,7 @@ export const SPORTS: Record<
       { href: "/nrl/matches", label: "Matches", activePrefixes: [] },
       { href: "/nrl/ladder", label: "Ladder", activePrefixes: [] },
       { href: "/nrl/record", label: "Record", activePrefixes: [] },
-      { href: "/leaderboard", label: "You", activePrefixes: [] },
+      { href: "/nrl/leaderboard", label: "You", activePrefixes: [] },
     ],
   },
 };
@@ -47,7 +47,10 @@ export function sportFromPathname(pathname: string): SportId {
 }
 
 /** Equivalent-page mapping between sports; falls back to the sport's home. */
-const EQUIVALENTS: Array<[string, string]> = [["/matches", "/nrl/matches"]];
+const EQUIVALENTS: Array<[string, string]> = [
+  ["/matches", "/nrl/matches"],
+  ["/leaderboard", "/nrl/leaderboard"],
+];
 
 export function switchSportHref(pathname: string, target: SportId): string {
   const home = target === "nrl" ? "/nrl" : "/";
