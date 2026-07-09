@@ -44,6 +44,9 @@ const hit = (pathname: string, prefix: string) =>
  *  Matches, Groups, Bracket and You — each one tap away, no overflow sheet. */
 export function BottomNav() {
   const pathname = usePathname();
+  // /embed/[matchId] is a standalone, partner-iframeable widget — it must not
+  // carry the full site chrome.
+  if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
   const tabs = SPORTS[sportFromPathname(pathname)].navLinks;
 
   return (
