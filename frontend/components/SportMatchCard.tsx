@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ClubBadge } from "@/components/ClubBadge";
 import { ChanceChip } from "@/components/ChanceChip";
 import type { NrlMatch } from "@/lib/types";
@@ -11,12 +12,29 @@ function kickoffLabel(iso: string | null): string {
 }
 
 /** NRL fixture card: club badges + market-style chance chips + W/D/L bar.
- *  Mirrors MatchCard's anatomy; the draw segment is naturally small. */
-export function SportMatchCard({ match, eyebrow }: { match: NrlMatch; eyebrow: string }) {
+ *  Mirrors MatchCard's anatomy; the draw segment is naturally small.
+ *  With `season` and `round` the card links to the match detail page — the
+ *  detail URL needs the full (season, round, match_no) triple, so a fixture
+ *  whose round is still TBC renders as a plain card. */
+export function SportMatchCard({
+  match,
+  eyebrow,
+  season,
+  round,
+}: {
+  match: NrlMatch;
+  eyebrow: string;
+  season?: number;
+  round?: number | null;
+}) {
   const p = match.prediction;
   const finished = match.status === "finished";
-  return (
-    <div className="glass rounded-2xl p-4">
+  const href =
+    season != null && round != null
+      ? `/nrl/match/${season}/${round}/${match.match_no}`
+      : null;
+  const body = (
+    <>
       <div className="flex items-center justify-between">
         <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
           {eyebrow}
@@ -68,6 +86,14 @@ export function SportMatchCard({ match, eyebrow }: { match: NrlMatch; eyebrow: s
           </span>
         </div>
       ) : null}
-    </div>
+    </>
+  );
+
+  return href ? (
+    <Link href={href} className="card-hover glass group block rounded-2xl p-4">
+      {body}
+    </Link>
+  ) : (
+    <div className="glass rounded-2xl p-4">{body}</div>
   );
 }
