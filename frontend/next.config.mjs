@@ -1,8 +1,36 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import path from "node:path";
+
 /** @type {import('next').NextConfig} */
 const IS_PROD = process.env.NODE_ENV === "production";
 const API_ORIGIN =
   process.env.NEXT_PUBLIC_API_URL ||
   (IS_PROD ? "https://pitchprophet-api.onrender.com" : "http://localhost:8000");
+
+// Single source of truth for the model version baked into the client bundle
+// as NEXT_PUBLIC_MODEL_VERSION (read by SentryInit.tsx to tag client errors).
+// Mirrors the backend's app/model_meta.py: the live model version lives in
+// ml/models/model_params.json's "version" field, so reporting surfaces read
+// it from there instead of a hand-maintained constant that can drift (see
+// SentryInit.tsx's old "poisson-elo-v0.1" pin vs. the real v0.5).
+// This runs at `next build` / `next dev` time (not in the browser), so
+// node:fs is available. Falls back to an explicit env var, then "unknown" —
+// this must never throw, since a broken config load takes down the whole
+// build. The fallback matters for deployments that only ship the frontend/
+// directory and can't see ../ml/models/model_params.json.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function readModelVersion() {
+  try {
+    const paramsPath = path.join(__dirname, "..", "ml", "models", "model_params.json");
+    const params = JSON.parse(readFileSync(paramsPath, "utf-8"));
+    if (typeof params.version === "string" && params.version) return params.version;
+  } catch {
+    /* fall through to env var / unknown below */
+  }
+  return process.env.NEXT_PUBLIC_MODEL_VERSION || "unknown";
+}
+const MODEL_VERSION = readModelVersion();
 
 // Content-Security-Policy. 'unsafe-inline' is needed for Next's inline bootstrap
 // + styled JSX; flagcdn is the flag image host. The backend is reached through the
@@ -54,6 +82,9 @@ const embedSecurityHeaders = baseSecurityHeaders.filter(
 
 const nextConfig = {
   reactStrictMode: true,
+  env: {
+    NEXT_PUBLIC_MODEL_VERSION: MODEL_VERSION,
+  },
   eslint: {
     // Linting runs as its own CI step (`npm run lint`); don't re-run it during
     // `next build` so build failures and lint failures stay separate concerns.
