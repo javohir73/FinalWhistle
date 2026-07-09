@@ -1,0 +1,29 @@
+# Hourly prediction-market odds snapshot (Polymarket + Kalshi) for the intel
+# panel. Read-only public APIs — no keys. Migrations are refresh.yml's job;
+# this workflow assumes the schema is already at head. Reduce the cadence to
+# every 2-3 hours after the WC final (2026-07-19) when only thin NRL
+# coverage remains.
+name: market-intel
+
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Snapshot market odds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.market_intel
