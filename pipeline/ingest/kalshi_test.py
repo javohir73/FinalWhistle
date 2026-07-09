@@ -78,3 +78,51 @@ def test_mid_from_orderbook_empty_side_returns_none():
     assert _mid_from_orderbook(
         {"orderbook_fp": {"yes_dollars": [], "no_dollars": [["0.5", "1"]]}}) is None
     assert _mid_from_orderbook({}) is None
+
+
+def test_colon_title_form_still_parses():
+    # Older ": Winner?" style must keep working alongside the live no-colon form.
+    market = {
+        "ticker": "KXWCGAME-OLDSTYLE-FRA", "event_ticker": "KXWCGAME-OLDSTYLE",
+        "title": "France vs Morocco: Winner?", "yes_sub_title": "Reg Time: France",
+        "status": "active", "yes_bid": 61, "yes_ask": 65, "last_price": 63,
+    }
+    rows = parse_markets([market], kind="match")
+    assert len(rows) == 1
+    assert rows[0]["outcome"] == "home"
+    assert rows[0]["home_name"] == "France" and rows[0]["away_name"] == "Morocco"
+
+
+def test_mid_from_orderbook_unsorted_levels_and_range_guard():
+    # best bid is the max price on each side, not the last listed level
+    data = {"orderbook_fp": {
+        "yes_dollars": [["0.6100", "10"], ["0.0100", "99"]],
+        "no_dollars": [["0.3800", "10"], ["0.0100", "99"]],
+    }}
+    assert _mid_from_orderbook(data) == pytest.approx(0.615)
+    # degenerate book computing to mid == 0 fails the 0 < mid < 1 guard
+    degenerate = {"orderbook_fp": {
+        "yes_dollars": [["0.0000", "1"]], "no_dollars": [["1.0000", "1"]],
+    }}
+    assert _mid_from_orderbook(degenerate) is None
+
+
+def test_orderbook_mid_swallows_all_failures(monkeypatch):
+    from pipeline.ingest import kalshi
+
+    def network_down(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(kalshi.requests, "get", network_down)
+    assert kalshi.orderbook_mid("ANY") is None
+
+    class MalformedResp:
+        def raise_for_status(self):
+            pass
+
+        def json(self):
+            return {"orderbook_fp": {"yes_dollars": [["not-a-price", "1"]],
+                                     "no_dollars": [["0.5", "1"]]}}
+
+    monkeypatch.setattr(kalshi.requests, "get", lambda *a, **k: MalformedResp())
+    assert kalshi.orderbook_mid("ANY") is None
