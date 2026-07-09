@@ -8,7 +8,7 @@ import { TeamSearch } from "@/components/TeamSearch";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
-import { MoversPanel } from "@/components/MoversPanel";
+import { IntelPanel } from "@/components/IntelPanel";
 import { Sparkline } from "@/components/Sparkline";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
@@ -207,7 +207,7 @@ function HomeDashboard({
         <TeamSearch teams={teams} />
       </div>
 
-      <MoversPanel sport="football" />
+      <IntelPanel sport="football" />
 
       {/* ===== Match of the day ===== */}
       {matchOfDay && (

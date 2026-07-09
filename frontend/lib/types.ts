@@ -402,6 +402,50 @@ export interface MoversResponse {
   disclaimer: string;
 }
 
+/** One source's implied probabilities for a match, from GET /api/intel. */
+export interface IntelMarket {
+  source: string;
+  home: number;
+  draw: number | null;
+  away: number;
+  fetched_at: string;
+}
+
+export interface IntelTeamRef {
+  id: number;
+  name: string;
+}
+
+export interface IntelMatch {
+  match_id: number;
+  kickoff_utc: string;
+  home: IntelTeamRef | null;
+  away: IntelTeamRef | null;
+  model: { home: number; draw: number | null; away: number } | null;
+  market: IntelMarket[];
+  disagreement: number | null;
+}
+
+export interface IntelStoryline {
+  market_type: "match_winner" | "title_winner";
+  source: string;
+  outcome: string;
+  match_id: number | null;
+  team: IntelTeamRef | null;
+  prob_from: number;
+  prob_to: number;
+  window_hours: number;
+}
+
+export interface IntelResponse {
+  sport: "football" | "nrl";
+  has_data: boolean;
+  updated_at: string | null;
+  matches: IntelMatch[];
+  storylines: IntelStoryline[];
+  disclaimer: string;
+}
+
 /** One prediction snapshot from GET /api/matches/{id}/prob-history. */
 export interface ProbHistoryPoint {
   date: string | null;
