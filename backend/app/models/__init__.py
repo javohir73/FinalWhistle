@@ -16,6 +16,7 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
     UniqueConstraint,
@@ -792,6 +793,40 @@ class ProbabilitySnapshot(Base):
     )
 
 
+class MarketOddsSnapshot(Base):
+    """Hourly prediction-market odds (Polymarket / Kalshi) for the intel panel.
+
+    Sport-scoped like ProbabilitySnapshot: match_id is matches.id for football
+    and sport_matches.id for NRL; team_id likewise teams.id / sport_teams.id.
+    Plain Integers (no FKs) because the referenced table depends on `sport`.
+    Only ACTIVE (unresolved) exchange markets are ingested, so resolved or
+    eliminated outcomes never appear here (spec 2026-07-10).
+    """
+
+    __tablename__ = "market_odds_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "external_id", "outcome", "fetched_at",
+            name="uq_market_odds_key",
+        ),
+        Index("ix_market_odds_sport_fetched", "sport", "fetched_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(10))
+    source: Mapped[str] = mapped_column(String(20))  # polymarket / kalshi
+    market_type: Mapped[str] = mapped_column(String(20))  # match_winner / title_winner
+    match_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    team_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    outcome: Mapped[str] = mapped_column(String(10))  # home / draw / away / win
+    implied_prob: Mapped[float] = mapped_column(Float)  # vig-normalized mid-price
+    external_id: Mapped[str] = mapped_column(String(120))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -823,4 +858,5 @@ __all__ = [
     "SportPrediction",
     "SportPredictionResult",
     "ProbabilitySnapshot",
+    "MarketOddsSnapshot",
 ]
