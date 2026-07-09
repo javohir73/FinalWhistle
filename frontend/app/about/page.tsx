@@ -46,7 +46,7 @@ export default function AboutPage() {
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">How accurate is it?</h2>
         <p className="mt-2 text-sm leading-relaxed text-foreground/90">
-          Back-tested against the 2018 and 2022 World Cups, the model is well-calibrated
+          Back-tested against the 2014, 2018 and 2022 World Cups, the model is well-calibrated
           — a stated 60% chance happens about 60% of the time — and beats naive baselines
           on log-loss. It is honest about uncertainty: 2022 was an upset-heavy tournament,
           and no model foresees those reliably.

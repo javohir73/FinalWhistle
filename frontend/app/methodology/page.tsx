@@ -239,18 +239,34 @@ export default async function MethodologyPage() {
         </p>
       </section>
 
-      {/* Model changelog (FR-6.1): one line per shipped model change. */}
+      {/* Model changelog (FR-6.1): one line per shipped model change, newest
+          first. poisson-elo-v0.5 is the version actually loaded from
+          ml/models/model_params.json and served by generate_predictions —
+          the code-verified current version (see ml/models/knockout.py and
+          docs/MODEL-V2-DESIGN.md). */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">Model changelog</h2>
         <ul className="mt-3 space-y-1.5 text-sm text-muted">
           <li>
+            <span className="text-foreground/80">poisson-elo-v0.5</span>{" "}
+            <span className="rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep ring-1 ring-win/30">current</span>{" "}
+            — served engine since July 8, 2026: adds extra-time and
+            penalty-shootout resolution for knockout ties (30-minute Dixon&ndash;Coles
+            extra time, then a capped Elo-logistic penalty model), needed now
+            the bracket has reached the knockout rounds. A suspension /
+            rest-days / keeper-availability signal pack shipped alongside it,
+            shadow-only — it doesn&apos;t move the published number until it
+            clears the same walk-forward gate as everything else.
+          </li>
+          <li>
             <span className="text-foreground/80">poisson-elo-v0.4</span> — served
-            engine since July 8, 2026: v0.2 plus a segmented probability
-            calibrator (one correction per rating-gap bracket, fitted only on
-            matches before this World Cup). The one candidate from the July audit
-            that improved held-out log loss on every test; a redesigned recent-form
-            signal from the same audit failed its gate and ships dark until the
-            evidence is consistent.
+            engine from July 8, 2026 until superseded by v0.5 the same day:
+            v0.2 plus a segmented probability calibrator (one correction per
+            rating-gap bracket, fitted only on matches before this World Cup).
+            The one candidate from the July audit that improved held-out log
+            loss on every test; a redesigned recent-form signal from the same
+            audit failed its gate and ships dark until the evidence is
+            consistent.
           </li>
           <li>
             <span className="text-foreground/80">poisson-elo-v0.2</span> — served
@@ -260,6 +276,20 @@ export default async function MethodologyPage() {
             actually predicts). Every proposed upgrade is validated walk-forward
             and ships only if it beats the served model with statistical
             confidence.
+          </li>
+          <li>
+            <span className="text-foreground/80">v0.2 study (June 2026, not
+            shipped as-is)</span> — walk-forward tested temperature
+            calibration, a Dixon&ndash;Coles draw correction, re-tuned goal
+            parameters, and time-decayed Elo. Plain temperature fitted &asymp;
+            1.0 (already calibrated) and most re-tuning landed back on v0.1
+            values; the parts that later earned their keep shipped as v0.2.
+          </li>
+          <li>
+            <span className="text-foreground/80">poisson-elo-v0.1</span> —
+            May 2026: original hand-set Elo &rarr; Poisson baseline
+            (uncalibrated): the fallback engine and the starting point every
+            later tune was measured against.
           </li>
         </ul>
       </section>
@@ -298,36 +328,6 @@ export default async function MethodologyPage() {
           More on the step-by-step approach on the{" "}
           <Link href="/about" className="text-lime-deep underline-offset-2 hover:underline">How it works</Link> page.
         </p>
-      </section>
-
-      {/* Model changelog */}
-      <section className="glass rounded-2xl p-6">
-        <h2 className="font-display text-lg font-bold">Model changelog</h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          Every change to the engine, dated, with whether it actually improved the
-          back-test — so you can see what&apos;s behind the numbers.
-        </p>
-        <ol className="mt-4 space-y-4">
-          {data.changelog.map((c) => (
-            <li key={c.version} className="border-l-2 border-border pl-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="font-display text-sm font-bold">{c.version}</span>
-                <span
-                  className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                    c.status === "current"
-                      ? "bg-win/15 text-lime-deep ring-1 ring-win/30"
-                      : "chip text-muted"
-                  }`}
-                >
-                  {c.status}
-                </span>
-                <span className="text-xs text-muted">{c.date}</span>
-              </div>
-              <p className="mt-1.5 text-sm text-foreground/90">{c.summary}</p>
-              <p className="mt-1 text-xs leading-relaxed text-muted">{c.metrics}</p>
-            </li>
-          ))}
-        </ol>
       </section>
 
       {/* Limitations */}
