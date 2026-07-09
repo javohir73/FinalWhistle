@@ -432,6 +432,8 @@ export interface NrlMatch {
   venue: string | null;
   home: string | null;
   away: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
   score_home: number | null;
   score_away: number | null;
   status: string;
@@ -460,6 +462,51 @@ export interface LadderRow {
 export interface LadderResponse {
   season: number;
   rows: LadderRow[];
+  disclaimer: string;
+}
+/** /api/nrl/teams/{id} — club profile. */
+export interface NrlTeamMatchRef {
+  round: number | null;
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  opponent: string | null;
+  opponent_id: number | null;
+  was_home: boolean;
+}
+export interface NrlTeamResult extends NrlTeamMatchRef {
+  score_for: number;
+  score_against: number;
+  result: "W" | "D" | "L";
+  model_called: boolean | null;
+}
+export interface NrlTeamFixture extends NrlTeamMatchRef {
+  win_prob: number | null;
+}
+export interface NrlTeamSummary {
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points_for: number;
+  points_against: number;
+  avg_for: number;
+  avg_against: number;
+  avg_margin: number;
+  home: { wins: number; draws: number; losses: number };
+  away: { wins: number; draws: number; losses: number };
+  streak: { result: "W" | "D" | "L"; length: number };
+  biggest_win: NrlTeamResult | null;
+  biggest_loss: NrlTeamResult | null;
+}
+export interface NrlTeamProfile {
+  season: number;
+  team: { id: number; name: string; elo_rating: number | null };
+  ladder: LadderRow | null;
+  summary: NrlTeamSummary | null;
+  results: NrlTeamResult[];
+  upcoming: NrlTeamFixture[];
+  model: { graded: number; called: number; accuracy: number } | null;
   disclaimer: string;
 }
 export interface NrlRecord {

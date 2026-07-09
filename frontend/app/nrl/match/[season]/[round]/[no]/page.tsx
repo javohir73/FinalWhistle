@@ -127,11 +127,11 @@ export default async function NrlMatchDetailPage({
           </p>
         )}
         <div className="flex items-center justify-center gap-6">
-          <TeamCol name={home} />
+          <TeamCol name={home} teamId={match.home_team_id ?? null} />
           <span className="font-display text-2xl font-extrabold tabular-nums text-muted">
             {finished && hasScore ? `${match.score_home}–${match.score_away}` : "vs"}
           </span>
-          <TeamCol name={away} />
+          <TeamCol name={away} teamId={match.away_team_id ?? null} />
         </div>
 
         {p && (
@@ -218,12 +218,24 @@ export default async function NrlMatchDetailPage({
   );
 }
 
-function TeamCol({ name }: { name: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 text-center">
+/** Badge + name column; links to the club profile when the id is known
+ *  (an old cached payload may predate team ids — degrade to plain text). */
+function TeamCol({ name, teamId }: { name: string; teamId: number | null }) {
+  const inner = (
+    <>
       <ClubBadge name={name} size={48} />
       <span className="font-display text-sm font-bold">{name}</span>
-    </div>
+    </>
+  );
+  return teamId != null ? (
+    <Link
+      href={`/nrl/team/${teamId}`}
+      className="flex flex-col items-center gap-2 text-center underline-offset-2 hover:underline"
+    >
+      {inner}
+    </Link>
+  ) : (
+    <div className="flex flex-col items-center gap-2 text-center">{inner}</div>
   );
 }
 
