@@ -6,6 +6,7 @@ import { APP_NAME, SITE_URL } from "@/lib/constants";
 import { Wordmark } from "@/components/Logo";
 import { DisclaimerBanner } from "@/components/DisclaimerBanner";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { HideOnEmbed } from "@/components/HideOnEmbed";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallAppPrompt } from "@/components/InstallAppPrompt";
@@ -73,7 +74,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             Skip to content
           </a>
           <div className="app-top sticky top-0 z-50 bg-background">
-            <DisclaimerBanner />
+            <HideOnEmbed>
+              <DisclaimerBanner />
+            </HideOnEmbed>
             <SiteNav />
             <OfflineBanner />
           </div>
@@ -85,24 +88,26 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           {/* Bottom padding clears the fixed mobile tab bar + the iPhone home
               indicator (safe-area inset is 0 on desktop/non-notched devices). */}
-          <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
-            <Wordmark className="font-bold" />{" "}
-            · Explainable World Cup 2026 predictions · For analytics and
-            entertainment only. Not betting advice.
-            <span className="mt-1.5 block">
-              <Link href="/methodology" className="underline-offset-2 hover:text-foreground hover:underline">
-                Methodology
-              </Link>{" "}
-              ·{" "}
-              <Link href="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
-                Privacy
-              </Link>{" "}
-              ·{" "}
-              <Link href="/terms" className="underline-offset-2 hover:text-foreground hover:underline">
-                Terms &amp; support
-              </Link>
-            </span>
-          </footer>
+          <HideOnEmbed>
+            <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
+              <Wordmark className="font-bold" />{" "}
+              · Explainable World Cup 2026 predictions · For analytics and
+              entertainment only. Not betting advice.
+              <span className="mt-1.5 block">
+                <Link href="/methodology" className="underline-offset-2 hover:text-foreground hover:underline">
+                  Methodology
+                </Link>{" "}
+                ·{" "}
+                <Link href="/privacy" className="underline-offset-2 hover:text-foreground hover:underline">
+                  Privacy
+                </Link>{" "}
+                ·{" "}
+                <Link href="/terms" className="underline-offset-2 hover:text-foreground hover:underline">
+                  Terms &amp; support
+                </Link>
+              </span>
+            </footer>
+          </HideOnEmbed>
           <BottomNav />
           <InstallAppPrompt />
         </AuthProvider>

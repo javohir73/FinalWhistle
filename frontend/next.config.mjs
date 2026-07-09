@@ -8,21 +8,30 @@ const API_ORIGIN =
 // + styled JSX; flagcdn is the flag image host. The backend is reached through the
 // same-origin /backend-api proxy, so connect-src only needs 'self' (+ Sentry).
 // Applied in production only so dev HMR (eval + websockets) keeps working.
-const csp = [
-  "default-src 'self'",
-  "base-uri 'self'",
-  "object-src 'none'",
-  "frame-ancestors 'none'",
-  "form-action 'self'",
-  "img-src 'self' data: https://flagcdn.com",
-  "script-src 'self' 'unsafe-inline'",
-  "style-src 'self' 'unsafe-inline'",
-  "font-src 'self' data:",
-  "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
-  "frame-src 'self'",
-  "manifest-src 'self'",
-  "worker-src 'self' blob:",
-].join("; ");
+//
+// `frame-ancestors` differs between the two CSPs below: everywhere except
+// /embed it's 'none' (nothing may iframe us); on /embed it's '*' (see
+// buildCsp / the /embed headers rule further down) since /embed/[matchId] is
+// the partner-embeddable prediction card and must be iframeable anywhere.
+function buildCsp(frameAncestors) {
+  return [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    `frame-ancestors ${frameAncestors}`,
+    "form-action 'self'",
+    "img-src 'self' data: https://flagcdn.com",
+    "script-src 'self' 'unsafe-inline'",
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "connect-src 'self' https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
+    "frame-src 'self'",
+    "manifest-src 'self'",
+    "worker-src 'self' blob:",
+  ].join("; ");
+}
+const csp = buildCsp("'none'");
+const embedCsp = buildCsp("*");
 
 const baseSecurityHeaders = [
   { key: "X-Frame-Options", value: "DENY" },
@@ -34,6 +43,15 @@ const baseSecurityHeaders = [
   },
 ];
 
+// Same as baseSecurityHeaders except X-Frame-Options is dropped entirely —
+// /embed/[matchId] is meant to be iframed by partner sites, so DENY (or any
+// ALLOW-FROM value, which modern browsers ignore anyway) would defeat the
+// feature. frame-ancestors * (in embedCsp above) is the modern replacement
+// that actually permits arbitrary embedding.
+const embedSecurityHeaders = baseSecurityHeaders.filter(
+  (h) => h.key !== "X-Frame-Options",
+);
+
 const nextConfig = {
   reactStrictMode: true,
   eslint: {
@@ -43,10 +61,24 @@ const nextConfig = {
   },
   async headers() {
     const headers = [...baseSecurityHeaders];
+    const embedHeaders = [...embedSecurityHeaders];
     if (process.env.NODE_ENV === "production") {
       headers.unshift({ key: "Content-Security-Policy", value: csp });
+      embedHeaders.unshift({ key: "Content-Security-Policy", value: embedCsp });
     }
-    return [{ source: "/:path*", headers }];
+    return [
+      // Next's headers() rules stack (a later matching rule can only ADD
+      // headers, never unset one set by an earlier rule), so the embed
+      // exception can't be a second rule layered on top of a catch-all — the
+      // catch-all itself must exclude /embed. This regex source matches every
+      // path except "/embed" and "/embed/...". Verified against Next's
+      // bundled path-to-regexp: '/', '/matches' etc. match; '/embed',
+      // '/embed/97' don't; '/embedded-thing' still matches (correctly keeps
+      // the strict headers) since the lookahead requires "embed" be followed
+      // by "/" or end-of-string.
+      { source: "/((?!embed(?:/|$)).*)", headers },
+      { source: "/embed/:path*", headers: embedHeaders },
+    ];
   },
   async redirects() {
     return [
