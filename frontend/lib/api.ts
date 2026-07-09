@@ -13,6 +13,7 @@ import type {
   MoversResponse,
   NrlMatchesResponse,
   NrlRecord,
+  NrlTeamProfile,
   Prediction,
   ProbHistory,
   Team,
@@ -142,5 +143,7 @@ export const getNrlRoundServer = (season: number, round: number) =>
   getServer<NrlMatchesResponse>(`/api/nrl/matches?season=${season}&round=${round}`, 300);
 export const getNrlLadderServer = () =>
   getServer<LadderResponse>("/api/nrl/ladder", 300);
+export const getNrlTeamServer = (id: number | string) =>
+  getServer<NrlTeamProfile>(`/api/nrl/teams/${id}`, 300);
 export const getNrlRecordServer = () =>
   getServer<NrlRecord>("/api/nrl/model/record", 300);
