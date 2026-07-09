@@ -20,7 +20,7 @@ export function SentryInit() {
           environment: process.env.NEXT_PUBLIC_ENV ?? "production",
           tracesSampleRate: 0, // errors only
         });
-        Sentry.setTag("model_version", process.env.NEXT_PUBLIC_MODEL_VERSION ?? "poisson-elo-v0.1");
+        Sentry.setTag("model_version", process.env.NEXT_PUBLIC_MODEL_VERSION ?? "unknown");
       })
       .catch(() => {
         /* never let monitoring break the app */
