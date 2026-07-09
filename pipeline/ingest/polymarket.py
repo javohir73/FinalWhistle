@@ -21,7 +21,7 @@ import re
 
 import requests
 
-from pipeline.ingest.market_names import normalize
+from pipeline.ingest.market_names import normalize, normalize_text
 
 log = logging.getLogger(__name__)
 
@@ -84,7 +84,11 @@ def _parse_match_event(event: dict, home: str, away: str) -> list[dict]:
         price = _yes_price(market)
         if price is None:
             continue
-        question = normalize(market.get("question") or "")
+        # normalize_text (not normalize): the question is free text the team
+        # name sits inside, not a lone string, so alias expansion has to run
+        # on the whole question too — else aliased teams (Korea, USA, Iran)
+        # never match here even though normalize(home)/normalize(away) do.
+        question = normalize_text(market.get("question") or "")
         if "draw" in question or "tie" in question:
             outcome, team = "draw", None
         elif normalize(home) and normalize(home) in question:

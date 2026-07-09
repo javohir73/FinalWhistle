@@ -31,6 +31,37 @@
     ]
   },
   {
+    "slug": "kor-bra-2026-07-12",
+    "title": "Korea vs. Brazil",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-korea-win-kor-bra",
+        "question": "Will Korea win?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.12\", \"0.88\"]"
+      },
+      {
+        "slug": "will-brazil-win-kor-bra",
+        "question": "Will Brazil win?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.63\", \"0.37\"]"
+      },
+      {
+        "slug": "kor-bra-draw",
+        "question": "Will the match end in a draw?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.25\", \"0.75\"]"
+      }
+    ]
+  },
+  {
     "slug": "2026-fifa-world-cup-winner",
     "title": "2026 FIFA World Cup Winner",
     "closed": false,

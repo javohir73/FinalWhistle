@@ -29,6 +29,24 @@ export function minutesAgo(iso: string, now: Date = new Date()): string {
   return mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
 }
 
+const SOURCE_LABELS: Record<string, string> = {
+  polymarket: "Polymarket",
+  kalshi: "Kalshi",
+};
+
+/** "Polymarket" / "Polymarket · Kalshi" — built from the sources actually
+ *  present in this response, not a fixed list. A source that contributed no
+ *  rows this run (e.g. a dead Kalshi series) must not be claimed here. */
+export function sourcesFooter(intel: IntelResponse): string {
+  const sources = new Set<string>();
+  intel.matches.forEach((m) => m.market.forEach((mk) => sources.add(mk.source)));
+  intel.storylines.forEach((s) => sources.add(s.source));
+  return Array.from(sources)
+    .sort()
+    .map((s) => SOURCE_LABELS[s] ?? s)
+    .join(" · ");
+}
+
 function MatchRow({ m, sport }: { m: IntelMatch; sport: "football" | "nrl" }) {
   const market = m.market[0];
   const disagree =
@@ -126,7 +144,7 @@ export function IntelPanel({ sport }: { sport: "football" | "nrl" }) {
           ) : null}
           {intel.updated_at ? (
             <p className="mt-2 text-[11px] font-medium text-white/35">
-              via Polymarket · Kalshi · updated {minutesAgo(intel.updated_at)}
+              {sourcesFooter(intel) ? `via ${sourcesFooter(intel)} · ` : ""}updated {minutesAgo(intel.updated_at)}
             </p>
           ) : null}
         </>

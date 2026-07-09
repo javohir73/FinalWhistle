@@ -12,7 +12,7 @@ def _rows():
 
 
 def test_match_event_maps_three_outcomes():
-    rows = [r for r in _rows() if r["kind"] == "match"]
+    rows = [r for r in _rows() if r["kind"] == "match" and r["group"] == "fra-mar-2026-07-11"]
     assert {r["outcome"] for r in rows} == {"home", "draw", "away"}
     by = {r["outcome"]: r for r in rows}
     assert by["home"]["team_name"] == "France" and by["home"]["price"] == 0.63
@@ -33,3 +33,15 @@ def test_title_event_one_win_row_per_active_team():
 
 def test_closed_or_inactive_markets_are_dropped():
     assert not [r for r in _rows() if r["team_name"] == "Mexico"]
+
+
+def test_aliased_team_name_maps_against_raw_question_text():
+    """'Korea' (home) must map even though the question says 'Will Korea
+    win?' verbatim — normalize(home) alias-expands to 'korea republic' but
+    the question text doesn't unless it's alias-expanded too (regression for
+    the 'unmapped match market' drop on Korea/USA/Iran markets)."""
+    rows = [r for r in _rows() if r["group"] == "kor-bra-2026-07-12"]
+    assert {r["outcome"] for r in rows} == {"home", "draw", "away"}
+    by = {r["outcome"]: r for r in rows}
+    assert by["home"]["team_name"] == "Korea" and by["home"]["price"] == 0.12
+    assert by["away"]["team_name"] == "Brazil" and by["away"]["price"] == 0.63

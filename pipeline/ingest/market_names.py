@@ -30,12 +30,40 @@ _ALIASES = {
 }
 
 
-def normalize(name: str) -> str:
+def _strip(name: str) -> str:
     s = unicodedata.normalize("NFKD", name)
     s = "".join(c for c in s if not unicodedata.combining(c))
     s = re.sub(r"[^a-z0-9 ]", "", s.lower()).strip()
-    s = re.sub(r"\s+", " ", s)
+    return re.sub(r"\s+", " ", s)
+
+
+def normalize(name: str) -> str:
+    s = _strip(name)
     return _ALIASES.get(s, s)
+
+
+#: One alternation over every alias, longest phrase first so "south korea"
+#: matches whole before "korea" could claim just the tail of it. A single
+#: compiled pattern (not a loop of sequential re.sub calls) matters here: a
+#: loop would let a later, shorter alias re-match text an earlier alias just
+#: substituted in (e.g. "korea" re-matching inside the "korea republic" that
+#: "south korea" had already produced) and double-expand it.
+_ALIAS_PATTERN = re.compile(
+    r"\b(" + "|".join(re.escape(a) for a in sorted(_ALIASES, key=len, reverse=True)) + r")\b"
+)
+
+
+def normalize_text(text: str) -> str:
+    """Free-text variant of normalize() for market questions/titles, where
+    the team name is one substring among others rather than the whole
+    string — so the exact-match lookup in normalize() never fires. Expands
+    every known exchange alias found as a whole word/phrase within the text,
+    in one single pass, so `normalize(team) in normalize_text(question)`
+    still matches aliased spellings (e.g. home="Korea" against question
+    "Will Korea win?").
+    """
+    s = _strip(text)
+    return _ALIAS_PATTERN.sub(lambda m: _ALIASES[m.group(1)], s)
 
 
 def build_team_index(teams: list[tuple[int, str]]) -> dict[str, int]:

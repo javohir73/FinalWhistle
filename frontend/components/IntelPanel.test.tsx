@@ -1,5 +1,10 @@
 import { render, screen } from "@testing-library/react";
-import { IntelPanel, minutesAgo, storylineLabel } from "@/components/IntelPanel";
+import {
+  IntelPanel,
+  minutesAgo,
+  sourcesFooter,
+  storylineLabel,
+} from "@/components/IntelPanel";
 import type { IntelResponse } from "@/lib/types";
 
 jest.mock("@/lib/api", () => ({
@@ -49,6 +54,9 @@ describe("IntelPanel", () => {
     expect(screen.getByText(/Model 55%/)).toBeInTheDocument();
     expect(screen.getByText(/Argentina to win the Cup/)).toBeInTheDocument();
     expect(screen.getByText(/24% → 31%/)).toBeInTheDocument();
+    // Only polymarket rows are present in this fixture — the footer must not
+    // also claim Kalshi (it contributed nothing this run).
+    expect(screen.getByText(/^via Polymarket · updated/)).toBeInTheDocument();
     expect(getMovers).not.toHaveBeenCalled();
   });
 
@@ -88,5 +96,18 @@ describe("helpers", () => {
     const now = new Date("2026-07-10T15:00:00Z");
     expect(minutesAgo("2026-07-10T14:37:00Z", now)).toBe("23m ago");
     expect(minutesAgo("2026-07-10T12:00:00Z", now)).toBe("3h ago");
+  });
+
+  it("sourcesFooter names only sources that actually contributed rows", () => {
+    expect(sourcesFooter(INTEL)).toBe("Polymarket"); // fixture has no kalshi rows
+    expect(sourcesFooter({
+      ...INTEL,
+      matches: [{ ...INTEL.matches[0], market: [
+        ...INTEL.matches[0].market,
+        { source: "kalshi", home: 0.6, draw: 0.25, away: 0.15,
+          fetched_at: new Date().toISOString() },
+      ] }],
+    })).toBe("Kalshi · Polymarket");
+    expect(sourcesFooter({ ...INTEL, matches: [], storylines: [] })).toBe("");
   });
 });

@@ -40,9 +40,20 @@ def _load_polymarket(tag_slug: str) -> list[dict]:
     return polymarket.parse_events(polymarket.fetch_events(tag_slug))
 
 
+def _load_kalshi_leg(series_ticker: str, kind: str) -> list[dict]:
+    """One Kalshi series, isolated: a dead/renamed series (e.g. a title-series
+    ticker 404ing) must not take down the other leg — each series is an
+    independent HTTP call and either can be wrong without the other being."""
+    try:
+        return kalshi.parse_markets(kalshi.fetch_markets(series_ticker), kind)
+    except Exception:
+        log.exception("market intel: kalshi %s leg (%s) failed", kind, series_ticker)
+        return []
+
+
 def _load_kalshi_wc() -> list[dict]:
-    return (kalshi.parse_markets(kalshi.fetch_markets(kalshi.WC_MATCH_SERIES), "match")
-            + kalshi.parse_markets(kalshi.fetch_markets(kalshi.WC_TITLE_SERIES), "title"))
+    return (_load_kalshi_leg(kalshi.WC_MATCH_SERIES, "match")
+            + _load_kalshi_leg(kalshi.WC_TITLE_SERIES, "title"))
 
 
 CONFIGS: list[SourceConfig] = [

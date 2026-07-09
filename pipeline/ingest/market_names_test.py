@@ -1,5 +1,5 @@
 """Exchange display names must fold onto our FIFA-style team names."""
-from pipeline.ingest.market_names import build_team_index, normalize
+from pipeline.ingest.market_names import build_team_index, normalize, normalize_text
 
 
 def test_normalize_case_accents_punctuation():
@@ -18,3 +18,15 @@ def test_build_team_index():
     assert idx[normalize("USA")] == 1
     assert idx[normalize("Ivory Coast")] == 2
     assert normalize("Narnia") not in idx
+
+
+def test_normalize_text_expands_aliases_found_inside_free_text():
+    assert normalize("Korea") in normalize_text("Will Korea win?")
+    assert normalize("USA") in normalize_text("USA vs. Iran")
+    assert normalize("Iran") in normalize_text("USA vs. Iran")
+    # longest phrase wins so "south korea" doesn't leave a stray "korea":
+    assert normalize_text("Will South Korea win?") == "will korea republic win"
+
+
+def test_normalize_text_leaves_unaliased_text_alone():
+    assert normalize_text("Will France win?") == "will france win"

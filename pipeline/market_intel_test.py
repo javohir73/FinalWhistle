@@ -108,6 +108,26 @@ def test_run_idempotent_per_hour_and_prunes(monkeypatch):
     assert db.query(MarketOddsSnapshot).count() == 3  # old row pruned
 
 
+def test_kalshi_leg_failure_does_not_drop_the_other_leg(monkeypatch):
+    """A dead/renamed series ticker (e.g. WC_TITLE_SERIES 404ing) must not
+    also discard rows from the sibling series — each leg is an independent
+    HTTP call, isolated with its own try/except."""
+    def fetch(series_ticker, timeout=15.0):
+        if series_ticker == market_intel.kalshi.WC_TITLE_SERIES:
+            raise Exception("404 series not found")
+        return ["raw-match-market"]
+
+    def parse(markets, kind):
+        return [{"source": "kalshi", "external_id": "m1", "group": "g1",
+                 "kind": kind, "home_name": None, "away_name": None,
+                 "outcome": "win", "team_name": "France", "price": 0.3}]
+
+    monkeypatch.setattr(market_intel.kalshi, "fetch_markets", fetch)
+    monkeypatch.setattr(market_intel.kalshi, "parse_markets", parse)
+    rows = market_intel._load_kalshi_wc()
+    assert [r["kind"] for r in rows] == ["match"]
+
+
 def test_run_raises_only_when_all_sources_empty(monkeypatch):
     db = _session()
     _seed_football(db)
