@@ -138,6 +138,19 @@ function HomeDashboard({
 }) {
   const { tz } = useTimezone();
 
+  // Root cause of the "loads pre-scrolled" bug: the AI-forecast reveal that
+  // precedes this dashboard is a tall (~700-900px) layout whose dismiss
+  // controls (the whole section is clickable, plus an explicit "Skip" button)
+  // sit well down the page — scrolling to reach them is the normal way to
+  // interact with it. When it unmounts in place and this much-shorter
+  // dashboard swaps in, the browser doesn't reset scroll position: the same
+  // scrollY now lands past the "Following {team}" header. Reset it here
+  // rather than chase down every path that could leave the page scrolled
+  // before this mounts.
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   // The model's verified track record, for the honest footer line. Background
   // fetch — only rendered once at least one match has been scored.
   const recordState = useFetch(getModelRecord, []);

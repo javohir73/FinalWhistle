@@ -51,6 +51,19 @@ it.each([
   expect(current()).toContain(label);
 });
 
+it.each([
+  ["/nrl", "Home"],
+  ["/nrl/matches", "Matches"],
+  ["/nrl/ladder", "Ladder"],
+  ["/nrl/record", "Record"],
+  ["/nrl/leaderboard", "You"],
+])("marks exactly one NRL tab active on %s", (path, label) => {
+  renderAt(path);
+  // Regression: "/nrl" used to prefix-match every /nrl/* sub-page, so Home
+  // stayed lit alongside the true tab — exactly one tab must be active.
+  expect(current()).toEqual([label]);
+});
+
 it("uses the deep lime for the active tab on the light canvas", () => {
   renderAt("/");
   const home = screen.getByRole("link", { name: /Home/ });

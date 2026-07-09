@@ -97,6 +97,30 @@ it("lets an anonymous user choose a country and start the AI forecast", async ()
   expect(localStorage.getItem("finalwhistle:selected-country:v1")).toContain("Brazil");
 });
 
+it("resets scroll position when the dashboard swaps in after the AI reveal", async () => {
+  // Simulate the page having scrolled down to reach the reveal's "Skip"
+  // control (a real user, or a browser-automation tool bringing an
+  // off-screen element into view before clicking it, both do this) — the
+  // regression was that this leftover scrollY carried straight into the
+  // much-shorter dashboard, hiding "Following {team}" above the fold.
+  const scrollToSpy = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+  jest.useFakeTimers({ doNotFake: ["queueMicrotask"] });
+  render(<HomeExperience initialTeams={teams} />);
+
+  await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
+  fireEvent.click(screen.getByRole("option", { name: /Brazil/ }));
+  fireEvent.click(screen.getByRole("button", { name: /Predict my team/ }));
+  expect(screen.getByText("Preparing your AI forecast")).toBeInTheDocument();
+
+  // Finish the reveal (skip button also works; the timeout is simplest here).
+  fireEvent.click(screen.getByRole("button", { name: /Skip|Continue/ }));
+
+  await waitFor(() => expect(screen.getByText(/Following Brazil/)).toBeInTheDocument());
+  expect(scrollToSpy).toHaveBeenCalledWith(0, 0);
+
+  scrollToSpy.mockRestore();
+});
+
 it("supports arrow-key navigation between country options (listbox contract)", async () => {
   render(<HomeExperience initialTeams={teams} />);
   await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());

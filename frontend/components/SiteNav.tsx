@@ -5,11 +5,14 @@ import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
 import { SportSwitcher } from "@/components/SportSwitcher";
-import { SPORTS, sportFromPathname } from "@/lib/sports";
+import { SPORTS, isSportHomeHref, sportFromPathname } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
-  if (href === "/") return pathname === "/" || prefixes.some((p) => hit(pathname, p));
+  // Sport home links ("/", "/nrl") need exact-match semantics — otherwise
+  // they prefix-match every sub-page of that sport (e.g. "/nrl" would stay
+  // lit on "/nrl/matches") and two tabs end up active at once.
+  if (isSportHomeHref(href)) return pathname === href || prefixes.some((p) => hit(pathname, p));
   return hit(pathname, href) || prefixes.some((p) => hit(pathname, p));
 }
 
