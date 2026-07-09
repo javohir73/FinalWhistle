@@ -1,41 +1,46 @@
 {
   "markets": [
     {
-      "ticker": "KXWCGAME-26JUL11FRAMAR-FRA",
-      "event_ticker": "KXWCGAME-26JUL11FRAMAR",
-      "title": "France vs Morocco: Winner?",
-      "yes_sub_title": "France",
-      "status": "active",
-      "yes_bid": 61, "yes_ask": 65, "last_price": 63
+      "ticker": "KXWCGAME-26JUL09FRAMAR-FRA",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: France",
+      "status": "active"
     },
     {
-      "ticker": "KXWCGAME-26JUL11FRAMAR-MAR",
-      "event_ticker": "KXWCGAME-26JUL11FRAMAR",
-      "title": "France vs Morocco: Winner?",
-      "yes_sub_title": "Morocco",
-      "status": "active",
-      "yes_bid": 13, "yes_ask": 17, "last_price": 15
+      "ticker": "KXWCGAME-26JUL09FRAMAR-MAR",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: Morocco",
+      "status": "active"
     },
     {
-      "ticker": "KXWCGAME-26JUL11FRAMAR-TIE",
-      "event_ticker": "KXWCGAME-26JUL11FRAMAR",
-      "title": "France vs Morocco: Winner?",
-      "yes_sub_title": "Tie",
-      "status": "active",
-      "yes_bid": 24, "yes_ask": 28, "last_price": 26
+      "ticker": "KXWCGAME-26JUL09FRAMAR-TIE",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: Tie",
+      "status": "active"
     },
     {
-      "ticker": "KXWC-26-FRA",
-      "event_ticker": "KXWC-26",
-      "title": "2026 Men's World Cup Winner?",
+      "ticker": "KXWCGAME-26JUL10ESPBEL-ESP",
+      "event_ticker": "KXWCGAME-26JUL10ESPBEL",
+      "title": "Spain vs Belgium Winner?",
+      "yes_sub_title": "Reg Time: Spain",
+      "status": "active",
+      "yes_bid": 59, "yes_ask": 61, "last_price": 60
+    },
+    {
+      "ticker": "KXMWORLDCUP-26-FRA",
+      "event_ticker": "KXMWORLDCUP-26",
+      "title": "2026 FIFA World Cup Winner?",
       "yes_sub_title": "France",
       "status": "active",
       "yes_bid": 29, "yes_ask": 33, "last_price": 31
     },
     {
-      "ticker": "KXWC-26-ZERO",
-      "event_ticker": "KXWC-26",
-      "title": "2026 Men's World Cup Winner?",
+      "ticker": "KXMWORLDCUP-26-ZZZ",
+      "event_ticker": "KXMWORLDCUP-26",
+      "title": "2026 FIFA World Cup Winner?",
       "yes_sub_title": "Ghostland",
       "status": "active",
       "yes_bid": 0, "yes_ask": 0, "last_price": 0

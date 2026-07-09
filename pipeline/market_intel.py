@@ -45,7 +45,8 @@ def _load_kalshi_leg(series_ticker: str, kind: str) -> list[dict]:
     ticker 404ing) must not take down the other leg — each series is an
     independent HTTP call and either can be wrong without the other being."""
     try:
-        return kalshi.parse_markets(kalshi.fetch_markets(series_ticker), kind)
+        return kalshi.parse_markets(kalshi.fetch_markets(series_ticker), kind,
+                                     price_lookup=kalshi.orderbook_mid)
     except Exception:
         log.exception("market intel: kalshi %s leg (%s) failed", kind, series_ticker)
         return []

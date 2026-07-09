@@ -117,7 +117,7 @@ def test_kalshi_leg_failure_does_not_drop_the_other_leg(monkeypatch):
             raise Exception("404 series not found")
         return ["raw-match-market"]
 
-    def parse(markets, kind):
+    def parse(markets, kind, price_lookup=None):
         return [{"source": "kalshi", "external_id": "m1", "group": "g1",
                  "kind": kind, "home_name": None, "away_name": None,
                  "outcome": "win", "team_name": "France", "price": 0.3}]
