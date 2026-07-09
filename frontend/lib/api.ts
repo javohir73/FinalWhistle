@@ -135,6 +135,11 @@ export const getMarketRecordServer = () =>
  *  second serverGet-style helper. */
 export const getNrlMatchesServer = (revalidate = 300) =>
   getServer<NrlMatchesResponse>("/api/nrl/matches", revalidate);
+/** One round's fixtures, season+round scoped. Backs the match detail page:
+ *  NRL matches are keyed by (season, round, match_no) and there is no
+ *  per-match endpoint, so the page picks its match out of the round payload. */
+export const getNrlRoundServer = (season: number, round: number) =>
+  getServer<NrlMatchesResponse>(`/api/nrl/matches?season=${season}&round=${round}`, 300);
 export const getNrlLadderServer = () =>
   getServer<LadderResponse>("/api/nrl/ladder", 300);
 export const getNrlRecordServer = () =>
