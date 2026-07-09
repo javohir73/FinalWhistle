@@ -1,0 +1,64 @@
+[
+  {
+    "slug": "fra-mar-2026-07-11",
+    "title": "France vs. Morocco",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-france-win-fra-mar",
+        "question": "Will France win?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.63\", \"0.37\"]"
+      },
+      {
+        "slug": "will-morocco-win-fra-mar",
+        "question": "Will Morocco win?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.15\", \"0.85\"]"
+      },
+      {
+        "slug": "fra-mar-draw",
+        "question": "Will the match end in a draw?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.27\", \"0.73\"]"
+      }
+    ]
+  },
+  {
+    "slug": "2026-fifa-world-cup-winner",
+    "title": "2026 FIFA World Cup Winner",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-france-win-the-2026-fifa-world-cup",
+        "question": "Will France win the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.31\", \"0.69\"]"
+      },
+      {
+        "slug": "will-argentina-win-the-2026-fifa-world-cup",
+        "question": "Will Argentina win the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.24\", \"0.76\"]"
+      },
+      {
+        "slug": "will-mexico-win-the-2026-fifa-world-cup",
+        "question": "Will Mexico win the 2026 FIFA World Cup?",
+        "active": false,
+        "closed": true,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.001\", \"0.999\"]"
+      }
+    ]
+  }
+]
