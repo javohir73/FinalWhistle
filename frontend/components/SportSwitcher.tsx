@@ -36,7 +36,7 @@ export function SportSwitcher({ variant }: { variant: "segment" | "pills" }) {
       aria-label="Sport"
       className={cn(
         variant === "segment"
-          ? "hidden items-center gap-0.5 rounded-full bg-surface-2 p-1 sm:flex"
+          ? "ml-4 hidden items-center gap-0.5 rounded-full bg-surface-2 p-1 sm:flex"
           : "flex items-center gap-1.5 px-4 pb-2 pt-2 sm:hidden",
       )}
     >
