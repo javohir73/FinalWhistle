@@ -188,6 +188,19 @@ function HomeDashboard({
           : "No matches today"}
       </h1>
 
+      {/* ===== Followed team, with a quiet way back to the chooser ===== */}
+      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+        <Flag team={team.name} size={16} />
+        Following {team.name}
+        <button
+          type="button"
+          onClick={onChangeCountry}
+          className="text-xs font-semibold text-lime-deep hover:underline"
+        >
+          Change team
+        </button>
+      </p>
+
       {/* ===== Jump to any team ===== */}
       <div className="mt-5">
         <TeamSearch teams={teams} />

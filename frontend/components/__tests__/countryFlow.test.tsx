@@ -183,6 +183,17 @@ it("a finished-only slate falls back to the no-matches-today state without crash
   await waitFor(() => expect(screen.getByText("No matches today")).toBeInTheDocument());
 });
 
+it("lets a returning user switch teams from the dashboard (routes back to the chooser)", async () => {
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
+
+  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
+
+  await waitFor(() => expect(screen.getByText("Following Brazil")).toBeInTheDocument());
+
+  fireEvent.click(screen.getByRole("button", { name: /Change team/ }));
+  await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
+});
+
 it("survives a corrupted stored timezone without crashing the dashboard", async () => {
   // A stale/garbage zone (e.g. left by an older build) must NOT reach
   // Intl.DateTimeFormat and throw — useTimezone should reject it and fall back.
