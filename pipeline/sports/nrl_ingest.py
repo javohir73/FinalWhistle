@@ -55,11 +55,12 @@ def fetch_season(year: int, timeout: float = 20.0) -> list[dict]:
 def parse_row(row: dict) -> dict | None:
     """One feed row -> a normalized dict, or None if malformed. Pure.
 
-    Malformed = missing either team name, a non-int MatchNumber, or an
-    unparseable DateUtc. MatchNumber anchors the (sport, season, match_no)
-    unique key downstream, so a null/absent value can't be allowed through:
-    on Postgres it would hit the NOT NULL column and abort the season's
-    single commit, and two such rows would silently dedupe each other in
+    Malformed = missing either team name, a non-int MatchNumber or
+    RoundNumber, or an unparseable DateUtc. MatchNumber and RoundNumber
+    together anchor the (sport, season, round, match_no) unique key
+    downstream, so a null/absent value for either can't be allowed through:
+    on Postgres it would hit the NOT NULL column (match_no) or otherwise
+    break identity, and two such rows would silently collide in
     upsert_season's within-batch collision guard, dropping a real fixture.
     Scores are only trusted as a pair: if either is null the match is
     "scheduled" with both scores None, otherwise "finished" with both scores
@@ -72,6 +73,10 @@ def parse_row(row: dict) -> dict | None:
 
     match_no = row.get("MatchNumber")
     if not isinstance(match_no, int) or isinstance(match_no, bool):
+        return None
+
+    round_no = row.get("RoundNumber")
+    if not isinstance(round_no, int) or isinstance(round_no, bool):
         return None
 
     date_str = row.get("DateUtc")
@@ -94,7 +99,7 @@ def parse_row(row: dict) -> dict | None:
 
     return {
         "match_no": match_no,
-        "round": row.get("RoundNumber"),
+        "round": round_no,
         "kickoff_utc": kickoff_utc,
         "venue": row.get("Location"),
         "home_team": home_team,
@@ -119,7 +124,7 @@ def _get_or_create_team(db: Session, cache: dict[str, SportTeam], name: str) -> 
 
 
 def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
-    """Parse+store one season's rows. Idempotent on (sport, season, match_no).
+    """Parse+store one season's rows. Idempotent on (sport, season, round, match_no).
 
     Creates SportTeams on first sight by (sport, name). NEVER overwrites a
     stored finished match (freshness-guard spirit) — a scheduled row gaining
@@ -127,16 +132,20 @@ def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
     Malformed rows are skipped silently (parse_row already logs nothing; the
     caller sees them simply absent from the counts).
 
-    fixturedownload's 2020 COVID-restart season reuses MatchNumber within a
-    single feed response (round 1 and round 3 both have MatchNumber=1, etc.) —
-    a real feed defect, not a re-fetch. Since (sport, season, match_no) is the
-    unique key, only the first row for a given match_no in this batch is kept;
-    later collisions are logged and skipped rather than crashing the backfill.
+    fixturedownload's 2020 COVID-restart season restarts MatchNumber within
+    each round (round 3 and round 5 can both have MatchNumber=1, for distinct
+    fixtures — different teams, dates, venues). MatchNumber alone is NOT a
+    unique match identity within a season; the true unique key is (sport,
+    season, round, match_no), matching the DB constraint
+    uq_sport_match_sport_season_round_no. Only a genuine within-batch
+    collision on the full (round, match_no) pair — a true duplicate — is
+    deduped: the first row seen for that pair is kept and later collisions
+    are logged and skipped rather than crashing the backfill.
     """
     created = 0
     updated = 0
     team_cache: dict[str, SportTeam] = {}
-    seen_in_batch: set[int] = set()
+    seen_in_batch: set[tuple[int, int]] = set()
 
     for raw in rows:
         parsed = parse_row(raw)
@@ -144,21 +153,22 @@ def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
             log.warning("nrl upsert_season(%s): skipping malformed row %r", year, raw)
             continue
 
-        if parsed["match_no"] in seen_in_batch:
+        dedupe_key = (parsed["round"], parsed["match_no"])
+        if dedupe_key in seen_in_batch:
             log.warning(
-                "nrl upsert_season(%s): duplicate match_no=%s within feed batch, "
-                "keeping first-seen and skipping %r",
-                year, parsed["match_no"], raw,
+                "nrl upsert_season(%s): duplicate round=%s match_no=%s within feed "
+                "batch, keeping first-seen and skipping %r",
+                year, parsed["round"], parsed["match_no"], raw,
             )
             continue
-        seen_in_batch.add(parsed["match_no"])
+        seen_in_batch.add(dedupe_key)
 
         home = _get_or_create_team(db, team_cache, parsed["home_team"])
         away = _get_or_create_team(db, team_cache, parsed["away_team"])
 
         match = (
             db.query(SportMatch)
-            .filter_by(sport=SPORT, season=year, match_no=parsed["match_no"])
+            .filter_by(sport=SPORT, season=year, round=parsed["round"], match_no=parsed["match_no"])
             .one_or_none()
         )
         if match is None:
@@ -175,9 +185,13 @@ def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
         if match.status == "finished":
             continue  # freshness guard: a recorded result is never clobbered
 
+        # round is no longer part of change-detection: match was looked up by
+        # (sport, season, round, match_no), so match.round == parsed["round"]
+        # is always true here. The assignment below is kept as a harmless,
+        # cheap no-op for symmetry with the other fields rather than special-
+        # cased away.
         if parsed["status"] == "finished" or (
-            match.round != parsed["round"]
-            or match.kickoff_utc != parsed["kickoff_utc"]
+            match.kickoff_utc != parsed["kickoff_utc"]
             or match.venue != parsed["venue"]
             or match.home_team_id != home.id
             or match.away_team_id != away.id

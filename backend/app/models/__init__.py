@@ -704,7 +704,14 @@ class SportTeam(Base):
 class SportMatch(Base):
     __tablename__ = "sport_matches"
     __table_args__ = (
-        UniqueConstraint("sport", "season", "match_no", name="uq_sport_match_sport_season_no"),
+        # Identity key is (sport, season, round, match_no) — NOT (sport,
+        # season, match_no) alone. Some feeds (e.g. NRL's 2020 COVID-restart
+        # season) restart match_no within each round, so match_no by itself
+        # is not unique within a season.
+        UniqueConstraint(
+            "sport", "season", "round", "match_no",
+            name="uq_sport_match_sport_season_round_no",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
