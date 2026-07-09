@@ -110,7 +110,7 @@ it("resets scroll position when the dashboard swaps in after the AI reveal", asy
   await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
   fireEvent.click(screen.getByRole("option", { name: /Brazil/ }));
   fireEvent.click(screen.getByRole("button", { name: /Predict my team/ }));
-  expect(screen.getByText("Preparing your AI forecast")).toBeInTheDocument();
+  expect(screen.getByText("Preparing your ML model forecast")).toBeInTheDocument();
 
   // Finish the reveal (skip button also works; the timeout is simplest here).
   fireEvent.click(screen.getByRole("button", { name: /Skip|Continue/ }));
