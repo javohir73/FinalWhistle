@@ -22,7 +22,7 @@ function Stat({ label, value }: { label: string; value: string }) {
  *  even with 0 graded matches, so a null fetch here means a real failure
  *  (not "season hasn't started"). */
 export default async function NrlRecordPage() {
-  const rec = await getNrlRecordServer();
+  const rec = await getNrlRecordServer().catch(() => null);
   if (!rec) notFound();
 
   if (rec.evaluated_matches === 0) {

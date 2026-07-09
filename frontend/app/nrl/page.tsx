@@ -17,8 +17,8 @@ export const metadata: Metadata = {
  *  round is the first round containing a scheduled match (else the last). */
 export default async function NrlHomePage() {
   const [fixtures, ladder] = await Promise.all([
-    getNrlMatchesServer(),
-    getNrlLadderServer(),
+    getNrlMatchesServer().catch(() => null),
+    getNrlLadderServer().catch(() => null),
   ]);
   if (!fixtures) notFound();
 

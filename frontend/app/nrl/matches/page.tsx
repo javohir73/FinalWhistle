@@ -8,7 +8,7 @@ export const revalidate = 300;
 export const metadata: Metadata = { title: "NRL fixtures — FinalWhistle" };
 
 export default async function NrlMatchesPage() {
-  const fixtures = await getNrlMatchesServer();
+  const fixtures = await getNrlMatchesServer().catch(() => null);
   if (!fixtures) notFound();
 
   return (

@@ -8,7 +8,7 @@ export const revalidate = 300;
 export const metadata: Metadata = { title: "NRL ladder — FinalWhistle" };
 
 export default async function NrlLadderPage() {
-  const ladder = await getNrlLadderServer();
+  const ladder = await getNrlLadderServer().catch(() => null);
   if (!ladder) notFound();
 
   return (
