@@ -10,7 +10,7 @@ export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "NRL predictions — FinalWhistle",
-  description: "AI match predictions, ladder and model record for the NRL season.",
+  description: "Match predictions from the FinalWhistle ML model, ladder and model record for the NRL season.",
 };
 
 /** NRL home: current-round fixtures + mini ladder + movers. The "current"

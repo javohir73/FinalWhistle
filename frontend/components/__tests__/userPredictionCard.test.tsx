@@ -33,7 +33,7 @@ it("calls onPick and shows the AI comparison when a side is chosen", () => {
   rerender(
     <UserPredictionCard match={match()} country="Brazil" pick="home" onPick={onPick} tz="UTC" />,
   );
-  expect(screen.getByText("You agree with the AI")).toBeInTheDocument();
+  expect(screen.getByText("You agree with the ML model")).toBeInTheDocument();
 });
 
 it("flags an upset when the user backs the long shot", () => {

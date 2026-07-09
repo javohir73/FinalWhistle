@@ -56,9 +56,9 @@ export async function generateMetadata({
   const p = match.prediction;
   const title = `${match.home} vs ${match.away} — NRL prediction | ${APP_NAME}`;
   const description = p
-    ? `AI prediction for ${match.home} vs ${match.away} (NRL round ${ids.round}): ` +
+    ? `ML model prediction for ${match.home} vs ${match.away} (NRL round ${ids.round}): ` +
       `${match.home} ${pct(p.p_home)}, draw ${pct(p.p_draw)}, ${match.away} ${pct(p.p_away)}.`
-    : `NRL round ${ids.round}: ${match.home} vs ${match.away} — AI prediction, kickoff and ladder context.`;
+    : `NRL round ${ids.round}: ${match.home} vs ${match.away} — ML model prediction, kickoff and ladder context.`;
   return {
     title,
     description,
@@ -170,7 +170,7 @@ export default async function NrlMatchDetailPage({
             {p.expected_margin != null && !finished && (
               <p className="mt-4 text-center">
                 <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
-                  <span className="mr-1.5 font-semibold text-muted">AI margin</span>
+                  <span className="mr-1.5 font-semibold text-muted">ML model margin</span>
                   {marginLabel(p.expected_margin, home, away)}
                 </span>
               </p>
@@ -184,7 +184,7 @@ export default async function NrlMatchDetailPage({
       {!p && !finished && (
         <section className="glass rounded-2xl p-6 text-center">
           <h2 className="font-display text-base font-bold text-foreground">
-            AI prediction on the way
+            ML model prediction on the way
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
             The model freezes its call for this match in the lead-up to the round.

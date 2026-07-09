@@ -64,12 +64,12 @@ describe("MatchCard", () => {
     render(<MatchCard match={base} />);
     // home_win 0.6 clears 55% → "Mexico favoured".
     expect(screen.getByText("Mexico favoured")).toBeInTheDocument();
-    // AI-labelled predicted scoreline, no promoted actual score.
-    expect(screen.getByText("AI")).toBeInTheDocument();
+    // ML-model-labelled predicted scoreline, no promoted actual score.
+    expect(screen.getByText("ML model")).toBeInTheDocument();
     expect(screen.getByText("1–0")).toBeInTheDocument();
   });
 
-  it("at full time shows actual score, AI-labelled prediction, and a verdict", () => {
+  it("at full time shows actual score, ML-model-labelled prediction, and a verdict", () => {
     render(<MatchCard match={finished} />);
     // Actual score per team row…
     expect(screen.getByText("2")).toBeInTheDocument();
@@ -77,8 +77,8 @@ describe("MatchCard", () => {
     // …a "Full time" status pill (not a confidence badge)…
     expect(screen.getByText("Full time")).toBeInTheDocument();
     expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
-    // …prediction explicitly labelled as the AI's call…
-    expect(screen.getByText("AI")).toBeInTheDocument();
+    // …prediction explicitly labelled as the model's call…
+    expect(screen.getByText("ML model")).toBeInTheDocument();
     expect(screen.getByText("1–0")).toBeInTheDocument();
     // …and the plain-language scorecard.
     expect(screen.getByText("Called it")).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe("MatchScoreboard", () => {
     mockGetMatchSummary.mockResolvedValue(halfTime);
     renderBoard(halfTime);
     expect(screen.getByText("HT")).toBeInTheDocument();
-    // No minute (a digit + apostrophe); the "The AI's call" eyebrow apostrophe is fine.
+    // No minute (a digit + apostrophe); the model's-call eyebrow apostrophe is fine.
     expect(screen.queryByText(/\d+'/)).not.toBeInTheDocument();
   });
 

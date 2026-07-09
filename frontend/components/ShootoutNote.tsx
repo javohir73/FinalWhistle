@@ -23,7 +23,7 @@ export function KnockoutDrawNote({ stage }: { stage: string | null | undefined }
   return (
     <p className="mt-2 text-[11px] leading-snug text-muted">
       Draw = level after 90 minutes. As a knockout tie it would then go to extra
-      time and penalties, which the AI doesn&apos;t predict.
+      time and penalties, which the ML model doesn&apos;t predict.
     </p>
   );
 }

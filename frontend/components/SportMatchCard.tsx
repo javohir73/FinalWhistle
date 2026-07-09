@@ -81,7 +81,7 @@ export function SportMatchCard({
         <div className="mt-3 flex items-center justify-between border-t border-border pt-2.5 text-xs text-muted">
           <span>Frozen at kickoff · graded after full time</span>
           <span className="rounded-lg bg-surface-2 px-2 py-0.5 font-bold tabular-nums text-foreground">
-            <span className="mr-1 font-semibold text-muted">AI</span>
+            <span className="mr-1 font-semibold text-muted">ML model</span>
             margin {p.expected_margin > 0 ? "+" : ""}{p.expected_margin.toFixed(1)}
           </span>
         </div>

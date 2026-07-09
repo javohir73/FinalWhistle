@@ -24,14 +24,14 @@ export function ModelVsMarket({
         Model vs market
       </h2>
       <p className="mb-4 text-xs leading-relaxed text-muted">
-        The AI&apos;s probabilities next to the betting market&apos;s consensus
+        The FinalWhistle ML model&apos;s probabilities next to the betting market&apos;s consensus
         (median across bookmakers, margin removed). Disagreement is where the
         model thinks the market is wrong — or vice versa.
       </p>
       <div className="space-y-4">
         <div>
           <div className="mb-1.5 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
-            The AI
+            FinalWhistle ML model
           </div>
           <ProbabilityBar probabilities={prediction.probabilities} homeLabel={home} awayLabel={away} />
         </div>

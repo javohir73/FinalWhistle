@@ -72,7 +72,7 @@ it("shows the final score and grades the call once finished", async () => {
   expect(screen.getByText(/Called it/)).toBeInTheDocument();
   // The pre-match call and margin chip make way for the result.
   expect(screen.queryByText(/to win ·/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/AI margin/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/ML model margin/)).not.toBeInTheDocument();
 });
 
 it("marks a result the model got wrong as a miss", async () => {

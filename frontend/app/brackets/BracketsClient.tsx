@@ -39,7 +39,7 @@ export function BracketsClient({
     <div className="space-y-8">
       <header className="fade-up">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          {view === "official" ? "Official bracket" : <>The AI&apos;s <span className="text-lime-deep">bracket</span></>}
+          {view === "official" ? "Official bracket" : <>The ML model&apos;s <span className="text-lime-deep">bracket</span></>}
         </h1>
 
         {/* Official / AI bracket — segmented control */}
@@ -64,7 +64,7 @@ export function BracketsClient({
             onClick={() => setView("ai")}
             className={cn(segBase, view === "ai" ? segOn : segOff)}
           >
-            AI bracket
+            ML model bracket
           </button>
         </div>
       </header>
