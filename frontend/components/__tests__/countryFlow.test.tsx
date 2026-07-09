@@ -44,6 +44,16 @@ beforeEach(() => {
     movers: [],
     disclaimer: "test",
   });
+  // IntelPanel (replaces MoversPanel on the dashboard) falls back to the
+  // movers panel above when the sport has no fresh market data.
+  (api.getIntel as jest.Mock).mockResolvedValue({
+    sport: "football",
+    has_data: false,
+    updated_at: null,
+    matches: [],
+    storylines: [],
+    disclaimer: "test",
+  });
   (api.getProbHistory as jest.Mock).mockResolvedValue({
     match_id: 1,
     points: [],

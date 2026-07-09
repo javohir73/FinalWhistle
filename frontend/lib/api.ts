@@ -3,6 +3,7 @@
 import type {
   Goalscorers,
   Group,
+  IntelResponse,
   KnockoutBracket,
   LadderResponse,
   LeaderboardRow,
@@ -83,6 +84,10 @@ export const getModelRecord = () =>
   getJson<ModelRecord>("/api/model/record");
 export const getMovers = (sport: "football" | "nrl", limit = 3) =>
   getJson<MoversResponse>(`/api/movers?sport=${sport}&limit=${limit}`);
+/** Market intel (Polymarket/Kalshi vs the model). has_data=false means the
+ *  caller should render the movers fallback instead. */
+export const getIntel = (sport: "football" | "nrl") =>
+  getJson<IntelResponse>(`/api/intel?sport=${sport}`);
 export const getProbHistory = (matchId: number | string) =>
   getJson<ProbHistory>(`/api/matches/${matchId}/prob-history`);
 
