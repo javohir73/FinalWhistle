@@ -93,7 +93,7 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
         href={sport === "nrl" ? "/nrl/matches" : "/matches"}
         className="mt-2 inline-block text-sm font-semibold text-win"
       >
-        See all movement →
+        All fixtures →
       </Link>
     </section>
   );

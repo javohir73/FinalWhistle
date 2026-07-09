@@ -1,13 +1,9 @@
-/** GroupCard: whole-card navigation vs. team-link navigation, plus the LIVE
- *  badge shown when one of the group's matches is in play. */
-import { render, screen, fireEvent } from "@testing-library/react";
+/** GroupCard: whole-card navigation (a real <Link>, stretched over the card)
+ *  vs. team-link navigation, plus the LIVE badge shown when one of the
+ *  group's matches is in play. */
+import { render, screen } from "@testing-library/react";
 import { GroupCard } from "@/components/GroupCard";
 import type { Group, MatchSummary } from "@/lib/types";
-
-const push = jest.fn();
-jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
-}));
 
 const group: Group = {
   id: 1,
@@ -20,27 +16,22 @@ const group: Group = {
   ],
 };
 
-afterEach(() => push.mockReset());
-
-it("navigates to the group when the card is clicked", () => {
+it("is a real link to the group (middle-click / copy-link / ctrl-click all work)", () => {
   render(<GroupCard group={group} />);
-  fireEvent.click(screen.getByRole("link", { name: /Group A/i }));
-  expect(push).toHaveBeenCalledWith("/groups/1");
-});
-
-it("opens the group on Enter (keyboard support)", () => {
-  render(<GroupCard group={group} />);
-  fireEvent.keyDown(screen.getByRole("link", { name: /Group A/i }), { key: "Enter" });
-  expect(push).toHaveBeenCalledWith("/groups/1");
+  const link = screen.getByRole("link", { name: /Group A/i });
+  expect(link.tagName).toBe("A");
+  expect(link).toHaveAttribute("href", "/groups/1");
 });
 
 it("clicking a team name goes to the team, not the group", () => {
   render(<GroupCard group={group} />);
   const teamLink = screen.getByRole("link", { name: /Mexico/i });
   expect(teamLink).toHaveAttribute("href", "/team/10");
-  // stopPropagation must prevent the card's group navigation from firing.
-  fireEvent.click(teamLink);
-  expect(push).not.toHaveBeenCalled();
+  // The card link and the team link are independent real anchors (the team
+  // link sits above the card's stretched link, not nested inside it), so
+  // clicking one never fires the other.
+  const cardLink = screen.getByRole("link", { name: /Group A/i });
+  expect(teamLink).not.toBe(cardLink);
 });
 
 it("shows the 'View matches' affordance", () => {
