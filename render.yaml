@@ -24,8 +24,12 @@ services:
           property: connectionString
       - key: RECOMPUTE_TOKEN
         generateValue: true # Render generates a strong secret
-      - key: MODEL_VERSION
-        value: poisson-elo-v0.4
+      # MODEL_VERSION intentionally NOT set here: the reported version now
+      # derives from ml/models/model_params.json (app/model_meta.py's
+      # current_model_version()), so a pinned env value can only drift from
+      # what's actually served (this one had: v0.4 pinned vs. v0.5 live).
+      # app.config.settings.model_version keeps its v0.1 code default as a
+      # documented last-resort fallback only.
       - key: CACHE_TTL_SECONDS
         value: "600"
       - key: ENVIRONMENT

@@ -26,6 +26,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     (used by tests). Returns a summary of every step."""
     from app.chain_status import finished_match_count, record_success
     from app.config import settings
+    from app.model_meta import current_model_version
     from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.compute_elo import compute_and_store_elo
     from pipeline.generate_predictions import generate_predictions
@@ -87,7 +88,7 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     from pipeline.backfill_90min import backfill_90min_scores
 
     step("backfill_90min", lambda: backfill_90min_scores(db))
-    step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
+    step("learning_loop", lambda: run_learning_loop(db, current_model_version()))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
 
     # Movers-feature snapshot: best-effort, like odds/injuries above (never
