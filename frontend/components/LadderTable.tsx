@@ -5,6 +5,9 @@ import type { LadderRow } from "@/lib/types";
 export function LadderTable({ rows, compact = false }: { rows: LadderRow[]; compact?: boolean }) {
   const shown = compact ? rows.slice(0, 4) : rows;
   return (
+    // Mirrors GroupTable's scroll guard: auto-layout tables ignore truncate on
+    // long club names, so overflow-x-auto keeps narrow viewports overflow-free.
+    <div className="overflow-x-auto">
     <table className="w-full text-sm">
       <thead>
         <tr className="text-left font-display text-[11px] uppercase tracking-wider text-muted">
@@ -34,5 +37,6 @@ export function LadderTable({ rows, compact = false }: { rows: LadderRow[]; comp
         ))}
       </tbody>
     </table>
+    </div>
   );
 }

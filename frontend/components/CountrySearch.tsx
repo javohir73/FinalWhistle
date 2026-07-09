@@ -52,6 +52,8 @@ export function CountrySearch({
           <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
         </svg>
         <input
+          id="country-search"
+          name="country-search"
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}

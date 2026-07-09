@@ -19,12 +19,16 @@ export function AuthModal({
   open,
   onClose,
   onAuthed,
+  initialMode = "signin",
 }: {
   open: boolean;
   onClose: () => void;
   onAuthed: (user: SessionUser, isNew: boolean) => void;
+  /** Tab the modal opens on — e.g. a "Create free account" CTA should land
+   *  straight on the sign-up tab instead of the default sign-in tab. */
+  initialMode?: Mode;
 }) {
-  const [mode, setMode] = useState<Mode>("signin");
+  const [mode, setMode] = useState<Mode>(initialMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -34,26 +38,33 @@ export function AuthModal({
   const [showPassword, setShowPassword] = useState(false);
   const [forgot, setForgot] = useState(false); // "forgot password" sub-view
   const [resetSent, setResetSent] = useState(false);
+  // Inline, themed replacements for native browser validation tooltips (which
+  // are unstyled and off-theme) — set on empty submit, cleared as the user
+  // fixes each field.
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
   const firstField = useRef<HTMLInputElement>(null);
   const card = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef<HTMLElement | null>(null);
 
-  // Every open starts on the Sign-in tab: the nav button says "Sign in", and a
-  // tab left on "Create account" from a previous user makes existing users
-  // accidentally re-register ("account already exists").
+  // Every open resets to the caller's requested tab (sign-in by default): the
+  // nav button says "Sign in" and expects that tab, and a tab left on "Create
+  // account" from a previous user makes existing users accidentally
+  // re-register ("account already exists"). A CTA like "Create free account"
+  // passes initialMode="signup" to land straight on that tab instead.
   useEffect(() => {
     if (open) {
-      setMode("signin");
+      setMode(initialMode);
       setForgot(false);
       setResetSent(false);
     }
-  }, [open]);
+  }, [open, initialMode]);
 
   useEffect(() => {
     if (open) {
       setError(null);
       setPassword("");
       setShowPassword(false);
+      setFieldErrors({});
       setTimeout(() => firstField.current?.focus(), 0);
     }
   }, [open, mode]);
@@ -108,6 +119,14 @@ export function AuthModal({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // The form carries noValidate (native tooltips are unstyled/off-theme), so
+    // empty required fields don't block submission on their own — check them
+    // here and surface themed inline errors instead.
+    const nextFieldErrors: { email?: string; password?: string } = {};
+    if (!email.trim()) nextFieldErrors.email = "Email is required.";
+    if (!password) nextFieldErrors.password = "Password is required.";
+    setFieldErrors(nextFieldErrors);
+    if (Object.keys(nextFieldErrors).length > 0) return;
     // Don't fire a guaranteed-to-fail request when the device is offline — say so
     // and let the online listener (below) clear it when connectivity returns.
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -296,7 +315,7 @@ export function AuthModal({
           {tab("signup", "Create account")}
         </div>
 
-        <form onSubmit={submit} className="space-y-3">
+        <form onSubmit={submit} noValidate className="space-y-3">
           {mode === "signup" && (
             <input
               value={name}
@@ -307,49 +326,73 @@ export function AuthModal({
               className={field}
             />
           )}
-          <input
-            ref={firstField}
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email address"
-            aria-label="Email address"
-            className={field}
-          />
-          <div className="relative">
+          <div>
             <input
-              type={showPassword ? "text" : "password"}
+              ref={firstField}
+              type="email"
               required
-              minLength={8}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Password (8+ characters)"
-              aria-label="Password"
-              className={`${field} pr-11`}
+              autoComplete="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (fieldErrors.email) setFieldErrors((f) => ({ ...f, email: undefined }));
+              }}
+              placeholder="Email address"
+              aria-label="Email address"
+              aria-invalid={fieldErrors.email ? true : undefined}
+              aria-describedby={fieldErrors.email ? "auth-email-error" : undefined}
+              className={field}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? "Hide password" : "Show password"}
-              aria-pressed={showPassword}
-              className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-muted transition hover:text-foreground"
-            >
-              {showPassword ? (
-                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M3 3l18 18" />
-                  <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
-                  <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.9 3.7M6.2 6.2A17.5 17.5 0 0 0 2 12s3.5 7 10 7a10.4 10.4 0 0 0 3.4-.6" />
-                </svg>
-              ) : (
-                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
+            {fieldErrors.email && (
+              <p id="auth-email-error" className="mt-1 text-xs text-loss">
+                {fieldErrors.email}
+              </p>
+            )}
+          </div>
+          <div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={8}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldErrors.password) setFieldErrors((f) => ({ ...f, password: undefined }));
+                }}
+                placeholder="Password (8+ characters)"
+                aria-label="Password"
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? "auth-password-error" : undefined}
+                className={`${field} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
+                aria-pressed={showPassword}
+                className="absolute inset-y-0 right-0 grid w-11 place-items-center rounded-r-lg text-muted transition hover:text-foreground"
+              >
+                {showPassword ? (
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 3l18 18" />
+                    <path d="M10.6 10.6a3 3 0 0 0 4.2 4.2" />
+                    <path d="M9.9 5.2A10.4 10.4 0 0 1 12 5c6.5 0 10 7 10 7a17.6 17.6 0 0 1-2.9 3.7M6.2 6.2A17.5 17.5 0 0 0 2 12s3.5 7 10 7a10.4 10.4 0 0 0 3.4-.6" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </svg>
+                )}
+              </button>
+            </div>
+            {fieldErrors.password && (
+              <p id="auth-password-error" className="mt-1 text-xs text-loss">
+                {fieldErrors.password}
+              </p>
+            )}
           </div>
 
           {mode === "signin" && (

@@ -67,6 +67,8 @@ function Select({
   );
   return (
     <select
+      id="timezone-select"
+      name="timezone"
       aria-label="Choose your timezone"
       value={value}
       onChange={(e) => onChange(e.target.value)}
