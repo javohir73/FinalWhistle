@@ -176,6 +176,17 @@ def nrl_ladder(season: int | None = None, db: Session = Depends(get_db)):
                 "code": "no_nrl_data", "message": "No NRL matches are loaded yet",
             })
 
+    season_exists = (
+        db.query(SportMatch.id)
+        .filter(SportMatch.sport == "nrl", SportMatch.season == season)
+        .first()
+    )
+    if season_exists is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "season_not_found",
+            "message": f"No NRL matches for season {season}",
+        })
+
     finished = (
         db.query(SportMatch)
         .filter(SportMatch.sport == "nrl", SportMatch.season == season,

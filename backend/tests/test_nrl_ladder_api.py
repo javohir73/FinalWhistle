@@ -54,3 +54,44 @@ def test_ladder_points_and_ordering():
     assert rows[0]["diff"] == 20 and rows[0]["played"] == 2
     assert rows[0]["rank"] == 1
     app.dependency_overrides.clear()
+
+
+def test_ladder_unknown_season_404s():
+    client, db = _client()
+    # Seed one team and one finished 2026 match
+    storm = SportTeam(sport="nrl", name="Storm")
+    broncos = SportTeam(sport="nrl", name="Broncos")
+    db.add_all([storm, broncos])
+    db.flush()
+
+    db.add(SportMatch(sport="nrl", season=2026, round=1, match_no=1,
+                      home_team_id=storm.id, away_team_id=broncos.id,
+                      score_home=20, score_away=10, status="finished"))
+    db.commit()
+
+    # Request unknown season 1999
+    res = client.get("/api/nrl/ladder?season=1999")
+    assert res.status_code == 404
+    assert res.json()["error"]["code"] == "season_not_found"
+    app.dependency_overrides.clear()
+
+
+def test_ladder_season_without_finished_matches_returns_empty_rows():
+    client, db = _client()
+    # Seed a season with ONLY scheduled matches
+    storm = SportTeam(sport="nrl", name="Storm")
+    broncos = SportTeam(sport="nrl", name="Broncos")
+    db.add_all([storm, broncos])
+    db.flush()
+
+    db.add(SportMatch(sport="nrl", season=2026, round=1, match_no=1,
+                      home_team_id=storm.id, away_team_id=broncos.id,
+                      status="scheduled"))
+    db.commit()
+
+    # Request that season
+    res = client.get("/api/nrl/ladder?season=2026")
+    assert res.status_code == 200
+    body = res.json()
+    assert body["rows"] == []
+    app.dependency_overrides.clear()
