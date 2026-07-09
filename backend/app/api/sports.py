@@ -164,3 +164,57 @@ def nrl_model_record(db: Session = Depends(get_db)):
         "last_updated": last_updated.isoformat() if last_updated else None,
         "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }
+
+
+@router.get("/ladder")
+def nrl_ladder(season: int | None = None, db: Session = Depends(get_db)):
+    """Computed ladder: 2 pts/win, 1/draw, ordered by points then for-against diff."""
+    if season is None:
+        season = _latest_season(db)
+        if season is None:
+            raise HTTPException(status_code=404, detail={
+                "code": "no_nrl_data", "message": "No NRL matches are loaded yet",
+            })
+
+    finished = (
+        db.query(SportMatch)
+        .filter(SportMatch.sport == "nrl", SportMatch.season == season,
+                SportMatch.status == "finished",
+                SportMatch.score_home.isnot(None), SportMatch.score_away.isnot(None))
+        .all()
+    )
+    table: dict[int, dict] = {}
+
+    def row(team_id: int) -> dict:
+        return table.setdefault(team_id, {
+            "team_id": team_id, "played": 0, "wins": 0, "draws": 0,
+            "losses": 0, "points": 0, "diff": 0,
+        })
+
+    for m in finished:
+        if m.home_team_id is None or m.away_team_id is None:
+            continue
+        h, a = row(m.home_team_id), row(m.away_team_id)
+        h["played"] += 1; a["played"] += 1
+        h["diff"] += m.score_home - m.score_away
+        a["diff"] += m.score_away - m.score_home
+        if m.score_home > m.score_away:
+            h["wins"] += 1; h["points"] += 2; a["losses"] += 1
+        elif m.score_home < m.score_away:
+            a["wins"] += 1; a["points"] += 2; h["losses"] += 1
+        else:
+            h["draws"] += 1; a["draws"] += 1; h["points"] += 1; a["points"] += 1
+
+    names = dict(
+        db.query(SportTeam.id, SportTeam.name)
+        .filter(SportTeam.id.in_(table.keys())).all()
+    ) if table else {}
+    rows = sorted(
+        ({**r, "name": names.get(r["team_id"], "Unknown")} for r in table.values()),
+        key=lambda r: (-r["points"], -r["diff"], r["name"]),
+    )
+    for i, r in enumerate(rows, start=1):
+        r["rank"] = i
+
+    return {"season": season, "rows": rows,
+            "disclaimer": "For analytics and entertainment only. Not betting advice."}
