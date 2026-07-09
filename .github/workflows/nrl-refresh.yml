@@ -1,0 +1,38 @@
+# NRL data refresh: ingest results/fixtures from fixturedownload, then write
+# frozen shadow predictions and grade finished matches — against the Render
+# Postgres, via the same DATABASE_URL secret refresh.yml uses.
+#
+# Cadence: NRL rounds run Thu-Sun AEST; the Mon/Fri 18:00 UTC crons ingest
+# completed rounds promptly and freeze predictions well before the next round.
+# Manual "Run workflow" covers the one-off backfill and ad-hoc reruns.
+# Deliberately separate from the football daily pipeline (runbook §1).
+name: nrl-refresh
+
+on:
+  schedule:
+    - cron: "0 18 * * 1"
+    - cron: "0 18 * * 5"
+  workflow_dispatch: {}
+
+jobs:
+  nrl-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Ingest NRL seasons (idempotent)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_ingest --seasons 2017 2026
+      - name: Generate frozen shadow predictions + grade finished matches
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_predict --generate --grade
