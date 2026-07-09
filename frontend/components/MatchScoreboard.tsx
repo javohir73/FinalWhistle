@@ -1,18 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { getMatchSummary } from "@/lib/api";
+import { useEffect, useState, type ReactNode } from "react";
+import { getMatchSummary, getProbHistory } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { pct, formatScore } from "@/lib/format";
 import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
 import { KnockoutAdvanceCard } from "@/components/KnockoutAdvanceCard";
-import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
+import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent, ProbHistoryPoint } from "@/lib/types";
 import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { FavoriteStar } from "@/components/FavoriteStar";
+import { Sparkline } from "@/components/Sparkline";
 
 /** Match-page headline, prototype "Match" layout: a bare matchup (flags + names
  *  + "vs") on the canvas, then a distinct "The AI's call" card holding the plain
@@ -61,6 +63,28 @@ export function MatchScoreboard({
   );
   const summary = state.status === "success" ? state.data : initialSummary ?? null;
 
+  // Prediction-history sparklines (Task 6): one-time fetch per match, same
+  // active-flag cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx).
+  const [history, setHistory] = useState<ProbHistoryPoint[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    setHistory(null);
+    getProbHistory(matchId)
+      .then((res) => {
+        if (active) setHistory(res.points);
+      })
+      .catch(() => {
+        if (active) setHistory([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [matchId]);
+  const homeSeries = history?.map((p) => p.p_home) ?? [];
+  const awaySeries = history?.map((p) => p.p_away) ?? [];
+  const homeTrendUp = homeSeries.length >= 2 && homeSeries[homeSeries.length - 1] >= homeSeries[0];
+  const awayTrendUp = awaySeries.length >= 2 && awaySeries[awaySeries.length - 1] >= awaySeries[0];
+
   const live = !!summary && isLiveNow(summary);
   // Treat a match stuck `in_play` past the live window as over, so the detail
   // page doesn't show a ticking live clock hours after full time.
@@ -85,7 +109,11 @@ export function MatchScoreboard({
     <>
       {/* ===== Bare matchup ===== */}
       <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-        <TeamHead name={home} teamId={homeTeamId} />
+        <TeamHead
+          name={home}
+          teamId={homeTeamId}
+          sparkline={<Sparkline values={homeSeries} tone={homeTrendUp ? "up" : "down"} />}
+        />
         <div className="px-1 text-center sm:px-2">
           {hasActual ? (
             <>
@@ -115,7 +143,11 @@ export function MatchScoreboard({
             <span className="font-display text-lg font-bold text-muted sm:text-xl">vs</span>
           )}
         </div>
-        <TeamHead name={away} teamId={awayTeamId} />
+        <TeamHead
+          name={away}
+          teamId={awayTeamId}
+          sparkline={<Sparkline values={awaySeries} tone={awayTrendUp ? "up" : "down"} />}
+        />
       </div>
 
       {hasActual &&
@@ -224,7 +256,17 @@ export function MatchScoreboard({
   );
 }
 
-function TeamHead({ name, teamId }: { name: string; teamId?: number | null }) {
+function TeamHead({
+  name,
+  teamId,
+  sparkline,
+}: {
+  name: string;
+  teamId?: number | null;
+  /** Prediction-history trend (Task 6); Sparkline itself renders nothing
+   *  below two points, so this is safe to pass unconditionally. */
+  sparkline?: ReactNode;
+}) {
   const inner = (
     <>
       <Flag team={name} size={60} />
@@ -246,6 +288,7 @@ function TeamHead({ name, teamId }: { name: string; teamId?: number | null }) {
         <div className="flex flex-col items-center">{inner}</div>
       )}
       <FavoriteStar team={name} size={18} className="mt-1.5" />
+      {sparkline && <div className="mt-1.5">{sparkline}</div>}
     </div>
   );
 }

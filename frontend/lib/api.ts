@@ -11,6 +11,7 @@ import type {
   ModelRecord,
   MoversResponse,
   Prediction,
+  ProbHistory,
   Team,
   TeamProfile,
   TournamentOdds,
@@ -78,6 +79,8 @@ export const getModelRecord = () =>
   getJson<ModelRecord>("/api/model/record");
 export const getMovers = (sport: "football" | "nrl", limit = 3) =>
   getJson<MoversResponse>(`/api/movers?sport=${sport}&limit=${limit}`);
+export const getProbHistory = (matchId: number | string) =>
+  getJson<ProbHistory>(`/api/matches/${matchId}/prob-history`);
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */

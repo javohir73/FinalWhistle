@@ -44,6 +44,11 @@ beforeEach(() => {
     movers: [],
     disclaimer: "test",
   });
+  (api.getProbHistory as jest.Mock).mockResolvedValue({
+    match_id: 1,
+    points: [],
+    disclaimer: "test",
+  });
   (api.getTeam as jest.Mock).mockResolvedValue({
     team: teams[0],
     group_id: 1,

@@ -401,3 +401,17 @@ export interface MoversResponse {
   movers: Mover[];
   disclaimer: string;
 }
+
+/** One prediction snapshot from GET /api/matches/{id}/prob-history. */
+export interface ProbHistoryPoint {
+  date: string | null;
+  p_home: number;
+  p_draw: number;
+  p_away: number;
+}
+
+export interface ProbHistory {
+  match_id: number;
+  points: ProbHistoryPoint[];
+  disclaimer: string;
+}

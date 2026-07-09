@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CountryOnboarding } from "@/components/CountryOnboarding";
 import { AICalculationReveal } from "@/components/AICalculationReveal";
@@ -9,16 +9,17 @@ import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { MoversPanel } from "@/components/MoversPanel";
+import { Sparkline } from "@/components/Sparkline";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
-import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
+import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord, getProbHistory } from "@/lib/api";
 import { formatScore } from "@/lib/format";
 import { prematchCall, predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { isLiveNow, liveLabel } from "@/lib/liveLabel";
 import { kickoffTime, relativeDayLabel } from "@/lib/datetime";
-import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
+import type { Group, MatchSummary, ProbHistoryPoint, Team, TournamentOdds } from "@/lib/types";
 
 /** Country-first home. Decides between the chooser, the AI-forecast reveal, and
  *  the personalized hub from locally-stored selection state — all anonymous.
@@ -283,6 +284,28 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
       : null;
   const shownProbs = (live ? match.live_probabilities : null) ?? probabilities;
 
+  // Prediction-history sparklines (Task 6): one-time fetch per match, same
+  // active-flag cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx:39-53).
+  const [history, setHistory] = useState<ProbHistoryPoint[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    setHistory(null);
+    getProbHistory(match.match_id)
+      .then((res) => {
+        if (active) setHistory(res.points);
+      })
+      .catch(() => {
+        if (active) setHistory([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [match.match_id]);
+  const homeSeries = history?.map((p) => p.p_home) ?? [];
+  const awaySeries = history?.map((p) => p.p_away) ?? [];
+  const homeTrendUp = homeSeries.length >= 2 && homeSeries[homeSeries.length - 1] >= homeSeries[0];
+  const awayTrendUp = awaySeries.length >= 2 && awaySeries[awaySeries.length - 1] >= awaySeries[0];
+
   return (
     <Link
       href={`/match/${match.match_id}`}
@@ -317,6 +340,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
           <Flag team={teams.home} size={52} />
           <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.home}</span>
+          <Sparkline values={homeSeries} tone={homeTrendUp ? "up" : "down"} />
         </div>
         <div className="shrink-0 text-center">
           <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">
@@ -329,6 +353,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
           <Flag team={teams.away} size={52} />
           <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.away}</span>
+          <Sparkline values={awaySeries} tone={awayTrendUp ? "up" : "down"} />
         </div>
       </div>
 

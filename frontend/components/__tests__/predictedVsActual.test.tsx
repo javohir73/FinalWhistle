@@ -9,6 +9,7 @@ import type { MatchSummary } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockGetMatchSummary = api.getMatchSummary as jest.Mock;
+const mockGetProbHistory = api.getProbHistory as jest.Mock;
 
 const base: MatchSummary = {
   match_id: 1,
@@ -52,7 +53,10 @@ const shootout: MatchSummary = {
   minute: null, period: "penalty_shootout", penalty_home: 5, penalty_away: 4,
 };
 
-beforeEach(() => mockGetMatchSummary.mockResolvedValue(finished));
+beforeEach(() => {
+  mockGetMatchSummary.mockResolvedValue(finished);
+  mockGetProbHistory.mockResolvedValue({ match_id: 1, points: [], disclaimer: "" });
+});
 afterEach(() => jest.resetAllMocks());
 
 describe("MatchCard", () => {
