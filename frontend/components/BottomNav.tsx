@@ -2,68 +2,35 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SPORTS, sportFromPathname } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 
-/** Tab definition. `activePrefixes` is explicit because route names don't all
- *  share their tab's prefix (e.g. /match/[id] belongs to Matches, /team to
- *  Home) — naive startsWith(href) left most detail pages with no active tab. */
-interface Tab {
-  href: string;
-  label: string;
-  activePrefixes: string[];
-  icon: React.ReactNode;
-}
-
-const TABS: Tab[] = [
-  {
-    href: "/",
-    label: "Home",
-    activePrefixes: ["/team"], // team profiles open from the home hub
-    icon: <path d="M3 11l9-8 9 8M5 10v10h14V10" strokeLinejoin="round" strokeLinecap="round" />,
-  },
-  {
-    href: "/matches",
-    label: "Matches",
-    activePrefixes: ["/matches", "/match"],
-    icon: (
-      <>
-        <rect x="3" y="5" width="18" height="16" rx="3" />
-        <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
-      </>
-    ),
-  },
-  {
-    href: "/groups",
-    label: "Groups",
-    activePrefixes: [], // href "/groups" already covers /groups and /groups/[id]
-    icon: (
-      <>
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-      </>
-    ),
-  },
-  {
-    href: "/brackets",
-    label: "Bracket",
-    activePrefixes: [], // href "/brackets" covers the section (/my-bracket now redirects here)
-    icon: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
-  },
-  {
-    href: "/leaderboard",
-    label: "You",
-    // The You hub also houses the relocated info/settings pages.
-    activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
-    icon: (
-      <>
-        <circle cx="12" cy="8" r="4" />
-        <path d="M4 21c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
-      </>
-    ),
-  },
-];
+const ICONS: Record<string, React.ReactNode> = {
+  Home: <path d="M3 11l9-8 9 8M5 10v10h14V10" strokeLinejoin="round" strokeLinecap="round" />,
+  Matches: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
+    </>
+  ),
+  Groups: (
+    <>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  Bracket: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
+  Ladder: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
+  Record: <path d="M4 19l6-7 4 3 6-8" strokeLinejoin="round" strokeLinecap="round" />,
+  You: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
+    </>
+  ),
+};
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
   if (href === "/") return pathname === "/" || prefixes.some((p) => hit(pathname, p));
@@ -77,6 +44,7 @@ const hit = (pathname: string, prefix: string) =>
  *  Matches, Groups, Bracket and You — each one tap away, no overflow sheet. */
 export function BottomNav() {
   const pathname = usePathname();
+  const tabs = SPORTS[sportFromPathname(pathname)].navLinks;
 
   return (
     <nav
@@ -84,7 +52,7 @@ export function BottomNav() {
       className="safe-x safe-bottom fixed inset-x-0 bottom-0 z-50 border-t border-border bg-surface/90 backdrop-blur-xl sm:hidden"
     >
       <div className="mx-auto flex max-w-md items-stretch justify-around">
-        {TABS.map((tab) => {
+        {tabs.map((tab) => {
           const active = matches(pathname, tab.activePrefixes, tab.href);
           return (
             <Link
@@ -104,7 +72,7 @@ export function BottomNav() {
                 strokeWidth={active ? 2.4 : 2}
                 aria-hidden="true"
               >
-                {tab.icon}
+                {ICONS[tab.label]}
               </svg>
               {tab.label}
             </Link>

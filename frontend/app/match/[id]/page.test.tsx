@@ -1,7 +1,7 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getMatchGoalscorersServer, getModelRecordServer } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getMatchGoalscorersServer, getModelRecordServer, getProbHistory } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
@@ -11,6 +11,7 @@ const mockSummary = getMatchSummary as jest.MockedFunction<typeof getMatchSummar
 const mockLineups = getMatchLineups as jest.MockedFunction<typeof getMatchLineups>;
 const mockGoalscorers = getMatchGoalscorersServer as jest.MockedFunction<typeof getMatchGoalscorersServer>;
 const mockModelRecord = getModelRecordServer as jest.MockedFunction<typeof getModelRecordServer>;
+const mockProbHistory = getProbHistory as jest.MockedFunction<typeof getProbHistory>;
 
 // Recharts needs a non-zero layout size in jsdom.
 beforeAll(() => {
@@ -49,6 +50,9 @@ beforeEach(() => {
   // page must render prediction-only.
   mockSummaryServer.mockResolvedValue(null);
   mockSummary.mockRejectedValue(new Error("no api in jsdom"));
+  // The scoreboard's prob-history sparkline fetch — same "no api in jsdom"
+  // rejection as the summary poll above; MatchScoreboard's .catch() handles it.
+  mockProbHistory.mockRejectedValue(new Error("no api in jsdom"));
   // The Lineups island lazy-fetches client-side; resolve to the clean
   // unavailable placeholder so the SSR-output test renders without a real API.
   mockLineups.mockResolvedValue({

@@ -90,6 +90,20 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
 
+    # Movers-feature snapshot: best-effort, like odds/injuries above (never
+    # raises) -- a failure here must not block prediction_coverage,
+    # bracket_scores, or the chain_status heartbeat that follow.
+    def _prob_snapshots() -> dict:
+        from pipeline.prob_snapshots import snapshot_football
+
+        try:
+            return {"written": snapshot_football(db)}
+        except Exception:  # noqa: BLE001 - best-effort, log loudly and continue
+            log.exception("prob_snapshots FAILED (best-effort, continuing)")
+            return {"written": 0, "error": True}
+
+    step("prob_snapshots", _prob_snapshots)
+
     # Coverage assertion (FR-1.2): after the predictions step, no imminent
     # match may lack a frozen prediction. Loud in the summary, not fatal —
     # the sweep in the live path is the healer, this is the detector.

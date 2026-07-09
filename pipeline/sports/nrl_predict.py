@@ -235,6 +235,14 @@ def main() -> int:
         if args.generate:
             n = generate(db)
             log.info("generate: %d prediction row(s) written", n)
+
+            from pipeline.prob_snapshots import snapshot_nrl
+
+            try:
+                n_snap = snapshot_nrl(db)
+                print(f"snapshots: {n_snap} probability row(s) written")
+            except Exception:  # noqa: BLE001 - best-effort, must never abort the run
+                log.exception("prob_snapshots FAILED (best-effort, continuing)")
         if args.grade:
             n = grade(db)
             log.info("grade: %d result row(s) written", n)

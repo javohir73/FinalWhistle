@@ -4,12 +4,17 @@ import type {
   Goalscorers,
   Group,
   KnockoutBracket,
+  LadderResponse,
   LeaderboardRow,
   MarketBenchmark,
   MatchLineups,
   MatchSummary,
   ModelRecord,
+  MoversResponse,
+  NrlMatchesResponse,
+  NrlRecord,
   Prediction,
+  ProbHistory,
   Team,
   TeamProfile,
   TournamentOdds,
@@ -75,6 +80,10 @@ export const getMatchLineups = (id: number | string) =>
   getJson<MatchLineups>(`/api/matches/${id}/lineups`);
 export const getModelRecord = () =>
   getJson<ModelRecord>("/api/model/record");
+export const getMovers = (sport: "football" | "nrl", limit = 3) =>
+  getJson<MoversResponse>(`/api/movers?sport=${sport}&limit=${limit}`);
+export const getProbHistory = (matchId: number | string) =>
+  getJson<ProbHistory>(`/api/matches/${matchId}/prob-history`);
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */
@@ -120,3 +129,13 @@ export const getModelRecordServer = () =>
   getServer<ModelRecord>("/api/model/record", 300);
 export const getMarketRecordServer = () =>
   getServer<MarketBenchmark>("/api/model/market-record", 300);
+
+/** Server-side NRL fetchers (ISR). Reuse `getServer` above (same 404->null,
+ *  ISR-revalidate behavior as the football fetchers) rather than adding a
+ *  second serverGet-style helper. */
+export const getNrlMatchesServer = (revalidate = 300) =>
+  getServer<NrlMatchesResponse>("/api/nrl/matches", revalidate);
+export const getNrlLadderServer = () =>
+  getServer<LadderResponse>("/api/nrl/ladder", 300);
+export const getNrlRecordServer = () =>
+  getServer<NrlRecord>("/api/nrl/model/record", 300);

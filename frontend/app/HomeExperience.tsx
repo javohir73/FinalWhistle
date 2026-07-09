@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { CountryOnboarding } from "@/components/CountryOnboarding";
 import { AICalculationReveal } from "@/components/AICalculationReveal";
@@ -8,16 +8,18 @@ import { TeamSearch } from "@/components/TeamSearch";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
+import { MoversPanel } from "@/components/MoversPanel";
+import { Sparkline } from "@/components/Sparkline";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
-import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
-import { pct, formatScore } from "@/lib/format";
+import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord, getProbHistory } from "@/lib/api";
+import { formatScore } from "@/lib/format";
 import { prematchCall, predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { isLiveNow, liveLabel } from "@/lib/liveLabel";
 import { kickoffTime, relativeDayLabel } from "@/lib/datetime";
-import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
+import type { Group, MatchSummary, ProbHistoryPoint, Team, TournamentOdds } from "@/lib/types";
 
 /** Country-first home. Decides between the chooser, the AI-forecast reveal, and
  *  the personalized hub from locally-stored selection state — all anonymous.
@@ -77,7 +79,7 @@ export function HomeExperience({
   }
 
   // Returning user with a revealed forecast: the Daylight home dashboard —
-  // greeting, your-team hero, match of the day, and the rest of today.
+  // greeting, today's movers, match of the day, and the rest of today.
   if (!changing && selection?.prediction_revealed && selectedTeam) {
     return (
       <HomeDashboard
@@ -115,8 +117,8 @@ function greeting(name?: string | null): string {
 }
 
 /**
- * The returning-user landing. A friendly greeting + today's count, a deep-green
- * your-team hero (tap → team hub, "Change" → chooser), the headline "Match of
+ * The returning-user landing. A friendly greeting + today's count, the
+ * "Today's movers" panel (biggest probability swings), the headline "Match of
  * the day", and compact "Also today" rows. All real, already-loaded data.
  */
 function HomeDashboard({
@@ -150,28 +152,6 @@ function HomeDashboard({
     [matches, tz],
   );
 
-  // The team's own next fixture (today or upcoming) for the hero subline.
-  const nextForTeam = useMemo(
-    () =>
-      matches
-        .filter(
-          (m) =>
-            (m.teams.home === team.name || m.teams.away === team.name) &&
-            m.status !== "finished",
-        )
-        .sort((a, b) => (a.kickoff_utc ?? "z").localeCompare(b.kickoff_utc ?? "z"))[0] ?? null,
-    [matches, team.name],
-  );
-
-  const teamOdds = useMemo(
-    () => odds.find((o) => o.team_id === team.id) ?? null,
-    [odds, team.id],
-  );
-  const group = useMemo(
-    () => groups.find((g) => g.standings.some((s) => s.team_id === team.id)) ?? null,
-    [groups, team.id],
-  );
-
   // The single best-billed fixture — always something genuinely relevant, never
   // a past kickoff dressed up as an upcoming prediction:
   //   1. a live game, 2. the soonest fixture still to come, 3. the most recent
@@ -199,31 +179,6 @@ function HomeDashboard({
     [today, matchOfDay],
   );
 
-  // The hero's headline stat: prefer the deepest meaningful tournament odd.
-  const heroStat = useMemo(() => {
-    if (!teamOdds) return null;
-    if (teamOdds.win_title != null && teamOdds.win_title >= 0.01)
-      return { value: pct(teamOdds.win_title), label: "to win it all" };
-    if (teamOdds.reach_sf != null && teamOdds.reach_sf >= 0.03)
-      return { value: pct(teamOdds.reach_sf), label: "to reach the semis" };
-    if (teamOdds.reach_final != null && teamOdds.reach_final >= 0.03)
-      return { value: pct(teamOdds.reach_final), label: "to reach the final" };
-    if (teamOdds.make_knockout != null)
-      return { value: pct(teamOdds.make_knockout), label: "to reach the knockouts" };
-    return null;
-  }, [teamOdds]);
-
-  const heroSub = useMemo(() => {
-    if (!nextForTeam) return group ? group.name : "Following this tournament";
-    const opp = nextForTeam.teams.home === team.name ? nextForTeam.teams.away : nextForTeam.teams.home;
-    const when =
-      nextForTeam.kickoff_utc &&
-      (relativeDayLabel(nextForTeam.kickoff_utc, tz) ?? "").toLowerCase();
-    const time = nextForTeam.kickoff_utc ? kickoffTime(nextForTeam.kickoff_utc, tz) : null;
-    const tail = [when, time].filter(Boolean).join(" ");
-    return `Next: vs ${opp}${tail ? ` · ${tail}` : ""}`;
-  }, [nextForTeam, team.name, tz, group]);
-
   return (
     <div className="mx-auto max-w-2xl py-8 sm:py-10">
       {/* ===== Greeting ===== */}
@@ -234,69 +189,25 @@ function HomeDashboard({
           : "No matches today"}
       </h1>
 
+      {/* ===== Followed team, with a quiet way back to the chooser ===== */}
+      <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+        <Flag team={team.name} size={16} />
+        Following {team.name}
+        <button
+          type="button"
+          onClick={onChangeCountry}
+          className="text-xs font-semibold text-lime-deep hover:underline"
+        >
+          Change team
+        </button>
+      </p>
+
       {/* ===== Jump to any team ===== */}
       <div className="mt-5">
         <TeamSearch teams={teams} />
       </div>
 
-      {/* ===== Your-team hero (deep-green pitch panel) ===== */}
-      <Link
-        href={`/team/${team.id}`}
-        className="card-hover panel-pitch group mt-6 block rounded-2xl p-5"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <span className="font-display text-[11px] font-bold uppercase tracking-wider text-[#a9c7b4]">
-            Your team
-          </span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              onChangeCountry();
-            }}
-            className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-semibold text-[#bdf08a] transition hover:bg-white/15"
-          >
-            <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" strokeLinejoin="round" />
-            </svg>
-            Change
-          </button>
-        </div>
-        <div className="flex items-center gap-3.5">
-          <Flag team={team.name} size={46} />
-          <div className="min-w-0 flex-1">
-            <p className="truncate font-display text-xl font-extrabold tracking-tight text-white sm:text-2xl">
-              {team.name}
-            </p>
-            <p className="mt-0.5 truncate text-[13px] text-[#a9c7b4]">{heroSub}</p>
-          </div>
-          {heroStat && (
-            <div className="shrink-0 text-right">
-              <p className="font-display text-2xl font-extrabold tabular-nums text-win">
-                {heroStat.value}
-              </p>
-              <p className="text-[11px] text-[#a9c7b4]">{heroStat.label}</p>
-            </div>
-          )}
-        </div>
-        {/* Affordance: make it obvious the whole card opens the team page. */}
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-white/10 pt-3">
-          <span className="font-display text-[13px] font-semibold text-[#bdf08a]">
-            View full forecast
-          </span>
-          <svg
-            viewBox="0 0 24 24"
-            className="h-4 w-4 shrink-0 text-[#bdf08a] transition-transform group-hover:translate-x-0.5"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            aria-hidden
-          >
-            <path d="M5 12h14M13 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </div>
-      </Link>
+      <MoversPanel sport="football" />
 
       {/* ===== Match of the day ===== */}
       {matchOfDay && (
@@ -373,6 +284,28 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
       : null;
   const shownProbs = (live ? match.live_probabilities : null) ?? probabilities;
 
+  // Prediction-history sparklines (Task 6): one-time fetch per match, same
+  // active-flag cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx:39-53).
+  const [history, setHistory] = useState<ProbHistoryPoint[] | null>(null);
+  useEffect(() => {
+    let active = true;
+    setHistory(null);
+    getProbHistory(match.match_id)
+      .then((res) => {
+        if (active) setHistory(res.points);
+      })
+      .catch(() => {
+        if (active) setHistory([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [match.match_id]);
+  const homeSeries = history?.map((p) => p.p_home) ?? [];
+  const awaySeries = history?.map((p) => p.p_away) ?? [];
+  const homeTrendUp = homeSeries.length >= 2 && homeSeries[homeSeries.length - 1] >= homeSeries[0];
+  const awayTrendUp = awaySeries.length >= 2 && awaySeries[awaySeries.length - 1] >= awaySeries[0];
+
   return (
     <Link
       href={`/match/${match.match_id}`}
@@ -407,6 +340,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
           <Flag team={teams.home} size={52} />
           <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.home}</span>
+          <Sparkline values={homeSeries} tone={homeTrendUp ? "up" : "down"} />
         </div>
         <div className="shrink-0 text-center">
           <p className="font-display text-[11px] font-bold uppercase tracking-wide text-muted">
@@ -419,6 +353,7 @@ function MatchOfDayCard({ match, tz }: { match: MatchSummary; tz: string }) {
         <div className="flex min-w-0 flex-1 flex-col items-center gap-2 text-center">
           <Flag team={teams.away} size={52} />
           <span className="truncate font-display text-[15px] font-bold tracking-tight">{teams.away}</span>
+          <Sparkline values={awaySeries} tone={awayTrendUp ? "up" : "down"} />
         </div>
       </div>
 

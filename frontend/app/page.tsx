@@ -1,3 +1,5 @@
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import {
   getTeamsServer,
   getGroupsServer,
@@ -10,6 +12,9 @@ import { HomeExperience } from "./HomeExperience";
  *  Data is server-rendered (ISR) so the chooser and any returning user's hub
  *  paint with real content; the interactive flow lives in a client island. */
 export default async function HomePage() {
+  const store = await cookies();
+  if (store.get("fw_sport")?.value === "nrl") redirect("/nrl");
+
   const [teams, groups, matches, odds] = await Promise.all([
     getTeamsServer().catch(() => null),
     getGroupsServer().catch(() => null),

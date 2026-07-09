@@ -70,6 +70,20 @@ def test_parse_row_null_match_number_is_malformed():
     assert parse_row(bad) is None
 
 
+def test_parse_row_rejects_non_int_round():
+    # RoundNumber now anchors the (sport, season, round, match_no) unique key
+    # alongside MatchNumber, so it must be validated exactly the same way:
+    # missing, None, a numeric string, and bool (a bool IS an int in Python,
+    # but isn't a legitimate round number) must all be rejected.
+    bad = dict(SAMPLE)
+    del bad["RoundNumber"]
+    assert parse_row(bad) is None
+
+    assert parse_row(dict(SAMPLE, RoundNumber=None)) is None
+    assert parse_row(dict(SAMPLE, RoundNumber="3")) is None
+    assert parse_row(dict(SAMPLE, RoundNumber=True)) is None
+
+
 def test_parse_row_one_score_null_is_scheduled():
     # A partially-filled score pair (shouldn't happen live, but the contract
     # says "either null" -> scheduled with scores None, not a half-filled row).
@@ -207,18 +221,44 @@ def test_upsert_season_skips_malformed_rows(db_session):
     assert db_session.query(SportMatch).count() == 0
 
 
-def test_upsert_season_dedupes_match_no_collisions_within_a_batch(db_session):
-    # fixturedownload's 2020 COVID-restart feed reuses MatchNumber across
-    # distinct fixtures in the same response (round 1 and round 3 both use
-    # MatchNumber=1). The batch must not crash on the unique constraint —
-    # first-seen wins, later collisions are dropped.
-    first = dict(SAMPLE, MatchNumber=1, RoundNumber=1)
-    collides = dict(SAMPLE, MatchNumber=1, RoundNumber=3,
-                     HomeTeam="Broncos", AwayTeam="Storm")
-    counts = upsert_season(db_session, 2020, [first, collides])
+def test_upsert_season_keeps_same_match_no_across_rounds(db_session):
+    # fixturedownload's 2020 COVID-restart feed restarts MatchNumber within
+    # each round (round 3 and round 5 both use MatchNumber=1, for distinct
+    # fixtures — different teams, dates, venues). True match identity is
+    # (sport, season, round, match_no), so both rows must be created, not
+    # deduped as if they were the same match.
+    round3 = dict(SAMPLE, MatchNumber=1, RoundNumber=3,
+                  DateUtc="2020-05-28 08:00:00Z", Location="Suncorp Stadium",
+                  HomeTeam="Broncos", AwayTeam="Storm")
+    round5 = dict(SAMPLE, MatchNumber=1, RoundNumber=5,
+                  DateUtc="2020-06-11 08:00:00Z", Location="Bankwest Stadium",
+                  HomeTeam="Eels", AwayTeam="Sharks")
+    counts = upsert_season(db_session, 2020, [round3, round5])
+    assert counts == {"created": 2, "updated": 0}
+
+    m3 = db_session.query(SportMatch).filter_by(
+        sport="nrl", season=2020, round=3, match_no=1).one()
+    m5 = db_session.query(SportMatch).filter_by(
+        sport="nrl", season=2020, round=5, match_no=1).one()
+    assert m3.id != m5.id
+    assert m3.venue == "Suncorp Stadium"
+    assert m5.venue == "Bankwest Stadium"
+
+
+def test_upsert_season_skips_true_duplicate_within_round(db_session):
+    # A genuine re-send of the same fixture within a batch — identical round
+    # AND match_no — is still a true duplicate and must be deduped, keeping
+    # the first-seen row.
+    first = dict(SAMPLE, MatchNumber=1, RoundNumber=3)
+    dupe = dict(SAMPLE, MatchNumber=1, RoundNumber=3,
+                HomeTeam="Broncos", AwayTeam="Storm")
+    counts = upsert_season(db_session, 2020, [first, dupe])
     assert counts == {"created": 1, "updated": 0}
-    match = db_session.query(SportMatch).filter_by(sport="nrl", season=2020, match_no=1).one()
-    assert match.round == 1  # first-seen kept
+
+    match = db_session.query(SportMatch).filter_by(
+        sport="nrl", season=2020, round=3, match_no=1).one()
+    home = db_session.query(SportTeam).filter_by(id=match.home_team_id).one()
+    assert home.name == "Knights"  # first-seen kept, not the "Broncos" dupe
 
 
 def test_upsert_season_scoped_by_season(db_session):

@@ -384,3 +384,92 @@ export interface MarketBenchmark {
   mean_edge: number | null;
   verdict: string | null;
 }
+
+/** Daily probability swing row from GET /api/movers (spec 2026-07-09). */
+export interface Mover {
+  entity_id: number;
+  name: string;
+  market: string;
+  prob: number;
+  delta: number | null;
+  series: number[];
+}
+
+export interface MoversResponse {
+  sport: "football" | "nrl";
+  as_of: string | null;
+  movers: Mover[];
+  disclaimer: string;
+}
+
+/** One prediction snapshot from GET /api/matches/{id}/prob-history. */
+export interface ProbHistoryPoint {
+  date: string | null;
+  p_home: number;
+  p_draw: number;
+  p_away: number;
+}
+
+export interface ProbHistory {
+  match_id: number;
+  points: ProbHistoryPoint[];
+  disclaimer: string;
+}
+
+/** /api/nrl/* shapes (backend/app/api/sports.py). */
+export interface NrlPrediction {
+  p_home: number;
+  p_draw: number;
+  p_away: number;
+  expected_margin: number | null;
+  model_version: string;
+  created_at: string | null;
+  is_shadow: boolean;
+}
+export interface NrlMatch {
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  home: string | null;
+  away: string | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+  prediction: NrlPrediction | null;
+}
+export interface NrlRound {
+  round: number | null;
+  matches: NrlMatch[];
+}
+export interface NrlMatchesResponse {
+  season: number;
+  rounds: NrlRound[];
+  disclaimer: string;
+}
+export interface LadderRow {
+  rank: number;
+  team_id: number;
+  name: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+  diff: number;
+}
+export interface LadderResponse {
+  season: number;
+  rows: LadderRow[];
+  disclaimer: string;
+}
+export interface NrlRecord {
+  evaluated_matches: number;
+  winner_accuracy: number | null;
+  winner_accuracy_ci95: [number, number] | null;
+  avg_log_loss: number | null;
+  avg_brier: number | null;
+  best_streak: number;
+  model_version: string;
+  last_updated: string | null;
+  disclaimer: string;
+}

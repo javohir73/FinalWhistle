@@ -4,27 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
+import { SportSwitcher } from "@/components/SportSwitcher";
+import { SPORTS, sportFromPathname } from "@/lib/sports";
 import { cn } from "@/lib/utils";
-
-/** Desktop primary nav links. `activePrefixes` assigns detail routes to their
- *  parent sections (e.g. /match/[id] belongs to Matches, /team to Home). */
-interface NavLink {
-  href: string;
-  label: string;
-  activePrefixes: string[];
-}
-
-const LINKS: NavLink[] = [
-  { href: "/", label: "Home", activePrefixes: ["/team"] },
-  { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
-  { href: "/groups", label: "Groups", activePrefixes: [] },
-  { href: "/brackets", label: "Bracket", activePrefixes: [] },
-  {
-    href: "/leaderboard",
-    label: "You",
-    activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
-  },
-];
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
   if (href === "/") return pathname === "/" || prefixes.some((p) => hit(pathname, p));
@@ -40,6 +22,7 @@ const hit = (pathname: string, prefix: string) =>
  *  bar handles navigation. */
 export function SiteNav() {
   const pathname = usePathname();
+  const links = SPORTS[sportFromPathname(pathname)].navLinks;
 
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-xl">
@@ -53,8 +36,10 @@ export function SiteNav() {
           <Wordmark className="text-lg font-extrabold" />
         </Link>
 
+        <SportSwitcher variant="segment" />
+
         <div className="ml-auto mr-2 hidden items-center gap-1 sm:flex">
-          {LINKS.map((link) => {
+          {links.map((link) => {
             const active = matches(pathname, link.activePrefixes, link.href);
             return (
               <Link
@@ -76,6 +61,8 @@ export function SiteNav() {
 
         <AuthButton />
       </nav>
+
+      <SportSwitcher variant="pills" />
     </header>
   );
 }
