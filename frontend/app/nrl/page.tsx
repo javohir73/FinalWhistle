@@ -38,7 +38,7 @@ export default async function NrlHomePage() {
       <div className="mt-6 grid gap-4 md:grid-cols-[1fr_320px]">
         <div className="grid gap-4">
           {(current?.matches ?? []).map((m) => (
-            <SportMatchCard key={m.match_no} match={m} eyebrow={`Round ${current?.round}`} />
+            <SportMatchCard key={m.match_no} match={m} eyebrow={`Round ${current?.round ?? "—"}`} />
           ))}
         </div>
         {ladder ? (

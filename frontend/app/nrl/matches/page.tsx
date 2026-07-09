@@ -21,7 +21,7 @@ export default async function NrlMatchesPage() {
           </h2>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             {round.matches.map((m) => (
-              <SportMatchCard key={m.match_no} match={m} eyebrow={`Round ${round.round}`} />
+              <SportMatchCard key={m.match_no} match={m} eyebrow={`Round ${round.round ?? "TBC"}`} />
             ))}
           </div>
         </section>
