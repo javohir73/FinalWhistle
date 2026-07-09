@@ -444,6 +444,7 @@ export interface NrlRound {
 export interface NrlMatchesResponse {
   season: number;
   rounds: NrlRound[];
+  disclaimer: string;
 }
 export interface LadderRow {
   rank: number;
@@ -459,6 +460,7 @@ export interface LadderRow {
 export interface LadderResponse {
   season: number;
   rows: LadderRow[];
+  disclaimer: string;
 }
 export interface NrlRecord {
   evaluated_matches: number;
@@ -469,4 +471,5 @@ export interface NrlRecord {
   best_streak: number;
   model_version: string;
   last_updated: string | null;
+  disclaimer: string;
 }
