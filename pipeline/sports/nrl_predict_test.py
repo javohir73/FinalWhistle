@@ -2,10 +2,11 @@
 
 generate/grade operate purely on sport="nrl" rows, so tests build small
 in-memory fixtures via db_session (conftest.py's SQLite fixture) rather than
-touching the football tables. Elo state is always derived by replaying
-FINISHED matches in kickoff order (with regress_season at season boundaries)
--- never stored on SportTeam -- so "changed state" tests finish an extra
-match rather than mutating a team row directly.
+touching the football tables. Elo state used for predictions is always
+derived by replaying FINISHED matches in kickoff order (with regress_season
+at season boundaries) -- SportTeam.elo_rating is only a write-only display
+cache synced by generate(), never read back -- so "changed state" tests
+finish an extra match rather than mutating a team row directly.
 """
 from __future__ import annotations
 
@@ -71,6 +72,58 @@ def test_generate_writes_for_scheduled_match(db_session):
     row = db_session.query(SportPrediction).one()
     assert row.is_shadow is True
     assert abs((row.p_home + row.p_draw + row.p_away) - 1.0) < 1e-9
+
+
+# ---- generate: elo display-cache sync ----
+
+def test_generate_syncs_replayed_elos_onto_sport_teams(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+           status="finished", score_home=20, score_away=16)
+    _match(db_session, home, away, 2026, 2, _kickoff(2026, 3, 8), status="scheduled")
+
+    generate(db_session, PARAMS)
+
+    db_session.refresh(home)
+    db_session.refresh(away)
+    # Winner gains what the loser drops (zero-sum around the 1500 start).
+    assert home.elo_rating is not None and home.elo_rating > 1500.0
+    assert away.elo_rating is not None and away.elo_rating < 1500.0
+    assert abs((home.elo_rating + away.elo_rating) - 3000.0) < 1e-9
+
+
+def test_generate_leaves_unplayed_team_elo_null(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    newcomer = _team(db_session, "Dolphins")
+    _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+           status="finished", score_home=20, score_away=16)
+    _match(db_session, home, newcomer, 2026, 2, _kickoff(2026, 3, 8),
+           status="scheduled")
+
+    generate(db_session, PARAMS)
+
+    db_session.refresh(newcomer)
+    assert newcomer.elo_rating is None
+
+
+def test_generate_updates_stored_elo_when_new_result_lands(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+           status="finished", score_home=20, score_away=16)
+    generate(db_session, PARAMS)
+    db_session.refresh(home)
+    after_one = home.elo_rating
+
+    # Broncos win again -> stored rating climbs on the next run.
+    _match(db_session, home, away, 2026, 2, _kickoff(2026, 3, 8),
+           status="finished", score_home=30, score_away=10)
+    generate(db_session, PARAMS)
+    db_session.refresh(home)
+
+    assert home.elo_rating > after_one
 
 
 # ---- generate: dedup ----
