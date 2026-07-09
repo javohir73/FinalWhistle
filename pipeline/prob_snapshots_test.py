@@ -37,16 +37,24 @@ def test_snapshot_nrl_snapshots_upcoming_round_win_probs():
     db = _session()
     home = SportTeam(sport="nrl", name="Broncos")
     away = SportTeam(sport="nrl", name="Storm")
-    db.add_all([home, away]); db.flush()
+    home2 = SportTeam(sport="nrl", name="Roosters")
+    away2 = SportTeam(sport="nrl", name="Eels")
+    db.add_all([home, away, home2, away2]); db.flush()
     m = SportMatch(sport="nrl", season=2026, round=19, match_no=1,
                    home_team_id=home.id, away_team_id=away.id, status="scheduled")
-    db.add(m); db.flush()
+    # A later scheduled round -- must NOT be snapshotted; only the earliest
+    # upcoming round (19) counts as "this round" for the movers feature.
+    m2 = SportMatch(sport="nrl", season=2026, round=20, match_no=2,
+                    home_team_id=home2.id, away_team_id=away2.id, status="scheduled")
+    db.add_all([m, m2]); db.flush()
     db.add(SportPrediction(match_id=m.id, model_version="nrl-1",
                            p_home=0.39, p_draw=0.04, p_away=0.57))
+    db.add(SportPrediction(match_id=m2.id, model_version="nrl-1",
+                           p_home=0.51, p_draw=0.05, p_away=0.44))
     db.commit()
 
     n = snapshot_nrl(db, snapshot_date=date(2026, 7, 9))
-    assert n == 2  # one win_match row per side
+    assert n == 2  # one win_match row per side, round-19 match only
     rows = db.query(ProbabilitySnapshot).filter_by(sport="nrl").all()
     assert {(r.entity_id, round(r.prob, 2)) for r in rows} == {(home.id, 0.39), (away.id, 0.57)}
     assert all(r.market == "win_match" and r.ref_id == m.id for r in rows)

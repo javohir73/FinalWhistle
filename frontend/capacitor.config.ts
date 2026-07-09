@@ -18,10 +18,10 @@ const config: CapacitorConfig = {
     contentInset: "automatic",
     // Daylight theme background — matches the web --background token so there's
     // no dark flash on launch or behind the safe-area insets / overscroll.
-    backgroundColor: "#f6f8f3",
+    backgroundColor: "#0d1118",
   },
   android: {
-    backgroundColor: "#f6f8f3",
+    backgroundColor: "#0d1118",
   },
 };
 

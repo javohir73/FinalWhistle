@@ -51,6 +51,17 @@ def snapshot_nrl(db: Session, snapshot_date: date | None = None) -> int:
         .filter(SportMatch.sport == "nrl", SportMatch.status == "scheduled")
         .all()
     )
+
+    # Scope to the upcoming round only -- otherwise every scheduled match in
+    # the season gets snapshotted, so the movers top-3 can show one club
+    # multiple times ("to win this round" mislabeled) with duplicate React
+    # keys. Ignore round=None matches when computing the earliest round
+    # unless every scheduled match is round=None (nothing else to go on).
+    rounds = [m.round for m in matches if m.round is not None]
+    if rounds:
+        upcoming_round = min(rounds)
+        matches = [m for m in matches if m.round == upcoming_round]
+
     for m in matches:
         pred = (
             db.query(SportPrediction)

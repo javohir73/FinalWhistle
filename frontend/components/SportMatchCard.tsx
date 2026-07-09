@@ -6,6 +6,7 @@ function kickoffLabel(iso: string | null): string {
   if (!iso) return "TBC";
   return new Date(iso).toLocaleString("en-AU", {
     weekday: "short", hour: "numeric", minute: "2-digit",
+    timeZone: "Australia/Sydney", timeZoneName: "short",
   });
 }
 
