@@ -30,3 +30,6 @@ def test_normalize_text_expands_aliases_found_inside_free_text():
 
 def test_normalize_text_leaves_unaliased_text_alone():
     assert normalize_text("Will France win?") == "will france win"
+    # word boundaries: the "us" alias must not fire inside other words
+    assert normalize_text("Will Australia win?") == "will australia win"
+    assert normalize_text("Will Russia win?") == "will russia win"
