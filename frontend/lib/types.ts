@@ -384,3 +384,20 @@ export interface MarketBenchmark {
   mean_edge: number | null;
   verdict: string | null;
 }
+
+/** Daily probability swing row from GET /api/movers (spec 2026-07-09). */
+export interface Mover {
+  entity_id: number;
+  name: string;
+  market: string;
+  prob: number;
+  delta: number | null;
+  series: number[];
+}
+
+export interface MoversResponse {
+  sport: "football" | "nrl";
+  as_of: string | null;
+  movers: Mover[];
+  disclaimer: string;
+}

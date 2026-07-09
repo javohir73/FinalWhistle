@@ -9,6 +9,7 @@ import type {
   MatchLineups,
   MatchSummary,
   ModelRecord,
+  MoversResponse,
   Prediction,
   Team,
   TeamProfile,
@@ -75,6 +76,8 @@ export const getMatchLineups = (id: number | string) =>
   getJson<MatchLineups>(`/api/matches/${id}/lineups`);
 export const getModelRecord = () =>
   getJson<ModelRecord>("/api/model/record");
+export const getMovers = (sport: "football" | "nrl", limit = 3) =>
+  getJson<MoversResponse>(`/api/movers?sport=${sport}&limit=${limit}`);
 
 /** Server-side fetchers for SSR (App Router). ISR-cached so pages render fast
  *  HTML and stay resilient to backend cold starts; returns null on 404. */

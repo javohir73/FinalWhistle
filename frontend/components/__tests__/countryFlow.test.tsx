@@ -1,8 +1,8 @@
 /** Country-first home flow: choose a country → "Predict my team" → AI reveal,
  *  and a returning user (reveal already done) lands on the Daylight home
- *  DASHBOARD — greeting, a your-team hero that taps through to the /team hub,
- *  and today's match-of-the-day. The detailed team hub now lives on /team/[id];
- *  this surface is the lightweight landing. Whole flow is anonymous + local. */
+ *  DASHBOARD — greeting, the "Today's movers" panel, and today's
+ *  match-of-the-day. The detailed team hub lives on /team/[id]; this surface
+ *  is the lightweight landing. Whole flow is anonymous + local. */
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HomeExperience } from "@/app/HomeExperience";
 import * as api from "@/lib/api";
@@ -38,6 +38,12 @@ beforeEach(() => {
   (api.getGroups as jest.Mock).mockResolvedValue([]);
   (api.getUpcomingMatches as jest.Mock).mockResolvedValue([]);
   (api.getKnockoutOdds as jest.Mock).mockResolvedValue([]);
+  (api.getMovers as jest.Mock).mockResolvedValue({
+    sport: "football",
+    as_of: null,
+    movers: [],
+    disclaimer: "test",
+  });
   (api.getTeam as jest.Mock).mockResolvedValue({
     team: teams[0],
     group_id: 1,
@@ -104,7 +110,7 @@ it("supports arrow-key navigation between country options (listbox contract)", a
   expect(brazil).toHaveFocus();
 });
 
-it("sends a returning user to their Daylight home dashboard (hero taps through to the hub)", async () => {
+it("sends a returning user to their Daylight home dashboard", async () => {
   localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const groups = [{
@@ -117,17 +123,14 @@ it("sends a returning user to their Daylight home dashboard (hero taps through t
   }];
   (api.getGroups as jest.Mock).mockResolvedValue(groups);
 
-  const { container } = render(
+  render(
     <HomeExperience initialTeams={teams} initialGroups={groups} initialMatches={[]} initialOdds={[]} />,
   );
 
-  // The your-team hero greets the returning user…
-  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
-  expect(screen.getByText("Brazil")).toBeInTheDocument();
-  // …and links through to the detailed team hub at /team/[id].
-  expect(container.querySelector('a[href="/team/1"]')).not.toBeNull();
-  // Empty slate still gives a clear "no matches today" headline.
-  expect(screen.getByText("No matches today")).toBeInTheDocument();
+  // The greeting + today's count paint for the returning user…
+  await waitFor(() => expect(screen.getByText("No matches today")).toBeInTheDocument());
+  // …and the search box to jump to any team is available.
+  expect(screen.getByRole("combobox")).toBeInTheDocument();
 });
 
 it("features an upcoming fixture as a clickable match-of-the-day card", async () => {
@@ -151,8 +154,7 @@ it("features an upcoming fixture as a clickable match-of-the-day card", async ()
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
   );
 
-  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
-  expect(screen.getByText("Match of the day")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByText("Match of the day")).toBeInTheDocument());
   // The card carries the AI scoreline and links into the full match page.
   expect(container.querySelector('a[href="/match/101"]')).not.toBeNull();
 });
@@ -178,19 +180,7 @@ it("a finished-only slate falls back to the no-matches-today state without crash
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[finished]} initialOdds={[]} />,
   );
 
-  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
-  expect(screen.getByText("No matches today")).toBeInTheDocument();
-});
-
-it("lets a returning user switch teams from the hero (routes back to the chooser)", async () => {
-  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
-
-  render(<HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />);
-
-  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
-
-  fireEvent.click(screen.getByRole("button", { name: /Change/ }));
-  await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText("No matches today")).toBeInTheDocument());
 });
 
 it("survives a corrupted stored timezone without crashing the dashboard", async () => {
@@ -218,6 +208,5 @@ it("survives a corrupted stored timezone without crashing the dashboard", async 
   );
 
   // The dashboard renders the fixture card without the bad zone crashing the tree.
-  await waitFor(() => expect(screen.getByText("Your team")).toBeInTheDocument());
-  expect(container.querySelector('a[href^="/match/"]')).not.toBeNull();
+  await waitFor(() => expect(container.querySelector('a[href^="/match/"]')).not.toBeNull());
 });
