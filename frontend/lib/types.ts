@@ -415,3 +415,58 @@ export interface ProbHistory {
   points: ProbHistoryPoint[];
   disclaimer: string;
 }
+
+/** /api/nrl/* shapes (backend/app/api/sports.py). */
+export interface NrlPrediction {
+  p_home: number;
+  p_draw: number;
+  p_away: number;
+  expected_margin: number | null;
+  model_version: string;
+  created_at: string | null;
+  is_shadow: boolean;
+}
+export interface NrlMatch {
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  home: string | null;
+  away: string | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+  prediction: NrlPrediction | null;
+}
+export interface NrlRound {
+  round: number | null;
+  matches: NrlMatch[];
+}
+export interface NrlMatchesResponse {
+  season: number;
+  rounds: NrlRound[];
+}
+export interface LadderRow {
+  rank: number;
+  team_id: number;
+  name: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  points: number;
+  diff: number;
+}
+export interface LadderResponse {
+  season: number;
+  rows: LadderRow[];
+}
+export interface NrlRecord {
+  evaluated_matches: number;
+  winner_accuracy: number | null;
+  winner_accuracy_ci95: [number, number] | null;
+  avg_log_loss: number | null;
+  avg_brier: number | null;
+  best_streak: number;
+  model_version: string;
+  last_updated: string | null;
+}
