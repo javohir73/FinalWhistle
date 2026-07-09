@@ -7,11 +7,12 @@ their own phases.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -756,6 +757,34 @@ class SportPredictionResult(Base):
     )
 
 
+class ProbabilitySnapshot(Base):
+    """Daily model-probability snapshots for movement deltas + sparklines.
+
+    One row per (sport, entity, market, ref, day). Football entities are
+    teams.id (markets: make_knockout / win_title / qualify_group); NRL
+    entities are sport_teams.id with ref_id = sport_matches.id (win_match).
+    """
+
+    __tablename__ = "probability_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "sport", "entity_id", "market", "ref_id", "snapshot_date",
+            name="uq_prob_snapshot_key",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(10), index=True)
+    entity_id: Mapped[int] = mapped_column(Integer, index=True)
+    market: Mapped[str] = mapped_column(String(30))
+    ref_id: Mapped[int | None] = mapped_column(Integer)
+    prob: Mapped[float] = mapped_column(Float)
+    snapshot_date: Mapped[date] = mapped_column(Date, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -786,4 +815,5 @@ __all__ = [
     "SportMatch",
     "SportPrediction",
     "SportPredictionResult",
+    "ProbabilitySnapshot",
 ]
