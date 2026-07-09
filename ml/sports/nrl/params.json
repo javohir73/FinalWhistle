@@ -1,0 +1,10 @@
+{
+  "version": "nrl-elo-v0.1",
+  "k": 24.0,
+  "home_adv": 45.0,
+  "margin_mult_cap": 1.8,
+  "season_regress": 0.35,
+  "margin_slope": 0.045,
+  "margin_sigma": 15.0,
+  "p_draw": 0.008
+}

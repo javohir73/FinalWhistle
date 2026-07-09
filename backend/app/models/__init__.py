@@ -20,6 +20,7 @@ from sqlalchemy import (
     UniqueConstraint,
     false,
     func,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -681,6 +682,80 @@ class LearningChainStatus(Base):
     covered_finished: Mapped[int] = mapped_column(Integer, default=0)
 
 
+# --- Multi-sport vertical (NRL first; NFL/NBA share these same tables) ---
+# `sport` scopes every row (e.g. "nrl", "nfl") so one schema serves all sports
+# rather than repeating the football tables per sport. Mirrors the football
+# Team/Match/Prediction/PredictionResult shape but kept fully separate — no
+# football table is touched by this vertical.
+
+
+class SportTeam(Base):
+    __tablename__ = "sport_teams"
+    __table_args__ = (UniqueConstraint("sport", "name", name="uq_sport_team_sport_name"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(10), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    elo_rating: Mapped[float | None] = mapped_column(Float)
+    meta: Mapped[dict | None] = mapped_column(JSON)
+
+
+class SportMatch(Base):
+    __tablename__ = "sport_matches"
+    __table_args__ = (
+        UniqueConstraint("sport", "season", "match_no", name="uq_sport_match_sport_season_no"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(10), index=True)
+    season: Mapped[int] = mapped_column(Integer)
+    round: Mapped[int | None] = mapped_column(Integer)
+    match_no: Mapped[int] = mapped_column(Integer)
+    kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    venue: Mapped[str | None] = mapped_column(String(120))
+    home_team_id: Mapped[int | None] = mapped_column(ForeignKey("sport_teams.id"))
+    away_team_id: Mapped[int | None] = mapped_column(ForeignKey("sport_teams.id"))
+    score_home: Mapped[int | None] = mapped_column(Integer)
+    score_away: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(20), default="scheduled")  # scheduled/finished
+
+
+class SportPrediction(Base):
+    __tablename__ = "sport_predictions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    model_version: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    p_home: Mapped[float] = mapped_column(Float)
+    p_draw: Mapped[float] = mapped_column(Float)
+    p_away: Mapped[float] = mapped_column(Float)
+    expected_margin: Mapped[float | None] = mapped_column(Float)
+    # New verticals ship shadow-only until proven (mirrors predictions.is_shadow);
+    # server_default so raw inserts (e.g. backfills) default true too.
+    is_shadow: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
+
+
+class SportPredictionResult(Base):
+    __tablename__ = "sport_prediction_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    prediction_id: Mapped[int] = mapped_column(ForeignKey("sport_predictions.id"))
+    model_version: Mapped[str] = mapped_column(String(40))
+    outcome: Mapped[str] = mapped_column(String(4))  # home/draw/away
+    winner_correct: Mapped[bool] = mapped_column(Boolean)
+    prob_assigned: Mapped[float] = mapped_column(Float)
+    log_loss: Mapped[float] = mapped_column(Float)
+    brier: Mapped[float] = mapped_column(Float)
+    margin_error: Mapped[float | None] = mapped_column(Float)
+    evaluated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -707,4 +782,8 @@ __all__ = [
     "BracketScore",
     "MatchPick",
     "LearningChainStatus",
+    "SportTeam",
+    "SportMatch",
+    "SportPrediction",
+    "SportPredictionResult",
 ]

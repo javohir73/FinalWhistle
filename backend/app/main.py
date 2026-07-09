@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 from app.api import (
     auth, brackets, groups, internal, knockout, leaderboard, markets, market_record, match_picks,
-    matches, model_record, predictions, teams,
+    matches, model_record, predictions, sports, teams,
 )
 from app.config import settings
 from app.cache import cache
@@ -260,3 +260,4 @@ app.include_router(model_record.router)
 app.include_router(market_record.router)
 app.include_router(internal.router)
 app.include_router(markets.router)
+app.include_router(sports.router)
