@@ -71,6 +71,19 @@ export function HomeExperience({
       <AICalculationReveal
         team={selection.team}
         onComplete={() => {
+          // Root cause of the "loads pre-scrolled" bug: the AI-forecast reveal
+          // is a tall (~700-900px) layout whose dismiss controls (the whole
+          // section is clickable, plus an explicit "Skip" button) sit well
+          // down the page — scrolling to reach them is the normal way to
+          // interact with it. Reset scroll exactly once, right here at the
+          // reveal→dashboard transition, so the much-shorter dashboard that
+          // swaps in doesn't inherit that scrollY. Doing it here (rather than
+          // on every HomeDashboard mount) means a returning user whose
+          // `prediction_revealed` is already persisted — e.g. navigating away
+          // from "/" and hitting Back — remounts straight into the dashboard
+          // without this firing and stomping the browser's native scroll
+          // restoration.
+          window.scrollTo(0, 0);
           reveal();
           setCalculating(false);
         }}
@@ -138,18 +151,11 @@ function HomeDashboard({
 }) {
   const { tz } = useTimezone();
 
-  // Root cause of the "loads pre-scrolled" bug: the AI-forecast reveal that
-  // precedes this dashboard is a tall (~700-900px) layout whose dismiss
-  // controls (the whole section is clickable, plus an explicit "Skip" button)
-  // sit well down the page — scrolling to reach them is the normal way to
-  // interact with it. When it unmounts in place and this much-shorter
-  // dashboard swaps in, the browser doesn't reset scroll position: the same
-  // scrollY now lands past the "Following {team}" header. Reset it here
-  // rather than chase down every path that could leave the page scrolled
-  // before this mounts.
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
+  // NOTE: scroll reset for the reveal→dashboard transition lives in
+  // HomeExperience's AICalculationReveal onComplete, not here — see the
+  // comment there. A mount effect here would also fire on a plain remount
+  // (e.g. navigating away from "/" and Back, with `prediction_revealed`
+  // already persisted), stomping the browser's native scroll restoration.
 
   // The model's verified track record, for the honest footer line. Background
   // fetch — only rendered once at least one match has been scored.

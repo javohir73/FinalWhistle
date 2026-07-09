@@ -124,7 +124,16 @@ export function AuthModal({
     // here and surface themed inline errors instead.
     const nextFieldErrors: { email?: string; password?: string } = {};
     if (!email.trim()) nextFieldErrors.email = "Email is required.";
-    if (!password) nextFieldErrors.password = "Password is required.";
+    if (!password) {
+      nextFieldErrors.password = "Password is required.";
+    } else if (password.length < 8) {
+      // Client-side stand-in for the removed native minLength=8 check (now
+      // inert under noValidate) — same wording/tone as the backend's
+      // weak_password message (backend/app/api/auth.py) so the copy matches
+      // whichever side actually enforces it. Applies in both modes, same as
+      // the old native attribute did.
+      nextFieldErrors.password = "Password must be at least 8 characters.";
+    }
     setFieldErrors(nextFieldErrors);
     if (Object.keys(nextFieldErrors).length > 0) return;
     // Don't fire a guaranteed-to-fail request when the device is offline — say so

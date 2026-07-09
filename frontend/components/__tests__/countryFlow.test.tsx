@@ -121,6 +121,25 @@ it("resets scroll position when the dashboard swaps in after the AI reveal", asy
   scrollToSpy.mockRestore();
 });
 
+it("does not reset scroll on a plain dashboard remount (only the reveal transition does)", async () => {
+  // Regression check for the fix: a returning user whose `prediction_revealed`
+  // is already persisted — e.g. navigating away from "/" and hitting Back —
+  // mounts straight into HomeDashboard without ever going through
+  // AICalculationReveal. That mount must NOT call scrollTo, or it would stomp
+  // the browser's native scroll restoration on every such remount.
+  localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
+  const scrollToSpy = jest.spyOn(window, "scrollTo").mockImplementation(() => {});
+
+  render(
+    <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[]} initialOdds={[]} />,
+  );
+
+  await waitFor(() => expect(screen.getByText("Following Brazil")).toBeInTheDocument());
+  expect(scrollToSpy).not.toHaveBeenCalled();
+
+  scrollToSpy.mockRestore();
+});
+
 it("supports arrow-key navigation between country options (listbox contract)", async () => {
   render(<HomeExperience initialTeams={teams} />);
   await waitFor(() => expect(screen.getByText("Choose your")).toBeInTheDocument());
