@@ -235,6 +235,10 @@ def main() -> int:
         if args.generate:
             n = generate(db)
             log.info("generate: %d prediction row(s) written", n)
+
+            from pipeline.prob_snapshots import snapshot_nrl
+            n_snap = snapshot_nrl(db)
+            print(f"snapshots: {n_snap} probability row(s) written")
         if args.grade:
             n = grade(db)
             log.info("grade: %d result row(s) written", n)

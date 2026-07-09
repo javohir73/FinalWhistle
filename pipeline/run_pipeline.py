@@ -90,6 +90,9 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     step("learning_loop", lambda: run_learning_loop(db, settings.model_version))
     step("predictions", lambda: generate_predictions(db, n_sims=n_sims))
 
+    from pipeline.prob_snapshots import snapshot_football
+    step("prob_snapshots", lambda: snapshot_football(db))
+
     # Coverage assertion (FR-1.2): after the predictions step, no imminent
     # match may lack a frozen prediction. Loud in the summary, not fatal —
     # the sweep in the live path is the healer, this is the detector.
