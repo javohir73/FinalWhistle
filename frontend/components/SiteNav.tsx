@@ -22,6 +22,9 @@ const hit = (pathname: string, prefix: string) =>
  *  bar handles navigation. */
 export function SiteNav() {
   const pathname = usePathname();
+  // /embed/[matchId] is a standalone, partner-iframeable widget — it must not
+  // carry the full site chrome.
+  if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
   const links = SPORTS[sportFromPathname(pathname)].navLinks;
 
   return (
