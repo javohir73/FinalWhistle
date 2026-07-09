@@ -72,7 +72,7 @@ export function CountryOnboarding({
 
         <p className="mx-auto mt-6 max-w-sm text-muted">
           Build {name}&rsquo;s World Cup outlook — matches, odds, strengths, and where
-          your calls differ from the AI.
+          your calls differ from the FinalWhistle ML model.
         </p>
 
         <div className="mt-8 flex flex-col items-center gap-3">
@@ -110,7 +110,7 @@ export function CountryOnboarding({
           Choose your <span className="text-lime-deep">World Cup team</span>
         </h1>
         <p className="mx-auto mt-4 max-w-md text-lg text-muted">
-          Follow their matches, make your predictions, and compare your picks with the AI.
+          Follow their matches, make your predictions, and compare your picks with the FinalWhistle ML model.
         </p>
       </div>
 

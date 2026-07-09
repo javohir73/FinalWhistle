@@ -78,7 +78,7 @@ afterEach(() => {
   jest.resetAllMocks();
 });
 
-it("lets an anonymous user choose a country and start the AI forecast", async () => {
+it("lets an anonymous user choose a country and start the ML model forecast", async () => {
   jest.useFakeTimers({ doNotFake: ["queueMicrotask"] });
   render(<HomeExperience initialTeams={teams} />);
 
@@ -91,7 +91,7 @@ it("lets an anonymous user choose a country and start the AI forecast", async ()
 
   // Start the forecast → honest "preparing" reveal (no "generating live" copy).
   fireEvent.click(screen.getByRole("button", { name: /Predict my team/ }));
-  expect(screen.getByText("Preparing your AI forecast")).toBeInTheDocument();
+  expect(screen.getByText("Preparing your ML model forecast")).toBeInTheDocument();
 
   // Selection persisted locally for the next visit.
   expect(localStorage.getItem("finalwhistle:selected-country:v1")).toContain("Brazil");

@@ -7,7 +7,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: `${APP_NAME} — World Cup 2026 Predictions`,
     short_name: APP_NAME,
     description:
-      "Explainable AI predictions for the FIFA World Cup 2026 — win probabilities, scorelines, group & knockout odds. For analytics and entertainment only.",
+      "Explainable predictions for the FIFA World Cup 2026 from FinalWhistle's in-house ML model — win probabilities, scorelines, group & knockout odds. For analytics and entertainment only.",
     start_url: "/",
     scope: "/",
     display: "standalone",

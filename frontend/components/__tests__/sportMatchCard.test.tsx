@@ -8,6 +8,8 @@ const match: NrlMatch = {
   venue: "Leichhardt Oval",
   home: "Wests Tigers",
   away: "Warriors",
+  home_team_id: 17,
+  away_team_id: 16,
   score_home: null,
   score_away: null,
   status: "scheduled",

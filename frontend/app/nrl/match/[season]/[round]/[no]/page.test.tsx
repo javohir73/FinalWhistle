@@ -14,6 +14,8 @@ const match: NrlMatch = {
   venue: "Leichhardt Oval",
   home: "Wests Tigers",
   away: "Warriors",
+  home_team_id: 17,
+  away_team_id: 16,
   score_home: null,
   score_away: null,
   status: "scheduled",
@@ -49,6 +51,10 @@ it("server-renders the matchup, the AI's call, margin and disclaimer", async () 
 
   expect(screen.getAllByText("Wests Tigers").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("Warriors").length).toBeGreaterThanOrEqual(1);
+  // Team columns link through to the club profiles.
+  const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+  expect(links).toContain("/nrl/team/17");
+  expect(links).toContain("/nrl/team/16");
   expect(screen.getByText(/Warriors to win · 67%/)).toBeInTheDocument();
   expect(screen.getByText("Warriors by 5.5")).toBeInTheDocument();
   expect(screen.getByText(/Not betting advice/)).toBeInTheDocument();
@@ -66,7 +72,7 @@ it("shows the final score and grades the call once finished", async () => {
   expect(screen.getByText(/Called it/)).toBeInTheDocument();
   // The pre-match call and margin chip make way for the result.
   expect(screen.queryByText(/to win ·/)).not.toBeInTheDocument();
-  expect(screen.queryByText(/AI margin/)).not.toBeInTheDocument();
+  expect(screen.queryByText(/ML model margin/)).not.toBeInTheDocument();
 });
 
 it("marks a result the model got wrong as a miss", async () => {

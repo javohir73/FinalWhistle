@@ -56,9 +56,9 @@ export async function generateMetadata({
   const p = match.prediction;
   const title = `${match.home} vs ${match.away} — NRL prediction | ${APP_NAME}`;
   const description = p
-    ? `AI prediction for ${match.home} vs ${match.away} (NRL round ${ids.round}): ` +
+    ? `ML model prediction for ${match.home} vs ${match.away} (NRL round ${ids.round}): ` +
       `${match.home} ${pct(p.p_home)}, draw ${pct(p.p_draw)}, ${match.away} ${pct(p.p_away)}.`
-    : `NRL round ${ids.round}: ${match.home} vs ${match.away} — AI prediction, kickoff and ladder context.`;
+    : `NRL round ${ids.round}: ${match.home} vs ${match.away} — ML model prediction, kickoff and ladder context.`;
   return {
     title,
     description,
@@ -127,11 +127,11 @@ export default async function NrlMatchDetailPage({
           </p>
         )}
         <div className="flex items-center justify-center gap-6">
-          <TeamCol name={home} />
+          <TeamCol name={home} teamId={match.home_team_id ?? null} />
           <span className="font-display text-2xl font-extrabold tabular-nums text-muted">
             {finished && hasScore ? `${match.score_home}–${match.score_away}` : "vs"}
           </span>
-          <TeamCol name={away} />
+          <TeamCol name={away} teamId={match.away_team_id ?? null} />
         </div>
 
         {p && (
@@ -170,7 +170,7 @@ export default async function NrlMatchDetailPage({
             {p.expected_margin != null && !finished && (
               <p className="mt-4 text-center">
                 <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
-                  <span className="mr-1.5 font-semibold text-muted">AI margin</span>
+                  <span className="mr-1.5 font-semibold text-muted">ML model margin</span>
                   {marginLabel(p.expected_margin, home, away)}
                 </span>
               </p>
@@ -184,7 +184,7 @@ export default async function NrlMatchDetailPage({
       {!p && !finished && (
         <section className="glass rounded-2xl p-6 text-center">
           <h2 className="font-display text-base font-bold text-foreground">
-            AI prediction on the way
+            ML model prediction on the way
           </h2>
           <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
             The model freezes its call for this match in the lead-up to the round.
@@ -218,12 +218,24 @@ export default async function NrlMatchDetailPage({
   );
 }
 
-function TeamCol({ name }: { name: string }) {
-  return (
-    <div className="flex flex-col items-center gap-2 text-center">
+/** Badge + name column; links to the club profile when the id is known
+ *  (an old cached payload may predate team ids — degrade to plain text). */
+function TeamCol({ name, teamId }: { name: string; teamId: number | null }) {
+  const inner = (
+    <>
       <ClubBadge name={name} size={48} />
       <span className="font-display text-sm font-bold">{name}</span>
-    </div>
+    </>
+  );
+  return teamId != null ? (
+    <Link
+      href={`/nrl/team/${teamId}`}
+      className="flex flex-col items-center gap-2 text-center underline-offset-2 hover:underline"
+    >
+      {inner}
+    </Link>
+  ) : (
+    <div className="flex flex-col items-center gap-2 text-center">{inner}</div>
   );
 }
 

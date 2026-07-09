@@ -1,15 +1,18 @@
 """Read-only NRL API (multi-sport vertical, task 6).
 
-Two endpoints only, both read-only: `/matches` (fixtures grouped by round,
-each with its LATEST prediction attached — shadow included, since this
-endpoint IS the shadow surface pre-launch, unlike football's public
-/api/matches which filters shadow rows out via serializers.latest_prediction)
-and `/model/record` (the same record shape family as football's
-/api/model/record, computed from the graded SportPredictionResult ledger).
+All endpoints are read-only: `/matches` (fixtures grouped by round, each with
+its LATEST prediction attached — shadow included, since this endpoint IS the
+shadow surface pre-launch, unlike football's public /api/matches which filters
+shadow rows out via serializers.latest_prediction), `/model/record` (the same
+record shape family as football's /api/model/record, computed from the graded
+SportPredictionResult ledger), `/ladder` (computed standings) and
+`/teams/{id}` (club profile: ladder slot, season splits, results graded
+against the ledger, upcoming fixtures with the club's win chance).
 """
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import or_
 from sqlalchemy.orm import aliased, Session
 
 from app.api.model_record import wilson_ci95
@@ -97,6 +100,8 @@ def nrl_matches(round: int | None = None, season: int | None = None,
             "venue": m.venue,
             "home": home_name,
             "away": away_name,
+            "home_team_id": m.home_team_id,
+            "away_team_id": m.away_team_id,
             "score_home": m.score_home,
             "score_away": m.score_away,
             "status": m.status,
@@ -229,3 +234,189 @@ def nrl_ladder(season: int | None = None, db: Session = Depends(get_db)):
 
     return {"season": season, "rows": rows,
             "disclaimer": "For analytics and entertainment only. Not betting advice."}
+
+
+@router.get("/teams/{team_id}")
+def nrl_team(team_id: int, season: int | None = None, db: Session = Depends(get_db)):
+    """Club profile for one season: ladder slot, W/D/L record with home/away
+    splits, every finished result (graded against the SportPredictionResult
+    ledger — never re-derived from raw predictions, so the profile can't
+    disagree with /model/record), and upcoming fixtures with the club's
+    latest win probability."""
+    team = (
+        db.query(SportTeam)
+        .filter(SportTeam.id == team_id, SportTeam.sport == "nrl")
+        .first()
+    )
+    if team is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "team_not_found", "message": f"No NRL team with id {team_id}",
+        })
+    if season is None:
+        season = _latest_season(db)
+        if season is None:
+            raise HTTPException(status_code=404, detail={
+                "code": "no_nrl_data", "message": "No NRL matches are loaded yet",
+            })
+    elif (
+        db.query(SportMatch.id)
+        .filter(SportMatch.sport == "nrl", SportMatch.season == season)
+        .first()
+    ) is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "season_not_found",
+            "message": f"No NRL matches for season {season}",
+        })
+
+    matches = (
+        db.query(SportMatch)
+        .filter(
+            SportMatch.sport == "nrl", SportMatch.season == season,
+            or_(SportMatch.home_team_id == team_id,
+                SportMatch.away_team_id == team_id),
+        )
+        .all()
+    )
+
+    opp_ids = {
+        (m.away_team_id if m.home_team_id == team_id else m.home_team_id)
+        for m in matches
+    } - {None}
+    names = dict(
+        db.query(SportTeam.id, SportTeam.name)
+        .filter(SportTeam.id.in_(opp_ids)).all()
+    ) if opp_ids else {}
+
+    # Chronological order without a sentinel datetime (SQLite hands back naive
+    # kickoffs, Postgres aware — a mixed-key sort would blow up): dated matches
+    # by kickoff, then undated ones by (round, match_no).
+    def chrono(ms: list[SportMatch]) -> list[SportMatch]:
+        dated = sorted((m for m in ms if m.kickoff_utc is not None),
+                       key=lambda m: m.kickoff_utc)
+        undated = sorted((m for m in ms if m.kickoff_utc is None),
+                         key=lambda m: (m.round is None, m.round, m.match_no))
+        return dated + undated
+
+    finished = chrono([
+        m for m in matches
+        if m.status == "finished"
+        and m.score_home is not None and m.score_away is not None
+    ])
+    next_up = chrono([m for m in matches if m.status != "finished"])[:5]
+
+    # Grading comes from the append-only ledger; ungraded matches stay None.
+    graded: dict[int, bool] = {}
+    if finished:
+        result_rows = (
+            db.query(SportPredictionResult)
+            .filter(SportPredictionResult.match_id.in_([m.id for m in finished]))
+            .order_by(SportPredictionResult.evaluated_at.asc(),
+                      SportPredictionResult.id.asc())
+            .all()
+        )
+        for r in result_rows:
+            graded[r.match_id] = r.winner_correct
+
+    def match_ref(m: SportMatch) -> dict:
+        was_home = m.home_team_id == team_id
+        opp_id = m.away_team_id if was_home else m.home_team_id
+        return {
+            "round": m.round,
+            "match_no": m.match_no,
+            "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
+            "venue": m.venue,
+            "opponent": names.get(opp_id),
+            "opponent_id": opp_id,
+            "was_home": was_home,
+        }
+
+    results_chrono: list[dict] = []
+    wins = draws = losses = points_for = points_against = 0
+    home_split = {"wins": 0, "draws": 0, "losses": 0}
+    away_split = {"wins": 0, "draws": 0, "losses": 0}
+    for m in finished:
+        was_home = m.home_team_id == team_id
+        sf, sa = ((m.score_home, m.score_away) if was_home
+                  else (m.score_away, m.score_home))
+        result = "W" if sf > sa else "L" if sf < sa else "D"
+        points_for += sf; points_against += sa
+        split = home_split if was_home else away_split
+        if result == "W":
+            wins += 1; split["wins"] += 1
+        elif result == "L":
+            losses += 1; split["losses"] += 1
+        else:
+            draws += 1; split["draws"] += 1
+        results_chrono.append({
+            **match_ref(m),
+            "score_for": sf,
+            "score_against": sa,
+            "result": result,
+            "model_called": graded.get(m.id),
+        })
+
+    summary = None
+    if results_chrono:
+        last = results_chrono[-1]["result"]
+        streak_len = 0
+        for r in reversed(results_chrono):
+            if r["result"] != last:
+                break
+            streak_len += 1
+        margin = lambda r: r["score_for"] - r["score_against"]  # noqa: E731
+        win_rows = [r for r in results_chrono if r["result"] == "W"]
+        loss_rows = [r for r in results_chrono if r["result"] == "L"]
+        played = len(results_chrono)
+        summary = {
+            "played": played, "wins": wins, "draws": draws, "losses": losses,
+            "points_for": points_for, "points_against": points_against,
+            "avg_for": round(points_for / played, 1),
+            "avg_against": round(points_against / played, 1),
+            "avg_margin": round((points_for - points_against) / played, 1),
+            "home": home_split, "away": away_split,
+            "streak": {"result": last, "length": streak_len},
+            "biggest_win": max(win_rows, key=margin) if win_rows else None,
+            "biggest_loss": min(loss_rows, key=margin) if loss_rows else None,
+        }
+
+    # Latest prediction per upcoming match — same dedup as /matches.
+    latest_pred_by_match: dict[int, SportPrediction] = {}
+    if next_up:
+        preds = (
+            db.query(SportPrediction)
+            .filter(SportPrediction.match_id.in_([m.id for m in next_up]))
+            .order_by(SportPrediction.created_at.desc(), SportPrediction.id.desc())
+            .all()
+        )
+        for p in preds:
+            latest_pred_by_match.setdefault(p.match_id, p)
+
+    upcoming = []
+    for m in next_up:
+        pred = latest_pred_by_match.get(m.id)
+        win_prob = None
+        if pred is not None:
+            win_prob = pred.p_home if m.home_team_id == team_id else pred.p_away
+        upcoming.append({**match_ref(m), "win_prob": win_prob})
+
+    model = None
+    if graded:
+        n = len(graded)
+        called = sum(1 for correct in graded.values() if correct)
+        model = {"graded": n, "called": called, "accuracy": round(called / n, 4)}
+
+    ladder_slot = next(
+        (r for r in nrl_ladder(season=season, db=db)["rows"] if r["team_id"] == team_id),
+        None,
+    )
+
+    return {
+        "season": season,
+        "team": {"id": team.id, "name": team.name, "elo_rating": team.elo_rating},
+        "ladder": ladder_slot,
+        "summary": summary,
+        "results": list(reversed(results_chrono)),
+        "upcoming": upcoming,
+        "model": model,
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }

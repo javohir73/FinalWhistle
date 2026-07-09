@@ -13,6 +13,9 @@ Two idempotent, append-only sweeps over sport="nrl" rows:
     no-op day adds nothing. HARD GUARD: matches whose status != "scheduled"
     are never written to, enforced inside _write_prediction so no call path
     can bypass it (frozen-prediction invariant, mirrors pipeline.learning_loop).
+    As a side effect the replayed Elo state is synced onto
+    SportTeam.elo_rating -- a display cache for the club profile API; the
+    model never reads it back (see _sync_team_elos).
 
   grade(db) -- for every finished match with >=1 prediction and no
     SportPredictionResult yet, scores the LATEST prediction row against the
@@ -33,7 +36,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models import SportMatch, SportPrediction, SportPredictionResult
+from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
 from ml.sports.nrl.model import NrlParams, predict, regress_season, update
 from ml.sports.nrl.params import load_nrl_params
 
@@ -86,6 +89,29 @@ def _current_elos(db: Session) -> dict[int, float]:
     return elos
 
 
+def _sync_team_elos(db: Session, elos: dict[int, float]) -> int:
+    """Persist the replayed Elo state onto SportTeam.elo_rating. Returns the
+    number of team rows changed.
+
+    This column is a DISPLAY CACHE (the /api/nrl/teams profile shows it) and
+    is write-only from the model's perspective: predictions always re-derive
+    ratings by replaying finished matches (_current_elos), never by reading
+    this column back. Teams with no finished matches keep elo_rating NULL.
+    """
+    ids = [team_id for team_id in elos if team_id is not None]
+    if not ids:
+        return 0
+    changed = 0
+    for team in db.query(SportTeam).filter(
+        SportTeam.sport == SPORT, SportTeam.id.in_(ids)
+    ):
+        new = elos[team.id]
+        if team.elo_rating is None or abs(team.elo_rating - new) > _DEDUP_TOL:
+            team.elo_rating = new
+            changed += 1
+    return changed
+
+
 def _triples_differ(a: SportPrediction, triple: tuple[float, float, float]) -> bool:
     return (
         abs(a.p_home - triple[0]) > _DEDUP_TOL
@@ -131,6 +157,9 @@ def generate(db: Session, params: NrlParams | None = None) -> int:
     number of SportPrediction rows written this run (0 on a no-op re-run)."""
     params = params or load_nrl_params()
     elos = _current_elos(db)
+    synced = _sync_team_elos(db, elos)
+    if synced:
+        log.info("elo sync: %d team rating(s) updated", synced)
 
     scheduled = (
         db.query(SportMatch)
