@@ -118,14 +118,16 @@ def fit_from_db(
     matches = _finished_matches_with_pregame_prob(db)
     if len(matches) < MIN_MATCHES_TO_FIT:
         log.warning("only %d finished+predicted nrl matches -- keeping default live params", len(matches))
-        return NrlLiveParams()
+        return NrlLiveParams(version=version)
     rows = generate_training_rows(matches, trajectories_per_match=trajectories_per_match, seed=seed)
     try:
         fitted = LiveWinProbModel().fit(rows)
-        return NrlLiveParams(version=version, **fitted.coefficients())
-    except Exception as e:
+    except ValueError as e:
+        # Unfittable data (e.g. every match had the same winner -> single-class
+        # labels, which LogisticRegression rejects). Keep default coefficients.
         log.warning("failed to fit live model: %s -- keeping default coefficients", e)
         return NrlLiveParams(version=version)
+    return NrlLiveParams(version=version, **fitted.coefficients())
 
 
 def main() -> int:

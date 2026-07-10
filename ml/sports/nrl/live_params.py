@@ -1,5 +1,7 @@
 """Tuned parameter loader for the in-play win-probability logistic (Wave 3).
-Mirrors ml/sports/nrl/params.py's load/save pattern exactly."""
+Adapted from ml/sports/nrl/params.py's load/save pattern; unlike params.py
+(which imports NrlParams from model.py), NrlLiveParams is defined here to
+avoid a circular import with live_model.py."""
 from __future__ import annotations
 
 import json
