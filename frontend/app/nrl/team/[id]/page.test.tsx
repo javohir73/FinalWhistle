@@ -1,11 +1,14 @@
 /** NRL club profile page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import NrlTeamPage from "./page";
-import { getNrlTeamServer } from "@/lib/api";
-import type { NrlTeamProfile } from "@/lib/types";
+import { getNrlTeamServer, getNrlStatsProfileServer } from "@/lib/api";
+import type { NrlTeamProfile, NrlStatsProfile } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockTeam = getNrlTeamServer as jest.MockedFunction<typeof getNrlTeamServer>;
+const mockStatsProfile = getNrlStatsProfileServer as jest.MockedFunction<
+  typeof getNrlStatsProfileServer
+>;
 
 const profile: NrlTeamProfile = {
   season: 2026,
@@ -59,6 +62,7 @@ const profile: NrlTeamProfile = {
 
 const params = (id = "16") => Promise.resolve({ id });
 
+beforeEach(() => mockStatsProfile.mockResolvedValue(null));
 afterEach(() => jest.resetAllMocks());
 
 it("server-renders the header with ladder slot, record and streak", async () => {
@@ -127,4 +131,34 @@ it("calls notFound() for an unknown team", async () => {
 it("calls notFound() for a non-numeric id without hitting the API", async () => {
   await expect(NrlTeamPage({ params: params("storm") })).rejects.toThrow();
   expect(mockTeam).not.toHaveBeenCalled();
+});
+
+it("renders venue splits when the stats profile resolves with data", async () => {
+  mockTeam.mockResolvedValue(profile);
+  const statsProfile: NrlStatsProfile = {
+    team: { id: 16, name: "Warriors", slug: "warriors" },
+    season: 2026,
+    attack_rank: 3,
+    defence_rank: 5,
+    venue_splits: [
+      { venue: "Go Media Stadium", played: 8, wins: 6, draws: 0, losses: 2,
+        avg_for: 27.5, avg_against: 13.0 },
+    ],
+    position_concessions: [],
+    disclaimer: "For analytics and entertainment only. Not betting advice.",
+  };
+  mockStatsProfile.mockResolvedValue(statsProfile);
+  render(await NrlTeamPage({ params: params() }));
+
+  expect(mockStatsProfile).toHaveBeenCalledWith("warriors");
+  expect(screen.getByText("Venue splits")).toBeInTheDocument();
+  expect(screen.getByText("Go Media Stadium")).toBeInTheDocument();
+});
+
+it("skips venue splits silently when the stats profile fetch fails or 404s", async () => {
+  mockTeam.mockResolvedValue(profile);
+  mockStatsProfile.mockResolvedValue(null);
+  render(await NrlTeamPage({ params: params() }));
+
+  expect(screen.queryByText("Venue splits")).not.toBeInTheDocument();
 });
