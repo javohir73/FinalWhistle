@@ -1,0 +1,70 @@
+== shadow-record (production vs odds-anchored twin, paired matches) =="^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6763904Z ^[[36;1mcurl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6765442Z ^[[36;1m  "${API_URL}/api/internal/shadow-record" | jq .^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6766733Z ^[[36;1mecho^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6768204Z ^[[36;1mecho "== availability-record (availability twin vs published forecast) =="^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6770160Z ^[[36;1mcurl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.6771747Z ^[[36;1m  "${API_URL}/api/internal/availability-record" | jq .^[[0m
+GET shadow-record + availability-record	2026-07-10T03:54:43.7328176Z shell: /usr/bin/bash -e {0}
+GET shadow-record + availability-record	2026-07-10T03:54:43.7329961Z env:
+GET shadow-record + availability-record	2026-07-10T03:54:43.7331236Z   API_URL: ***
+GET shadow-record + availability-record	2026-07-10T03:54:43.7333110Z   RECOMPUTE_TOKEN: ***
+GET shadow-record + availability-record	2026-07-10T03:54:43.7334098Z ##[endgroup]
+GET shadow-record + availability-record	2026-07-10T03:54:43.7847422Z == shadow-record (production vs odds-anchored twin, paired matches) ==
+GET shadow-record + availability-record	2026-07-10T03:54:43.9086423Z {
+GET shadow-record + availability-record	2026-07-10T03:54:43.9088163Z   "production": {
+GET shadow-record + availability-record	2026-07-10T03:54:43.9089372Z     "n": 15,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9090774Z     "exact_hits": 1,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9092332Z     "winner_acc": 0.8,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9093660Z     "avg_brier": 0.3733,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9095008Z     "model_versions": [
+GET shadow-record + availability-record	2026-07-10T03:54:43.9096251Z       "poisson-elo-v0.2",
+GET shadow-record + availability-record	2026-07-10T03:54:43.9097605Z       "poisson-elo-v0.5"
+GET shadow-record + availability-record	2026-07-10T03:54:43.9098868Z     ]
+GET shadow-record + availability-record	2026-07-10T03:54:43.9099929Z   },
+GET shadow-record + availability-record	2026-07-10T03:54:43.9101078Z   "shadow": {
+GET shadow-record + availability-record	2026-07-10T03:54:43.9102553Z     "n": 15,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9103802Z     "exact_hits": 1,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9105738Z     "winner_acc": 0.8,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9107064Z     "avg_brier": 0.3733,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9108373Z     "model_versions": [
+GET shadow-record + availability-record	2026-07-10T03:54:43.9109708Z       "poisson-elo-v0.3-shadow"
+GET shadow-record + availability-record	2026-07-10T03:54:43.9226117Z     ]
+GET shadow-record + availability-record	2026-07-10T03:54:43.9232351Z   },
+GET shadow-record + availability-record	2026-07-10T03:54:43.9233710Z   "production_full_record": {
+GET shadow-record + availability-record	2026-07-10T03:54:43.9234804Z     "n": 97,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9236301Z     "exact_hits": 10,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9237282Z     "winner_acc": 0.6495,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9238408Z     "avg_brier": 0.5037,
+GET shadow-record + availability-record	2026-07-10T03:54:43.9239402Z     "model_versions": [
+GET shadow-record + availability-record	2026-07-10T03:54:43.9240419Z       "poisson-elo-v0.1",
+GET shadow-record + availability-record	2026-07-10T03:54:43.9241475Z       "poisson-elo-v0.2",
+GET shadow-record + availability-record	2026-07-10T03:54:43.9242810Z       "poisson-elo-v0.5"
+GET shadow-record + availability-record	2026-07-10T03:54:43.9243855Z     ]
+GET shadow-record + availability-record	2026-07-10T03:54:43.9244668Z   }
+GET shadow-record + availability-record	2026-07-10T03:54:43.9245493Z }
+GET shadow-record + availability-record	2026-07-10T03:54:43.9246050Z 
+GET shadow-record + availability-record	2026-07-10T03:54:43.9246815Z == availability-record (availability twin vs published forecast) ==
+GET shadow-record + availability-record	2026-07-10T03:54:45.2480875Z {
+GET shadow-record + availability-record	2026-07-10T03:54:45.2483061Z   "n_matches": 1,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2484582Z   "production": {
+GET shadow-record + availability-record	2026-07-10T03:54:45.2485921Z     "log_loss": 0.6055026707078991,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2487793Z     "brier": 0.31285784000000005,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2489317Z     "accuracy": 1.0,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2490733Z     "n": 1
+GET shadow-record + availability-record	2026-07-10T03:54:45.2492287Z   },
+GET shadow-record + availability-record	2026-07-10T03:54:45.2493760Z   "availability": {
+GET shadow-record + availability-record	2026-07-10T03:54:45.2495257Z     "log_loss": 0.5178502387029551,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2496849Z     "brier": 0.25267689,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2498258Z     "accuracy": 1.0,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2499647Z     "n": 1
+GET shadow-record + availability-record	2026-07-10T03:54:45.2500937Z   },
+GET shadow-record + availability-record	2026-07-10T03:54:45.2502676Z   "diff_log_loss": -0.08765243200494399,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2504474Z   "diff_ci95": [
+GET shadow-record + availability-record	2026-07-10T03:54:45.2505958Z     -0.08765243200494399,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2522313Z     -0.08765243200494399
+GET shadow-record + availability-record	2026-07-10T03:54:45.2523956Z   ],
+GET shadow-record + availability-record	2026-07-10T03:54:45.2525361Z   "availability_win_rate": 1.0,
+GET shadow-record + availability-record	2026-07-10T03:54:45.2526953Z   "verdict": "availability_beats_published"
+GET shadow-record + availability-record	2026-07-10T03:54:45.2529108Z }
+Complete job	﻿2026-07-10T03:54:45.2728468Z 
