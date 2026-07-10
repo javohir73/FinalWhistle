@@ -25,6 +25,12 @@ minute yet (minute is None while status == "live"), a wall-clock estimate
 is derived purely to drive the probability model and the NOT NULL
 NrlLiveEvent.minute column -- NrlLiveState.minute itself is always stored
 exactly as received (nullable by design), never fabricated.
+
+Event attribution is per-side: a side gets a "score" event iff ITS score
+increased vs the previously-stored state, so both sides scoring between two
+polls yields two events (same minute/prob_after), and a downward feed
+correction (a score revised down, nothing increased) updates the state
+without logging any event.
 """
 from __future__ import annotations
 
@@ -76,8 +82,12 @@ def _elapsed_minutes(match: SportMatch, now: datetime) -> int:
     status == "live"). SQLite round-trips DateTime(timezone=True) columns
     as naive, so a match's kickoff_utc may come back tzinfo-less even
     though it was always conceptually UTC -- normalize before subtracting.
-    Clamped to a normal match's playing length."""
+    Clamped to a normal match's playing length. A match with no kickoff_utc
+    at all (nullable column) estimates 0 elapsed -- conservative: the full 80
+    minutes remain, so the probability stays pregame-dominated."""
     kickoff = match.kickoff_utc
+    if kickoff is None:
+        return 0
     if kickoff.tzinfo is None:
         kickoff = kickoff.replace(tzinfo=timezone.utc)
     elapsed = int((now - kickoff).total_seconds() / 60)
@@ -119,12 +129,18 @@ def poll_match(db: Session, match: SportMatch, provider: StatsProvider, now: dat
     state.score_away = payload.score_away
     state.live_home_prob = live_prob
 
-    if prev_score is not None and (payload.score_home, payload.score_away) != prev_score:
-        team = "home" if payload.score_home > prev_score[0] else "away"
-        db.add(NrlLiveEvent(
-            match_id=match.id, minute=effective_minute, type="score",
-            team=team, player=None, prob_after=live_prob,
-        ))
+    if prev_score is not None:
+        # Per-side attribution: an event is logged for each side whose score
+        # INCREASED vs the previous observation (both can fire in one poll).
+        # A change that is only a decrease is a feed correction -- the state
+        # above is still updated, but nobody scored, so no event.
+        for team, new, old in (("home", payload.score_home, prev_score[0]),
+                               ("away", payload.score_away, prev_score[1])):
+            if new > old:
+                db.add(NrlLiveEvent(
+                    match_id=match.id, minute=effective_minute, type="score",
+                    team=team, player=None, prob_after=live_prob,
+                ))
 
     db.commit()
     return {
