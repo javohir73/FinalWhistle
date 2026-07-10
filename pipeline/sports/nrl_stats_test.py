@@ -2,6 +2,7 @@
 fixtures from the Task 1 spike (pipeline/sports/testdata/nrl_stats/). No live
 HTTP anywhere in this file."""
 import json
+import logging
 import time
 from pathlib import Path
 
@@ -151,6 +152,42 @@ def test_provider_caches_round_draw_across_matches(monkeypatch):
     assert len(draw_calls) == 1  # round listing fetched once, then cached
 
 
+def test_round_fixtures_does_not_cache_failed_draw_fetch(monkeypatch):
+    """Important review finding F1: a transient draw-fetch failure must not
+    permanently poison the cache for that (season, round_no) -- a retry must
+    hit the network again, not be silently served a cached []."""
+    draw = _load("draw_2025_r01.json")
+    expected = parse_draw_fixtures(draw)
+    calls: list[str] = []
+    attempts = {"n": 0}
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        assert "draw/data" in url  # this test never reaches a match-doc fetch
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise requests.exceptions.ConnectionError("boom")
+        return _Resp(draw)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    monkeypatch.setattr(time, "sleep", lambda s: None)
+    provider = NrlComStatsProvider(min_interval=1.0)
+
+    # first call: draw fetch fails -> [] returned, nothing cached, no
+    # match-doc requests made at all (the only call was the failed draw one).
+    first = provider._round_fixtures(2025, 1)
+    assert first == []
+    assert (2025, 1) not in provider._draw_cache
+    assert len(calls) == 1
+
+    # second call: retries (not served from a poisoned cached []) and
+    # succeeds -> proves no poisoning.
+    second = provider._round_fixtures(2025, 1)
+    assert second == expected
+    assert (2025, 1) in provider._draw_cache
+    assert len(calls) == 2
+
+
 def test_provider_returns_none_when_teams_unresolvable(monkeypatch):
     provider, _, _ = _provider_with_recorded_http(monkeypatch, sleeps=[])
     provider._team_names = lambda season, rnd, no: ("Nonexistent", "AlsoNot")
@@ -164,6 +201,20 @@ def test_provider_never_raises_on_http_error(monkeypatch):
     monkeypatch.setattr(requests, "get", boom)
     provider = NrlComStatsProvider(team_names=lambda *a: ("Knights", "Cowboys"))
     assert provider.fetch_match_stats(2025, 1, 1) is None
+
+
+def test_provider_never_raises_when_team_names_callback_raises(caplog):
+    """Important review finding F2: a future DB-backed team_names callback
+    that raises must not violate the class's documented "fetch_* never
+    raises" contract."""
+    def boom(season, round_no, match_no):
+        raise RuntimeError("db down")
+
+    provider = NrlComStatsProvider(team_names=boom)
+    with caplog.at_level(logging.WARNING, logger="pipeline.sports.nrl_stats"):
+        result = provider.fetch_match_stats(2025, 1, 1)
+    assert result is None
+    assert any("team_names" in rec.message for rec in caplog.records)
 
 
 def test_provider_throttles_at_least_one_second_between_requests(monkeypatch):

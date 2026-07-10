@@ -415,13 +415,23 @@ class NrlComStatsProvider:
         key = (season, round_no)
         if key not in self._draw_cache:
             doc = self._get_json(_DRAW_URL.format(season=season, round_no=round_no))
+            if doc is None:
+                # _get_json already logged the failure -- do NOT cache: a
+                # transient fetch failure must not permanently zero this
+                # round for the provider's lifetime. Retry on next call.
+                return []
             self._draw_cache[key] = parse_draw_fixtures(doc) if isinstance(doc, dict) else []
         return self._draw_cache[key]
 
     # -- StatsProvider -----------------------------------------------------
 
     def fetch_match_stats(self, season: int, round_no: int, match_no: int) -> MatchStatsPayload | None:
-        names = self._team_names(season, round_no, match_no)
+        try:
+            names = self._team_names(season, round_no, match_no)
+        except Exception as exc:  # noqa: BLE001 - a callback failure must never abort a run
+            log.warning("nrl_stats: team_names callback raised for %s r%s m%s: %s",
+                        season, round_no, match_no, exc)
+            return None
         if names is None:
             log.warning("nrl_stats: no team names for %s r%s m%s", season, round_no, match_no)
             return None
