@@ -39,6 +39,9 @@ from sqlalchemy.orm import Session
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
 from ml.sports.nrl.model import NrlParams, predict, regress_season, update
 from ml.sports.nrl.params import load_nrl_params
+from ml.models.nrl_margin_total import load_margin_total_params, predict_margin_total
+from ml.models.nrl_preview import build_preview
+from pipeline.sports.nrl_form import last_n_results
 
 log = logging.getLogger(__name__)
 
@@ -147,6 +150,9 @@ def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: di
         p_draw=out["p_draw"],
         p_away=out["p_away"],
         expected_margin=out["expected_margin"],
+        predicted_margin=out.get("predicted_margin"),
+        predicted_total=out.get("predicted_total"),
+        preview_text=out.get("preview_text"),
         is_shadow=True,
     ))
     return True
@@ -166,17 +172,57 @@ def generate(db: Session, params: NrlParams | None = None) -> int:
         .filter_by(sport=SPORT, status="scheduled")
         .all()
     )
+    if not scheduled:
+        db.commit()
+        return 0
+
+    team_names = dict(
+        db.query(SportTeam.id, SportTeam.name).filter(SportTeam.sport == SPORT).all()
+    )
+    mt_params = load_margin_total_params()
 
     written = 0
     for m in scheduled:
         elo_home = elos.get(m.home_team_id, 1500.0)
         elo_away = elos.get(m.away_team_id, 1500.0)
         out = predict(elo_home, elo_away, params)
+        predicted_margin, predicted_total = predict_margin_total(elo_home, elo_away, mt_params)
+
+        home_name = team_names.get(m.home_team_id, "Home")
+        away_name = team_names.get(m.away_team_id, "Away")
+        home_form = last_n_results(db, m.home_team_id, before=m) if m.home_team_id else []
+        away_form = last_n_results(db, m.away_team_id, before=m) if m.away_team_id else []
+        preview_text = build_preview(
+            home=home_name, away=away_name,
+            p_home=out["p_home"], p_away=out["p_away"],
+            elo_home=elo_home, elo_away=elo_away,
+            home_form_summary=_form_summary(home_form),
+            away_form_summary=_form_summary(away_form),
+            predicted_margin=predicted_margin, predicted_total=predicted_total,
+        )
+        out["predicted_margin"] = predicted_margin
+        out["predicted_total"] = predicted_total
+        out["preview_text"] = preview_text
+
         if _write_prediction(db, m, params, out):
             written += 1
 
     db.commit()
     return written
+
+
+def _form_summary(results: list[dict]) -> str:
+    if not results:
+        return "no recent form on record"
+    w = sum(1 for r in results if r["result"] == "W")
+    losses = sum(1 for r in results if r["result"] == "L")
+    draws = sum(1 for r in results if r["result"] == "D")
+    parts = [f"{w}W"]
+    if losses:
+        parts.append(f"{losses}L")
+    if draws:
+        parts.append(f"{draws}D")
+    return f"{'-'.join(parts)} in their last {len(results)}"
 
 
 def _outcome(score_home: int, score_away: int) -> str:
