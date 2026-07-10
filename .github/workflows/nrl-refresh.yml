@@ -36,6 +36,11 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_ingest --seasons 2017 2026
+      - name: Ingest NRL team stats + try events (idempotent, resumable)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_stats --seasons 2024 2026
       - name: Generate frozen shadow predictions + grade finished matches
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
