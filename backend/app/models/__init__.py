@@ -898,6 +898,64 @@ class NrlTryEvent(Base):
     score_away: Mapped[int] = mapped_column(Integer)
 
 
+class NrlTeamList(Base):
+    """Weekly team-list announcement for one NRL match (Wave 3).
+
+    One row per named player per team per match. Re-ingesting a match's list
+    replaces the previous rows for that match; is_late_change flags a jersey
+    slot whose named player differs from the previous ingest — never the
+    very first announcement for that match (see pipeline/sports/nrl_team_lists.py).
+    """
+    __tablename__ = "nrl_team_lists"
+    __table_args__ = (
+        UniqueConstraint("match_id", "team", "jersey", name="uq_nrl_team_list_match_team_jersey"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    jersey: Mapped[int] = mapped_column(Integer)
+    player: Mapped[str] = mapped_column(String(120))
+    position: Mapped[str] = mapped_column(String(10))
+    is_late_change: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class NrlLiveState(Base):
+    """Latest known live snapshot for one NRL match (Wave 3), upserted by
+    pipeline.sports.nrl_live_poll. Absence of a row means the match has
+    never been polled — the live endpoint falls back to a "pre"/"final"
+    view derived from SportMatch + SportPrediction alone."""
+    __tablename__ = "nrl_live_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(10))  # "live" | "final" (never "pre" — see docstring)
+    minute: Mapped[int | None] = mapped_column(Integer)
+    score_home: Mapped[int | None] = mapped_column(Integer)
+    score_away: Mapped[int | None] = mapped_column(Integer)
+    live_home_prob: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class NrlLiveEvent(Base):
+    """One scoring tick in an NRL match's live timeline (Wave 3)."""
+    __tablename__ = "nrl_live_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    minute: Mapped[int] = mapped_column(Integer)
+    type: Mapped[str] = mapped_column(String(20))
+    team: Mapped[str] = mapped_column(String(10))  # "home" | "away"
+    player: Mapped[str | None] = mapped_column(String(120))
+    prob_after: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -933,4 +991,7 @@ __all__ = [
     "MarketOddsSnapshot",
     "NrlMatchStat",
     "NrlTryEvent",
+    "NrlTeamList",
+    "NrlLiveState",
+    "NrlLiveEvent",
 ]
