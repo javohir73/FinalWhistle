@@ -394,3 +394,70 @@ def test_main_runs_backfill_over_season_range(monkeypatch, db_session):
     rc = nrl_stats.main()
     assert rc == 0
     assert db_session.query(NrlMatchStat).count() == 2
+
+
+# --- review hardening: _db_team_names branches + upsert-failure rollback ----
+
+def test_db_team_names_resolves_home_and_away_in_order(db_session):
+    _mk_match(db_session)                                # Knights (home) v Cowboys (away)
+    lookup = nrl_stats._db_team_names(db_session)
+    assert lookup(2025, 1, 1) == ("Knights", "Cowboys")
+
+
+def test_db_team_names_returns_none_when_no_match_row(db_session):
+    _mk_match(db_session)
+    lookup = nrl_stats._db_team_names(db_session)
+    assert lookup(2030, 9, 9) is None
+
+
+def test_db_team_names_returns_none_when_team_ids_missing(db_session):
+    db_session.add(SportMatch(sport="nrl", season=2025, round=3, match_no=1,
+                              status="scheduled"))       # no home/away team ids
+    db_session.commit()
+    lookup = nrl_stats._db_team_names(db_session)
+    assert lookup(2025, 3, 1) is None
+
+
+def test_db_team_names_returns_none_when_team_row_absent(db_session):
+    # The SQLite test engine does not enforce FKs, so dangling team ids model
+    # a match whose team rows are missing from sport_teams.
+    db_session.add(SportMatch(sport="nrl", season=2025, round=4, match_no=1,
+                              home_team_id=9998, away_team_id=9999,
+                              status="finished"))
+    db_session.commit()
+    lookup = nrl_stats._db_team_names(db_session)
+    assert lookup(2025, 4, 1) is None
+
+
+def test_backfill_upsert_failure_rolls_back_and_continues(db_session, monkeypatch):
+    m1 = _mk_match(db_session)                           # 2025 r1 m1
+    home = db_session.query(SportTeam).filter_by(name="Knights").one()
+    away = db_session.query(SportTeam).filter_by(name="Cowboys").one()
+    m2 = SportMatch(sport="nrl", season=2025, round=1, match_no=2,
+                    home_team_id=away.id, away_team_id=home.id,
+                    score_home=10, score_away=12, status="finished")
+    db_session.add(m2)
+    db_session.commit()
+
+    real_upsert = nrl_stats.upsert_match_stats
+
+    def flaky_upsert(db, match, payload):
+        if match.id == m1.id:
+            # Stage a partial write BEFORE raising so the zero-row assertion
+            # below proves backfill_stats' rollback discarded it.
+            db.add(NrlMatchStat(
+                match_id=match.id, team="Knights", tries=1, conversions=1,
+                penalties_conceded=1, errors=1, set_restarts=1, run_metres=1,
+                line_breaks=1, tackles=1, tackle_efficiency=50.0,
+            ))
+            raise RuntimeError("db write blew up mid-upsert")
+        return real_upsert(db, match, payload)
+
+    monkeypatch.setattr(nrl_stats, "upsert_match_stats", flaky_upsert)
+    provider = _FakeProvider({(2025, 1, 1): _payload(), (2025, 1, 2): _payload()})
+    summary = backfill_stats(db_session, provider, 2024, 2026)
+    assert summary == {"fetched": 1, "skipped_existing": 0, "missing": 0, "failed": 1}
+    assert provider.calls == [(2025, 1, 1), (2025, 1, 2)]  # continued past the failure
+    assert db_session.query(NrlMatchStat).filter_by(match_id=m1.id).count() == 0  # rolled back
+    assert db_session.query(NrlMatchStat).filter_by(match_id=m2.id).count() == 2
+
