@@ -23,9 +23,9 @@ the spec's own constraint).
 
 | Twin | Params flag | Repo gate verdict | Live evidence | Recommendation | Owner decision |
 |---|---|---|---|---|---|
-| odds-total blend (v0.3-shadow) | `w_odds` | NOT MET — n=15 of 30, and twin is a copy, never ahead | none (null test unarmed; records identical by construction) | **HOLD promotion; ARM the null test instead** — params-only `w_odds=0.35` (promote_blend's own example weight, cap 0.5), version string unchanged, production bit-identical; real differentiated pairs start accruing from the semis | _pending_ |
-| xG team offsets (v0.3+xg) | `team_offsets` | **do-not-ship** — top-1 CI[-0.0252, +0.0040], exact-NLL CI[-0.0080, +0.0114], both straddle 0 (`team-offsets-gate.json`); xg-backtest mixed/underpowered (2018 pro, 2022 con) | no separate graded live record | **NO-GO** | _pending_ |
-| availability (v0.3+avail) | `use_availability` | live-only by design; n=1 | beats published on France–Morocco (log loss 0.518 vs 0.606, brier 0.253 vs 0.313) — favorable but a single match | **HOLD** — keep shadowing; n grows each remaining match; revisit in Phase 2 with a real sample | _pending_ |
+| odds-total blend (v0.3-shadow) | `w_odds` | NOT MET — n=15 of 30, and twin is a copy, never ahead | none (null test unarmed; records identical by construction) | **HOLD promotion; ARM the null test instead** — params-only `w_odds=0.35` (promote_blend's own example weight, cap 0.5), version string unchanged, production bit-identical; real differentiated pairs start accruing from the semis | **GO (arm only)** — owner, 2026-07-10 |
+| xG team offsets (v0.3+xg) | `team_offsets` | **do-not-ship** — top-1 CI[-0.0252, +0.0040], exact-NLL CI[-0.0080, +0.0114], both straddle 0 (`team-offsets-gate.json`); xg-backtest mixed/underpowered (2018 pro, 2022 con) | no separate graded live record | **NO-GO** | **NO-GO** — owner, 2026-07-10 |
+| availability (v0.3+avail) | `use_availability` | live-only by design; n=1 | beats published on France–Morocco (log loss 0.518 vs 0.606, brier 0.253 vs 0.313) — favorable but a single match | **HOLD** — keep shadowing; n grows each remaining match; revisit in Phase 2 with a real sample | **HOLD** — owner, 2026-07-10 |
 | suspensions (v0.5+bans) | none — info only | n/a | writes no graded PredictionResult pairs (shadow-record `model_versions` shows only v0.3-shadow) | not promotable in Phase 1 | n/a |
 | rest days (v0.5+rest) | none — info only | n/a | same — no graded pairs | not promotable in Phase 1 | n/a |
 

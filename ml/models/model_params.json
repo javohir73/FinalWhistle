@@ -55,7 +55,8 @@
     }
   },
   "wdl_blend": null,
-  "w_odds": 0.0,
+  "w_odds": 0.35,
+  "use_availability": false,
   "team_offsets": null,
   "form_channels": null,
   "suspensions": null,
