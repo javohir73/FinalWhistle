@@ -19,6 +19,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     false,
     func,
@@ -742,6 +743,15 @@ class SportPrediction(Base):
     p_draw: Mapped[float] = mapped_column(Float)
     p_away: Mapped[float] = mapped_column(Float)
     expected_margin: Mapped[float | None] = mapped_column(Float)
+    # Wave 1 (NRL Match Intelligence): predicted_margin/predicted_total come
+    # from the separately-fit ml.models.nrl_margin_total model (version
+    # "nrl-elo-v0.2"), NOT from expected_margin (ml.sports.nrl.model's own
+    # win-probability-model margin estimate, kept as-is so existing consumers
+    # like SportMatchCard don't change shape). preview_text is the
+    # deterministic prose preview, regenerated every nrl_predict --generate run.
+    predicted_margin: Mapped[float | None] = mapped_column(Float)
+    predicted_total: Mapped[float | None] = mapped_column(Float)
+    preview_text: Mapped[str | None] = mapped_column(Text)
     # New verticals ship shadow-only until proven (mirrors predictions.is_shadow);
     # server_default so raw inserts (e.g. backfills) default true too.
     is_shadow: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
@@ -763,6 +773,22 @@ class SportPredictionResult(Base):
     evaluated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class NrlProjection(Base):
+    """Finals-projection snapshot (Wave 1): one row per team, fully replaced
+    each nrl-refresh run by pipeline/sports/nrl_projections.py -- delete-then-
+    insert at table granularity (no unique constraint needed, unlike
+    ProbabilitySnapshot's per-day key) since every refresh replaces the whole
+    table atomically."""
+    __tablename__ = "nrl_projections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team: Mapped[str] = mapped_column(String(100), index=True)
+    top8: Mapped[float] = mapped_column(Float)
+    top4: Mapped[float] = mapped_column(Float)
+    minor_premiership: Mapped[float] = mapped_column(Float)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ProbabilitySnapshot(Base):
@@ -857,6 +883,7 @@ __all__ = [
     "SportMatch",
     "SportPrediction",
     "SportPredictionResult",
+    "NrlProjection",
     "ProbabilitySnapshot",
     "MarketOddsSnapshot",
 ]
