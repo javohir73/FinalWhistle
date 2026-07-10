@@ -305,7 +305,6 @@ def test_upsert_rejects_unfinished_match(db_session):
     assert db_session.query(NrlMatchStat).count() == 0
 
 
-# --- append to pipeline/sports/nrl_stats_test.py ---
 import sys  # noqa: E402  (top of file if not already imported)
 
 import app.db  # noqa: E402

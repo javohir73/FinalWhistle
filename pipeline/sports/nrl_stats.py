@@ -76,7 +76,7 @@ class TryEventLine:
     minute: int
     team: str
     player: str
-    score_home: int              # running score after this try (+conversion)
+    score_home: int              # running score immediately after this try (pre-conversion; a following Goal event updates it)
     score_away: int
 
 

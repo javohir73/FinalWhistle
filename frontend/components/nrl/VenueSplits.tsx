@@ -16,6 +16,7 @@ export function VenueSplits({ splits }: { splits: NrlVenueSplit[] }) {
                 {s.wins}-{s.draws}-{s.losses}
               </strong>{" "}
               ·{" "}
+              {/* Single-text-node span: RTL getByText matches direct text children only -- do not interleave elements here. */}
               <span>
                 {s.avg_for.toFixed(1)} for / {s.avg_against.toFixed(1)} against
               </span>
