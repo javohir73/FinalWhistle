@@ -393,6 +393,9 @@ export interface Mover {
   prob: number;
   delta: number | null;
   series: number[];
+  /** NRL win_match rows only: the match's detail-page URL, or null when the
+   *  match has no round yet (TBC fixture) or for football rows. */
+  match_url: string | null;
 }
 
 export interface MoversResponse {

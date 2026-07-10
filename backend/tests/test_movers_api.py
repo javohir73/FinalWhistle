@@ -8,7 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_db
 from app.main import app
-from app.models import ProbabilitySnapshot, Team
+from app.models import ProbabilitySnapshot, SportMatch, SportTeam, Team
 
 
 def _client():
@@ -70,4 +70,58 @@ def test_movers_single_day_returns_null_deltas():
 
     body = client.get("/api/movers?sport=football").json()
     assert body["movers"][0]["delta"] is None
+    app.dependency_overrides.clear()
+
+
+def test_nrl_win_match_movers_include_a_match_url():
+    client, db = _client()
+    storm = SportTeam(sport="nrl", name="Storm")
+    eels = SportTeam(sport="nrl", name="Eels")
+    db.add_all([storm, eels]); db.flush()
+    m = SportMatch(sport="nrl", season=2026, round=5, match_no=12,
+                   home_team_id=storm.id, away_team_id=eels.id, status="scheduled")
+    db.add(m); db.flush()
+    d1, d2 = date(2026, 7, 8), date(2026, 7, 9)
+    db.add_all([
+        ProbabilitySnapshot(sport="nrl", entity_id=storm.id, market="win_match",
+                            ref_id=m.id, prob=0.55, snapshot_date=d1),
+        ProbabilitySnapshot(sport="nrl", entity_id=storm.id, market="win_match",
+                            ref_id=m.id, prob=0.63, snapshot_date=d2),
+    ])
+    db.commit()
+
+    body = client.get("/api/movers?sport=nrl").json()
+    row = next(r for r in body["movers"] if r["entity_id"] == storm.id)
+    assert row["match_url"] == "/nrl/match/2026/5/12"
+    app.dependency_overrides.clear()
+
+
+def test_nrl_movers_without_a_round_have_no_match_url():
+    client, db = _client()
+    storm = SportTeam(sport="nrl", name="Storm")
+    eels = SportTeam(sport="nrl", name="Eels")
+    db.add_all([storm, eels]); db.flush()
+    m = SportMatch(sport="nrl", season=2026, round=None, match_no=12,
+                   home_team_id=storm.id, away_team_id=eels.id, status="scheduled")
+    db.add(m); db.flush()
+    db.add(ProbabilitySnapshot(sport="nrl", entity_id=storm.id, market="win_match",
+                               ref_id=m.id, prob=0.55, snapshot_date=date(2026, 7, 9)))
+    db.commit()
+
+    body = client.get("/api/movers?sport=nrl").json()
+    row = next(r for r in body["movers"] if r["entity_id"] == storm.id)
+    assert row["match_url"] is None
+    app.dependency_overrides.clear()
+
+
+def test_football_movers_have_null_match_url():
+    client, db = _client()
+    usa = Team(name="United States", country_code="USA")
+    db.add(usa); db.flush()
+    db.add(ProbabilitySnapshot(sport="football", entity_id=usa.id, market="make_knockout",
+                               prob=0.4, snapshot_date=date(2026, 7, 9)))
+    db.commit()
+
+    body = client.get("/api/movers?sport=football").json()
+    assert body["movers"][0]["match_url"] is None
     app.dependency_overrides.clear()

@@ -16,3 +16,25 @@ it("links each club to its profile page", () => {
     "href", "/nrl/team/13",
   );
 });
+
+it("shows Top 8%/Top 4% columns when projections are provided", () => {
+  render(
+    <LadderTable
+      rows={rows}
+      projections={{ Panthers: { top8: 0.97, top4: 0.55 }, Rabbitohs: { top8: 0.62, top4: 0.1 } }}
+    />,
+  );
+  expect(screen.getByText("Top 8%")).toBeInTheDocument();
+  expect(screen.getByText("97%")).toBeInTheDocument();
+  expect(screen.getByText("55%")).toBeInTheDocument();
+});
+
+it("hides the projections columns when the projections table is empty", () => {
+  render(<LadderTable rows={rows} projections={{}} />);
+  expect(screen.queryByText("Top 8%")).not.toBeInTheDocument();
+});
+
+it("hides the projections columns when no projections prop is passed", () => {
+  render(<LadderTable rows={rows} />);
+  expect(screen.queryByText("Top 8%")).not.toBeInTheDocument();
+});
