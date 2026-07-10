@@ -1,0 +1,32 @@
+# Read-only evidence pull for the MANUAL shadow-promotion decision (FR-4.8):
+# prints the production-vs-shadow record and the availability-twin record from
+# the token-guarded internal endpoints. Writes nothing; manual dispatch only.
+# Same secrets as refresh-live / ops-flag-internal:
+#   API_URL          e.g. https://pitchprophet-api.onrender.com
+#   RECOMPUTE_TOKEN  same value as the backend's RECOMPUTE_TOKEN env var
+name: shadow-record
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  readout:
+    runs-on: ubuntu-latest
+    steps:
+      - name: GET shadow-record + availability-record
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set — cannot call the API." >&2
+            exit 1
+          fi
+          echo "== shadow-record (production vs odds-anchored twin, paired matches) =="
+          curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
+            "${API_URL}/api/internal/shadow-record" | jq .
+          echo
+          echo "== availability-record (availability twin vs published forecast) =="
+          curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
+            "${API_URL}/api/internal/availability-record" | jq .
