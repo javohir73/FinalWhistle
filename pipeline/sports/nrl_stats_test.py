@@ -2,10 +2,14 @@
 fixtures from the Task 1 spike (pipeline/sports/testdata/nrl_stats/). No live
 HTTP anywhere in this file."""
 import json
+import time
 from pathlib import Path
+
+import requests
 
 from pipeline.sports.nrl_stats import (
     MatchStatsPayload,
+    NrlComStatsProvider,
     TeamStatsLine,
     TryEventLine,
     parse_draw_fixtures,
@@ -90,3 +94,89 @@ def test_parse_draw_fixtures_lists_round_matches():
 
 def test_parse_draw_fixtures_returns_empty_on_garbage():
     assert parse_draw_fixtures({}) == []
+
+
+# --- StatsProvider: rate-limited default provider (Task 3) -----------------
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._payload = payload
+        self.status_code = status
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise requests.exceptions.HTTPError(str(self.status_code))
+
+    def json(self):
+        return self._payload
+
+
+def _provider_with_recorded_http(monkeypatch, sleeps: list | None = None):
+    """Provider whose HTTP layer serves the recorded fixtures by URL shape."""
+    draw = _load("draw_2025_r01.json")
+    match_doc = _load("match_2025_r01_a.json")
+    fixtures = parse_draw_fixtures(draw)
+    target = fixtures[0]
+    calls: list[str] = []
+
+    def fake_get(url, headers=None, timeout=None):
+        calls.append(url)
+        assert headers == {"User-Agent": "Mozilla/5.0"}
+        if "draw/data" in url:
+            return _Resp(draw)
+        if target["match_path"] in url:
+            return _Resp(match_doc)
+        return _Resp({}, status=404)
+
+    monkeypatch.setattr(requests, "get", fake_get)
+    if sleeps is not None:
+        monkeypatch.setattr(time, "sleep", lambda s: sleeps.append(s))
+    lookup = lambda season, rnd, no: (target["home"], target["away"])  # noqa: E731
+    return NrlComStatsProvider(team_names=lookup, min_interval=1.0), calls, target
+
+
+def test_provider_fetches_and_parses_match_stats(monkeypatch):
+    provider, calls, target = _provider_with_recorded_http(monkeypatch, sleeps=[])
+    payload = provider.fetch_match_stats(2025, 1, 1)
+    assert isinstance(payload, MatchStatsPayload)
+    assert payload.home.team == target["home"]
+    assert len(calls) == 2  # one draw fetch + one match fetch
+
+
+def test_provider_caches_round_draw_across_matches(monkeypatch):
+    provider, calls, target = _provider_with_recorded_http(monkeypatch, sleeps=[])
+    provider.fetch_match_stats(2025, 1, 1)
+    provider.fetch_match_stats(2025, 1, 1)
+    draw_calls = [c for c in calls if "draw/data" in c]
+    assert len(draw_calls) == 1  # round listing fetched once, then cached
+
+
+def test_provider_returns_none_when_teams_unresolvable(monkeypatch):
+    provider, _, _ = _provider_with_recorded_http(monkeypatch, sleeps=[])
+    provider._team_names = lambda season, rnd, no: ("Nonexistent", "AlsoNot")
+    assert provider.fetch_match_stats(2025, 1, 1) is None
+
+
+def test_provider_never_raises_on_http_error(monkeypatch):
+    def boom(*a, **k):
+        raise requests.exceptions.ConnectionError("boom")
+
+    monkeypatch.setattr(requests, "get", boom)
+    provider = NrlComStatsProvider(team_names=lambda *a: ("Knights", "Cowboys"))
+    assert provider.fetch_match_stats(2025, 1, 1) is None
+
+
+def test_provider_throttles_at_least_one_second_between_requests(monkeypatch):
+    sleeps: list = []
+    provider, calls, _ = _provider_with_recorded_http(monkeypatch, sleeps=sleeps)
+    monkeypatch.setattr(time, "monotonic", lambda: 100.0)  # freeze the clock
+    provider.fetch_match_stats(2025, 1, 1)
+    # 2 HTTP calls with a frozen clock -> the 2nd must have slept ~min_interval
+    assert len(calls) == 2
+    assert any(s >= 0.99 for s in sleeps)
+
+
+def test_wave3_stubs_are_honest():
+    provider = NrlComStatsProvider()
+    assert provider.fetch_team_list(2025, 1) == []
+    assert provider.fetch_live(2025, 1, 1) is None

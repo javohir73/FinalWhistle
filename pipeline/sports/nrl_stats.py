@@ -27,14 +27,23 @@ lookup" in three ways (see SOURCE.md for the full derivation):
     home/away score keys are only present once that side has scored, and
     are absent — not zero — before that and on non-scoring event types).
 
-Wave 3 implements the fetchers (fetch_match_stats/fetch_team_list/
-fetch_live) and the idempotent upsert/backfill CLI on top of this module;
-Wave 2 only ships the frozen contract and the pure parsers.
+Wave 2 Task 3 adds the default StatsProvider (NrlComStatsProvider):
+fetch_match_stats is fully implemented (rate-limited HTTP against the
+NRL.com endpoints adopted by the Task 1 spike, round-draw caching, and the
+same never-raises convention as nrl_ingest.py). fetch_team_list and
+fetch_live remain honest Wave 3 stubs ([] / None) — Wave 3 implements them
+and the idempotent upsert/backfill CLI on top of this module.
 """
 from __future__ import annotations
 
+import logging
+import time
 from dataclasses import dataclass, field
-from typing import Protocol
+from typing import Callable, Protocol
+
+import requests
+
+log = logging.getLogger(__name__)
 
 SPORT = "nrl"
 
@@ -346,3 +355,93 @@ def parse_draw_fixtures(doc: dict) -> list[dict]:
         if home and away and path:
             out.append({"home": str(home), "away": str(away), "match_path": str(path)})
     return out
+
+
+# --------------------------------------------------------------------------
+# Default StatsProvider: rate-limited HTTP against the NRL.com endpoints
+# adopted by the Task 1 spike. See SOURCE.md for full provenance.
+# --------------------------------------------------------------------------
+
+# URL shapes verified by the Task 1 spike — see SOURCE.md. If the spike found
+# a different working variant (e.g. embedded q-data instead of a /data JSON
+# document), adjust _MATCH_DATA_URL / _get_json here only.
+_DRAW_URL = "https://www.nrl.com/draw/data?competition=111&season={season}&round={round_no}"
+_MATCH_DATA_URL = "https://www.nrl.com{path}data"
+
+
+class NrlComStatsProvider:
+    """Default StatsProvider against the source adopted by the Task 1 spike.
+
+    - team_names(season, round_no, match_no) -> (home, away) | None resolves
+      OUR match identity to team names so the right source fixture is picked
+      (the source has no notion of fixturedownload's match_no). The backfill
+      CLI supplies a DB-backed lookup; tests supply a lambda.
+    - Throttled: >= min_interval seconds between any two HTTP requests.
+    - fetch_* NEVER raises (nrl_ingest convention): any failure -> None/[].
+    """
+
+    def __init__(
+        self,
+        team_names: Callable[[int, int, int], tuple[str, str] | None] | None = None,
+        min_interval: float = 1.0,
+        timeout: float = 20.0,
+    ) -> None:
+        self._team_names = team_names or (lambda season, round_no, match_no: None)
+        self._min_interval = min_interval
+        self._timeout = timeout
+        self._last_request = 0.0
+        self._draw_cache: dict[tuple[int, int], list[dict]] = {}
+
+    # -- plumbing ----------------------------------------------------------
+
+    def _throttle(self) -> None:
+        wait = self._min_interval - (time.monotonic() - self._last_request)
+        if wait > 0:
+            time.sleep(wait)
+        self._last_request = time.monotonic()
+
+    def _get_json(self, url: str):
+        self._throttle()
+        try:
+            resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"},
+                                timeout=self._timeout)
+            resp.raise_for_status()
+            return resp.json()
+        except Exception as exc:  # noqa: BLE001 - a feed hiccup must never abort a run
+            log.warning("nrl_stats GET %s failed: %s", url, exc)
+            return None
+
+    def _round_fixtures(self, season: int, round_no: int) -> list[dict]:
+        key = (season, round_no)
+        if key not in self._draw_cache:
+            doc = self._get_json(_DRAW_URL.format(season=season, round_no=round_no))
+            self._draw_cache[key] = parse_draw_fixtures(doc) if isinstance(doc, dict) else []
+        return self._draw_cache[key]
+
+    # -- StatsProvider -----------------------------------------------------
+
+    def fetch_match_stats(self, season: int, round_no: int, match_no: int) -> MatchStatsPayload | None:
+        names = self._team_names(season, round_no, match_no)
+        if names is None:
+            log.warning("nrl_stats: no team names for %s r%s m%s", season, round_no, match_no)
+            return None
+        home, away = names
+        fixture = next(
+            (fx for fx in self._round_fixtures(season, round_no)
+             if fx["home"] == home and fx["away"] == away),
+            None,
+        )
+        if fixture is None:
+            log.warning("nrl_stats: no source fixture for %s v %s (%s r%s)",
+                        home, away, season, round_no)
+            return None
+        doc = self._get_json(_MATCH_DATA_URL.format(path=fixture["match_path"]))
+        if not isinstance(doc, dict):
+            return None
+        return parse_match_stats(doc)
+
+    def fetch_team_list(self, season: int, round_no: int) -> list[TeamListEntry]:
+        return []  # Wave 3 implements (team-lists ingest); honest empty until then
+
+    def fetch_live(self, season: int, round_no: int, match_no: int) -> LivePayload | None:
+        return None  # Wave 3 implements (live layer); honest None until then
