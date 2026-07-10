@@ -99,6 +99,27 @@ def refresh_live(
     return {"status": "ok", "live": summary}
 
 
+@router.post("/nrl-refresh-live")
+def nrl_refresh_live(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Poll every in-window NRL match's live state via StatsProvider.fetch_live
+    and update nrl_live_state/nrl_live_events. Safe to call every minute; a
+    scheduled workflow does so during NRL match windows (Thu-Sun AEST, plus
+    the occasional Monday game -- see .github/workflows/nrl-live-refresh.yml)."""
+    _require_token(x_recompute_token)
+    from pipeline.sports.nrl_live_poll import poll_live_matches
+    from pipeline.sports.nrl_stats import NrlComStatsProvider
+
+    # NrlComStatsProvider.fetch_live is an honest None-stub until a real live
+    # feed lands, so this endpoint currently reports polled=0 and is safe to
+    # call any time.
+    summary = poll_live_matches(db, NrlComStatsProvider())
+    cache.clear()
+    return {"status": "ok", "live": summary}
+
+
 @router.get("/stats")
 def stats(
     db: Session = Depends(get_db),
