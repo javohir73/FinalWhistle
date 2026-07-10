@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models import NrlProjection, ProbabilitySnapshot, SportMatch, SportPrediction, SportTeam
-from pipeline.sports.nrl_form import form_averages, last_n_results
+from pipeline.sports.nrl_form import _kickoff_key, form_averages, last_n_results
 
 router = APIRouter(prefix="/api/nrl", tags=["nrl-intel"])
 
@@ -66,8 +66,7 @@ def _head_to_head(db: Session, home_id: int, away_id: int, exclude_match_id: int
         )
         .all()
     )
-    rows.sort(key=lambda m: (m.kickoff_utc is None, m.kickoff_utc or datetime.min, m.id),
-              reverse=True)
+    rows.sort(key=_kickoff_key, reverse=True)
     rows = rows[:limit]
     names = dict(db.query(SportTeam.id, SportTeam.name).filter(SportTeam.sport == SPORT).all())
     out = []

@@ -112,7 +112,8 @@ def main() -> int:
     try:
         finished = (
             db.query(SportMatch)
-            .filter(SportMatch.sport == SPORT, SportMatch.status == "finished")
+            .filter(SportMatch.sport == SPORT, SportMatch.status == "finished",
+                    SportMatch.score_home.isnot(None), SportMatch.score_away.isnot(None))
             .all()
         )
         if not finished:

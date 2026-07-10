@@ -65,6 +65,7 @@ def simulate(
     """Return {team_id: {"top8": p, "top4": p, "minor_premiership": p}} across
     `n_runs` simulated completions of `remaining`. Pure -- no DB access, so the
     Monte Carlo core is unit-testable without a database."""
+    # Unseeded by design: each production refresh should genuinely resample; tests inject a seeded Random.
     rng = rng or random.Random()
     counts = {t: {"top8": 0, "top4": 0, "minor_premiership": 0} for t in team_ids}
     if n_runs == 0 or not team_ids:
