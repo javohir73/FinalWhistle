@@ -3,6 +3,7 @@ import { SportMatchCard } from "@/components/SportMatchCard";
 import type { NrlMatch } from "@/lib/types";
 
 const match: NrlMatch = {
+  id: 3,
   match_no: 3,
   kickoff_utc: "2026-07-11T09:35:00+00:00",
   venue: "Leichhardt Oval",

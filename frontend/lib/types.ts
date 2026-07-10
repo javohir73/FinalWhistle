@@ -471,6 +471,7 @@ export interface NrlPrediction {
   is_shadow: boolean;
 }
 export interface NrlMatch {
+  id: number;
   match_no: number;
   kickoff_utc: string | null;
   venue: string | null;
@@ -510,6 +511,7 @@ export interface LadderResponse {
 }
 /** /api/nrl/teams/{id} — club profile. */
 export interface NrlTeamMatchRef {
+  id: number;
   round: number | null;
   match_no: number;
   kickoff_utc: string | null;
@@ -562,5 +564,90 @@ export interface NrlRecord {
   best_streak: number;
   model_version: string;
   last_updated: string | null;
+  disclaimer: string;
+}
+
+/** /api/nrl/matches/{id} -- Wave 1 match intelligence detail. */
+export interface NrlMatchInfo {
+  id: number;
+  season: number;
+  round: number | null;
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  home: string | null;
+  away: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+}
+export interface NrlMatchDetailPrediction {
+  home_prob: number;
+  away_prob: number;
+  draw_prob: number;
+  predicted_margin: number | null;
+  predicted_total: number | null;
+  model_version: string;
+  preview_text: string | null;
+}
+export interface NrlFormResult {
+  round: number | null;
+  opponent: string;
+  result: "W" | "L" | "D";
+  for: number;
+  against: number;
+}
+export interface NrlTeamForm {
+  last5: NrlFormResult[];
+  avg_for: number;
+  avg_against: number;
+  avg_margin: number;
+}
+export interface NrlMeeting {
+  kickoff_utc: string | null;
+  home: string;
+  away: string;
+  score_home: number;
+  score_away: number;
+  winner: "home" | "away" | "draw";
+}
+export interface NrlFactor {
+  key: string;
+  label: string;
+  weight: number;
+  favors: "home" | "away";
+}
+export interface NrlMatchDetail {
+  match: NrlMatchInfo;
+  prediction: NrlMatchDetailPrediction | null;
+  form: { home: NrlTeamForm | null; away: NrlTeamForm | null };
+  h2h: NrlMeeting[];
+  factors: NrlFactor[];
+}
+
+/** GET /api/nrl/projections */
+export interface NrlProjectionRow {
+  team: string;
+  top8: number;
+  top4: number;
+  minor_premiership: number;
+}
+export interface NrlProjectionsResponse {
+  computed_at: string | null;
+  teams: NrlProjectionRow[];
+}
+
+/** GET /api/nrl/matches/{id}/prob-history */
+export interface NrlProbHistoryPoint {
+  date: string | null;
+  p_home: number | null;
+  p_draw: number | null;
+  p_away: number | null;
+}
+export interface NrlProbHistory {
+  match_id: number;
+  points: NrlProbHistoryPoint[];
   disclaimer: string;
 }

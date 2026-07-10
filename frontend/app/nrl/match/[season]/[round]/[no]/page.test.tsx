@@ -1,14 +1,19 @@
 /** NRL match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import NrlMatchDetailPage from "./page";
-import { getNrlLadderServer, getNrlRoundServer } from "@/lib/api";
-import type { NrlMatch, NrlMatchesResponse } from "@/lib/types";
+import {
+  getNrlLadderServer, getNrlMatchDetailServer, getNrlProbHistoryServer, getNrlRoundServer,
+} from "@/lib/api";
+import type { NrlMatch, NrlMatchDetail, NrlMatchesResponse } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockRound = getNrlRoundServer as jest.MockedFunction<typeof getNrlRoundServer>;
 const mockLadder = getNrlLadderServer as jest.MockedFunction<typeof getNrlLadderServer>;
+const mockDetail = getNrlMatchDetailServer as jest.MockedFunction<typeof getNrlMatchDetailServer>;
+const mockProbHistory = getNrlProbHistoryServer as jest.MockedFunction<typeof getNrlProbHistoryServer>;
 
 const match: NrlMatch = {
+  id: 42,
   match_no: 3,
   kickoff_utc: "2026-07-11T09:35:00+00:00",
   venue: "Leichhardt Oval",
@@ -30,6 +35,32 @@ const match: NrlMatch = {
   },
 };
 
+const detail: NrlMatchDetail = {
+  match: {
+    id: 42, season: 2026, round: 19, match_no: 3,
+    kickoff_utc: match.kickoff_utc, venue: match.venue,
+    home: match.home, away: match.away,
+    home_team_id: match.home_team_id, away_team_id: match.away_team_id,
+    score_home: null, score_away: null, status: "scheduled",
+  },
+  prediction: {
+    home_prob: 0.311, away_prob: 0.672, draw_prob: 0.017,
+    predicted_margin: -6.0, predicted_total: 42.0,
+    model_version: "nrl-elo-v0.1",
+    preview_text: "Warriors are the model's pick.\n\nWarriors carry the bigger Elo rating.\n\nThe model's number: Warriors by 6.0.",
+  },
+  form: {
+    home: { last5: [], avg_for: 0, avg_against: 0, avg_margin: 0 },
+    away: { last5: [], avg_for: 0, avg_against: 0, avg_margin: 0 },
+  },
+  h2h: [],
+  factors: [
+    { key: "elo_gap", label: "Elo rating gap", weight: 0.5, favors: "away" },
+    { key: "form_composite", label: "Recent form", weight: 0.3, favors: "away" },
+    { key: "home_advantage", label: "Home advantage", weight: 0.2, favors: "home" },
+  ],
+};
+
 const roundPayload = (m: NrlMatch): NrlMatchesResponse => ({
   season: 2026,
   rounds: [{ round: 19, matches: [m] }],
@@ -41,8 +72,9 @@ const params = (season = "2026", round = "19", no = "3") =>
 
 beforeEach(() => {
   mockRound.mockResolvedValue(roundPayload(match));
-  // Ladder context is secondary — default to none so most tests skip it.
   mockLadder.mockResolvedValue(null);
+  mockDetail.mockResolvedValue(null);
+  mockProbHistory.mockResolvedValue(null);
 });
 afterEach(() => jest.resetAllMocks());
 
@@ -125,4 +157,28 @@ it("calls notFound() for non-numeric params without hitting the API", async () =
     NrlMatchDetailPage({ params: params("2026", "abc", "3") }),
   ).rejects.toThrow();
   expect(mockRound).not.toHaveBeenCalled();
+});
+
+it("renders the Match Intelligence sections when the detail endpoint has data", async () => {
+  mockDetail.mockResolvedValue(detail);
+  render(await NrlMatchDetailPage({ params: params() }));
+
+  // "Overview"/"Model" each appear twice (the sticky-nav pill AND the
+  // section's own <h2>) -- query by heading role so the assertion is
+  // unambiguous. "Form & H2H" is pill-only text (the section's own heading
+  // reads "Form & head-to-head"), so plain getByText is unambiguous there.
+  expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+  expect(screen.getByText("Form & H2H")).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Model" })).toBeInTheDocument();
+  expect(screen.getByText(/Warriors are the model's pick/)).toBeInTheDocument();
+  expect(screen.getByText(/Predicted total/)).toBeInTheDocument();
+  expect(screen.getByText("42 pts")).toBeInTheDocument();
+});
+
+it("renders without the Match Intelligence sections when the detail endpoint is unavailable", async () => {
+  render(await NrlMatchDetailPage({ params: params() }));
+
+  expect(screen.queryByRole("heading", { name: "Overview" })).not.toBeInTheDocument();
+  // The existing matchup content still renders (backward compatible).
+  expect(screen.getByText(/Warriors to win · 67%/)).toBeInTheDocument();
 });
