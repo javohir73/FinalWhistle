@@ -125,9 +125,22 @@ def test_shadow_blends_lambda_total_toward_market(db_session, monkeypatch):
         assert shad.prob_draw >= prod.prob_draw
 
 
-def test_shadow_with_odds_but_weight_zero_is_identical(db_session):
-    """FR-4.8 safety: stored odds with the shipped w_odds=0 must change nothing
-    — the served default cannot silently activate the blend."""
+def test_shipped_w_odds_is_the_armed_null_test_weight():
+    """FR-4.8 pin: the shipped weight is 0.35 — deliberately armed by the owner
+    on 2026-07-10 (docs/experiments/2026-07-10-phase1/EVIDENCE-CARD.md) so the
+    never-served shadow twin diverges and the >=30-pair promotion gate can be
+    met. Production build_payload never reads w_odds, so serving stays
+    bit-identical. Any other value here needs a new owner decision."""
+    from ml.models.params import load_params
+
+    assert load_params().w_odds == 0.35
+
+
+def test_shadow_with_odds_but_weight_zero_is_identical(db_session, monkeypatch):
+    """FR-4.8 safety: with w_odds=0, stored odds must change nothing — a zero
+    weight can never silently activate the blend (identity contract)."""
+    import pipeline.generate_predictions as gp
+
     load_structure(db_session)
     _set_elos(db_session)
     m = _first_group_match(db_session)
@@ -136,6 +149,7 @@ def test_shadow_with_odds_but_weight_zero_is_identical(db_session):
                         captured_at=datetime.now(timezone.utc)))
     db_session.commit()
 
+    monkeypatch.setattr(gp, "load_params", lambda: replace(DEFAULT_PARAMS, w_odds=0.0))
     generate_predictions(db_session, MV, n_sims=120, tournament_sims=50)
 
     prod = db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=False).one()
@@ -146,12 +160,15 @@ def test_shadow_with_odds_but_weight_zero_is_identical(db_session):
 
 
 def test_market_inversion_skipped_when_weight_zero(db_session, monkeypatch):
-    """Perf guard: with the shipped w_odds=0 the blend is the identity, so the
-    market total must never be computed. The 1X2 fallback inversion is a
-    double bisection costing ~0.1-0.4s per priced match, and prediction
-    generation runs synchronously inside latency-sensitive chains
-    (recompute / refresh-live / coverage sweep) — dead compute there is real
-    request time. The weight gate must come BEFORE the inversion."""
+    """Perf guard: with w_odds=0 the blend is the identity, so the market
+    total must never be computed. The 1X2 fallback inversion is a double
+    bisection costing ~0.1-0.4s per priced match, and prediction generation
+    runs synchronously inside latency-sensitive chains (recompute /
+    refresh-live / coverage sweep) — dead compute there is real request time.
+    The weight gate must come BEFORE the inversion. (With the armed shipped
+    weight of 0.35 the inversion legitimately runs for the shadow twin —
+    accepted cost, ~4 priced WC matches remain; see the 2026-07-10 evidence
+    card.)"""
     import pipeline.generate_predictions as gp
 
     load_structure(db_session)
@@ -168,8 +185,9 @@ def test_market_inversion_skipped_when_weight_zero(db_session, monkeypatch):
     monkeypatch.setattr(
         gp, "market_lambda_total", lambda *a, **kw: calls.append(1) or None
     )
+    monkeypatch.setattr(gp, "load_params", lambda: replace(DEFAULT_PARAMS, w_odds=0.0))
     generate_predictions(db_session, MV, n_sims=120, tournament_sims=50)
-    assert calls == []  # shipped default w_odds=0.0 -> inversion never invoked
+    assert calls == []  # w_odds=0.0 -> inversion never invoked
 
 
 # --- frozen-prediction exclusion (FR-4.5) --------------------------------------
