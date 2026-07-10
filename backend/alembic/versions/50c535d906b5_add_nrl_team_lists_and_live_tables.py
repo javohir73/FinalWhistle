@@ -25,7 +25,7 @@ def upgrade() -> None:
         sa.Column("player", sa.String(length=120), nullable=False),
         sa.Column("position", sa.String(length=10), nullable=False),
         sa.Column("is_late_change", sa.Boolean(), nullable=False, server_default=sa.false()),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("match_id", "team", "jersey", name="uq_nrl_team_list_match_team_jersey"),
     )
     op.create_index("ix_nrl_team_lists_match_id", "nrl_team_lists", ["match_id"])
@@ -39,10 +39,9 @@ def upgrade() -> None:
         sa.Column("score_home", sa.Integer(), nullable=True),
         sa.Column("score_away", sa.Integer(), nullable=True),
         sa.Column("live_home_prob", sa.Float(), nullable=True),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("match_id", name="uq_nrl_live_state_match_id"),
     )
-    op.create_index("ix_nrl_live_state_match_id", "nrl_live_state", ["match_id"])
 
     op.create_table(
         "nrl_live_events",
@@ -53,7 +52,7 @@ def upgrade() -> None:
         sa.Column("team", sa.String(length=10), nullable=False),
         sa.Column("player", sa.String(length=120), nullable=True),
         sa.Column("prob_after", sa.Float(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
     )
     op.create_index("ix_nrl_live_events_match_id", "nrl_live_events", ["match_id"])
 
