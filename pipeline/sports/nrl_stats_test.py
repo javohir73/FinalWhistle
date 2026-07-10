@@ -461,3 +461,47 @@ def test_backfill_upsert_failure_rolls_back_and_continues(db_session, monkeypatc
     assert db_session.query(NrlMatchStat).filter_by(match_id=m1.id).count() == 0  # rolled back
     assert db_session.query(NrlMatchStat).filter_by(match_id=m2.id).count() == 2
 
+
+# --- main() exit-code contract (Task 7) -------------------------------------
+
+def test_main_returns_0_when_run_completes_with_missing_matches(monkeypatch, db_session):
+    """`missing` (source has no data for a match -- normal for pre-2024
+    seasons or unpublished data) is not an error: exit 0."""
+    _mk_match(db_session)
+    db_session.close = lambda: None  # the fixture owns teardown, not main()
+    monkeypatch.setattr(app.db, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(nrl_stats, "NrlComStatsProvider",
+                        lambda team_names=None, **kw: _FakeProvider({}))
+    monkeypatch.setattr(sys, "argv", ["nrl_stats.py", "--seasons", "2024", "2026"])
+    rc = nrl_stats.main()
+    assert rc == 0
+    assert db_session.query(NrlMatchStat).count() == 0
+
+
+def test_main_returns_1_when_failed_gt_0(monkeypatch, db_session):
+    """A real per-match error (`failed` > 0) must exit 1."""
+    _mk_match(db_session)
+    db_session.close = lambda: None  # the fixture owns teardown, not main()
+
+    class _Exploding(_FakeProvider):
+        def fetch_match_stats(self, season, round_no, match_no):
+            raise RuntimeError("boom")
+
+    monkeypatch.setattr(app.db, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(nrl_stats, "NrlComStatsProvider",
+                        lambda team_names=None, **kw: _Exploding({}))
+    monkeypatch.setattr(sys, "argv", ["nrl_stats.py", "--seasons", "2024", "2026"])
+    rc = nrl_stats.main()
+    assert rc == 1
+
+
+def test_main_returns_1_when_db_unreachable(monkeypatch):
+    """The run itself failing to start (e.g. DB unreachable) must exit 1,
+    not raise -- the workflow step's exit code is what nrl-refresh checks."""
+    def boom():
+        raise RuntimeError("could not connect to database")
+
+    monkeypatch.setattr(app.db, "SessionLocal", boom)
+    monkeypatch.setattr(sys, "argv", ["nrl_stats.py", "--seasons", "2024", "2026"])
+    rc = nrl_stats.main()
+    assert rc == 1

@@ -581,6 +581,14 @@ def backfill_stats(db: Session, provider: StatsProvider, start: int, end: int) -
 
 
 def main() -> int:
+    """Exit-code contract (consumed by the nrl-refresh workflow step):
+
+    - 0: the run completed, even if some matches came back `missing`
+      (expected for pre-2024 seasons / not-yet-published source data).
+    - 1: `failed` > 0 (a real per-match error), OR the run itself could not
+      start/complete (e.g. the DB is unreachable) -- surfaced as an
+      exception before a summary exists.
+    """
     logging.basicConfig(level=logging.INFO, format="%(message)s")
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument(
@@ -592,13 +600,23 @@ def main() -> int:
 
     from app.db import SessionLocal
 
-    db = SessionLocal()
+    try:
+        db = SessionLocal()
+    except Exception as exc:  # noqa: BLE001 - DB unreachable: the run couldn't start
+        log.error("nrl_stats: could not start run (DB unreachable): %s", exc)
+        return 1
+
     try:
         provider = NrlComStatsProvider(team_names=_db_team_names(db))
-        backfill_stats(db, provider, start, end)
+        summary = backfill_stats(db, provider, start, end)
+    except Exception as exc:  # noqa: BLE001 - the run itself failed to start/complete
+        log.error("nrl_stats: run failed (DB unreachable or other startup error): %s", exc)
+        return 1
     finally:
         db.close()
-    return 0
+
+    log.info("nrl_stats summary: %s", summary)
+    return 1 if summary["failed"] > 0 else 0
 
 
 if __name__ == "__main__":
