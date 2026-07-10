@@ -95,6 +95,7 @@ def nrl_matches(round: int | None = None, season: int | None = None,
                 "is_shadow": pred.is_shadow,
             }
         rounds.setdefault(m.round, []).append({
+            "id": m.id,
             "match_no": m.match_no,
             "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
             "venue": m.venue,
@@ -321,6 +322,7 @@ def nrl_team(team_id: int, season: int | None = None, db: Session = Depends(get_
         was_home = m.home_team_id == team_id
         opp_id = m.away_team_id if was_home else m.home_team_id
         return {
+            "id": m.id,
             "round": m.round,
             "match_no": m.match_no,
             "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
