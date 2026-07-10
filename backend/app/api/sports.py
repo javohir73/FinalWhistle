@@ -17,7 +17,14 @@ from sqlalchemy.orm import aliased, Session
 
 from app.api.model_record import wilson_ci95
 from app.db import get_db
-from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
+from app.models import (
+    NrlMatchStat,
+    NrlTryEvent,
+    SportMatch,
+    SportPrediction,
+    SportPredictionResult,
+    SportTeam,
+)
 
 router = APIRouter(prefix="/api/nrl", tags=["nrl"])
 
@@ -420,5 +427,65 @@ def nrl_team(team_id: int, season: int | None = None, db: Session = Depends(get_
         "results": list(reversed(results_chrono)),
         "upcoming": upcoming,
         "model": model,
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }
+
+
+@router.get("/matches/{match_id}/stats")
+def nrl_match_stats(match_id: int, db: Session = Depends(get_db)):
+    """Team stat lines + try timeline for one finished NRL match (Wave 2
+    contract): { home: TeamMatchStats, away: TeamMatchStats,
+    try_timeline: TryEvent[] }. 404 stats_not_available until the
+    nrl-refresh stats step has ingested this match."""
+    match = (
+        db.query(SportMatch)
+        .filter(SportMatch.id == match_id, SportMatch.sport == "nrl")
+        .first()
+    )
+    if match is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "match_not_found",
+            "message": f"No NRL match with id {match_id}",
+        })
+
+    rows = db.query(NrlMatchStat).filter(NrlMatchStat.match_id == match_id).all()
+    names = dict(
+        db.query(SportTeam.id, SportTeam.name)
+        .filter(SportTeam.id.in_([tid for tid in (match.home_team_id, match.away_team_id)
+                                  if tid is not None]))
+        .all()
+    )
+    by_team = {r.team: r for r in rows}
+    home_row = by_team.get(names.get(match.home_team_id))
+    away_row = by_team.get(names.get(match.away_team_id))
+    if home_row is None or away_row is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "stats_not_available",
+            "message": f"No team stats ingested for match {match_id}",
+        })
+
+    def stat_line(r: NrlMatchStat) -> dict:
+        return {
+            "tries": r.tries, "conversions": r.conversions,
+            "penalties_conceded": r.penalties_conceded, "errors": r.errors,
+            "set_restarts": r.set_restarts, "run_metres": r.run_metres,
+            "line_breaks": r.line_breaks, "tackles": r.tackles,
+            "tackle_efficiency": r.tackle_efficiency,
+        }
+
+    events = (
+        db.query(NrlTryEvent)
+        .filter(NrlTryEvent.match_id == match_id)
+        .order_by(NrlTryEvent.minute, NrlTryEvent.id)
+        .all()
+    )
+    return {
+        "home": stat_line(home_row),
+        "away": stat_line(away_row),
+        "try_timeline": [
+            {"minute": e.minute, "team": e.team, "player": e.player,
+             "score_home": e.score_home, "score_away": e.score_away}
+            for e in events
+        ],
         "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }
