@@ -42,6 +42,9 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
 import requests
+from sqlalchemy.orm import Session
+
+from app.models import NrlMatchStat, NrlTryEvent, SportMatch, SportTeam
 
 log = logging.getLogger(__name__)
 
@@ -455,3 +458,48 @@ class NrlComStatsProvider:
 
     def fetch_live(self, season: int, round_no: int, match_no: int) -> LivePayload | None:
         return None  # Wave 3 implements (live layer); honest None until then
+
+
+# --------------------------------------------------------------------------
+# Idempotent upsert: MatchStatsPayload -> nrl_match_stats + nrl_try_events.
+# --------------------------------------------------------------------------
+
+def upsert_match_stats(db: Session, match: SportMatch, payload: MatchStatsPayload) -> dict:
+    """Atomically replace this match's rows in both stats tables.
+
+    Idempotent: delete-then-insert per match_id in one transaction (try
+    events have no natural unique key, so replace-all is the idempotency
+    strategy). Only finished matches may carry stats — stats for a live
+    match would go stale silently.
+    """
+    if match.status != "finished":
+        raise ValueError(f"match {match.id} is not finished (status={match.status!r})")
+
+    db.query(NrlTryEvent).filter_by(match_id=match.id).delete()
+    db.query(NrlMatchStat).filter_by(match_id=match.id).delete()
+
+    for line in (payload.home, payload.away):
+        db.add(NrlMatchStat(
+            match_id=match.id,
+            team=line.team,
+            tries=line.tries,
+            conversions=line.conversions,
+            penalties_conceded=line.penalties_conceded,
+            errors=line.errors,
+            set_restarts=line.set_restarts,
+            run_metres=line.run_metres,
+            line_breaks=line.line_breaks,
+            tackles=line.tackles,
+            tackle_efficiency=line.tackle_efficiency,
+        ))
+    for ev in payload.try_events:
+        db.add(NrlTryEvent(
+            match_id=match.id,
+            team=ev.team,
+            player=ev.player,
+            minute=ev.minute,
+            score_home=ev.score_home,
+            score_away=ev.score_away,
+        ))
+    db.commit()
+    return {"stats_rows": 2, "try_events": len(payload.try_events)}

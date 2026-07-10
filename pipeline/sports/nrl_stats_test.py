@@ -4,10 +4,13 @@ HTTP anywhere in this file."""
 import json
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
+import pytest
 import requests
 
+from app.models import NrlMatchStat, NrlTryEvent, SportMatch, SportTeam
 from pipeline.sports.nrl_stats import (
     MatchStatsPayload,
     NrlComStatsProvider,
@@ -15,6 +18,7 @@ from pipeline.sports.nrl_stats import (
     TryEventLine,
     parse_draw_fixtures,
     parse_match_stats,
+    upsert_match_stats,
 )
 
 TESTDATA = Path(__file__).parent / "testdata" / "nrl_stats"
@@ -231,3 +235,71 @@ def test_wave3_stubs_are_honest():
     provider = NrlComStatsProvider()
     assert provider.fetch_team_list(2025, 1) == []
     assert provider.fetch_live(2025, 1, 1) is None
+
+
+# --- idempotent upsert (Task 5) --------------------------------------------
+
+def _mk_match(db, status="finished") -> SportMatch:
+    home = SportTeam(sport="nrl", name="Knights")
+    away = SportTeam(sport="nrl", name="Cowboys")
+    db.add_all([home, away])
+    db.flush()
+    match = SportMatch(
+        sport="nrl", season=2025, round=1, match_no=1,
+        kickoff_utc=datetime(2025, 3, 6, 9, 0, tzinfo=timezone.utc),
+        venue="McDonald Jones Stadium",
+        home_team_id=home.id, away_team_id=away.id,
+        score_home=28, score_away=18, status=status,
+    )
+    db.add(match)
+    db.commit()
+    return match
+
+
+def _payload() -> MatchStatsPayload:
+    return MatchStatsPayload(
+        home=TeamStatsLine(team="Knights", tries=5, conversions=4,
+                           penalties_conceded=6, errors=8, set_restarts=4,
+                           run_metres=1650, line_breaks=6, tackles=310,
+                           tackle_efficiency=91.3),
+        away=TeamStatsLine(team="Cowboys", tries=3, conversions=3,
+                           penalties_conceded=8, errors=11, set_restarts=6,
+                           run_metres=1432, line_breaks=3, tackles=345,
+                           tackle_efficiency=88.7),
+        try_events=[
+            TryEventLine(minute=7, team="Knights", player="K. Ponga",
+                         score_home=6, score_away=0),
+            TryEventLine(minute=23, team="Cowboys", player="S. Drinkwater",
+                         score_home=6, score_away=6),
+        ],
+    )
+
+
+def test_upsert_writes_two_stat_rows_and_events(db_session):
+    match = _mk_match(db_session)
+    counts = upsert_match_stats(db_session, match, _payload())
+    assert counts == {"stats_rows": 2, "try_events": 2}
+    rows = db_session.query(NrlMatchStat).filter_by(match_id=match.id).all()
+    assert {r.team for r in rows} == {"Knights", "Cowboys"}
+    knights = next(r for r in rows if r.team == "Knights")
+    assert knights.run_metres == 1650
+    assert knights.tackle_efficiency == 91.3
+    events = (db_session.query(NrlTryEvent).filter_by(match_id=match.id)
+              .order_by(NrlTryEvent.minute).all())
+    assert [e.player for e in events] == ["K. Ponga", "S. Drinkwater"]
+    assert events[1].score_away == 6
+
+
+def test_upsert_is_idempotent_replace(db_session):
+    match = _mk_match(db_session)
+    upsert_match_stats(db_session, match, _payload())
+    upsert_match_stats(db_session, match, _payload())  # second run: replace, not duplicate
+    assert db_session.query(NrlMatchStat).filter_by(match_id=match.id).count() == 2
+    assert db_session.query(NrlTryEvent).filter_by(match_id=match.id).count() == 2
+
+
+def test_upsert_rejects_unfinished_match(db_session):
+    match = _mk_match(db_session, status="scheduled")
+    with pytest.raises(ValueError):
+        upsert_match_stats(db_session, match, _payload())
+    assert db_session.query(NrlMatchStat).count() == 0
