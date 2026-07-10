@@ -36,6 +36,7 @@ and the idempotent upsert/backfill CLI on top of this module.
 """
 from __future__ import annotations
 
+import argparse
 import logging
 import time
 from dataclasses import dataclass, field
@@ -503,3 +504,102 @@ def upsert_match_stats(db: Session, match: SportMatch, payload: MatchStatsPayloa
         ))
     db.commit()
     return {"stats_rows": 2, "try_events": len(payload.try_events)}
+
+
+# --------------------------------------------------------------------------
+# Resumable, rate-limited backfill CLI.
+# --------------------------------------------------------------------------
+
+def _db_team_names(db: Session) -> Callable[[int, int, int], tuple[str, str] | None]:
+    """team_names lookup for NrlComStatsProvider, backed by our sport_matches."""
+    def lookup(season: int, round_no: int, match_no: int) -> tuple[str, str] | None:
+        match = (
+            db.query(SportMatch)
+            .filter_by(sport=SPORT, season=season, round=round_no, match_no=match_no)
+            .one_or_none()
+        )
+        if match is None or match.home_team_id is None or match.away_team_id is None:
+            return None
+        names = dict(
+            db.query(SportTeam.id, SportTeam.name)
+            .filter(SportTeam.id.in_([match.home_team_id, match.away_team_id]))
+            .all()
+        )
+        home = names.get(match.home_team_id)
+        away = names.get(match.away_team_id)
+        if home is None or away is None:
+            return None
+        return home, away
+    return lookup
+
+
+def backfill_stats(db: Session, provider: StatsProvider, start: int, end: int) -> dict:
+    """Backfill team stats for finished NRL matches, seasons start..end inclusive.
+
+    Resumable: matches that already have nrl_match_stats rows are skipped
+    before any fetch happens, so re-runs cost zero requests for done work.
+    Rate limiting lives in the provider (>= 1s between requests).
+    One bad match never aborts the run (rollback + continue).
+    """
+    summary = {"fetched": 0, "skipped_existing": 0, "missing": 0, "failed": 0}
+    done_ids = {mid for (mid,) in db.query(NrlMatchStat.match_id).distinct().all()}
+    matches = (
+        db.query(SportMatch)
+        .filter(
+            SportMatch.sport == SPORT,
+            SportMatch.season >= start,
+            SportMatch.season <= end,
+            SportMatch.status == "finished",
+        )
+        .order_by(SportMatch.season, SportMatch.round, SportMatch.match_no)
+        .all()
+    )
+    for match in matches:
+        if match.id in done_ids:
+            summary["skipped_existing"] += 1
+            continue
+        try:
+            payload = provider.fetch_match_stats(match.season, match.round, match.match_no)
+        except Exception as exc:  # noqa: BLE001 - one bad match must never abort the backfill
+            log.warning("nrl_stats: fetch failed for match %s (%s r%s m%s): %s",
+                        match.id, match.season, match.round, match.match_no, exc)
+            summary["failed"] += 1
+            continue
+        if payload is None:
+            summary["missing"] += 1
+            continue
+        try:
+            upsert_match_stats(db, match, payload)
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            log.warning("nrl_stats: upsert failed for match %s: %s", match.id, exc)
+            summary["failed"] += 1
+            continue
+        summary["fetched"] += 1
+    log.info("nrl_stats backfill %s-%s: %s", start, end, summary)
+    return summary
+
+
+def main() -> int:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument(
+        "--seasons", nargs=2, type=int, required=True, metavar=("START", "END"),
+        help="inclusive season range to backfill, e.g. --seasons 2024 2026",
+    )
+    args = ap.parse_args()
+    start, end = args.seasons
+
+    from app.db import SessionLocal
+
+    db = SessionLocal()
+    try:
+        provider = NrlComStatsProvider(team_names=_db_team_names(db))
+        backfill_stats(db, provider, start, end)
+    finally:
+        db.close()
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

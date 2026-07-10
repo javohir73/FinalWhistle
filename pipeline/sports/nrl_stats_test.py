@@ -303,3 +303,94 @@ def test_upsert_rejects_unfinished_match(db_session):
     with pytest.raises(ValueError):
         upsert_match_stats(db_session, match, _payload())
     assert db_session.query(NrlMatchStat).count() == 0
+
+
+# --- append to pipeline/sports/nrl_stats_test.py ---
+import sys  # noqa: E402  (top of file if not already imported)
+
+import app.db  # noqa: E402
+import pipeline.sports.nrl_stats as nrl_stats  # noqa: E402
+from pipeline.sports.nrl_stats import backfill_stats  # noqa: E402
+
+
+class _FakeProvider:
+    """In-memory StatsProvider — proves consumers only touch the protocol."""
+
+    def __init__(self, payloads: dict):
+        self.payloads = payloads          # {(season, round, match_no): payload|None}
+        self.calls: list[tuple] = []
+
+    def fetch_match_stats(self, season, round_no, match_no):
+        self.calls.append((season, round_no, match_no))
+        return self.payloads.get((season, round_no, match_no))
+
+    def fetch_team_list(self, season, round_no):
+        return []
+
+    def fetch_live(self, season, round_no, match_no):
+        return None
+
+
+def test_backfill_ingests_finished_matches_only(db_session):
+    finished = _mk_match(db_session)                     # 2025 r1 m1, finished
+    scheduled = SportMatch(sport="nrl", season=2025, round=2, match_no=1,
+                           status="scheduled")
+    db_session.add(scheduled)
+    db_session.commit()
+    provider = _FakeProvider({(2025, 1, 1): _payload()})
+    summary = backfill_stats(db_session, provider, 2024, 2026)
+    assert summary == {"fetched": 1, "skipped_existing": 0, "missing": 0, "failed": 0}
+    assert provider.calls == [(2025, 1, 1)]              # scheduled match never fetched
+    assert db_session.query(NrlMatchStat).filter_by(match_id=finished.id).count() == 2
+
+
+def test_backfill_resumes_by_skipping_already_ingested(db_session):
+    match = _mk_match(db_session)
+    upsert_match_stats(db_session, match, _payload())    # simulate a prior run
+    provider = _FakeProvider({(2025, 1, 1): _payload()})
+    summary = backfill_stats(db_session, provider, 2024, 2026)
+    assert summary["skipped_existing"] == 1
+    assert summary["fetched"] == 0
+    assert provider.calls == []                          # resumable: zero re-fetches
+
+
+def test_backfill_counts_missing_and_continues(db_session):
+    _mk_match(db_session)
+    provider = _FakeProvider({})                         # source has nothing
+    summary = backfill_stats(db_session, provider, 2024, 2026)
+    assert summary == {"fetched": 0, "skipped_existing": 0, "missing": 1, "failed": 0}
+
+
+def test_backfill_one_bad_match_does_not_abort(db_session):
+    m1 = _mk_match(db_session)                           # 2025 r1 m1
+    home = db_session.query(SportTeam).filter_by(name="Knights").one()
+    away = db_session.query(SportTeam).filter_by(name="Cowboys").one()
+    m2 = SportMatch(sport="nrl", season=2025, round=1, match_no=2,
+                    home_team_id=away.id, away_team_id=home.id,
+                    score_home=10, score_away=12, status="finished")
+    db_session.add(m2)
+    db_session.commit()
+
+    class _Exploding(_FakeProvider):
+        def fetch_match_stats(self, season, round_no, match_no):
+            if match_no == 1:
+                raise RuntimeError("boom")
+            return _payload()
+
+    summary = backfill_stats(db_session, _Exploding({}), 2024, 2026)
+    assert summary["failed"] == 1
+    assert summary["fetched"] == 1
+    assert db_session.query(NrlMatchStat).filter_by(match_id=m2.id).count() == 2
+    assert db_session.query(NrlMatchStat).filter_by(match_id=m1.id).count() == 0
+
+
+def test_main_runs_backfill_over_season_range(monkeypatch, db_session):
+    _mk_match(db_session)
+    db_session.close = lambda: None  # the fixture owns teardown, not main()
+    monkeypatch.setattr(app.db, "SessionLocal", lambda: db_session)
+    monkeypatch.setattr(nrl_stats, "NrlComStatsProvider",
+                        lambda team_names=None, **kw: _FakeProvider({(2025, 1, 1): _payload()}))
+    monkeypatch.setattr(sys, "argv", ["nrl_stats.py", "--seasons", "2024", "2026"])
+    rc = nrl_stats.main()
+    assert rc == 0
+    assert db_session.query(NrlMatchStat).count() == 2
