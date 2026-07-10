@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models import ProbabilitySnapshot, SportTeam, Team
+from app.models import ProbabilitySnapshot, SportMatch, SportTeam, Team
 
 router = APIRouter(prefix="/api/movers", tags=["movers"])
 
@@ -55,7 +55,7 @@ def movers(sport: str = Query(...), limit: int = Query(3, ge=1, le=20),
         prob = by_day[latest]
         delta = (prob - by_day[prev]) if (prev is not None and prev in by_day) else None
         series = [by_day[d] for d in days_asc if d in by_day]
-        items.append({"entity_id": entity_id, "market": market,
+        items.append({"entity_id": entity_id, "market": market, "ref_id": ref_id,
                       "prob": prob, "delta": delta, "series": series})
 
     items.sort(key=lambda m: (abs(m["delta"]) if m["delta"] is not None else -1, m["prob"]),
@@ -68,8 +68,22 @@ def movers(sport: str = Query(...), limit: int = Query(3, ge=1, le=20),
         .filter(model.id.in_([m["entity_id"] for m in items]))
         .all()
     ) if items else {}
+
+    match_urls: dict[int, str] = {}
+    if sport == "nrl":
+        ref_ids = {
+            m["ref_id"] for m in items
+            if m["market"] == "win_match" and m["ref_id"] is not None
+        }
+        if ref_ids:
+            for sm in db.query(SportMatch).filter(SportMatch.id.in_(ref_ids)).all():
+                if sm.round is not None:
+                    match_urls[sm.id] = f"/nrl/match/{sm.season}/{sm.round}/{sm.match_no}"
+
     for m in items:
         m["name"] = names.get(m["entity_id"], "Unknown")
+        m["match_url"] = match_urls.get(m["ref_id"]) if sport == "nrl" else None
+        del m["ref_id"]  # internal only -- keep the public shape unchanged otherwise
 
     return {
         "sport": sport,

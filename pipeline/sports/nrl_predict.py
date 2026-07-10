@@ -8,9 +8,12 @@ Two idempotent, append-only sweeps over sport="nrl" rows:
     CURRENT Elo state, then predict() the fixture and append a SportPrediction
     (is_shadow=True -- this vertical ships shadow-only until proven, mirroring
     the football SHADOW_MODEL_VERSION twins). A new row is written only if
-    none exists yet for the match or the newest existing row's triple differs
-    by more than 1e-9 in any of p_home/p_draw/p_away -- so re-running after a
-    no-op day adds nothing. HARD GUARD: matches whose status != "scheduled"
+    none exists yet for the match, or the newest existing row differs from
+    the freshly computed one by more than 1e-9 in any of p_home/p_draw/p_away/
+    predicted_margin/predicted_total, or its preview_text doesn't match
+    exactly -- so a margin/total/preview-only change (e.g. a margin-model
+    re-fit, win probs unchanged) still rewrites, while re-running after a
+    true no-op day adds nothing. HARD GUARD: matches whose status != "scheduled"
     are never written to, enforced inside _write_prediction so no call path
     can bypass it (frozen-prediction invariant, mirrors pipeline.learning_loop).
     As a side effect the replayed Elo state is synced onto
@@ -39,6 +42,9 @@ from sqlalchemy.orm import Session
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
 from ml.sports.nrl.model import NrlParams, predict, regress_season, update
 from ml.sports.nrl.params import load_nrl_params
+from ml.models.nrl_margin_total import load_margin_total_params, predict_margin_total
+from ml.models.nrl_preview import build_preview
+from pipeline.sports.nrl_form import last_n_results
 
 log = logging.getLogger(__name__)
 
@@ -120,6 +126,31 @@ def _triples_differ(a: SportPrediction, triple: tuple[float, float, float]) -> b
     )
 
 
+def _floats_differ(a: float | None, b: float | None) -> bool:
+    """Same _DEDUP_TOL tolerance as _triples_differ, but None-safe (a missing
+    value counts as different from a present one, never raises)."""
+    if a is None or b is None:
+        return a is not b
+    return abs(a - b) > _DEDUP_TOL
+
+
+def _extras_differ(
+    a: SportPrediction,
+    predicted_margin: float | None,
+    predicted_total: float | None,
+    preview_text: str | None,
+) -> bool:
+    """True if predicted_margin/predicted_total (float, _DEDUP_TOL) or
+    preview_text (exact) differ from the latest row -- so a margin/total/
+    preview-only change (e.g. a margin-model re-fit) still triggers a
+    rewrite even when the win-prob triple alone is unchanged."""
+    return (
+        _floats_differ(a.predicted_margin, predicted_margin)
+        or _floats_differ(a.predicted_total, predicted_total)
+        or a.preview_text != preview_text
+    )
+
+
 def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: dict) -> bool:
     """Append a SportPrediction for `match` if warranted. Returns True if written.
 
@@ -137,7 +168,14 @@ def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: di
         .first()
     )
     triple = (out["p_home"], out["p_draw"], out["p_away"])
-    if latest is not None and not _triples_differ(latest, triple):
+    predicted_margin = out.get("predicted_margin")
+    predicted_total = out.get("predicted_total")
+    preview_text = out.get("preview_text")
+    if (
+        latest is not None
+        and not _triples_differ(latest, triple)
+        and not _extras_differ(latest, predicted_margin, predicted_total, preview_text)
+    ):
         return False
 
     db.add(SportPrediction(
@@ -147,6 +185,9 @@ def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: di
         p_draw=out["p_draw"],
         p_away=out["p_away"],
         expected_margin=out["expected_margin"],
+        predicted_margin=predicted_margin,
+        predicted_total=predicted_total,
+        preview_text=preview_text,
         is_shadow=True,
     ))
     return True
@@ -166,17 +207,57 @@ def generate(db: Session, params: NrlParams | None = None) -> int:
         .filter_by(sport=SPORT, status="scheduled")
         .all()
     )
+    if not scheduled:
+        db.commit()
+        return 0
+
+    team_names = dict(
+        db.query(SportTeam.id, SportTeam.name).filter(SportTeam.sport == SPORT).all()
+    )
+    mt_params = load_margin_total_params()
 
     written = 0
     for m in scheduled:
         elo_home = elos.get(m.home_team_id, 1500.0)
         elo_away = elos.get(m.away_team_id, 1500.0)
         out = predict(elo_home, elo_away, params)
+        predicted_margin, predicted_total = predict_margin_total(elo_home, elo_away, mt_params)
+
+        home_name = team_names.get(m.home_team_id, "Home")
+        away_name = team_names.get(m.away_team_id, "Away")
+        home_form = last_n_results(db, m.home_team_id, before=m) if m.home_team_id else []
+        away_form = last_n_results(db, m.away_team_id, before=m) if m.away_team_id else []
+        preview_text = build_preview(
+            home=home_name, away=away_name,
+            p_home=out["p_home"], p_away=out["p_away"],
+            elo_home=elo_home, elo_away=elo_away,
+            home_form_summary=_form_summary(home_form),
+            away_form_summary=_form_summary(away_form),
+            predicted_margin=predicted_margin, predicted_total=predicted_total,
+        )
+        out["predicted_margin"] = predicted_margin
+        out["predicted_total"] = predicted_total
+        out["preview_text"] = preview_text
+
         if _write_prediction(db, m, params, out):
             written += 1
 
     db.commit()
     return written
+
+
+def _form_summary(results: list[dict]) -> str:
+    if not results:
+        return "no recent form on record"
+    w = sum(1 for r in results if r["result"] == "W")
+    losses = sum(1 for r in results if r["result"] == "L")
+    draws = sum(1 for r in results if r["result"] == "D")
+    parts = [f"{w}W"]
+    if losses:
+        parts.append(f"{losses}L")
+    if draws:
+        parts.append(f"{draws}D")
+    return f"{'-'.join(parts)} in their last {len(results)}"
 
 
 def _outcome(score_home: int, score_away: int) -> str:

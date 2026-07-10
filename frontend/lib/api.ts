@@ -12,7 +12,10 @@ import type {
   MatchSummary,
   ModelRecord,
   MoversResponse,
+  NrlMatchDetail,
   NrlMatchesResponse,
+  NrlProbHistory,
+  NrlProjectionsResponse,
   NrlRecord,
   NrlTeamProfile,
   Prediction,
@@ -152,3 +155,9 @@ export const getNrlTeamServer = (id: number | string) =>
   getServer<NrlTeamProfile>(`/api/nrl/teams/${id}`, 300);
 export const getNrlRecordServer = () =>
   getServer<NrlRecord>("/api/nrl/model/record", 300);
+export const getNrlMatchDetailServer = (id: number | string) =>
+  getServer<NrlMatchDetail>(`/api/nrl/matches/${id}`, 300);
+export const getNrlProjectionsServer = () =>
+  getServer<NrlProjectionsResponse>("/api/nrl/projections", 300);
+export const getNrlProbHistoryServer = (id: number | string) =>
+  getServer<NrlProbHistory>(`/api/nrl/matches/${id}/prob-history`, 300);

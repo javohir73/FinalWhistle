@@ -22,25 +22,25 @@ const profile: NrlTeamProfile = {
     away: { wins: 4, draws: 0, losses: 3 },
     streak: { result: "W", length: 3 },
     biggest_win: {
-      round: 7, match_no: 52, kickoff_utc: null, venue: null,
+      id: 5201, round: 7, match_no: 52, kickoff_utc: null, venue: null,
       opponent: "Titans", opponent_id: 6, was_home: true,
       score_for: 44, score_against: 6, result: "W", model_called: null,
     },
     biggest_loss: {
-      round: 2, match_no: 12, kickoff_utc: null, venue: null,
+      id: 5202, round: 2, match_no: 12, kickoff_utc: null, venue: null,
       opponent: "Storm", opponent_id: 5, was_home: false,
       score_for: 10, score_against: 32, result: "L", model_called: null,
     },
   },
   results: [
     {
-      round: 18, match_no: 130, kickoff_utc: "2026-07-04T09:35:00+00:00",
+      id: 5203, round: 18, match_no: 130, kickoff_utc: "2026-07-04T09:35:00+00:00",
       venue: "Go Media Stadium", opponent: "Broncos", opponent_id: 1,
       was_home: true, score_for: 24, score_against: 12, result: "W",
       model_called: true,
     },
     {
-      round: 17, match_no: 121, kickoff_utc: "2026-06-27T07:00:00+00:00",
+      id: 5204, round: 17, match_no: 121, kickoff_utc: "2026-06-27T07:00:00+00:00",
       venue: "Suncorp Stadium", opponent: "Dolphins", opponent_id: 4,
       was_home: false, score_for: 20, score_against: 18, result: "W",
       model_called: null,
@@ -48,7 +48,7 @@ const profile: NrlTeamProfile = {
   ],
   upcoming: [
     {
-      round: 19, match_no: 134, kickoff_utc: "2026-07-10T10:00:00+00:00",
+      id: 5205, round: 19, match_no: 134, kickoff_utc: "2026-07-10T10:00:00+00:00",
       venue: "Campbelltown Sports Stadium", opponent: "Wests Tigers",
       opponent_id: 17, was_home: false, win_prob: 0.672,
     },
