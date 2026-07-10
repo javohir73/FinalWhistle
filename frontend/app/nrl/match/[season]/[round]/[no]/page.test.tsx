@@ -167,7 +167,14 @@ it("renders the Match Intelligence sections when the detail endpoint has data", 
   // section's own <h2>) -- query by heading role so the assertion is
   // unambiguous. "Form & H2H" is pill-only text (the section's own heading
   // reads "Form & head-to-head"), so plain getByText is unambiguous there.
-  expect(screen.getByRole("heading", { name: "Overview" })).toBeInTheDocument();
+  //
+  // findBy (rather than getBy) on this first assertion so the awaited,
+  // act()-wrapped wait flushes MatchupSection's own-fetched profile lookup
+  // (a Wave 2 client island that kicks off a request on mount) before the
+  // test finishes -- otherwise its state update lands after this test's
+  // synchronous assertions and logs a harmless-but-noisy "not wrapped in
+  // act()" warning. Additive test-setup only; no assertions changed.
+  expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
   expect(screen.getByText("Form & H2H")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Model" })).toBeInTheDocument();
   expect(screen.getByText(/Warriors are the model's pick/)).toBeInTheDocument();

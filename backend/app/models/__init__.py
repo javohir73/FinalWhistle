@@ -853,6 +853,51 @@ class MarketOddsSnapshot(Base):
     )
 
 
+# --- Wave 2: NRL team-stats layer -------------------------------------------
+# Table names nrl_match_stats / nrl_try_events are frozen by the match-intel
+# program spec (Wave 3 builds on them). They deviate from the sport_* naming
+# deliberately: the column set is rugby-league-specific.
+
+
+class NrlMatchStat(Base):
+    """One team's stat line for one finished NRL match (two rows per match)."""
+
+    __tablename__ = "nrl_match_stats"
+    __table_args__ = (
+        UniqueConstraint("match_id", "team", name="uq_nrl_match_stats_match_team"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    tries: Mapped[int] = mapped_column(Integer)
+    conversions: Mapped[int] = mapped_column(Integer)
+    penalties_conceded: Mapped[int] = mapped_column(Integer)
+    errors: Mapped[int] = mapped_column(Integer)
+    set_restarts: Mapped[int] = mapped_column(Integer)
+    run_metres: Mapped[int] = mapped_column(Integer)
+    line_breaks: Mapped[int] = mapped_column(Integer)
+    tackles: Mapped[int] = mapped_column(Integer)
+    tackle_efficiency: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class NrlTryEvent(Base):
+    """One try event with running score (Wave 3's scorer model trains on these)."""
+
+    __tablename__ = "nrl_try_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    player: Mapped[str] = mapped_column(String(120))
+    minute: Mapped[int] = mapped_column(Integer)
+    score_home: Mapped[int] = mapped_column(Integer)
+    score_away: Mapped[int] = mapped_column(Integer)
+
+
 __all__ = [
     "Tournament",
     "Team",
@@ -886,4 +931,6 @@ __all__ = [
     "NrlProjection",
     "ProbabilitySnapshot",
     "MarketOddsSnapshot",
+    "NrlMatchStat",
+    "NrlTryEvent",
 ]

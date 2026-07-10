@@ -14,9 +14,11 @@ import type {
   MoversResponse,
   NrlMatchDetail,
   NrlMatchesResponse,
+  NrlMatchStatsResponse,
   NrlProbHistory,
   NrlProjectionsResponse,
   NrlRecord,
+  NrlStatsProfile,
   NrlTeamProfile,
   Prediction,
   ProbHistory,
@@ -153,6 +155,9 @@ export const getNrlLadderServer = () =>
   getServer<LadderResponse>("/api/nrl/ladder", 300);
 export const getNrlTeamServer = (id: number | string) =>
   getServer<NrlTeamProfile>(`/api/nrl/teams/${id}`, 300);
+/** Wave 2 club stats profile (attack/defence ranks, venue splits). */
+export const getNrlStatsProfileServer = (slug: string) =>
+  getServer<NrlStatsProfile>(`/api/nrl/teams/${slug}/profile`, 300);
 export const getNrlRecordServer = () =>
   getServer<NrlRecord>("/api/nrl/model/record", 300);
 export const getNrlMatchDetailServer = (id: number | string) =>

@@ -654,3 +654,48 @@ export interface NrlProbHistory {
   points: NrlProbHistoryPoint[];
   disclaimer: string;
 }
+
+/** /api/nrl/matches/{id}/stats — Wave 2 team-stats contract. */
+export interface NrlTeamMatchStats {
+  tries: number;
+  conversions: number;
+  penalties_conceded: number;
+  errors: number;
+  set_restarts: number;
+  run_metres: number;
+  line_breaks: number;
+  tackles: number;
+  tackle_efficiency: number;
+}
+export interface NrlTryEventOut {
+  minute: number;
+  team: string;
+  player: string;
+  score_home: number;
+  score_away: number;
+}
+export interface NrlMatchStatsResponse {
+  home: NrlTeamMatchStats;
+  away: NrlTeamMatchStats;
+  try_timeline: NrlTryEventOut[];
+  disclaimer?: string;
+}
+/** /api/nrl/teams/{slug}/profile — Wave 2 contract. */
+export interface NrlVenueSplit {
+  venue: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  avg_for: number;
+  avg_against: number;
+}
+export interface NrlStatsProfile {
+  team: { id: number; name: string; slug: string };
+  season: number;
+  attack_rank: number | null;
+  defence_rank: number | null;
+  venue_splits: NrlVenueSplit[];
+  position_concessions: { position: string; tries_conceded: number }[];
+  disclaimer: string;
+}
