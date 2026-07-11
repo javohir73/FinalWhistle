@@ -31,23 +31,23 @@ FEED_URL = "https://fixturedownload.com/feed/json/nrl-{year}"
 SPORT = "nrl"
 
 
-def fetch_season(year: int, timeout: float = 20.0) -> list[dict]:
+def fetch_season(year: int, timeout: float = 20.0, url_template: str = FEED_URL) -> list[dict]:
     """Return the raw fixture list for one NRL season. NEVER raises.
 
     Any HTTP error, timeout, or malformed JSON is logged and answered with []
     so a missing/unpublished season (e.g. one the feed doesn't go back to)
     can't abort a multi-season backfill.
     """
-    url = FEED_URL.format(year=year)
+    url = url_template.format(year=year)
     try:
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=timeout)
         resp.raise_for_status()
         data = resp.json()
     except Exception as exc:  # noqa: BLE001 - a feed hiccup must never abort the backfill
-        log.warning("nrl fetch_season(%s) failed: %s", year, exc)
+        log.warning("fetch_season(%s) failed: %s", url, exc)
         return []
     if not isinstance(data, list):
-        log.warning("nrl fetch_season(%s) returned non-list payload: %r", year, type(data))
+        log.warning("fetch_season(%s) returned non-list payload: %r", url, type(data))
         return []
     return data
 
@@ -110,21 +110,32 @@ def parse_row(row: dict) -> dict | None:
     }
 
 
-def _get_or_create_team(db: Session, cache: dict[str, SportTeam], name: str) -> SportTeam:
+def _get_or_create_team(
+    db: Session, cache: dict[str, SportTeam], name: str, sport: str = SPORT
+) -> SportTeam:
     team = cache.get(name)
     if team is not None:
         return team
-    team = db.query(SportTeam).filter_by(sport=SPORT, name=name).one_or_none()
+    team = db.query(SportTeam).filter_by(sport=sport, name=name).one_or_none()
     if team is None:
-        team = SportTeam(sport=SPORT, name=name)
+        team = SportTeam(sport=sport, name=name)
         db.add(team)
         db.flush()
     cache[name] = team
     return team
 
 
-def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
+def upsert_season(
+    db: Session,
+    year: int,
+    rows: list[dict],
+    sport: str = SPORT,
+    team_name_map: dict[str, str] | None = None,
+) -> dict:
     """Parse+store one season's rows. Idempotent on (sport, season, round, match_no).
+    `sport` scopes the write (default "nrl"); `team_name_map`, if given, maps
+    each parsed team name to its canonical form and skips rows with a name
+    missing from the map (see origin_ingest, which passes both).
 
     Creates SportTeams on first sight by (sport, name). NEVER overwrites a
     stored finished match (freshness-guard spirit) — a scheduled row gaining
@@ -150,30 +161,41 @@ def upsert_season(db: Session, year: int, rows: list[dict]) -> dict:
     for raw in rows:
         parsed = parse_row(raw)
         if parsed is None:
-            log.warning("nrl upsert_season(%s): skipping malformed row %r", year, raw)
+            log.warning("%s upsert_season(%s): skipping malformed row %r", sport, year, raw)
             continue
+
+        if team_name_map is not None:
+            home_name = team_name_map.get(parsed["home_team"])
+            away_name = team_name_map.get(parsed["away_team"])
+            if home_name is None or away_name is None:
+                log.warning(
+                    "%s upsert_season(%s): unrecognized team in %r, skipping",
+                    sport, year, raw,
+                )
+                continue
+            parsed["home_team"], parsed["away_team"] = home_name, away_name
 
         dedupe_key = (parsed["round"], parsed["match_no"])
         if dedupe_key in seen_in_batch:
             log.warning(
-                "nrl upsert_season(%s): duplicate round=%s match_no=%s within feed "
+                "%s upsert_season(%s): duplicate round=%s match_no=%s within feed "
                 "batch, keeping first-seen and skipping %r",
-                year, parsed["round"], parsed["match_no"], raw,
+                sport, year, parsed["round"], parsed["match_no"], raw,
             )
             continue
         seen_in_batch.add(dedupe_key)
 
-        home = _get_or_create_team(db, team_cache, parsed["home_team"])
-        away = _get_or_create_team(db, team_cache, parsed["away_team"])
+        home = _get_or_create_team(db, team_cache, parsed["home_team"], sport)
+        away = _get_or_create_team(db, team_cache, parsed["away_team"], sport)
 
         match = (
             db.query(SportMatch)
-            .filter_by(sport=SPORT, season=year, round=parsed["round"], match_no=parsed["match_no"])
+            .filter_by(sport=sport, season=year, round=parsed["round"], match_no=parsed["match_no"])
             .one_or_none()
         )
         if match is None:
             db.add(SportMatch(
-                sport=SPORT, season=year, round=parsed["round"], match_no=parsed["match_no"],
+                sport=sport, season=year, round=parsed["round"], match_no=parsed["match_no"],
                 kickoff_utc=parsed["kickoff_utc"], venue=parsed["venue"],
                 home_team_id=home.id, away_team_id=away.id,
                 score_home=parsed["score_home"], score_away=parsed["score_away"],
