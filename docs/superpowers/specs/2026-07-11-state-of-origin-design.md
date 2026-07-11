@@ -10,10 +10,11 @@ API; thin new lane reusing NRL parts.
 Add State of Origin (rugby league representative series, NSW Blues vs QLD Maroons,
 three games per year) to FinalWhistle as a second lane on the existing sport-generic
 rail. New pipeline modules ingest and predict Origin matches into the existing
-`sport_*` tables under `sport="state-of-origin"`; the NRL margin-Elo model is reused
-with Origin-tuned parameters; two new API endpoints and one new frontend page under
-`/nrl/origin` surface the series, per-game predictions, series-winner odds, and the
-model's record.
+`sport_*` tables under `sport="origin"` (the `sport` column is `String(10)`, so
+the slug must fit 10 chars — `"state-of-origin"` would fail on Postgres); the NRL
+margin-Elo model is reused with Origin-tuned parameters; two new API endpoints and
+one new frontend page under `/nrl/origin` surface the series, per-game predictions,
+series-winner odds, and the model's record.
 
 **Timing context:** the 2026 series completed on 2026-07-08 (Blues won 2–1). Launch
 deliverable is the series history plus a backtested model record; live frozen
@@ -65,13 +66,16 @@ Two sources, one canonical store:
   `SportTeam` names — **"NSW Blues"** and **"QLD Maroons"** — before upsert, so
   the two sources can never create duplicate teams.
 - **Storage:** existing tables `SportMatch` / `SportTeam` / `SportPrediction` /
-  `SportPredictionResult`, keyed `sport="state-of-origin"`, `season`=year,
+  `SportPredictionResult`, keyed `sport="origin"`, `season`=year,
   `round`=game number (1–3), `match_no` from the feed. **No migration.**
 
 ## 3. Model
 
-Reuse `ml/sports/nrl/model.py` unchanged — `update`, `predict`,
-`regress_season`, and the frozen params dataclass are pure sport-agnostic math.
+Reuse `ml/sports/nrl/model.py` — `update`, `predict`, `regress_season`, and the
+frozen params dataclass are pure sport-agnostic math. One backward-compatible
+addition: `update()` gains an optional `neutral: bool = False` keyword (zeroes
+home advantage in the expected-score term) so neutral-venue Origin games rate
+correctly; all NRL call sites are unchanged.
 Origin gets its own params instance and persisted `params.json` under
 `ml/sports/origin/`:
 
@@ -126,9 +130,12 @@ Two endpoints added to the existing `backend/app/api/sports.py` router
   available. Returns: games (kickoff, venue, teams, status, scores), the latest
   prediction per game, current/final series score, series outcome if decided,
   and series-winner odds when games remain.
-- `GET /api/nrl/origin/record` — aggregated model performance from the
-  `SportPredictionResult` ledger, split into `backtest` and `live` segments so
-  the frontend can label them separately.
+- `GET /api/nrl/origin/record` — two labeled segments: `backtest` (read from a
+  committed artifact `ml/sports/origin/backtest_record.json`, produced by the
+  tuning backtest — retrodictions never enter the DB ledger, preserving the
+  frozen-prediction invariant) and `live` (aggregated from the
+  `SportPredictionResult` ledger for `sport="origin"`, empty until real frozen
+  predictions are graded in 2027+).
 
 Both read the same tables the NRL endpoints read; no new auth surface; response
 shapes follow the existing NRL response idioms. `movers.py`'s sport validation
@@ -140,8 +147,12 @@ otherwise untouched (YAGNI; not part of this design).
 - `frontend/app/nrl/origin/page.tsx` — the page described in §1.
 - `OriginGameCard` component, or `SportMatchCard` reused if it fits without
   contortion (decided at implementation; prefer reuse).
-- `frontend/lib/sports.ts` — add an "Origin" entry to `SPORTS.nrl.navLinks`.
-  No new `SportId`; Origin is not a third sport in the switcher.
+- Entry point: a card on the NRL home page (`/nrl`) linking to `/nrl/origin`,
+  showing the current series score when data exists. The bottom tab bar is a
+  deliberate five-tab design (`BottomNav.tsx`: "Exactly five destinations …
+  no overflow sheet", icons keyed by label), so Origin does **not** become a
+  sixth `navLinks` entry. No new `SportId`; Origin is not a third sport in the
+  switcher.
 - `frontend/lib/api.ts` — `getOriginSeries(season?)`, `getOriginRecord()`.
 - `frontend/lib/types.ts` — `OriginSeriesResponse`, `OriginGame`,
   `OriginRecord` types mirroring the API shapes.
