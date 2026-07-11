@@ -44,5 +44,11 @@ jobs:
           check "$SITE/team/1"
           check "$SITE/groups/1"
           check "$SITE/match/1/opengraph-image" "image/png"
+          check "$API/api/nrl/matches" "application/json"
+          check "$API/api/nrl/projections" "application/json"
+          check "$SITE/nrl"
+          check "$SITE/nrl/matches"
+          check "$SITE/nrl/ladder"
+          check "$SITE/nrl/round/1"
 
           exit $fail

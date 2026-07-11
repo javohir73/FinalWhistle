@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNrlLadderServer, getNrlMatchesServer, getOriginSeriesServer } from "@/lib/api";
 import { LadderTable } from "@/components/LadderTable";
-import { MoversPanel } from "@/components/MoversPanel";
+import { IntelPanel } from "@/components/IntelPanel";
 import { SportMatchCard } from "@/components/SportMatchCard";
 
 export const revalidate = 300;
@@ -34,7 +34,7 @@ export default async function NrlHomePage() {
         Round {current?.round ?? "—"} · model predictions frozen at kickoff
       </p>
 
-      <MoversPanel sport="nrl" />
+      <IntelPanel sport="nrl" />
 
       {origin ? (
         <Link

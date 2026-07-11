@@ -64,6 +64,8 @@ export function TeamSearch({ teams }: { teams: Team[] }) {
         <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
       </svg>
       <input
+        id="team-search"
+        name="team-search"
         type="search"
         role="combobox"
         value={query}

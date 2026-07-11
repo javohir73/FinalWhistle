@@ -18,10 +18,26 @@ export function Reveal({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
+    if (!el) return;
+
+    if (typeof IntersectionObserver === "undefined") {
       setVisible(true);
       return;
     }
+
+    // Content that's already on screen the moment this mounts — e.g. the top
+    // of a tab panel that just swapped in client-side, not a fresh page load
+    // — must show immediately. Waiting on the observer's first callback (an
+    // async "queue an IntersectionObserverEntry" step) left it stuck at
+    // opacity:0 until some later scroll/resize forced a recompute, which is
+    // what made the AI bracket's Round-of-16 render blank on load. Below-fold
+    // rounds still get the real scroll-triggered reveal via the observer.
+    const rect = el.getBoundingClientRect();
+    if (rect.top < window.innerHeight && rect.bottom > 0) {
+      setVisible(true);
+      return;
+    }
+
     const io = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {

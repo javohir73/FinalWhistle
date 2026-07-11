@@ -41,8 +41,9 @@ const SECTIONS: { title: string; body: React.ReactNode }[] = [
       <p>
         Accounts exist to save your bracket across devices and join the
         leaderboard. You are responsible for keeping your password safe;
-        password reset is not yet self-serve — contact support if you&apos;re
-        locked out. You can request account deletion at any time (see{" "}
+        if you&apos;re locked out, use &ldquo;Forgot password?&rdquo; on the
+        sign-in form for a self-serve reset link by email, or contact support
+        if that doesn&apos;t resolve it. You can request account deletion at any time (see{" "}
         <Link className="text-lime-deep underline-offset-2 hover:underline" href="/privacy">privacy policy</Link>).
       </p>
     ),

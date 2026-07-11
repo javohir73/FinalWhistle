@@ -14,6 +14,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
+from ml.models.nrl_margin_total import NrlMarginTotalParams
 from ml.sports.nrl.model import NrlParams, predict
 from pipeline.sports.nrl_predict import generate, grade
 
@@ -422,3 +423,88 @@ def test_grade_away_win_outcome(db_session):
     assert result.outcome == "away"
     assert result.winner_correct is True
     assert abs(result.prob_assigned - 0.53) < 1e-9
+
+
+# ---- generate: Wave 1 margin/total/preview stamping ----
+
+def test_generate_stamps_predicted_margin_total_and_preview(db_session):
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+           status="finished", score_home=20, score_away=16)
+    _match(db_session, home, away, 2026, 2, _kickoff(2026, 3, 8), status="scheduled")
+
+    generate(db_session, PARAMS)
+
+    # Only the scheduled fixture gets a prediction row (the finished match is
+    # frozen and never written to) -- one row, so the latest by id is it.
+    row = db_session.query(SportPrediction).order_by(SportPrediction.id.desc()).first()
+    assert row.predicted_margin is not None
+    assert row.predicted_total is not None
+    assert row.preview_text is not None
+    assert "\n\n" in row.preview_text
+    assert home_or_away_name_present(row.preview_text)
+
+
+def home_or_away_name_present(text: str) -> bool:
+    return "Broncos" in text or "Storm" in text
+
+
+def test_generate_rewrites_when_only_margin_params_change_even_if_probs_unchanged(
+    db_session, monkeypatch
+):
+    """Review finding 2: _write_prediction's dedup used to compare only the
+    (p_home, p_draw, p_away) triple, so a margin-model re-fit that leaves win
+    probs untouched (elo state, NrlParams unchanged) would silently skip the
+    rewrite -- leaving a stale predicted_margin/predicted_total/preview_text
+    on the row. Here the win-prob triple is bit-identical across both
+    generate() calls (same elo state, same NrlParams); only the margin
+    model's params change -- the row must still be rewritten."""
+    import pipeline.sports.nrl_predict as nrl_predict_mod
+
+    home = _team(db_session, "Broncos")
+    away = _team(db_session, "Storm")
+    scheduled = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
+                        status="scheduled")
+
+    monkeypatch.setattr(nrl_predict_mod, "load_margin_total_params",
+                         lambda: NrlMarginTotalParams())
+    first = generate(db_session, PARAMS)
+    assert first == 1
+    first_row = db_session.query(SportPrediction).filter_by(match_id=scheduled.id).one()
+
+    # A re-fit that only moves the margin model's intercept -- win-prob
+    # triple is untouched (no finished matches, so elo state and NrlParams
+    # are unchanged between runs).
+    monkeypatch.setattr(
+        nrl_predict_mod, "load_margin_total_params",
+        lambda: NrlMarginTotalParams(margin_intercept=99.0),
+    )
+    second = generate(db_session, PARAMS)
+    assert second == 1
+
+    rows = (
+        db_session.query(SportPrediction)
+        .filter_by(match_id=scheduled.id)
+        .order_by(SportPrediction.id)
+        .all()
+    )
+    assert len(rows) == 2
+    assert rows[0].id == first_row.id
+    assert abs(rows[1].p_home - rows[0].p_home) < 1e-9  # win-prob triple unchanged
+    assert abs(rows[1].predicted_margin - rows[0].predicted_margin) > 1e-9  # margin changed
+
+
+def test_generate_preview_text_survives_a_team_with_no_prior_form(db_session):
+    """A brand-new matchup (no finished history for either side) must still
+    produce a preview -- last_n_results returns [] and the summary degrades
+    gracefully rather than raising."""
+    home = _team(db_session, "Dolphins")
+    away = _team(db_session, "Titans")
+    _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1), status="scheduled")
+
+    generate(db_session, PARAMS)
+
+    row = db_session.query(SportPrediction).one()
+    assert row.preview_text is not None
+    assert "no recent form on record" in row.preview_text

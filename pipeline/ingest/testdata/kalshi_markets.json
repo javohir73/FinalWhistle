@@ -1,0 +1,49 @@
+{
+  "markets": [
+    {
+      "ticker": "KXWCGAME-26JUL09FRAMAR-FRA",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: France",
+      "status": "active"
+    },
+    {
+      "ticker": "KXWCGAME-26JUL09FRAMAR-MAR",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: Morocco",
+      "status": "active"
+    },
+    {
+      "ticker": "KXWCGAME-26JUL09FRAMAR-TIE",
+      "event_ticker": "KXWCGAME-26JUL09FRAMAR",
+      "title": "France vs Morocco Winner?",
+      "yes_sub_title": "Reg Time: Tie",
+      "status": "active"
+    },
+    {
+      "ticker": "KXWCGAME-26JUL10ESPBEL-ESP",
+      "event_ticker": "KXWCGAME-26JUL10ESPBEL",
+      "title": "Spain vs Belgium Winner?",
+      "yes_sub_title": "Reg Time: Spain",
+      "status": "active",
+      "yes_bid": 59, "yes_ask": 61, "last_price": 60
+    },
+    {
+      "ticker": "KXMWORLDCUP-26-FRA",
+      "event_ticker": "KXMWORLDCUP-26",
+      "title": "2026 FIFA World Cup Winner?",
+      "yes_sub_title": "France",
+      "status": "active",
+      "yes_bid": 29, "yes_ask": 33, "last_price": 31
+    },
+    {
+      "ticker": "KXMWORLDCUP-26-ZZZ",
+      "event_ticker": "KXMWORLDCUP-26",
+      "title": "2026 FIFA World Cup Winner?",
+      "yes_sub_title": "Ghostland",
+      "status": "active",
+      "yes_bid": 0, "yes_ask": 0, "last_price": 0
+    }
+  ]
+}

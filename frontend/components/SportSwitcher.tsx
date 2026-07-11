@@ -49,7 +49,10 @@ export function SportSwitcher({ variant }: { variant: "segment" | "pills" }) {
             onClick={() => remember(id)}
             aria-current={on ? "true" : undefined}
             className={cn(
-              "inline-flex min-h-[32px] items-center gap-1.5 rounded-full px-3 py-1 text-[13px] font-semibold transition",
+              "inline-flex items-center gap-1.5 rounded-full text-[13px] font-semibold transition",
+              // Pills (mobile) need a real ≥40px touch target; the desktop
+              // segment control keeps its original compact sizing.
+              variant === "pills" ? "min-h-[40px] px-3.5 py-2" : "min-h-[32px] px-3 py-1",
               on
                 ? "bg-surface text-lime-deep shadow-sm ring-1 ring-win/30"
                 : "text-muted hover:text-foreground",

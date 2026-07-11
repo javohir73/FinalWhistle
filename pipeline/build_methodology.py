@@ -3,7 +3,6 @@
 Replays leak-free Elo over all historical results, evaluates the *served* model
 (production v0.1 params: base=1.35, beta=0.0019, home_adv=60, raw Poisson) against
 the naive baselines on each past World Cup, and builds the reliability curve.
-Also emits the model changelog.
 
 This replaces the previously hand-authored file so the published numbers always
 match the model that's actually serving predictions.
@@ -27,30 +26,12 @@ _OUT = Path("frontend/lib/methodology-data.json")
 # and ml/ratings/elo.py).
 P_BASE, P_BETA, P_HOME = 1.35, 0.0019, 60.0
 
-# Model changelog — newest first. Keep this honest: only claim improvements that
-# the walk-forward actually showed.
-CHANGELOG = [
-    {
-        "version": "poisson-elo-v0.1",
-        "date": "2026-05",
-        "status": "current",
-        "summary": "Elo strength → expected goals → Poisson scoreline grid → W/D/L "
-                   "and most-likely score. Monte-Carlo for group & knockout odds.",
-        "metrics": "Beats both naive baselines on log-loss in the 2014 & 2018 "
-                   "back-tests; trails the favourite baseline in the upset-heavy 2022.",
-    },
-    {
-        "version": "v0.2 study (not shipped)",
-        "date": "2026-06",
-        "status": "evaluated",
-        "summary": "Walk-forward tested temperature calibration, a Dixon-Coles draw "
-                   "correction, re-tuned goal parameters, and time-decayed Elo.",
-        "metrics": "No reliable out-of-sample gain: fitted temperature ≈ 1.0 (already "
-                   "calibrated) and re-tuning landed back on v0.1 values. v0.1 retained; "
-                   "the harness gates any future change. Real gains need new signal "
-                   "(squad strength, injuries, market priors).",
-    },
-]
+# NOTE: there used to be a CHANGELOG constant emitted here under the
+# "changelog" output key. It hard-coded v0.1 as "current" long after v0.2/
+# v0.4/v0.5 shipped, and nothing consumed the JSON key any more — the
+# methodology page (frontend/app/methodology/page.tsx) renders its own
+# hand-written, up-to-date changelog directly in JSX instead of reading
+# `data.changelog`. Removed rather than relabeled so it can't drift again.
 
 
 def main() -> int:
@@ -117,7 +98,6 @@ def main() -> int:
         "years": years_out,
         "reliability": reliability_curve(agg_probs, agg_labels, bins=10),
         "reliability_n": len(agg_labels),
-        "changelog": CHANGELOG,
     }
     _OUT.write_text(json.dumps(out, indent=2) + "\n")
     log.info("Wrote %s (%d World Cups, %d reliability pairs)", _OUT, len(years_out), len(agg_labels))

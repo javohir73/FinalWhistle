@@ -1,0 +1,14 @@
+
+=== World Cup 2018 (64 matches) ===
+  xG coverage: 64/64 target matches (train-side coverage varies by edition; see per-run summary)
+  A no-offsets       log_loss=0.9670 brier=0.5739 acc=0.562
+  B goals-offsets    log_loss=0.9611 brier=0.5707 acc=0.594
+  C xG-nudged        log_loss=0.9611 brier=0.5707 acc=0.594
+
+=== World Cup 2022 (64 matches) ===
+  xG coverage: 63/64 target matches (train-side coverage varies by edition; see per-run summary)
+  A no-offsets       log_loss=1.0693 brier=0.6236 acc=0.531
+  B goals-offsets    log_loss=1.0788 brier=0.6288 acc=0.516
+  C xG-nudged        log_loss=1.0730 brier=0.6253 acc=0.516
+
+Note: this is a sanity check, NOT the proof bar. StatsBomb xG exists only in recent editions' training windows (~2 clusters) — too few matches to accept or reject the xG nudge on significance. A null here reads as underpowered, not as evidence xG doesn't help. The served model (params.team_offsets) is unaffected regardless.

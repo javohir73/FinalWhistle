@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.cache import cache
 from app.config import settings
 from app.db import get_db
+from app.model_meta import current_model_version
 
 router = APIRouter(prefix="/api/internal", tags=["internal"])
 
@@ -52,7 +53,7 @@ def recompute(
     from pipeline.learning_loop import run_tracked_post_results_chain
 
     summary = run_tracked_post_results_chain(
-        db, settings.model_version, trigger="recompute", n_sims=5000, tournament_sims=2000
+        db, current_model_version(), trigger="recompute", n_sims=5000, tournament_sims=2000
     )
     cache.clear()
     return {"status": "ok", "recomputed": summary}
@@ -95,6 +96,28 @@ def refresh_live(
     summary = run_live(db)
     maybe_run_post_results_chain(db, summary, trigger="internal")  # never raises
     cache.clear()
+    return {"status": "ok", "live": summary}
+
+
+@router.post("/nrl-refresh-live")
+def nrl_refresh_live(
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Poll every in-window NRL match's live state via StatsProvider.fetch_live
+    and update nrl_live_state/nrl_live_events. Safe to call every minute; a
+    scheduled workflow does so during NRL match windows (Thu-Sun AEST, plus
+    the occasional Monday game -- see .github/workflows/nrl-live-refresh.yml)."""
+    _require_token(x_recompute_token)
+    from pipeline.sports.nrl_live_poll import poll_live_matches
+    from pipeline.sports.nrl_stats import NrlComStatsProvider
+
+    # NrlComStatsProvider.fetch_live is an honest None-stub until a real live
+    # feed lands, so this endpoint currently reports polled=0 and is safe to
+    # call any time.
+    summary = poll_live_matches(db, NrlComStatsProvider())
+    if summary["polled"]:
+        cache.clear()
     return {"status": "ok", "live": summary}
 
 

@@ -11,6 +11,7 @@ jest.mock("@/lib/session", () => {
   return { ...actual, login: jest.fn(), register: jest.fn(), requestPasswordReset: jest.fn() };
 });
 const mockLogin = session.login as jest.Mock;
+const mockRegister = session.register as jest.Mock;
 const mockRequestReset = session.requestPasswordReset as jest.Mock;
 
 const setOnline = (value: boolean) =>
@@ -69,6 +70,55 @@ it("forgot-password: requests a reset and shows a neutral, enumeration-safe conf
 
   await waitFor(() => expect(mockRequestReset).toHaveBeenCalledWith("x@y.com"));
   expect(await screen.findByText(/if an account exists/i)).toBeInTheDocument();
+});
+
+it("shows themed inline errors on empty submit instead of native browser validation", () => {
+  render(<AuthModal open onClose={() => {}} onAuthed={() => {}} />);
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+  const emailInput = screen.getByLabelText("Email address");
+  const passwordInput = screen.getByLabelText("Password");
+  expect(screen.getByText("Email is required.")).toBeInTheDocument();
+  expect(screen.getByText("Password is required.")).toBeInTheDocument();
+  expect(emailInput).toHaveAttribute("aria-invalid", "true");
+  expect(emailInput).toHaveAttribute("aria-describedby", "auth-email-error");
+  expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+  expect(passwordInput).toHaveAttribute("aria-describedby", "auth-password-error");
+  expect(mockLogin).not.toHaveBeenCalled();
+
+  // Fixing a field clears just that field's inline error.
+  fireEvent.change(emailInput, { target: { value: "a@b.com" } });
+  expect(screen.queryByText("Email is required.")).not.toBeInTheDocument();
+  expect(screen.getByText("Password is required.")).toBeInTheDocument();
+});
+
+it("shows a themed inline error for a too-short password and never calls the API (sign-in)", () => {
+  // The form carries noValidate, so the still-present minLength={8} on the
+  // password input is inert — submit() must replicate that check client-side
+  // instead of round-tripping a doomed request to the backend's weak_password
+  // check.
+  render(<AuthModal open onClose={() => {}} onAuthed={() => {}} />);
+
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "a@b.com" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "short1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+  const passwordInput = screen.getByLabelText("Password");
+  expect(screen.getByText("Password must be at least 8 characters.")).toBeInTheDocument();
+  expect(passwordInput).toHaveAttribute("aria-invalid", "true");
+  expect(passwordInput).toHaveAttribute("aria-describedby", "auth-password-error");
+  expect(mockLogin).not.toHaveBeenCalled();
+});
+
+it("applies the same short-password check in sign-up mode (parity with the old native behavior)", () => {
+  render(<AuthModal open onClose={() => {}} onAuthed={() => {}} initialMode="signup" />);
+
+  fireEvent.change(screen.getByLabelText("Email address"), { target: { value: "a@b.com" } });
+  fireEvent.change(screen.getByLabelText("Password"), { target: { value: "short1" } });
+  fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+  expect(screen.getByText("Password must be at least 8 characters.")).toBeInTheDocument();
+  expect(mockRegister).not.toHaveBeenCalled();
 });
 
 it("clears the offline message once connectivity returns", async () => {

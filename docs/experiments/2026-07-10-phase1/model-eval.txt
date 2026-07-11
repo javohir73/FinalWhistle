@@ -1,0 +1,162 @@
+Replayed 49403 historical matches (leak-free pre-match Elo).
+
+Hold-out: 1843 matches across 53 major-tournament editions since 2004.
+
+candidate               logloss     RPS   brier  exactNLL   top1   top3   top5    ECE
+-------------------------------------------------------------------------------------
+v0.1 (served)            0.9469  0.1868  0.5610    2.8267  0.145  0.375  0.536  0.011
+v0.2 (full tune)         0.9440  0.1865  0.5597    2.8099  0.147  0.374  0.561  0.015
+v0.1+temperature         0.9477  0.1872  0.5613    2.8267  0.145  0.375  0.536  0.011
+v0.1+draw-inflation      0.9455  0.1868  0.5605    2.8253  0.145  0.375  0.544  0.006
+v0.1+vector-scaling      0.9485  0.1879  0.5630    2.8267  0.147  0.375  0.536  0.007
+
+Per-class ECE (home / draw / away) — draw is the known pathology:
+  v0.1 (served)          home=0.0235 draw=0.0408 away=0.0298
+  v0.2 (full tune)       home=0.0286 draw=0.0245 away=0.0264
+  v0.1+temperature       home=0.0233 draw=0.0336 away=0.0298
+  v0.1+draw-inflation    home=0.0207 draw=0.0330 away=0.0233
+  v0.1+vector-scaling    home=0.0318 draw=0.0258 away=0.0359
+
+Paired bootstrap vs v0.1 (CI excluding 0 = significant):
+  v0.2 (full tune)
+     W/D/L  logloss d=-0.0029 CI[-0.0085,+0.0025] ns   RPS d=-0.0003 CI[-0.0012,+0.0005] ns
+     SCORE  exactNLL d=-0.0167 CI[-0.0284,-0.0049] BETTER   top5 d=+0.0255 CI[+0.0109,+0.0410] BETTER
+  v0.1+temperature
+     W/D/L  logloss d=+0.0009 CI[-0.0014,+0.0032] ns   RPS d=+0.0004 CI[-0.0002,+0.0009] ns
+     SCORE  exactNLL d=+0.0000 CI[+0.0000,+0.0000] ns   top5 d=+0.0000 CI[+0.0000,+0.0000] ns
+  v0.1+draw-inflation
+     W/D/L  logloss d=-0.0013 CI[-0.0041,+0.0013] ns   RPS d=-0.0000 CI[-0.0003,+0.0003] ns
+     SCORE  exactNLL d=-0.0013 CI[-0.0040,+0.0015] ns   top5 d=+0.0087 CI[-0.0022,+0.0197] ns
+  v0.1+vector-scaling
+     W/D/L  logloss d=+0.0017 CI[-0.0051,+0.0083] ns   RPS d=+0.0011 CI[-0.0003,+0.0025] ns
+     SCORE  exactNLL d=+0.0000 CI[+0.0000,+0.0000] ns   top5 d=+0.0000 CI[+0.0000,+0.0000] ns
+
+Calibration by segment (served v0.1 — n / log_loss / ece):
+  by_edition:
+    AFC Asian Cup 2004 n=32    ll=0.9503 ece=0.0627
+    African Cup of Nations 2004 n=32    ll=0.9616 ece=0.0649
+    Copa América 2004 n=26    ll=0.9828 ece=0.0280
+    UEFA Euro 2004 n=31    ll=1.0595 ece=0.1077
+    Confederations Cup 2005 n=16    ll=1.0411 ece=0.0420
+    Gold Cup 2005  n=25    ll=1.1289 ece=0.0899
+    African Cup of Nations 2006 n=32    ll=0.9141 ece=0.0582
+    FIFA World Cup 2006 n=64    ll=0.8927 ece=0.0547
+    AFC Asian Cup 2007 n=32    ll=1.0486 ece=0.1175
+    Copa América 2007 n=26    ll=0.9521 ece=0.0314
+    Gold Cup 2007  n=25    ll=0.9157 ece=0.0323
+    African Cup of Nations 2008 n=32    ll=0.8813 ece=0.0397
+    UEFA Euro 2008 n=31    ll=0.9756 ece=0.0505
+    Confederations Cup 2009 n=16    ll=0.7660 ece=0.0348
+    Gold Cup 2009  n=25    ll=0.8198 ece=0.0257
+    African Cup of Nations 2010 n=29    ll=1.0325 ece=0.0776
+    FIFA World Cup 2010 n=64    ll=0.9700 ece=0.0219
+    AFC Asian Cup 2011 n=32    ll=0.8672 ece=0.0714
+    Copa América 2011 n=26    ll=1.2047 ece=0.1451
+    Gold Cup 2011  n=25    ll=0.7788 ece=0.0779
+    African Cup of Nations 2012 n=32    ll=0.9452 ece=0.0257
+    UEFA Euro 2012 n=31    ll=1.0036 ece=0.0169
+    African Cup of Nations 2013 n=32    ll=1.1182 ece=0.1302
+    Confederations Cup 2013 n=16    ll=0.6180 ece=0.1103
+    Gold Cup 2013  n=25    ll=0.7461 ece=0.0784
+    FIFA World Cup 2014 n=64    ll=0.9047 ece=0.1011
+    AFC Asian Cup 2015 n=32    ll=0.8034 ece=0.1760
+    African Cup of Nations 2015 n=32    ll=1.2009 ece=0.1609
+    Copa América 2015 n=26    ll=1.0363 ece=0.0896
+    Gold Cup 2015  n=26    ll=1.1308 ece=0.1409
+    Copa América 2016 n=32    ll=0.8725 ece=0.0396
+    UEFA Euro 2016 n=51    ll=1.0744 ece=0.0936
+    African Cup of Nations 2017 n=32    ll=1.0491 ece=0.1028
+    Confederations Cup 2017 n=16    ll=0.8292 ece=0.1374
+    Gold Cup 2017  n=25    ll=0.8229 ece=0.0236
+    FIFA World Cup 2018 n=64    ll=0.9670 ece=0.0557
+    AFC Asian Cup 2019 n=51    ll=0.7766 ece=0.0747
+    African Cup of Nations 2019 n=52    ll=0.9422 ece=0.0199
+    Copa América 2019 n=26    ll=0.9528 ece=0.0404
+    Gold Cup 2019  n=31    ll=0.7322 ece=0.0893
+    Copa América 2021 n=28    ll=0.9051 ece=0.0746
+    Gold Cup 2021  n=31    ll=0.6533 ece=0.1501
+    UEFA Euro 2021 n=51    ll=0.9238 ece=0.0270
+    African Cup of Nations 2022 n=52    ll=1.0586 ece=0.0782
+    FIFA World Cup 2022 n=64    ll=1.0693 ece=0.0388
+    Gold Cup 2023  n=31    ll=0.9593 ece=0.0979
+    AFC Asian Cup 2024 n=51    ll=0.9007 ece=0.0588
+    African Cup of Nations 2024 n=52    ll=1.1644 ece=0.1324
+    Copa América 2024 n=32    ll=0.8546 ece=0.0838
+    UEFA Euro 2024 n=51    ll=1.0468 ece=0.0604
+    African Cup of Nations 2025 n=36    ll=0.7984 ece=0.0602
+    Gold Cup 2025  n=31    ll=0.8027 ece=0.0583
+    African Cup of Nations 2026 n=16    ll=0.7709 ece=0.1240
+  by_favorite_gap:
+    0-50           n=346   ll=1.0858 ece=0.0229
+    50-150         n=638   ll=1.0543 ece=0.0211
+    150-300        n=625   ll=0.8679 ece=0.0189
+    300+           n=234   ll=0.6595 ece=0.0398
+  draw_vs_decisive:
+    draw           n=465   ll=1.5043 ece=0.4067
+    decisive       n=1378  ll=0.7587 ece=0.1317
+
+==== Shippable global v0.2 (fit on 2004-2017, tested on 2018+ finals) ====
+  global params: {'version': 'poisson-elo-v0.2', 'base': 1.2, 'beta': 0.0021, 'home_adv': 110.0, 'rho': -0.06, 'temperature': 1.0, 'pk_beta': 0.0, 'et_tempo': 1.0, 'pk_keeper_delta': 0.0, 'calibrator': None, 'wdl_blend': None, 'w_odds': 0.0, 'use_availability': False, 'team_offsets': None, 'form_channels': None, 'suspensions': None, 'rest_days': None}
+  train matches: 1093   test matches: 750
+  metric          v0.1  v0.2-global     delta  CI / verdict
+  log_loss      0.9294       0.9240   -0.0054  CI[-0.0120,+0.0008] ns
+  rps           0.1791       0.1785   -0.0006  CI[-0.0018,+0.0004] ns
+  exact_nll     2.7887       2.7630   -0.0258  CI[-0.0426,-0.0096] BETTER
+  top5          0.5613       0.5840   +0.0227  CI[-0.0014,+0.0462] ns
+
+==== Booster blend gate (HistGradientBoosting) ====
+  served=poisson-elo-v0.5  weight=0.65  train_n=11604 tail_n=1844 test_n=750
+  base_logloss=0.9225  blend_logloss=0.9249
+  d_logloss=+0.0025  CI[-0.0062,+0.0104]  -> do-not-ship
+
+==== Knockout lambda-multiplier gate (FR-4.7) ====
+  served=poisson-elo-v0.5  editions=53  ko_matches=480
+  base: logloss=0.9735  exactNLL=2.8526  top1=0.140
+  x0.85: exactNLL d=+0.0336 CI[+0.0050,+0.0626]  top1 d=-0.0083 CI[-0.0256,+0.0081]  logloss d=+0.0070 CI[+0.0022,+0.0121]  -> do-not-ship
+  x0.90: exactNLL d=+0.0147 CI[-0.0032,+0.0338]  top1 d=-0.0104 CI[-0.0229,+0.0000]  logloss d=+0.0040 CI[+0.0009,+0.0073]  -> do-not-ship
+  x0.95: exactNLL d=+0.0038 CI[-0.0048,+0.0132]  top1 d=-0.0083 CI[-0.0175,-0.0019]  logloss d=+0.0017 CI[+0.0002,+0.0032]  -> do-not-ship
+
+==== Pick-policy gate (FR-3.1/3.2) — same engine, different picks ====
+  served=poisson-elo-v0.5  1843 matches / 53 editions  (knockout share 28.0%)
+  policy                      top1   d_top1  CI / verdict
+  control (production rule)  0.1481        —  (control)
+  unrestricted argmax       0.1470  -0.0011  CI[-0.0157,+0.0156] ns
+  band 0.15                 0.1465  -0.0016  CI[-0.0090,+0.0059] ns
+  band 0.20                 0.1514  +0.0033  CI[-0.0075,+0.0141] ns
+  band 0.25                 0.1514  +0.0033  CI[-0.0094,+0.0158] ns
+  empirical w=0.1           0.1465  -0.0016  CI[-0.0174,+0.0145] ns
+  empirical w=0.2           0.1454  -0.0027  CI[-0.0190,+0.0145] ns
+  empirical w=0.3           0.1492  +0.0011  CI[-0.0145,+0.0179] ns
+  stage empirical w=0.1     0.1449  -0.0033  CI[-0.0179,+0.0138] ns
+  stage empirical w=0.2     0.1460  -0.0022  CI[-0.0189,+0.0153] ns
+  stage empirical w=0.3     0.1519  +0.0038  CI[-0.0128,+0.0212] ns
+
+==== Segmented draw-calibration gate ====
+  served=poisson-elo-v0.5  tail_n=1844 test_n=750
+  bucket_counts={'0-50': 281, '50-150': 573, '150-300': 575, '300+': 415}
+  base_logloss=0.9225  cal_logloss=0.9249
+  d_logloss=+0.0025  CI[-0.0024,+0.0074]  d_rps=+0.00036 (tol 0.0001)  -> do-not-ship
+
+==== Team attack/defence offsets gate (FR-5.1..FR-5.3) ====
+  served=poisson-elo-v0.5  half_life=1095d  editions=18  test_n=750
+  top1     base=0.1613  cand=0.1493  d=-0.0120  CI[-0.0252,+0.0040] ns
+  exactNLL base=2.7605  cand=2.7625  d=+0.0020  CI[-0.0080,+0.0114] ns
+  logloss  base=0.9225  cand=0.9249  d=+0.0025  CI[-0.0024,+0.0076] (guardrail tol 0.0001)
+  -> do-not-ship
+
+==== In-tournament residual form gate (FR-5.4) ====
+  kappa=0.05  editions=18  test_n=750
+  top1     base=0.1613  cand=0.1533  d=-0.0080  CI[-0.0182,+0.0014] ns
+  exactNLL base=2.7605  cand=2.7586  d=-0.0019  CI[-0.0073,+0.0036] ns
+  logloss  base=0.9225  cand=0.9225  d=+0.0000  CI[-0.0023,+0.0026] (guardrail tol 0.0001)
+  -> do-not-ship
+  kappa=0.10  editions=18  test_n=750
+  top1     base=0.1613  cand=0.1520  d=-0.0093  CI[-0.0207,+0.0012] ns
+  exactNLL base=2.7605  cand=2.7587  d=-0.0019  CI[-0.0090,+0.0057] ns
+  logloss  base=0.9225  cand=0.9225  d=-0.0000  CI[-0.0030,+0.0031] (guardrail tol 0.0001)
+  -> do-not-ship
+  kappa=0.20  editions=18  test_n=750
+  top1     base=0.1613  cand=0.1453  d=-0.0160  CI[-0.0272,-0.0054] worse
+  exactNLL base=2.7605  cand=2.7592  d=-0.0014  CI[-0.0092,+0.0069] ns
+  logloss  base=0.9225  cand=0.9229  d=+0.0005  CI[-0.0030,+0.0041] (guardrail tol 0.0001)
+  -> do-not-ship

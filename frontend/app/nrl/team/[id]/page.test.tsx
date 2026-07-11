@@ -1,11 +1,14 @@
 /** NRL club profile page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import NrlTeamPage from "./page";
-import { getNrlTeamServer } from "@/lib/api";
-import type { NrlTeamProfile } from "@/lib/types";
+import { getNrlTeamServer, getNrlStatsProfileServer } from "@/lib/api";
+import type { NrlTeamProfile, NrlStatsProfile } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockTeam = getNrlTeamServer as jest.MockedFunction<typeof getNrlTeamServer>;
+const mockStatsProfile = getNrlStatsProfileServer as jest.MockedFunction<
+  typeof getNrlStatsProfileServer
+>;
 
 const profile: NrlTeamProfile = {
   season: 2026,
@@ -22,25 +25,25 @@ const profile: NrlTeamProfile = {
     away: { wins: 4, draws: 0, losses: 3 },
     streak: { result: "W", length: 3 },
     biggest_win: {
-      round: 7, match_no: 52, kickoff_utc: null, venue: null,
+      id: 5201, round: 7, match_no: 52, kickoff_utc: null, venue: null,
       opponent: "Titans", opponent_id: 6, was_home: true,
       score_for: 44, score_against: 6, result: "W", model_called: null,
     },
     biggest_loss: {
-      round: 2, match_no: 12, kickoff_utc: null, venue: null,
+      id: 5202, round: 2, match_no: 12, kickoff_utc: null, venue: null,
       opponent: "Storm", opponent_id: 5, was_home: false,
       score_for: 10, score_against: 32, result: "L", model_called: null,
     },
   },
   results: [
     {
-      round: 18, match_no: 130, kickoff_utc: "2026-07-04T09:35:00+00:00",
+      id: 5203, round: 18, match_no: 130, kickoff_utc: "2026-07-04T09:35:00+00:00",
       venue: "Go Media Stadium", opponent: "Broncos", opponent_id: 1,
       was_home: true, score_for: 24, score_against: 12, result: "W",
       model_called: true,
     },
     {
-      round: 17, match_no: 121, kickoff_utc: "2026-06-27T07:00:00+00:00",
+      id: 5204, round: 17, match_no: 121, kickoff_utc: "2026-06-27T07:00:00+00:00",
       venue: "Suncorp Stadium", opponent: "Dolphins", opponent_id: 4,
       was_home: false, score_for: 20, score_against: 18, result: "W",
       model_called: null,
@@ -48,7 +51,7 @@ const profile: NrlTeamProfile = {
   ],
   upcoming: [
     {
-      round: 19, match_no: 134, kickoff_utc: "2026-07-10T10:00:00+00:00",
+      id: 5205, round: 19, match_no: 134, kickoff_utc: "2026-07-10T10:00:00+00:00",
       venue: "Campbelltown Sports Stadium", opponent: "Wests Tigers",
       opponent_id: 17, was_home: false, win_prob: 0.672,
     },
@@ -59,6 +62,7 @@ const profile: NrlTeamProfile = {
 
 const params = (id = "16") => Promise.resolve({ id });
 
+beforeEach(() => mockStatsProfile.mockResolvedValue(null));
 afterEach(() => jest.resetAllMocks());
 
 it("server-renders the header with ladder slot, record and streak", async () => {
@@ -127,4 +131,34 @@ it("calls notFound() for an unknown team", async () => {
 it("calls notFound() for a non-numeric id without hitting the API", async () => {
   await expect(NrlTeamPage({ params: params("storm") })).rejects.toThrow();
   expect(mockTeam).not.toHaveBeenCalled();
+});
+
+it("renders venue splits when the stats profile resolves with data", async () => {
+  mockTeam.mockResolvedValue(profile);
+  const statsProfile: NrlStatsProfile = {
+    team: { id: 16, name: "Warriors", slug: "warriors" },
+    season: 2026,
+    attack_rank: 3,
+    defence_rank: 5,
+    venue_splits: [
+      { venue: "Go Media Stadium", played: 8, wins: 6, draws: 0, losses: 2,
+        avg_for: 27.5, avg_against: 13.0 },
+    ],
+    position_concessions: [],
+    disclaimer: "For analytics and entertainment only. Not betting advice.",
+  };
+  mockStatsProfile.mockResolvedValue(statsProfile);
+  render(await NrlTeamPage({ params: params() }));
+
+  expect(mockStatsProfile).toHaveBeenCalledWith("warriors");
+  expect(screen.getByText("Venue splits")).toBeInTheDocument();
+  expect(screen.getByText("Go Media Stadium")).toBeInTheDocument();
+});
+
+it("skips venue splits silently when the stats profile fetch fails or 404s", async () => {
+  mockTeam.mockResolvedValue(profile);
+  mockStatsProfile.mockResolvedValue(null);
+  render(await NrlTeamPage({ params: params() }));
+
+  expect(screen.queryByText("Venue splits")).not.toBeInTheDocument();
 });

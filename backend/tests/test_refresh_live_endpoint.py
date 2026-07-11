@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
+from app.model_meta import current_model_version
 from app.models import Match
 
 
@@ -62,7 +63,7 @@ def test_finish_transition_triggers_post_results_chain(monkeypatch):
     try:
         r = client.post("/api/internal/refresh-live", headers={"X-Recompute-Token": "secret"})
         assert r.status_code == 200
-        assert chain_calls == [settings.model_version]
+        assert chain_calls == [current_model_version()]
         assert r.json()["live"]["post_results"] == {"learning": {"evaluated_new": 1}}
     finally:
         app.dependency_overrides.clear()
@@ -110,7 +111,7 @@ def test_endpoint_sweeps_owed_chain_without_transition(monkeypatch):
     try:
         r = client.post("/api/internal/refresh-live", headers={"X-Recompute-Token": "secret"})
         assert r.status_code == 200
-        assert chain_calls == [settings.model_version]
+        assert chain_calls == [current_model_version()]
         assert r.json()["live"]["post_results"]["learning"]["evaluated_new"] == 1
     finally:
         app.dependency_overrides.clear()

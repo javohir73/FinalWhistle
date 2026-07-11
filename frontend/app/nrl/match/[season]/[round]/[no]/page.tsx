@@ -1,14 +1,19 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getNrlLadderServer, getNrlRoundServer } from "@/lib/api";
+import {
+  getNrlLadderServer, getNrlMatchDetailServer, getNrlProbHistoryServer, getNrlRoundServer,
+} from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
 import { ClubBadge } from "@/components/ClubBadge";
 import { LadderTable } from "@/components/LadderTable";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
+import { MatchIntelClient } from "./MatchIntelClient";
 import type { NrlMatch } from "@/lib/types";
+
+export const revalidate = 300;
 
 /** NRL match detail: /nrl/match/{season}/{round}/{match_no} — the triple is the
  *  match identity (sports.py keys matches on it; there is no per-match endpoint,
@@ -81,6 +86,15 @@ export default async function NrlMatchDetailPage({
   ]);
   if (!found) notFound();
   const { match, disclaimer } = found;
+
+  // Match Intelligence sections are additive — a hiccup must not take down
+  // the existing matchup/ladder content above. `match.id` comes straight out
+  // of the round payload just fetched by loadMatch (NrlMatch now carries the
+  // SportMatch id), so this needs no extra round lookup.
+  const [detail, probHistory] = await Promise.all([
+    getNrlMatchDetailServer(match.id).catch(() => null),
+    getNrlProbHistoryServer(match.id).catch(() => null),
+  ]);
 
   const home = match.home ?? "TBC";
   const away = match.away ?? "TBC";
@@ -191,6 +205,10 @@ export default async function NrlMatchDetailPage({
             Check back closer to kickoff.
           </p>
         </section>
+      )}
+
+      {detail && (
+        <MatchIntelClient detail={detail} probHistory={probHistory} />
       )}
 
       {/* Season context: the two clubs' ladder rows. */}

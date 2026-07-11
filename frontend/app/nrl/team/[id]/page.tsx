@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getNrlTeamServer } from "@/lib/api";
+import { getNrlTeamServer, getNrlStatsProfileServer } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
+import { slugify } from "@/lib/nrlSlug";
 import { ChanceChip } from "@/components/ChanceChip";
 import { ClubBadge } from "@/components/ClubBadge";
 import { FormStrip } from "@/components/FormStrip";
 import { ShareButton } from "@/components/ShareButton";
+import { VenueSplits } from "@/components/nrl/VenueSplits";
 import type { NrlTeamFixture, NrlTeamResult } from "@/lib/types";
 
 /** NRL club profile: ladder slot + record, season snapshot, recent form, how
@@ -67,6 +69,7 @@ export default async function NrlTeamPage({
   const data = await getNrlTeamServer(id);
   if (!data) notFound();
   const { team, ladder, summary, results, upcoming, model, season, disclaimer } = data;
+  const statsProfile = await getNrlStatsProfileServer(slugify(team.name)).catch(() => null);
 
   const record = summary ? `${summary.wins}–${summary.losses}–${summary.draws}` : null;
   const subtitle = [
@@ -242,6 +245,8 @@ export default async function NrlTeamPage({
           </div>
         </section>
       )}
+
+      {statsProfile ? <VenueSplits splits={statsProfile.venue_splits} /> : null}
 
       <p className="text-center text-xs leading-relaxed text-muted">{disclaimer}</p>
     </div>

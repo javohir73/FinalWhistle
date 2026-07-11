@@ -32,6 +32,12 @@ The `nrl_ingest` and `nrl_predict` commands above are **not** wired into the foo
 
 Both are candidates for weekly cron jobs or manual dispatch tied to the round cycle.
 
+- `pipeline/sports/nrl_stats.py` — team-level match stats + try events (StatsProvider;
+  source per `pipeline/sports/testdata/nrl_stats/SOURCE.md`). Runs in `nrl-refresh` after
+  ingest: `python -m pipeline.sports.nrl_stats --seasons 2024 2026` (resumable — skips
+  matches that already have stats; >= 1s between requests). Not wired into the football
+  daily pipeline by design.
+
 ---
 
 ## 2. Shadow gate

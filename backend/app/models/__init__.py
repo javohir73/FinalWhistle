@@ -16,8 +16,10 @@ from sqlalchemy import (
     DateTime,
     Float,
     ForeignKey,
+    Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     false,
     func,
@@ -741,6 +743,15 @@ class SportPrediction(Base):
     p_draw: Mapped[float] = mapped_column(Float)
     p_away: Mapped[float] = mapped_column(Float)
     expected_margin: Mapped[float | None] = mapped_column(Float)
+    # Wave 1 (NRL Match Intelligence): predicted_margin/predicted_total come
+    # from the separately-fit ml.models.nrl_margin_total model (version
+    # "nrl-elo-v0.2"), NOT from expected_margin (ml.sports.nrl.model's own
+    # win-probability-model margin estimate, kept as-is so existing consumers
+    # like SportMatchCard don't change shape). preview_text is the
+    # deterministic prose preview, regenerated every nrl_predict --generate run.
+    predicted_margin: Mapped[float | None] = mapped_column(Float)
+    predicted_total: Mapped[float | None] = mapped_column(Float)
+    preview_text: Mapped[str | None] = mapped_column(Text)
     # New verticals ship shadow-only until proven (mirrors predictions.is_shadow);
     # server_default so raw inserts (e.g. backfills) default true too.
     is_shadow: Mapped[bool] = mapped_column(Boolean, default=True, server_default=true())
@@ -762,6 +773,22 @@ class SportPredictionResult(Base):
     evaluated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class NrlProjection(Base):
+    """Finals-projection snapshot (Wave 1): one row per team, fully replaced
+    each nrl-refresh run by pipeline/sports/nrl_projections.py -- delete-then-
+    insert at table granularity (no unique constraint needed, unlike
+    ProbabilitySnapshot's per-day key) since every refresh replaces the whole
+    table atomically."""
+    __tablename__ = "nrl_projections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    team: Mapped[str] = mapped_column(String(100), index=True)
+    top8: Mapped[float] = mapped_column(Float)
+    top4: Mapped[float] = mapped_column(Float)
+    minor_premiership: Mapped[float] = mapped_column(Float)
+    computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ProbabilitySnapshot(Base):
@@ -790,6 +817,143 @@ class ProbabilitySnapshot(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
+
+
+class MarketOddsSnapshot(Base):
+    """Hourly prediction-market odds (Polymarket / Kalshi) for the intel panel.
+
+    Sport-scoped like ProbabilitySnapshot: match_id is matches.id for football
+    and sport_matches.id for NRL; team_id likewise teams.id / sport_teams.id.
+    Plain Integers (no FKs) because the referenced table depends on `sport`.
+    Only ACTIVE (unresolved) exchange markets are ingested, so resolved or
+    eliminated outcomes never appear here (spec 2026-07-10).
+    """
+
+    __tablename__ = "market_odds_snapshots"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "external_id", "outcome", "fetched_at",
+            name="uq_market_odds_key",
+        ),
+        Index("ix_market_odds_sport_fetched", "sport", "fetched_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(10))
+    source: Mapped[str] = mapped_column(String(20))  # polymarket / kalshi
+    market_type: Mapped[str] = mapped_column(String(20))  # match_winner / title_winner
+    match_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    team_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    outcome: Mapped[str] = mapped_column(String(10))  # home / draw / away / win
+    implied_prob: Mapped[float] = mapped_column(Float)  # vig-normalized mid-price
+    external_id: Mapped[str] = mapped_column(String(120))
+    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+# --- Wave 2: NRL team-stats layer -------------------------------------------
+# Table names nrl_match_stats / nrl_try_events are frozen by the match-intel
+# program spec (Wave 3 builds on them). They deviate from the sport_* naming
+# deliberately: the column set is rugby-league-specific.
+
+
+class NrlMatchStat(Base):
+    """One team's stat line for one finished NRL match (two rows per match)."""
+
+    __tablename__ = "nrl_match_stats"
+    __table_args__ = (
+        UniqueConstraint("match_id", "team", name="uq_nrl_match_stats_match_team"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    tries: Mapped[int] = mapped_column(Integer)
+    conversions: Mapped[int] = mapped_column(Integer)
+    penalties_conceded: Mapped[int] = mapped_column(Integer)
+    errors: Mapped[int] = mapped_column(Integer)
+    set_restarts: Mapped[int] = mapped_column(Integer)
+    run_metres: Mapped[int] = mapped_column(Integer)
+    line_breaks: Mapped[int] = mapped_column(Integer)
+    tackles: Mapped[int] = mapped_column(Integer)
+    tackle_efficiency: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class NrlTryEvent(Base):
+    """One try event with running score (Wave 3's scorer model trains on these)."""
+
+    __tablename__ = "nrl_try_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    player: Mapped[str] = mapped_column(String(120))
+    minute: Mapped[int] = mapped_column(Integer)
+    score_home: Mapped[int] = mapped_column(Integer)
+    score_away: Mapped[int] = mapped_column(Integer)
+
+
+class NrlTeamList(Base):
+    """Weekly team-list announcement for one NRL match (Wave 3).
+
+    One row per named player per team per match. Re-ingesting a match's list
+    replaces the previous rows for that match; is_late_change flags a jersey
+    slot whose named player differs from the previous ingest — never the
+    very first announcement for that match (see pipeline/sports/nrl_team_lists.py).
+    """
+    __tablename__ = "nrl_team_lists"
+    __table_args__ = (
+        UniqueConstraint("match_id", "team", "jersey", name="uq_nrl_team_list_match_team_jersey"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    team: Mapped[str] = mapped_column(String(100))
+    jersey: Mapped[int] = mapped_column(Integer)
+    player: Mapped[str] = mapped_column(String(120))
+    position: Mapped[str] = mapped_column(String(10))
+    is_late_change: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class NrlLiveState(Base):
+    """Latest known live snapshot for one NRL match (Wave 3), upserted by
+    pipeline.sports.nrl_live_poll. Absence of a row means the match has
+    never been polled — the live endpoint falls back to a "pre"/"final"
+    view derived from SportMatch + SportPrediction alone."""
+    __tablename__ = "nrl_live_state"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), unique=True, index=True)
+    status: Mapped[str] = mapped_column(String(10))  # "live" | "final" (never "pre" — see docstring)
+    minute: Mapped[int | None] = mapped_column(Integer)
+    score_home: Mapped[int | None] = mapped_column(Integer)
+    score_away: Mapped[int | None] = mapped_column(Integer)
+    live_home_prob: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class NrlLiveEvent(Base):
+    """One scoring tick in an NRL match's live timeline (Wave 3)."""
+    __tablename__ = "nrl_live_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    minute: Mapped[int] = mapped_column(Integer)
+    type: Mapped[str] = mapped_column(String(20))
+    team: Mapped[str] = mapped_column(String(10))  # "home" | "away"
+    player: Mapped[str | None] = mapped_column(String(120))
+    prob_after: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 __all__ = [
@@ -822,5 +986,12 @@ __all__ = [
     "SportMatch",
     "SportPrediction",
     "SportPredictionResult",
+    "NrlProjection",
     "ProbabilitySnapshot",
+    "MarketOddsSnapshot",
+    "NrlMatchStat",
+    "NrlTryEvent",
+    "NrlTeamList",
+    "NrlLiveState",
+    "NrlLiveEvent",
 ]

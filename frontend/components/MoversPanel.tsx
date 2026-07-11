@@ -65,11 +65,8 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
         <ul className="mt-2">
           {movers.map((m) => {
             const up = (m.delta ?? 0) >= 0;
-            return (
-              <li
-                key={`${m.entity_id}-${m.market}`}
-                className="flex items-center gap-3 border-t border-white/10 py-2.5 first:border-t-0"
-              >
+            const rowInner = (
+              <>
                 <span className="flex-1">
                   <span className="font-display text-[15px] font-semibold text-white">
                     {m.name}
@@ -84,6 +81,20 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
                   deltaText={formatDelta(m.delta)}
                   tone={m.delta === null ? "muted" : up ? "up" : "down"}
                 />
+              </>
+            );
+            return (
+              <li
+                key={`${m.entity_id}-${m.market}`}
+                className="flex items-center gap-3 border-t border-white/10 py-2.5 first:border-t-0"
+              >
+                {m.match_url ? (
+                  <Link href={m.match_url} className="flex flex-1 items-center gap-3">
+                    {rowInner}
+                  </Link>
+                ) : (
+                  <div className="flex flex-1 items-center gap-3">{rowInner}</div>
+                )}
               </li>
             );
           })}
@@ -93,7 +104,7 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
         href={sport === "nrl" ? "/nrl/matches" : "/matches"}
         className="mt-2 inline-block text-sm font-semibold text-win"
       >
-        See all movement →
+        All fixtures →
       </Link>
     </section>
   );

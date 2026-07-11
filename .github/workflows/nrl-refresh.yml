@@ -13,7 +13,15 @@ on:
   schedule:
     - cron: "0 18 * * 1"
     - cron: "0 18 * * 5"
+    - cron: "0 8 * * 2"   # Tue ~18:00 AEST -- after the round's team-list announcement
   workflow_dispatch: {}
+
+# Never run two refreshes concurrently: overlapping runs race on
+# prob_snapshots and nrl_match_stats unique keys (seen 2026-07-10 when a
+# scheduled run landed inside a 21-min manual backfill run). Queue instead.
+concurrency:
+  group: nrl-refresh
+  cancel-in-progress: false
 
 jobs:
   nrl-refresh:
@@ -37,11 +45,29 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_ingest --seasons 2017 2026
+      - name: Ingest NRL team stats + try events (idempotent, resumable)
+        # Stats are an additive layer -- a failure here must not block the
+        # core predict/grade/projections steps below.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_stats --seasons 2024 2026
       - name: Generate frozen shadow predictions + grade finished matches
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_predict --generate --grade
+      - name: Compute finals projections (Monte Carlo)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_projections
+      - name: Ingest NRL team lists (idempotent; late-change flagged)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_team_lists --season 2026
       - name: Ingest State of Origin (seed + live seasons, idempotent)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}

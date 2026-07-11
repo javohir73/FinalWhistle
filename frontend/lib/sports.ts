@@ -46,6 +46,18 @@ export function sportFromPathname(pathname: string): SportId {
   return pathname === "/nrl" || pathname.startsWith("/nrl/") ? "nrl" : "football";
 }
 
+/** Every sport's home href ("/", "/nrl", ...), derived from `basePath` so a
+ *  new sport's home link never has to be special-cased in nav components.
+ *  Home links need exact-match active state — unlike other nav links, they
+ *  must not light up for every sub-page under the sport (see isSportHomeHref). */
+const SPORT_HOME_HREFS = new Set(
+  Object.values(SPORTS).map((sport) => sport.basePath || "/"),
+);
+
+export function isSportHomeHref(href: string): boolean {
+  return SPORT_HOME_HREFS.has(href);
+}
+
 /** Equivalent-page mapping between sports; falls back to the sport's home. */
 const EQUIVALENTS: Array<[string, string]> = [
   ["/matches", "/nrl/matches"],

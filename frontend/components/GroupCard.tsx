@@ -1,14 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { Group, MatchSummary } from "@/lib/types";
 import { groupHasLiveMatch } from "@/lib/liveLabel";
 import { GroupTable } from "./GroupTable";
 
-/** A whole-card link to the group detail page. The card itself handles
- *  navigation (role="link" + keyboard), so the team links inside the table can
- *  stay real <a>s without nesting <a> in <a>; those links stop propagation so a
- *  team click goes to the team, not the group. */
+/** A whole-card link to the group detail page. The "View matches" text is a
+ *  real <Link>, stretched via `after:absolute after:inset-0` to cover the
+ *  whole card — that gives real anchor semantics (middle-click, copy-link,
+ *  ctrl-click) without nesting <a> in <a>. The table sits above the stretched
+ *  overlay (relative z-10) so its team links stay independently clickable. */
 export function GroupCard({
   group,
   index = 0,
@@ -18,25 +19,13 @@ export function GroupCard({
   index?: number;
   matches?: MatchSummary[];
 }) {
-  const router = useRouter();
   const href = `/groups/${group.id}`;
-  const go = () => router.push(href);
   const live = groupHasLiveMatch(group.name, matches);
 
   return (
     <div
-      role="link"
-      tabIndex={0}
-      aria-label={`${group.name}${live ? " — match in progress" : ""} — view matches and standings`}
-      onClick={go}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          go();
-        }
-      }}
       style={{ animationDelay: `${Math.min(index * 40, 400)}ms` }}
-      className="glass card-hover fade-up group cursor-pointer rounded-2xl p-4 sm:p-5"
+      className="glass card-hover fade-up group relative cursor-pointer rounded-2xl p-4 sm:p-5"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
@@ -51,11 +40,17 @@ export function GroupCard({
             </span>
           )}
         </div>
-        <span className="shrink-0 text-xs font-semibold text-muted transition group-hover:text-lime-deep">
+        <Link
+          href={href}
+          aria-label={`${group.name}${live ? " — match in progress" : ""} — view matches and standings`}
+          className="shrink-0 text-xs font-semibold text-muted transition after:absolute after:inset-0 after:content-[''] group-hover:text-lime-deep"
+        >
           View matches <span aria-hidden>→</span>
-        </span>
+        </Link>
       </div>
-      <GroupTable standings={group.standings} />
+      <div className="relative z-10">
+        <GroupTable standings={group.standings} />
+      </div>
     </div>
   );
 }

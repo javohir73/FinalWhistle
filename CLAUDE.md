@@ -86,4 +86,4 @@ silently substitute — stop and ask before continuing.
 - `pitchprophet-*` names (Render service/DB, prod API host) are **legacy but
   load-bearing** — they map to live resources. Do not rename.
 - The repo is **private**. Never push code, logs, or data to a public destination.
-- Model version string: `poisson-elo-v0.1` (`render.yaml`).
+- Model version string: `poisson-elo-v0.5` (`ml/models/model_params.json`).

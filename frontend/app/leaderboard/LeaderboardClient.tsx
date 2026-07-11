@@ -118,7 +118,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
           </p>
           <button
             type="button"
-            onClick={() => openSignIn()}
+            onClick={() => openSignIn({ mode: "signup" })}
             className="mt-4 inline-flex items-center gap-1 rounded-xl bg-win px-4 py-2.5 font-display text-sm font-bold text-pitch transition hover:brightness-105"
           >
             Create free account →

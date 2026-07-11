@@ -16,6 +16,9 @@ import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 
 interface SignInOptions {
   onSuccess?: () => void;
+  /** Tab to open the modal on — defaults to sign-in. Pass "signup" for CTAs
+   *  like "Create free account" that should land straight on that tab. */
+  mode?: "signin" | "signup";
 }
 
 interface AuthContextValue {
@@ -42,6 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"signin" | "signup">("signin");
   const [toast, setToast] = useState<string | null>(null);
   const onSuccessRef = useRef<(() => void) | undefined>(undefined);
 
@@ -117,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const openSignIn = useCallback((opts?: SignInOptions) => {
     onSuccessRef.current = opts?.onSuccess;
+    setModalMode(opts?.mode ?? "signin");
     setModalOpen(true);
   }, []);
 
@@ -146,6 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onAuthed={handleAuthed}
+        initialMode={modalMode}
       />
       <AuthToast message={toast} onDone={() => setToast(null)} />
     </AuthContext.Provider>

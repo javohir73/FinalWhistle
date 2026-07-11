@@ -393,12 +393,59 @@ export interface Mover {
   prob: number;
   delta: number | null;
   series: number[];
+  /** NRL win_match rows only: the match's detail-page URL, or null when the
+   *  match has no round yet (TBC fixture) or for football rows. */
+  match_url: string | null;
 }
 
 export interface MoversResponse {
   sport: "football" | "nrl";
   as_of: string | null;
   movers: Mover[];
+  disclaimer: string;
+}
+
+/** One source's implied probabilities for a match, from GET /api/intel. */
+export interface IntelMarket {
+  source: string;
+  home: number;
+  draw: number | null;
+  away: number;
+  fetched_at: string;
+}
+
+export interface IntelTeamRef {
+  id: number;
+  name: string;
+}
+
+export interface IntelMatch {
+  match_id: number;
+  kickoff_utc: string;
+  home: IntelTeamRef | null;
+  away: IntelTeamRef | null;
+  model: { home: number; draw: number | null; away: number } | null;
+  market: IntelMarket[];
+  disagreement: number | null;
+}
+
+export interface IntelStoryline {
+  market_type: "match_winner" | "title_winner";
+  source: string;
+  outcome: string;
+  match_id: number | null;
+  team: IntelTeamRef | null;
+  prob_from: number;
+  prob_to: number;
+  window_hours: number;
+}
+
+export interface IntelResponse {
+  sport: "football" | "nrl";
+  has_data: boolean;
+  updated_at: string | null;
+  matches: IntelMatch[];
+  storylines: IntelStoryline[];
   disclaimer: string;
 }
 
@@ -427,6 +474,7 @@ export interface NrlPrediction {
   is_shadow: boolean;
 }
 export interface NrlMatch {
+  id: number;
   match_no: number;
   kickoff_utc: string | null;
   venue: string | null;
@@ -466,6 +514,7 @@ export interface LadderResponse {
 }
 /** /api/nrl/teams/{id} — club profile. */
 export interface NrlTeamMatchRef {
+  id: number;
   round: number | null;
   match_no: number;
   kickoff_utc: string | null;
@@ -520,6 +569,169 @@ export interface NrlRecord {
   last_updated: string | null;
   disclaimer: string;
 }
+
+/** /api/nrl/matches/{id} -- Wave 1 match intelligence detail. */
+export interface NrlMatchInfo {
+  id: number;
+  season: number;
+  round: number | null;
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  home: string | null;
+  away: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+}
+export interface NrlMatchDetailPrediction {
+  home_prob: number;
+  away_prob: number;
+  draw_prob: number;
+  predicted_margin: number | null;
+  predicted_total: number | null;
+  model_version: string;
+  preview_text: string | null;
+}
+export interface NrlFormResult {
+  round: number | null;
+  opponent: string;
+  result: "W" | "L" | "D";
+  for: number;
+  against: number;
+}
+export interface NrlTeamForm {
+  last5: NrlFormResult[];
+  avg_for: number;
+  avg_against: number;
+  avg_margin: number;
+}
+export interface NrlMeeting {
+  kickoff_utc: string | null;
+  home: string;
+  away: string;
+  score_home: number;
+  score_away: number;
+  winner: "home" | "away" | "draw";
+}
+export interface NrlFactor {
+  key: string;
+  label: string;
+  weight: number;
+  favors: "home" | "away";
+}
+export interface NrlMatchDetail {
+  match: NrlMatchInfo;
+  prediction: NrlMatchDetailPrediction | null;
+  form: { home: NrlTeamForm | null; away: NrlTeamForm | null };
+  h2h: NrlMeeting[];
+  factors: NrlFactor[];
+}
+
+/** GET /api/nrl/projections */
+export interface NrlProjectionRow {
+  team: string;
+  top8: number;
+  top4: number;
+  minor_premiership: number;
+}
+export interface NrlProjectionsResponse {
+  computed_at: string | null;
+  teams: NrlProjectionRow[];
+}
+
+/** GET /api/nrl/matches/{id}/prob-history */
+export interface NrlProbHistoryPoint {
+  date: string | null;
+  p_home: number | null;
+  p_draw: number | null;
+  p_away: number | null;
+}
+export interface NrlProbHistory {
+  match_id: number;
+  points: NrlProbHistoryPoint[];
+  disclaimer: string;
+}
+
+/** /api/nrl/matches/{id}/stats — Wave 2 team-stats contract. */
+export interface NrlTeamMatchStats {
+  tries: number;
+  conversions: number;
+  penalties_conceded: number;
+  errors: number;
+  set_restarts: number;
+  run_metres: number;
+  line_breaks: number;
+  tackles: number;
+  tackle_efficiency: number;
+}
+export interface NrlTryEventOut {
+  minute: number;
+  team: string;
+  player: string;
+  score_home: number;
+  score_away: number;
+}
+export interface NrlMatchStatsResponse {
+  home: NrlTeamMatchStats;
+  away: NrlTeamMatchStats;
+  try_timeline: NrlTryEventOut[];
+  disclaimer?: string;
+}
+/** /api/nrl/teams/{slug}/profile — Wave 2 contract. */
+export interface NrlVenueSplit {
+  venue: string;
+  played: number;
+  wins: number;
+  draws: number;
+  losses: number;
+  avg_for: number;
+  avg_against: number;
+}
+export interface NrlStatsProfile {
+  team: { id: number; name: string; slug: string };
+  season: number;
+  attack_rank: number | null;
+  defence_rank: number | null;
+  venue_splits: NrlVenueSplit[];
+  position_concessions: { position: string; tries_conceded: number }[];
+  disclaimer: string;
+}
+
+/** /api/nrl/matches/{id}/scorers — Wave 3 try-scorer projection contract
+ *  (bare array; `team` is additive vs. the spec's literal field list, needed
+ *  to split jersey numbers that repeat across both squads). */
+export type NrlScorer = {
+  player: string;
+  jersey: number;
+  position: string;
+  unit: string;
+  tries_season: number;
+  games_season: number;
+  last10: { round: number; tries: number }[];
+  p_anytime: number;
+  team: "home" | "away";
+};
+
+/** /api/nrl/matches/{id}/live — Wave 3 live layer contract. */
+export type NrlLiveEvent = {
+  minute: number;
+  type: string;
+  team: "home" | "away";
+  player: string | null;
+  prob_after: number;
+};
+
+export type NrlLive = {
+  status: "pre" | "live" | "final";
+  minute: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  live_home_prob: number;
+  events: NrlLiveEvent[];
+};
 
 /** /api/nrl/origin/* shapes (backend/app/api/sports.py). */
 export interface OriginGame {

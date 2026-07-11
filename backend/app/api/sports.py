@@ -11,13 +11,22 @@ against the ledger, upcoming fixtures with the club's win chance).
 """
 from __future__ import annotations
 
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased, Session
 
 from app.api.model_record import wilson_ci95
 from app.db import get_db
-from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
+from app.models import (
+    NrlMatchStat,
+    NrlTryEvent,
+    SportMatch,
+    SportPrediction,
+    SportPredictionResult,
+    SportTeam,
+)
 
 router = APIRouter(prefix="/api/nrl", tags=["nrl"])
 
@@ -95,6 +104,7 @@ def nrl_matches(round: int | None = None, season: int | None = None,
                 "is_shadow": pred.is_shadow,
             }
         rounds.setdefault(m.round, []).append({
+            "id": m.id,
             "match_no": m.match_no,
             "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
             "venue": m.venue,
@@ -442,6 +452,7 @@ def nrl_team(team_id: int, season: int | None = None, db: Session = Depends(get_
         was_home = m.home_team_id == team_id
         opp_id = m.away_team_id if was_home else m.home_team_id
         return {
+            "id": m.id,
             "round": m.round,
             "match_no": m.match_no,
             "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
@@ -539,5 +550,166 @@ def nrl_team(team_id: int, season: int | None = None, db: Session = Depends(get_
         "results": list(reversed(results_chrono)),
         "upcoming": upcoming,
         "model": model,
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }
+
+
+@router.get("/matches/{match_id}/stats")
+def nrl_match_stats(match_id: int, db: Session = Depends(get_db)):
+    """Team stat lines + try timeline for one finished NRL match (Wave 2
+    contract): { home: TeamMatchStats, away: TeamMatchStats,
+    try_timeline: TryEvent[] }. 404 stats_not_available until the
+    nrl-refresh stats step has ingested this match."""
+    match = (
+        db.query(SportMatch)
+        .filter(SportMatch.id == match_id, SportMatch.sport == "nrl")
+        .first()
+    )
+    if match is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "match_not_found",
+            "message": f"No NRL match with id {match_id}",
+        })
+
+    rows = db.query(NrlMatchStat).filter(NrlMatchStat.match_id == match_id).all()
+    names = dict(
+        db.query(SportTeam.id, SportTeam.name)
+        .filter(SportTeam.id.in_([tid for tid in (match.home_team_id, match.away_team_id)
+                                  if tid is not None]))
+        .all()
+    )
+    by_team = {r.team: r for r in rows}
+    home_row = by_team.get(names.get(match.home_team_id))
+    away_row = by_team.get(names.get(match.away_team_id))
+    if home_row is None or away_row is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "stats_not_available",
+            "message": f"No team stats ingested for match {match_id}",
+        })
+
+    def stat_line(r: NrlMatchStat) -> dict:
+        return {
+            "tries": r.tries, "conversions": r.conversions,
+            "penalties_conceded": r.penalties_conceded, "errors": r.errors,
+            "set_restarts": r.set_restarts, "run_metres": r.run_metres,
+            "line_breaks": r.line_breaks, "tackles": r.tackles,
+            "tackle_efficiency": r.tackle_efficiency,
+        }
+
+    events = (
+        db.query(NrlTryEvent)
+        .filter(NrlTryEvent.match_id == match_id)
+        .order_by(NrlTryEvent.minute, NrlTryEvent.id)
+        .all()
+    )
+    return {
+        "home": stat_line(home_row),
+        "away": stat_line(away_row),
+        "try_timeline": [
+            {"minute": e.minute, "team": e.team, "player": e.player,
+             "score_home": e.score_home, "score_away": e.score_away}
+            for e in events
+        ],
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }
+
+
+def _slugify(name: str) -> str:
+    """URL slug from a team name: 'Wests Tigers' -> 'wests-tigers'.
+    Must stay in lockstep with slugify() in frontend/lib/nrlSlug.ts."""
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+@router.get("/teams/{slug}/profile")
+def nrl_team_profile(slug: str, season: int | None = None, db: Session = Depends(get_db)):
+    """Attack/defence season ranks + venue splits (Wave 2 contract):
+    { attack_rank, defence_rank, venue_splits, position_concessions }.
+    Slugs derive from SportTeam.name (no slug column exists — 17 teams,
+    resolved in-process). position_concessions is [] until Wave 3's
+    team-lists ingest supplies player positions."""
+    teams = db.query(SportTeam).filter(SportTeam.sport == "nrl").all()
+    team = next((t for t in teams if _slugify(t.name) == slug), None)
+    if team is None:
+        raise HTTPException(status_code=404, detail={
+            "code": "team_not_found",
+            "message": f"No NRL team with slug {slug!r}",
+        })
+    if season is None:
+        season = _latest_season(db)
+        if season is None:
+            raise HTTPException(status_code=404, detail={
+                "code": "no_nrl_data", "message": "No NRL matches are loaded yet",
+            })
+
+    finished = (
+        db.query(SportMatch)
+        .filter(SportMatch.sport == "nrl", SportMatch.season == season,
+                SportMatch.status == "finished",
+                SportMatch.score_home.isnot(None), SportMatch.score_away.isnot(None))
+        .all()
+    )
+
+    # Per-team scoring aggregates over the season's finished matches.
+    agg: dict[int, dict] = {}
+
+    def bucket(team_id: int) -> dict:
+        return agg.setdefault(team_id, {"played": 0, "for": 0, "against": 0})
+
+    for m in finished:
+        if m.home_team_id is None or m.away_team_id is None:
+            continue
+        h, a = bucket(m.home_team_id), bucket(m.away_team_id)
+        h["played"] += 1; a["played"] += 1
+        h["for"] += m.score_home; h["against"] += m.score_away
+        a["for"] += m.score_away; a["against"] += m.score_home
+
+    def rank_of(key: str, reverse: bool) -> int | None:
+        """1-based rank of `team` among teams with played > 0."""
+        rows = [(tid, b[key] / b["played"]) for tid, b in agg.items() if b["played"] > 0]
+        if not any(tid == team.id for tid, _ in rows):
+            return None
+        rows.sort(key=lambda r: r[1], reverse=reverse)
+        return next(i for i, (tid, _) in enumerate(rows, start=1) if tid == team.id)
+
+    attack_rank = rank_of("for", reverse=True)     # most points scored = rank 1
+    defence_rank = rank_of("against", reverse=False)  # fewest conceded = rank 1
+
+    # Venue splits for this team.
+    venues: dict[str, dict] = {}
+    for m in finished:
+        if team.id not in (m.home_team_id, m.away_team_id) or not m.venue:
+            continue
+        was_home = m.home_team_id == team.id
+        score_for = m.score_home if was_home else m.score_away
+        score_against = m.score_away if was_home else m.score_home
+        v = venues.setdefault(m.venue, {
+            "venue": m.venue, "played": 0, "wins": 0, "draws": 0, "losses": 0,
+            "for": 0, "against": 0,
+        })
+        v["played"] += 1
+        v["for"] += score_for
+        v["against"] += score_against
+        if score_for > score_against:
+            v["wins"] += 1
+        elif score_for < score_against:
+            v["losses"] += 1
+        else:
+            v["draws"] += 1
+
+    venue_splits = [
+        {"venue": v["venue"], "played": v["played"], "wins": v["wins"],
+         "draws": v["draws"], "losses": v["losses"],
+         "avg_for": round(v["for"] / v["played"], 1),
+         "avg_against": round(v["against"] / v["played"], 1)}
+        for v in sorted(venues.values(), key=lambda v: (-v["played"], v["venue"]))
+    ]
+
+    return {
+        "team": {"id": team.id, "name": team.name, "slug": slug},
+        "season": season,
+        "attack_rank": attack_rank,
+        "defence_rank": defence_rank,
+        "venue_splits": venue_splits,
+        "position_concessions": [],  # Wave 3: filled once team lists provide positions
         "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }

@@ -1,0 +1,6 @@
+{
+  "version": "nrl-elo-v0.2",
+  "margin_coef_elo_diff": 0.05451068010210984,
+  "margin_intercept": 2.4160390041431428,
+  "expected_total": 47.093590784472916
+}
