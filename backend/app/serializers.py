@@ -185,6 +185,7 @@ def prediction_to_out(db: Session, match: Match, pred: Prediction) -> schemas.Pr
         goal_markets=_goal_markets_out(pred.lambda_home, pred.lambda_away, pred.rho),
         availability=availability_out(db, match),
         knockout=schemas.KnockoutOut(**pred.knockout) if pred.knockout else None,
+        writeup=schemas.WriteupOut(**pred.writeup) if pred.writeup else None,
     )
 
 

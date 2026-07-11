@@ -115,6 +115,16 @@ class KnockoutOut(BaseModel):
     paths: KnockoutPathsOut
 
 
+class WriteupOut(BaseModel):
+    """Fable-style narrative sections (ml/explain/writeup.py — deterministic
+    template). Presentation of the stored numbers only; every sentence derives
+    from a model field, so the prose can never disagree with the payload."""
+    case_home: str
+    case_away: str
+    call: str
+    caveat: str
+
+
 class PredictionOut(BaseModel):
     """PRD §17 prediction contract."""
 
@@ -143,6 +153,7 @@ class PredictionOut(BaseModel):
     goal_markets: GoalMarketsOut | None = None
     availability: AvailabilityOut | None = None
     knockout: KnockoutOut | None = None
+    writeup: WriteupOut | None = None
 
 
 class TeamOut(BaseModel):
