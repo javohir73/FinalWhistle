@@ -52,14 +52,20 @@ def nrl_match_live(match_id: int, db: Session = Depends(get_db)):
         and kickoff_utc - _WINDOW_AHEAD <= now <= kickoff_utc + _MATCH_DURATION
     )
 
-    if state is not None:
-        status, minute = state.status, state.minute
-        score_home, score_away = state.score_home, state.score_away
-        live_home_prob = state.live_home_prob
-    elif match.status == "finished":
+    if match.status == "finished" and (state is None or state.status != "final"):
+        # The match has finished, but the live state row (if any) is stale —
+        # either never reached "final" (a feed died mid-match, or golden
+        # point ran past the poller's window) or there's no row at all.
+        # Serve the finished fallback so the UI stops pinning a LIVE strip
+        # and polling indefinitely; a state row already at "final" is left
+        # alone below since its stored scores/prob are the poller's last word.
         status, minute = "final", MATCH_MINUTES
         score_home, score_away = match.score_home, match.score_away
         live_home_prob = 1.0 if (score_home or 0) > (score_away or 0) else 0.0
+    elif state is not None:
+        status, minute = state.status, state.minute
+        score_home, score_away = state.score_home, state.score_away
+        live_home_prob = state.live_home_prob
     elif in_window:
         status, minute = "live", 0
         score_home, score_away = 0, 0

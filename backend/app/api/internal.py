@@ -116,7 +116,8 @@ def nrl_refresh_live(
     # feed lands, so this endpoint currently reports polled=0 and is safe to
     # call any time.
     summary = poll_live_matches(db, NrlComStatsProvider())
-    cache.clear()
+    if summary["polled"]:
+        cache.clear()
     return {"status": "ok", "live": summary}
 
 

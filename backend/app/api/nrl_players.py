@@ -1,9 +1,13 @@
 """Try-scorer projections (Wave 3): GET /api/nrl/matches/{id}/scorers.
 
 Combines this match's nrl_team_lists (real, Wave-3-owned) with try-scorer
-history (nrl_try_events, currently the Wave 2 reconciliation shim) via
-pipeline.sports.nrl_scorer_model. Probabilities only -- no odds, no value
-badges (program-wide constraint).
+history (nrl_try_events) via pipeline.sports.nrl_scorer_model. Probabilities
+only -- no odds, no value badges (program-wide constraint).
+
+NrlTryEvent/NrlTeamList are the real app.models tables. Note: until a real
+team-list source lands (NrlComStatsProvider.fetch_team_list is an
+honest-empty stub), nrl_team_lists has no producer in production, so this
+endpoint returns [] -- the UI renders nothing for the section.
 
 Returns a BARE ARRAY (the spec's frozen contract), not an object -- so
 there is no room for a top-level disclaimer key here (the page's footer

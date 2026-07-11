@@ -54,3 +54,53 @@ def test_nrl_refresh_live_ok_with_token(monkeypatch):
         assert body["live"] == {"candidates": 0, "polled": 0}
     finally:
         app.dependency_overrides.clear()
+
+
+def test_nrl_refresh_live_does_not_clear_cache_when_nothing_polled(monkeypatch):
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+
+    import pipeline.sports.nrl_live_poll as nrl_live_poll_module
+
+    monkeypatch.setattr(
+        nrl_live_poll_module, "poll_live_matches",
+        lambda db, provider: {"candidates": 1, "polled": 0},
+    )
+
+    from app.api import internal as internal_module
+
+    cleared = []
+    monkeypatch.setattr(internal_module.cache, "clear", lambda: cleared.append(True))
+
+    client = _client()
+    try:
+        r = client.post("/api/internal/nrl-refresh-live", headers={"X-Recompute-Token": "secret"})
+        assert r.status_code == 200
+        assert r.json()["live"] == {"candidates": 1, "polled": 0}
+        assert cleared == []
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_nrl_refresh_live_clears_cache_when_something_polled(monkeypatch):
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+
+    import pipeline.sports.nrl_live_poll as nrl_live_poll_module
+
+    monkeypatch.setattr(
+        nrl_live_poll_module, "poll_live_matches",
+        lambda db, provider: {"candidates": 1, "polled": 1},
+    )
+
+    from app.api import internal as internal_module
+
+    cleared = []
+    monkeypatch.setattr(internal_module.cache, "clear", lambda: cleared.append(True))
+
+    client = _client()
+    try:
+        r = client.post("/api/internal/nrl-refresh-live", headers={"X-Recompute-Token": "secret"})
+        assert r.status_code == 200
+        assert r.json()["live"] == {"candidates": 1, "polled": 1}
+        assert cleared == [True]
+    finally:
+        app.dependency_overrides.clear()

@@ -116,3 +116,32 @@ def test_live_final_state_from_finished_match_without_ever_being_polled():
         assert body["live_home_prob"] == 1.0
     finally:
         app.dependency_overrides.clear()
+
+
+def test_live_finished_match_overrides_stale_non_final_live_state():
+    """A feed dying mid-match (or golden point running past the window) can
+    leave NrlLiveState stuck at status "live" even after SportMatch flips to
+    "finished". The endpoint must serve the finished fallback -- not the
+    stale live snapshot -- so the UI stops pinning a LIVE strip and polling
+    forever. The persisted events list is still returned as usual."""
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        m = SportMatch(sport="nrl", season=2026, round=1, match_no=1, status="finished",
+                        score_home=24, score_away=10)
+        db.add(m); db.flush()
+        db.add(NrlLiveState(match_id=m.id, status="live", minute=63,
+                             score_home=18, score_away=10, live_home_prob=0.9))
+        db.add(NrlLiveEvent(match_id=m.id, minute=12, type="score", team="home",
+                             player=None, prob_after=0.75))
+        db.commit()
+
+        body = client.get(f"/api/nrl/matches/{m.id}/live").json()
+        assert body["status"] == "final"
+        assert body["minute"] == 80
+        assert body["score_home"] == 24 and body["score_away"] == 10
+        assert body["live_home_prob"] == 1.0
+        assert len(body["events"]) == 1
+        assert body["events"][0]["team"] == "home"
+    finally:
+        app.dependency_overrides.clear()
