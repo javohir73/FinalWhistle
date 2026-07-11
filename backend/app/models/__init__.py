@@ -288,6 +288,11 @@ class Prediction(Base):
     confidence: Mapped[str | None] = mapped_column(String(10))  # High / Medium / Low
     reasons: Mapped[list | None] = mapped_column(JSON)
     top_features: Mapped[list | None] = mapped_column(JSON)
+    # Fable-style narrative sections (ml/explain/writeup.py): {case_home,
+    # case_away, call, caveat}. Deterministic template over THIS row's numbers —
+    # presentation only, never an input to anything. NULL for shadow twins
+    # (internal-only, never rendered) and rows written before the feature.
+    writeup: Mapped[dict | None] = mapped_column(JSON)
     # Shadow rows (exact-score program FR-4.4/4.5): the odds-anchored twin,
     # tagged model_version "poisson-elo-v0.3-shadow". Invisible to serving,
     # frozen-prediction selection, bracket scoring and the public record —

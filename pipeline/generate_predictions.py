@@ -29,6 +29,7 @@ from app.models import (
 )
 from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
+from ml.explain.writeup import WriteupInputs, build_writeup
 from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.knockout import ko_advance
@@ -389,6 +390,34 @@ def build_payload(
             pk_shift=pk_shift,
         ).to_payload()
 
+    # Fable-style writeup (presentation only): templated from the SAME values
+    # this payload serves, so the prose can never disagree with the numbers.
+    # Market/availability context is optional colour — absent signals just
+    # drop their sentence (ml/explain/writeup.py).
+    market = None
+    odds_row = _latest_odds(db, match.id)
+    if odds_row is not None and None not in (
+        odds_row.implied_prob_home, odds_row.implied_prob_draw, odds_row.implied_prob_away
+    ):
+        market = (odds_row.implied_prob_home, odds_row.implied_prob_draw,
+                  odds_row.implied_prob_away)
+    players_out_home: list[str] = []
+    players_out_away: list[str] = []
+    avail = availability_for_match(db, match)
+    if avail is not None:
+        _, _, expl_home, expl_away = avail
+        players_out_home = [pl["name"] for pl in expl_home["players_out"]]
+        players_out_away = [pl["name"] for pl in expl_away["players_out"]]
+    writeup = build_writeup(WriteupInputs(
+        home_name=home.name, away_name=away.name,
+        prob_home=p_home, prob_draw=p_draw, prob_away=p_away,
+        score_home=pred.score_home, score_away=pred.score_away,
+        score_prob=pred.score_prob,
+        stage=match.stage, confidence=confidence, feats=feats,
+        knockout=knockout, market=market,
+        players_out_home=players_out_home, players_out_away=players_out_away,
+    ))
+
     return {
         "match_id": match.id,
         "model_version": model_version,
@@ -412,6 +441,7 @@ def build_payload(
         "confidence": confidence,
         "reasons": reasons,
         "top_features": factors,
+        "writeup": writeup,
         "head_to_head": {
             "matches": feats.h2h["matches"],
             "home_wins": feats.h2h["a_wins"],
@@ -460,6 +490,9 @@ def _write_prediction(db: Session, match: Match, payload: dict, model_version: s
             confidence=payload["confidence"],
             reasons=payload["reasons"],
             top_features=payload["top_features"],
+            # Shadow twins spread the production payload, so they'd inherit its
+            # writeup — null it: twins are internal-only and never rendered.
+            writeup=payload.get("writeup") if not is_shadow else None,
             is_shadow=is_shadow,
         )
     )
