@@ -10,6 +10,7 @@ hides the section).
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 from ml.features.build_features import MatchFeatures
@@ -23,7 +24,9 @@ def one_in(p: float) -> str:
 
 
 def _pct(p: float) -> str:
-    return f"{round(p * 100)}%"
+    # Half-up like the frontend's Math.round — prose and probability bar must
+    # never disagree on the same stored value.
+    return f"{int(math.floor(p * 100 + 0.5))}%"
 
 
 @dataclass(frozen=True)

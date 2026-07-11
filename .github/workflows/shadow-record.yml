@@ -56,6 +56,6 @@ jobs:
             echo
             echo "Gate: ≥30 scored shadow pairs AND the twin ahead on avg log loss (Δ > 0)."
             echo "When met, promotion stays MANUAL:"
-            echo '`PYTHONPATH=backend:. python -m pipeline.promote_blend --w-odds 0.35 --use-odds --ship` via PR (stop gate).'
+            echo '`PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --w-odds 0.35 --use-odds --ship` via PR (stop gate).'
           } >> "$GITHUB_STEP_SUMMARY"
           echo "${STATUS} — n=${N}/30, delta=${DELTA}"

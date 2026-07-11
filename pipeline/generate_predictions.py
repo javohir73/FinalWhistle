@@ -417,8 +417,10 @@ def build_payload(
     avail = availability_for_match(db, match)
     if avail is not None:
         _, _, expl_home, expl_away = avail
-        players_out_home = [pl["name"] for pl in expl_home["players_out"]]
-        players_out_away = [pl["name"] for pl in expl_away["players_out"]]
+        # Upstream name can be None (ml/models/availability.py uses p.get("name"));
+        # filter it out here so presentation never aborts the daily refresh.
+        players_out_home = [n for pl in expl_home["players_out"] if (n := pl.get("name"))]
+        players_out_away = [n for pl in expl_away["players_out"] if (n := pl.get("name"))]
     writeup = build_writeup(WriteupInputs(
         home_name=home.name, away_name=away.name,
         prob_home=p_home, prob_draw=p_draw, prob_away=p_away,

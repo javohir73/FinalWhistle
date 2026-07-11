@@ -90,6 +90,14 @@ def test_opponent_absences_strengthen_the_other_sides_case():
     assert "Quansah" not in w["case_away"]
 
 
+def test_absence_sentence_survives_partial_name_data():
+    # generate_predictions.build_payload filters out None names before this
+    # point (upstream availability.py can emit p.get("name") == None); this
+    # test just keeps the join covered on the generator's side of the contract.
+    w = build_writeup(_inputs(players_out_away=["Guehi"]))
+    assert "Guehi" in w["case_home"]
+
+
 def test_none_on_thin_inputs_and_never_raises():
     assert build_writeup(_inputs(score_home=None, score_away=None, score_prob=None)) is None
     # Degenerate but non-None inputs must still produce text, not raise.
@@ -103,3 +111,9 @@ def test_one_in_phrasing():
     assert one_in(0.26) == "roughly one in 4"
     assert one_in(0.5) == "roughly one in 2"
     assert one_in(0.0) == "next to no chance"
+
+
+def test_pct_rounds_half_up_like_the_frontend():
+    from ml.explain.writeup import _pct
+    assert _pct(0.125) == "13%"
+    assert _pct(0.265) == "27%"

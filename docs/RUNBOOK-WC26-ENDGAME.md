@@ -18,7 +18,7 @@
   for the availability twin (poisson-elo-v0.3+avail).
 
 ## 2. Promotion (only after the summary says GATE MET)
-1. `PYTHONPATH=backend:. python -m pipeline.promote_blend --w-odds 0.35 --use-odds [--use-availability] --ship`
+1. `PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --w-odds 0.35 --use-odds [--use-availability] --ship`
    (`--use-odds` flips the production serving path added 2026-07-11 —
    `--w-odds` alone only arms the shadow twin, it won't serve). Ship it via
    PR through the stop gate; promotion stays a manual owner decision.
