@@ -241,6 +241,14 @@ def shadow_record(
             "exact_hits": sum(1 for r in rows if r.exact_score_correct),
             "winner_acc": round(sum(1 for r in rows if r.winner_correct) / n, 4) if n else None,
             "avg_brier": round(sum(r.brier for r in rows) / n, 4) if n else None,
+            # The runbook's promotion gate criterion is avg LOG LOSS (>=30
+            # pairs AND the twin ahead) — Brier alone can't answer it. Old
+            # rows may predate the column; average over the non-null values.
+            "avg_log_loss": (
+                round(sum(lls) / len(lls), 4)
+                if (lls := [r.log_loss for r in rows if r.log_loss is not None])
+                else None
+            ),
             "model_versions": sorted({r.model_version for r in rows}),
         }
 

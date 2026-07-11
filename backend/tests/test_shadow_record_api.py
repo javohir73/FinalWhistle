@@ -65,7 +65,7 @@ def _seed_results(db):
             match_id=m.id, prediction_id=p.id, model_version=p.model_version,
             actual_score_home=2, actual_score_away=m.score_away, outcome="home",
             winner_correct=winner, exact_score_correct=exact,
-            prob_assigned=0.6, brier=brier, log_loss=0.5,
+            prob_assigned=0.6, brier=brier, log_loss=0.5 if not shadow else 0.4,
             goal_error=abs(m.score_away),
             is_shadow=shadow,
         ))
@@ -112,6 +112,7 @@ def test_shadow_record_compares_production_and_shadow(monkeypatch):
         assert prod["exact_hits"] == 1 and shad["exact_hits"] == 1
         assert prod["winner_acc"] == 1.0 and shad["winner_acc"] == 1.0
         assert prod["avg_brier"] == 0.2 and shad["avg_brier"] == 0.1
+        assert prod["avg_log_loss"] == 0.5 and shad["avg_log_loss"] == 0.4
         assert shad["model_versions"] == [SHADOW_MV]
     finally:
         app.dependency_overrides.clear()
@@ -152,7 +153,8 @@ def test_shadow_record_is_honest_when_empty(monkeypatch):
         body = client.get("/api/internal/shadow-record",
                           headers={"X-Recompute-Token": "secret"}).json()
         assert body["production"] == {"n": 0, "exact_hits": 0, "winner_acc": None,
-                                      "avg_brier": None, "model_versions": []}
+                                      "avg_brier": None, "avg_log_loss": None,
+                                      "model_versions": []}
         assert body["shadow"]["n"] == 0
         assert body["production_full_record"]["n"] == 0
     finally:
