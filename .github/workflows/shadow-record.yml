@@ -1,19 +1,23 @@
 # Read-only evidence pull for the MANUAL shadow-promotion decision (FR-4.8):
 # prints the production-vs-shadow record and the availability-twin record from
-# the token-guarded internal endpoints. Writes nothing; manual dispatch only.
-# Same secrets as refresh-live / ops-flag-internal:
+# the token-guarded internal endpoints, and evaluates the promotion gate
+# (>=30 scored shadow pairs AND the twin ahead on avg log loss — see
+# docs/RUNBOOK-WC26-ENDGAME.md) into the job summary. Writes nothing;
+# NOTHING here auto-promotes. Same secrets as refresh-live / ops-flag-internal:
 #   API_URL          e.g. https://pitchprophet-api.onrender.com
 #   RECOMPUTE_TOKEN  same value as the backend's RECOMPUTE_TOKEN env var
 name: shadow-record
 
 on:
   workflow_dispatch: {}
+  schedule:
+    - cron: "30 7 * * *"  # daily, after the 06:00 UTC refresh has scored new pairs
 
 jobs:
   readout:
     runs-on: ubuntu-latest
     steps:
-      - name: GET shadow-record + availability-record
+      - name: GET shadow-record + availability-record, evaluate the gate
         env:
           API_URL: ${{ secrets.API_URL }}
           RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
@@ -24,9 +28,34 @@ jobs:
             exit 1
           fi
           echo "== shadow-record (production vs odds-anchored twin, paired matches) =="
-          curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
-            "${API_URL}/api/internal/shadow-record" | jq .
+          SHADOW=$(curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
+            "${API_URL}/api/internal/shadow-record")
+          echo "$SHADOW" | jq .
           echo
           echo "== availability-record (availability twin vs published forecast) =="
           curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
             "${API_URL}/api/internal/availability-record" | jq .
+
+          # Promotion gate (RUNBOOK-WC26-ENDGAME.md): >=30 scored shadow pairs
+          # AND the odds-anchored twin ahead of production on avg log loss.
+          N=$(echo "$SHADOW" | jq -r '.shadow.n')
+          PROD_LL=$(echo "$SHADOW" | jq -r '.production.avg_log_loss')
+          SHAD_LL=$(echo "$SHADOW" | jq -r '.shadow.avg_log_loss')
+          STATUS="GATE NOT MET"
+          DELTA="n/a"
+          if [ "$PROD_LL" != "null" ] && [ "$SHAD_LL" != "null" ]; then
+            DELTA=$(jq -n --argjson p "$PROD_LL" --argjson s "$SHAD_LL" '($p - $s) * 10000 | round / 10000')
+            if [ "$N" -ge 30 ] && [ "$(jq -n --argjson p "$PROD_LL" --argjson s "$SHAD_LL" '$s < $p')" = "true" ]; then
+              STATUS="GATE MET"
+            fi
+          fi
+          {
+            echo "## Odds-blend promotion gate"
+            echo
+            echo "**${STATUS}** — n=${N}/30, Δ avg log-loss (production − shadow) = ${DELTA}"
+            echo
+            echo "Gate: ≥30 scored shadow pairs AND the twin ahead on avg log loss (Δ > 0)."
+            echo "When met, promotion stays MANUAL:"
+            echo '`PYTHONPATH=backend:. python -m pipeline.promote_blend --w-odds 0.35 --use-odds --ship` via PR (stop gate).'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "${STATUS} — n=${N}/30, delta=${DELTA}"
