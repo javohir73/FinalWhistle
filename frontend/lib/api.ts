@@ -12,6 +12,7 @@ import type {
   MatchSummary,
   ModelRecord,
   MoversResponse,
+  NrlLive,
   NrlMatchDetail,
   NrlMatchesResponse,
   NrlMatchStatsResponse,
@@ -166,3 +167,14 @@ export const getNrlProjectionsServer = () =>
   getServer<NrlProjectionsResponse>("/api/nrl/projections", 300);
 export const getNrlProbHistoryServer = (id: number | string) =>
   getServer<NrlProbHistory>(`/api/nrl/matches/${id}/prob-history`, 300);
+/** Wave 3 live layer. Short revalidate: SSR seed for the live section (not
+ *  reachable from the client-only IntelSection render path this task wires
+ *  up in practice — see LiveSection.tsx's doc comment — but kept per the
+ *  fetcher-pair contract for future SSR callers). */
+export async function getNrlLiveServer(matchId: number): Promise<NrlLive | null> {
+  return getServer<NrlLive>(`/api/nrl/matches/${matchId}/live`, 15);
+}
+
+export async function getNrlLiveClient(matchId: number): Promise<NrlLive> {
+  return getJson<NrlLive>(`/api/nrl/matches/${matchId}/live`);
+}

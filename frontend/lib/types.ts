@@ -699,3 +699,21 @@ export interface NrlStatsProfile {
   position_concessions: { position: string; tries_conceded: number }[];
   disclaimer: string;
 }
+
+/** /api/nrl/matches/{id}/live — Wave 3 live layer contract. */
+export type NrlLiveEvent = {
+  minute: number;
+  type: string;
+  team: "home" | "away";
+  player: string | null;
+  prob_after: number;
+};
+
+export type NrlLive = {
+  status: "pre" | "live" | "final";
+  minute: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  live_home_prob: number;
+  events: NrlLiveEvent[];
+};
