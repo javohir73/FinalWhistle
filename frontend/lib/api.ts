@@ -19,6 +19,7 @@ import type {
   NrlProbHistory,
   NrlProjectionsResponse,
   NrlRecord,
+  NrlScorer,
   NrlStatsProfile,
   NrlTeamProfile,
   Prediction,
@@ -172,4 +173,11 @@ export const getNrlProbHistoryServer = (id: number | string) =>
  *  and nothing server-renders this section, so there is no SSR variant). */
 export async function getNrlLiveClient(matchId: number): Promise<NrlLive> {
   return getJson<NrlLive>(`/api/nrl/matches/${matchId}/live`);
+}
+/** Wave 3 scorers layer: per-player anytime-try-scorer chances for both
+ *  clubs. Fetched once, no polling -- team lists are static once named,
+ *  unlike the live score feed above. Same reasoning as getNrlLiveClient:
+ *  a client island going through the /backend-api rewrite, no SSR variant. */
+export async function getNrlScorersClient(matchId: number): Promise<NrlScorer[]> {
+  return getJson<NrlScorer[]>(`/api/nrl/matches/${matchId}/scorers`);
 }

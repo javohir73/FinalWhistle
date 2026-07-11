@@ -1,8 +1,8 @@
 import { sections } from "./sections";
 
-it("ships overview, form, model, stats, matchup and live in that order", () => {
+it("ships overview, form, model, stats, matchup, live and scorers in that order", () => {
   expect(sections.map((s) => s.id)).toEqual([
-    "overview", "form", "model", "stats", "matchup", "live",
+    "overview", "form", "model", "stats", "matchup", "live", "scorers",
   ]);
 });
 
