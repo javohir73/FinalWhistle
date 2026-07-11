@@ -57,6 +57,7 @@
   "wdl_blend": null,
   "w_odds": 0.35,
   "use_availability": false,
+  "use_odds": false,
   "team_offsets": null,
   "form_channels": null,
   "suspensions": null,

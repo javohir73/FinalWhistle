@@ -329,6 +329,17 @@ def build_payload(
                 eff_gap=effective_gap(elo_home, elo_away, host_adv),
             )
 
+    # Market-odds anchoring in the SERVED lambdas (the shadow twin's signal,
+    # promoted): opt-in via model_params.json ("use_odds": false — the shipped
+    # default — keeps this a strict no-op even while w_odds arms the twin).
+    # Shares _odds_anchored with write_shadow_prediction, so promotion serves
+    # exactly the math the twin has been logging.
+    if params.use_odds and params.w_odds > 0:
+        anchored = _odds_anchored(
+            db, match, pred.lambda_home, pred.lambda_away, strengths, params)
+        if anchored is not None:
+            pred = anchored
+
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
     # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
     # Poisson's — the booster only refines the W/D/L triple (spec §1).
@@ -508,6 +519,35 @@ def _latest_odds(db: Session, match_id: int) -> Odds | None:
     )
 
 
+def _odds_anchored(
+    db: Session, match: Match, lambda_home: float, lambda_away: float,
+    strengths: dict[int, float], params: ModelParams,
+):
+    """Market-anchored re-prediction of a lambda pair (FR-4.3), or None when no
+    usable market total is stored. The ONE implementation shared by the shadow
+    twin and the production path (use_odds), so promotion serves exactly the
+    math the twin has been validating — never a reimplementation of it."""
+    odds = _latest_odds(db, match.id)
+    if odds is None:
+        return None
+    market_total = market_lambda_total(
+        odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
+        odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
+    )
+    if market_total is None:
+        return None
+    lam_h, lam_a = blend_lambda_total(lambda_home, lambda_away, market_total, params.w_odds)
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    return predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
+    )
+
+
 def write_shadow_prediction(
     db: Session, match: Match, payload: dict,
     strengths: dict[int, float], params: ModelParams,
@@ -529,46 +569,33 @@ def write_shadow_prediction(
     identity, so the odds lookup and the market inversion (whose 1X2 fallback
     is a costly double bisection) are skipped entirely — this path executes
     synchronously inside latency-sensitive request chains.
+
+    Post-promotion (params.use_odds) the twin copies production — the anchor
+    already lives in the served lambdas.
     """
     shadow = payload
-    if params.w_odds <= 0.0:
-        _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
-        return
-    odds = _latest_odds(db, match.id)
-    market_total = None
-    if odds is not None:
-        market_total = market_lambda_total(
-            odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
-            odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
-        )
-    if market_total is not None:
-        lam_h, lam_a = blend_lambda_total(
-            payload["lambda_home"], payload["lambda_away"], market_total, params.w_odds
-        )
-        home = db.get(Team, match.team_home_id)
-        away = db.get(Team, match.team_away_id)
-        elo_home = strengths.get(home.id, estimate_strength(home)[0])
-        elo_away = strengths.get(away.id, estimate_strength(away)[0])
-        pred = predict_from_lambdas(
-            lam_h, lam_a, rho=params.rho, temperature=params.temperature,
-            calibrator=params.calibrator,
-            eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
-        )
-        shadow = {
-            **payload,
-            "probabilities": {
-                "home_win": round(pred.prob_home_win, 4),
-                "draw": round(pred.prob_draw, 4),
-                "away_win": round(pred.prob_away_win, 4),
-            },
-            "predicted_score": {
-                "home": pred.score_home,
-                "away": pred.score_away,
-                "probability": round(pred.score_prob, 4),
-            },
-            "lambda_home": round(pred.lambda_home, 4),
-            "lambda_away": round(pred.lambda_away, 4),
-        }
+    # Post-promotion (use_odds) the production payload already carries the
+    # anchor; re-anchoring here would double-blend. The twin then mirrors
+    # production exactly — record continuity, same as the pre-arming null.
+    if params.w_odds > 0.0 and not params.use_odds:
+        pred = _odds_anchored(
+            db, match, payload["lambda_home"], payload["lambda_away"], strengths, params)
+        if pred is not None:
+            shadow = {
+                **payload,
+                "probabilities": {
+                    "home_win": round(pred.prob_home_win, 4),
+                    "draw": round(pred.prob_draw, 4),
+                    "away_win": round(pred.prob_away_win, 4),
+                },
+                "predicted_score": {
+                    "home": pred.score_home,
+                    "away": pred.score_away,
+                    "probability": round(pred.score_prob, 4),
+                },
+                "lambda_home": round(pred.lambda_home, 4),
+                "lambda_away": round(pred.lambda_away, 4),
+            }
     _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
 
 
