@@ -54,9 +54,16 @@ def update(
     score_home: int,
     score_away: int,
     p: NrlParams,
+    neutral: bool = False,
 ) -> tuple[float, float]:
-    """Return updated (home, away) Elo ratings after one match. Pure, zero-sum."""
-    expected = expected_home_prob(elo_home, elo_away, p.home_adv)
+    """Return updated (home, away) Elo ratings after one match. Pure, zero-sum.
+
+    `neutral` zeroes the home-advantage term in the expectation (for
+    neutral-venue fixtures, e.g. State of Origin at the MCG); all NRL call
+    sites use the default.
+    """
+    adv = 0.0 if neutral else p.home_adv
+    expected = expected_home_prob(elo_home, elo_away, adv)
     margin = score_home - score_away
 
     if score_home > score_away:

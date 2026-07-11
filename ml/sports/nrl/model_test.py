@@ -1,6 +1,8 @@
 """Tests for the NRL margin-Elo model (task 3)."""
 import math
 
+import pytest
+
 from ml.sports.nrl.model import (
     NrlParams,
     expected_home_prob,
@@ -114,6 +116,18 @@ def test_update_home_win_delta_formula():
     want_delta = p.k * mult * (1.0 - expected)
     assert abs((new_h - 1500) - want_delta) < 1e-9
     assert abs((new_a - 1500) + want_delta) < 1e-9
+
+
+def test_update_neutral_flag_removes_home_edge():
+    from ml.sports.nrl.model import NrlParams, update
+    p = NrlParams()
+    # Equal ratings, home side wins by 10. With home_adv the home win was
+    # partly expected; at a neutral venue the same win is a bigger surprise,
+    # so the home side must gain MORE Elo from the neutral update.
+    home_with_adv, _ = update(1500.0, 1500.0, 20, 10, p)
+    home_neutral, away_neutral = update(1500.0, 1500.0, 20, 10, p, neutral=True)
+    assert home_neutral > home_with_adv
+    assert home_neutral + away_neutral == pytest.approx(3000.0)  # still zero-sum
 
 
 # --- regress_season() ---
