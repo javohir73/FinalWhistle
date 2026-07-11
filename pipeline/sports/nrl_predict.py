@@ -191,14 +191,17 @@ def _clamp(p: float) -> float:
     return max(_EPS, min(1 - _EPS, p))
 
 
-def grade(db: Session) -> int:
+def grade(db: Session, sport: str = SPORT) -> int:
     """Grade every finished nrl match that has a pre-kickoff prediction and
     hasn't been graded yet, using the latest such prediction row. Append-only:
     never re-grades. Returns the number of SportPredictionResult rows written
-    this run."""
+    this run.
+
+    `sport` scopes the sweep; other verticals (origin) reuse this exact
+    grading path."""
     finished = (
         db.query(SportMatch)
-        .filter_by(sport=SPORT, status="finished")
+        .filter_by(sport=sport, status="finished")
         .all()
     )
 
