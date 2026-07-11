@@ -1,0 +1,15 @@
+{
+  "model_version": "origin-elo-v0.1",
+  "span": [
+    1985,
+    2024
+  ],
+  "n": 120,
+  "winner_accuracy": 0.65,
+  "avg_log_loss": 0.7216,
+  "avg_brier": 0.4709,
+  "home_baseline_accuracy": 0.65,
+  "home_prior_log_loss": 0.7145,
+  "generated": "2026-07-11",
+  "source": "walk-forward backtest over data/raw/state_of_origin_history.json"
+}

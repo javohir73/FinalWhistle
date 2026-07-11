@@ -22,6 +22,8 @@ import type {
   NrlScorer,
   NrlStatsProfile,
   NrlTeamProfile,
+  OriginRecord,
+  OriginSeriesResponse,
   Prediction,
   ProbHistory,
   Team,
@@ -181,3 +183,10 @@ export async function getNrlLiveClient(matchId: number): Promise<NrlLive> {
 export async function getNrlScorersClient(matchId: number): Promise<NrlScorer[]> {
   return getJson<NrlScorer[]>(`/api/nrl/matches/${matchId}/scorers`);
 }
+
+/** State of Origin (design 2026-07-11): series view + two-segment record. */
+export const getOriginSeriesServer = (season?: number) =>
+  getServer<OriginSeriesResponse>(
+    `/api/nrl/origin/series${season ? `?season=${season}` : ""}`, 300);
+export const getOriginRecordServer = () =>
+  getServer<OriginRecord>("/api/nrl/origin/record", 300);

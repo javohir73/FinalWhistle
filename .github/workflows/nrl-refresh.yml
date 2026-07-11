@@ -6,6 +6,7 @@
 # completed rounds promptly and freeze predictions well before the next round.
 # Manual "Run workflow" covers the one-off backfill and ad-hoc reruns.
 # Deliberately separate from the football daily pipeline (runbook §1).
+# Also refreshes State of Origin (sport="origin") — cheap no-ops outside May-July.
 name: nrl-refresh
 
 on:
@@ -67,3 +68,13 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_team_lists --season 2026
+      - name: Ingest State of Origin (seed + live seasons, idempotent)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.origin_ingest --seed --seasons 2025 2027
+      - name: Origin frozen shadow predictions + grading
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.origin_predict --generate --grade
