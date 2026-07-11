@@ -23,6 +23,7 @@ import { Flag } from "@/components/Flag";
 import { GoalMarkets } from "@/components/GoalMarkets";
 import { LikelyScorers } from "@/components/LikelyScorers";
 import { AvailabilityNote } from "@/components/AvailabilityNote";
+import { MatchWriteup } from "@/components/MatchWriteup";
 import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
@@ -109,6 +110,10 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
       <MatchTabs
         overview={
           <div className="space-y-6">
+            {/* The breakdown — Fable-style narrative writeup (pipeline-generated,
+                deterministic; hidden for pre-feature predictions). */}
+            <MatchWriteup home={home} away={away} writeup={p.writeup} />
+
             {/* Why (server-rendered reasons; chart hydrates client-side) */}
             <section className="glass rounded-2xl p-6">
               <h2 className="mb-4 font-display text-lg font-bold text-foreground">
