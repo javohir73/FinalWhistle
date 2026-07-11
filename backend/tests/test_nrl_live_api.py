@@ -79,6 +79,29 @@ def test_live_state_reads_persisted_poll_and_events():
         app.dependency_overrides.clear()
 
 
+def test_live_in_window_unpolled_falls_back_to_kickoff_state():
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        now = datetime.now(timezone.utc)
+        m = SportMatch(sport="nrl", season=2026, round=1, match_no=1, status="scheduled",
+                        kickoff_utc=now - timedelta(minutes=20))
+        db.add(m); db.flush()
+        db.add(SportPrediction(match_id=m.id, model_version="nrl-elo-v0.1",
+                                p_home=0.58, p_draw=0.01, p_away=0.41))
+        db.commit()
+
+        body = client.get(f"/api/nrl/matches/{m.id}/live").json()
+        assert body["status"] == "live"
+        assert body["minute"] == 0
+        assert body["score_home"] == 0
+        assert body["score_away"] == 0
+        assert body["live_home_prob"] == 0.58
+        assert body["events"] == []
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_live_final_state_from_finished_match_without_ever_being_polled():
     client, TestingSession = _client()
     try:
