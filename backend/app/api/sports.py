@@ -118,46 +118,35 @@ def nrl_matches(round: int | None = None, season: int | None = None,
     }
 
 
-@router.get("/model/record")
-def nrl_model_record(db: Session = Depends(get_db)):
-    from ml.sports.nrl.params import load_nrl_params
+_ORIGIN_SPORT = "origin"
+_BLUES = "NSW Blues"
+_MAROONS = "QLD Maroons"
 
-    model_version = load_nrl_params().version
 
+def _ledger_record(db: Session, sport: str) -> dict:
+    """Aggregate the graded SportPredictionResult ledger for one sport —
+    shared by /model/record (nrl) and /origin/record (live segment)."""
     rows = (
         db.query(SportPredictionResult, SportMatch)
         .join(SportMatch, SportPredictionResult.match_id == SportMatch.id)
-        .filter(SportMatch.sport == "nrl")
+        .filter(SportMatch.sport == sport)
         .order_by(SportPredictionResult.evaluated_at.asc())
         .all()
     )
-
     n = len(rows)
     if n == 0:
         return {
-            "evaluated_matches": 0,
-            "winner_accuracy": None,
-            "winner_accuracy_ci95": None,
-            "avg_log_loss": None,
-            "avg_brier": None,
-            "best_streak": 0,
-            "model_version": model_version,
-            "last_updated": None,
-            "disclaimer": "For analytics and entertainment only. Not betting advice.",
+            "evaluated_matches": 0, "winner_accuracy": None,
+            "winner_accuracy_ci95": None, "avg_log_loss": None,
+            "avg_brier": None, "best_streak": 0, "last_updated": None,
         }
-
     winners = sum(1 for r, _ in rows if r.winner_correct)
-
-    # Longest run of correct winner calls in kickoff order (not evaluation
-    # order), same rationale as football's model_record.best_streak.
     by_kickoff = sorted(rows, key=lambda t: (t[1].kickoff_utc is None, t[1].kickoff_utc, t[1].id))
     best_streak = streak = 0
     for r, _ in by_kickoff:
         streak = streak + 1 if r.winner_correct else 0
         best_streak = max(best_streak, streak)
-
     last_updated = max(r.evaluated_at for r, _ in rows)
-
     return {
         "evaluated_matches": n,
         "winner_accuracy": round(winners / n, 4),
@@ -165,8 +154,140 @@ def nrl_model_record(db: Session = Depends(get_db)):
         "avg_log_loss": round(sum(r.log_loss for r, _ in rows) / n, 4),
         "avg_brier": round(sum(r.brier for r, _ in rows) / n, 4),
         "best_streak": best_streak,
-        "model_version": model_version,
         "last_updated": last_updated.isoformat() if last_updated else None,
+    }
+
+
+@router.get("/model/record")
+def nrl_model_record(db: Session = Depends(get_db)):
+    from ml.sports.nrl.params import load_nrl_params
+
+    return {
+        **_ledger_record(db, "nrl"),
+        "model_version": load_nrl_params().version,
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }
+
+
+@router.get("/origin/series")
+def origin_series(season: int | None = None, db: Session = Depends(get_db)):
+    """One State of Origin series: games with latest predictions, series
+    score, and — while games remain — exact series-winner odds."""
+    from ml.sports.origin.series import series_odds
+    from ml.sports.origin.venues import is_neutral
+
+    seasons = [
+        s for (s,) in db.query(SportMatch.season)
+        .filter(SportMatch.sport == _ORIGIN_SPORT)
+        .distinct().order_by(SportMatch.season.desc()).all()
+    ]
+    if not seasons:
+        raise HTTPException(status_code=404, detail={
+            "code": "no_origin_data", "message": "No State of Origin matches are loaded yet",
+        })
+    if season is None:
+        season = seasons[0]
+    elif season not in seasons:
+        raise HTTPException(status_code=404, detail={
+            "code": "season_not_found",
+            "message": f"No State of Origin matches for season {season}",
+        })
+
+    home = aliased(SportTeam)
+    away = aliased(SportTeam)
+    rows = (
+        db.query(SportMatch, home.name, away.name)
+        .outerjoin(home, SportMatch.home_team_id == home.id)
+        .outerjoin(away, SportMatch.away_team_id == away.id)
+        .filter(SportMatch.sport == _ORIGIN_SPORT, SportMatch.season == season)
+        .order_by(SportMatch.round.asc(), SportMatch.match_no.asc())
+        .all()
+    )
+
+    match_ids = [m.id for m, _, _ in rows]
+    preds = (
+        db.query(SportPrediction)
+        .filter(SportPrediction.match_id.in_(match_ids))
+        .order_by(SportPrediction.created_at.desc(), SportPrediction.id.desc())
+        .all()
+    )
+    latest_pred_by_match: dict[int, SportPrediction] = {}
+    for p in preds:
+        latest_pred_by_match.setdefault(p.match_id, p)
+
+    games = []
+    blues_wins = maroons_wins = drawn_games = 0
+    remaining: list[tuple[float, float, float]] | None = []
+    for m, home_name, away_name in rows:
+        pred = latest_pred_by_match.get(m.id)
+        pred_out = None
+        if pred is not None:
+            pred_out = {
+                "p_home": pred.p_home, "p_draw": pred.p_draw, "p_away": pred.p_away,
+                "expected_margin": pred.expected_margin,
+                "model_version": pred.model_version,
+                "created_at": pred.created_at.isoformat() if pred.created_at else None,
+                "is_shadow": pred.is_shadow,
+            }
+        games.append({
+            "round": m.round, "match_no": m.match_no,
+            "kickoff_utc": m.kickoff_utc.isoformat() if m.kickoff_utc else None,
+            "venue": m.venue, "neutral": is_neutral(m.venue),
+            "home": home_name, "away": away_name,
+            "score_home": m.score_home, "score_away": m.score_away,
+            "status": m.status, "prediction": pred_out,
+        })
+        if m.status == "finished" and m.score_home is not None:
+            if m.score_home == m.score_away:
+                drawn_games += 1
+            elif (m.score_home > m.score_away) == (home_name == _BLUES):
+                blues_wins += 1
+            else:
+                maroons_wins += 1
+        else:
+            # Unplayed: orient the game's probability triple to the Blues.
+            if pred is None:
+                remaining = None  # any unpredicted game -> no honest series odds
+            elif remaining is not None:
+                if home_name == _BLUES:
+                    remaining.append((pred.p_home, pred.p_draw, pred.p_away))
+                else:
+                    remaining.append((pred.p_away, pred.p_draw, pred.p_home))
+
+    all_finished = all(g["status"] == "finished" for g in games)
+    winner = None
+    if games and all_finished:
+        winner = (_BLUES if blues_wins > maroons_wins
+                  else _MAROONS if maroons_wins > blues_wins else "drawn")
+
+    odds = None
+    if remaining:  # non-empty list => at least one unplayed game, all predicted
+        raw = series_odds(blues_wins, maroons_wins, remaining)
+        odds = {"blues": round(raw["p_a"], 4), "maroons": round(raw["p_b"], 4),
+                "drawn": round(raw["p_drawn"], 4)}
+
+    return {
+        "season": season,
+        "seasons": seasons,
+        "games": games,
+        "series": {"blues_wins": blues_wins, "maroons_wins": maroons_wins,
+                   "drawn_games": drawn_games, "winner": winner, "odds": odds},
+        "disclaimer": "For analytics and entertainment only. Not betting advice.",
+    }
+
+
+@router.get("/origin/record")
+def origin_record(db: Session = Depends(get_db)):
+    """Two honestly-labeled segments: `backtest` (committed walk-forward
+    artifact — retrodictions, never DB rows) and `live` (the real graded
+    ledger, empty until 2027+ predictions grade)."""
+    from ml.sports.origin.backtest import load_backtest_record
+    from ml.sports.origin.params import load_origin_params
+
+    return {
+        "backtest": load_backtest_record(),
+        "live": _ledger_record(db, _ORIGIN_SPORT),
+        "model_version": load_origin_params().version,
         "disclaimer": "For analytics and entertainment only. Not betting advice.",
     }
 
