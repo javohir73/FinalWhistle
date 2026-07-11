@@ -29,6 +29,7 @@ from app.models import (
 )
 from ml.evaluation.calibration import calibrate, effective_gap
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
+from ml.explain.writeup import WriteupInputs, build_writeup
 from ml.features.build_features import build_match_features, estimate_strength
 from ml.features.wdl_features import assemble_features, window_stats
 from ml.models.knockout import ko_advance
@@ -328,6 +329,17 @@ def build_payload(
                 eff_gap=effective_gap(elo_home, elo_away, host_adv),
             )
 
+    # Market-odds anchoring in the SERVED lambdas (the shadow twin's signal,
+    # promoted): opt-in via model_params.json ("use_odds": false — the shipped
+    # default — keeps this a strict no-op even while w_odds arms the twin).
+    # Shares _odds_anchored with write_shadow_prediction, so promotion serves
+    # exactly the math the twin has been logging.
+    if params.use_odds and params.w_odds > 0:
+        anchored = _odds_anchored(
+            db, match, pred.lambda_home, pred.lambda_away, strengths, params)
+        if anchored is not None:
+            pred = anchored
+
     # Poisson W/D/L is the base. If a booster blend is shipped (and a trained
     # booster is supplied), blend toward it and re-calibrate. The SCORELINE stays
     # Poisson's — the booster only refines the W/D/L triple (spec §1).
@@ -389,6 +401,36 @@ def build_payload(
             pk_shift=pk_shift,
         ).to_payload()
 
+    # Fable-style writeup (presentation only): templated from the SAME values
+    # this payload serves, so the prose can never disagree with the numbers.
+    # Market/availability context is optional colour — absent signals just
+    # drop their sentence (ml/explain/writeup.py).
+    market = None
+    odds_row = _latest_odds(db, match.id)
+    if odds_row is not None and None not in (
+        odds_row.implied_prob_home, odds_row.implied_prob_draw, odds_row.implied_prob_away
+    ):
+        market = (odds_row.implied_prob_home, odds_row.implied_prob_draw,
+                  odds_row.implied_prob_away)
+    players_out_home: list[str] = []
+    players_out_away: list[str] = []
+    avail = availability_for_match(db, match)
+    if avail is not None:
+        _, _, expl_home, expl_away = avail
+        # Upstream name can be None (ml/models/availability.py uses p.get("name"));
+        # filter it out here so presentation never aborts the daily refresh.
+        players_out_home = [n for pl in expl_home["players_out"] if (n := pl.get("name"))]
+        players_out_away = [n for pl in expl_away["players_out"] if (n := pl.get("name"))]
+    writeup = build_writeup(WriteupInputs(
+        home_name=home.name, away_name=away.name,
+        prob_home=p_home, prob_draw=p_draw, prob_away=p_away,
+        score_home=pred.score_home, score_away=pred.score_away,
+        score_prob=pred.score_prob,
+        stage=match.stage, confidence=confidence, feats=feats,
+        knockout=knockout, market=market,
+        players_out_home=players_out_home, players_out_away=players_out_away,
+    ))
+
     return {
         "match_id": match.id,
         "model_version": model_version,
@@ -412,6 +454,7 @@ def build_payload(
         "confidence": confidence,
         "reasons": reasons,
         "top_features": factors,
+        "writeup": writeup,
         "head_to_head": {
             "matches": feats.h2h["matches"],
             "home_wins": feats.h2h["a_wins"],
@@ -460,6 +503,9 @@ def _write_prediction(db: Session, match: Match, payload: dict, model_version: s
             confidence=payload["confidence"],
             reasons=payload["reasons"],
             top_features=payload["top_features"],
+            # Shadow twins spread the production payload, so they'd inherit its
+            # writeup — null it: twins are internal-only and never rendered.
+            writeup=payload.get("writeup") if not is_shadow else None,
             is_shadow=is_shadow,
         )
     )
@@ -472,6 +518,35 @@ def _latest_odds(db: Session, match_id: int) -> Odds | None:
         .filter(Odds.match_id == match_id)
         .order_by(Odds.captured_at.desc(), Odds.id.desc())
         .first()
+    )
+
+
+def _odds_anchored(
+    db: Session, match: Match, lambda_home: float, lambda_away: float,
+    strengths: dict[int, float], params: ModelParams,
+):
+    """Market-anchored re-prediction of a lambda pair (FR-4.3), or None when no
+    usable market total is stored. The ONE implementation shared by the shadow
+    twin and the production path (use_odds), so promotion serves exactly the
+    math the twin has been validating — never a reimplementation of it."""
+    odds = _latest_odds(db, match.id)
+    if odds is None:
+        return None
+    market_total = market_lambda_total(
+        odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
+        odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
+    )
+    if market_total is None:
+        return None
+    lam_h, lam_a = blend_lambda_total(lambda_home, lambda_away, market_total, params.w_odds)
+    home = db.get(Team, match.team_home_id)
+    away = db.get(Team, match.team_away_id)
+    elo_home = strengths.get(home.id, estimate_strength(home)[0])
+    elo_away = strengths.get(away.id, estimate_strength(away)[0])
+    return predict_from_lambdas(
+        lam_h, lam_a, rho=params.rho, temperature=params.temperature,
+        calibrator=params.calibrator,
+        eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
     )
 
 
@@ -496,46 +571,33 @@ def write_shadow_prediction(
     identity, so the odds lookup and the market inversion (whose 1X2 fallback
     is a costly double bisection) are skipped entirely — this path executes
     synchronously inside latency-sensitive request chains.
+
+    Post-promotion (params.use_odds) the twin copies production — the anchor
+    already lives in the served lambdas.
     """
     shadow = payload
-    if params.w_odds <= 0.0:
-        _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
-        return
-    odds = _latest_odds(db, match.id)
-    market_total = None
-    if odds is not None:
-        market_total = market_lambda_total(
-            odds_over25=odds.odds_over25, odds_under25=odds.odds_under25,
-            odds_home=odds.odds_home, odds_draw=odds.odds_draw, odds_away=odds.odds_away,
-        )
-    if market_total is not None:
-        lam_h, lam_a = blend_lambda_total(
-            payload["lambda_home"], payload["lambda_away"], market_total, params.w_odds
-        )
-        home = db.get(Team, match.team_home_id)
-        away = db.get(Team, match.team_away_id)
-        elo_home = strengths.get(home.id, estimate_strength(home)[0])
-        elo_away = strengths.get(away.id, estimate_strength(away)[0])
-        pred = predict_from_lambdas(
-            lam_h, lam_a, rho=params.rho, temperature=params.temperature,
-            calibrator=params.calibrator,
-            eff_gap=effective_gap(elo_home, elo_away, _host_adv(match, home, params.home_adv)),
-        )
-        shadow = {
-            **payload,
-            "probabilities": {
-                "home_win": round(pred.prob_home_win, 4),
-                "draw": round(pred.prob_draw, 4),
-                "away_win": round(pred.prob_away_win, 4),
-            },
-            "predicted_score": {
-                "home": pred.score_home,
-                "away": pred.score_away,
-                "probability": round(pred.score_prob, 4),
-            },
-            "lambda_home": round(pred.lambda_home, 4),
-            "lambda_away": round(pred.lambda_away, 4),
-        }
+    # Post-promotion (use_odds) the production payload already carries the
+    # anchor; re-anchoring here would double-blend. The twin then mirrors
+    # production exactly — record continuity, same as the pre-arming null.
+    if params.w_odds > 0.0 and not params.use_odds:
+        pred = _odds_anchored(
+            db, match, payload["lambda_home"], payload["lambda_away"], strengths, params)
+        if pred is not None:
+            shadow = {
+                **payload,
+                "probabilities": {
+                    "home_win": round(pred.prob_home_win, 4),
+                    "draw": round(pred.prob_draw, 4),
+                    "away_win": round(pred.prob_away_win, 4),
+                },
+                "predicted_score": {
+                    "home": pred.score_home,
+                    "away": pred.score_away,
+                    "probability": round(pred.score_prob, 4),
+                },
+                "lambda_home": round(pred.lambda_home, 4),
+                "lambda_away": round(pred.lambda_away, 4),
+            }
     _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
 
 

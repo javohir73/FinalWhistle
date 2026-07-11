@@ -46,6 +46,11 @@ class ModelParams:
     # runs in the shadow twin (AVAILABILITY_MODEL_VERSION). Promotion to the
     # headline is a manual owner decision, mirroring w_odds/form_channels.
     use_availability: bool = False
+    # Market-odds anchoring in the PRODUCTION lambdas: False (the shipped
+    # default) keeps serving bit-identical — w_odds > 0 alone only arms the
+    # shadow twin (SHADOW_MODEL_VERSION). Flipped by pipeline/promote_blend.py
+    # --use-odds once the shadow gate clears (docs/RUNBOOK-WC26-ENDGAME.md).
+    use_odds: bool = False
     team_offsets: dict | None = None  # {"file": "team_offsets.json"} or None (disabled, FR-5.3)
     # Split, decayed, boundary-free form channels (model v2 C1):
     # {"c_atk": float, "c_def": float, "cap": float, "half_life": float} or
@@ -96,6 +101,7 @@ def load_params() -> ModelParams:
         wdl_blend=data.get("wdl_blend"),
         w_odds=float(data.get("w_odds", 0.0)),
         use_availability=bool(data.get("use_availability", False)),
+        use_odds=bool(data.get("use_odds", False)),
         team_offsets=data.get("team_offsets"),
         form_channels=data.get("form_channels"),
         suspensions=data.get("suspensions"),

@@ -29,3 +29,20 @@ def test_promoted_params_availability_only_flip_is_allowed():
                           version="poisson-elo-v0.6")
     assert out.w_odds == 0.0
     assert out.use_availability is True
+
+
+def test_use_odds_requires_positive_weight():
+    with pytest.raises(ValueError):
+        promoted_params(DEFAULT_PARAMS, 0.0, True, "poisson-elo-v0.6", use_odds=True)
+
+
+def test_use_odds_flips_the_serving_flag():
+    p = promoted_params(DEFAULT_PARAMS, 0.35, False, "poisson-elo-v0.6", use_odds=True)
+    assert p.use_odds is True
+    assert p.w_odds == 0.35
+    assert p.version == "poisson-elo-v0.6"
+
+
+def test_use_odds_defaults_off():
+    p = promoted_params(DEFAULT_PARAMS, 0.35, False, "poisson-elo-v0.6")
+    assert p.use_odds is False

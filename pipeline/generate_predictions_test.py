@@ -616,8 +616,13 @@ def test_build_payload_use_availability_scales_lambdas(monkeypatch, db_session):
         .first()
     )
     # Real return shape of app.availability.availability_for_match:
-    # (off_home, off_away, expl_home, expl_away) or None.
-    monkeypatch.setattr(gp, "availability_for_match", lambda _db, _m: (-0.20, 0.05, {}, {}))
+    # (off_home, off_away, expl_home, expl_away) or None; expl dicts always
+    # carry "players_out" (ml/models/availability.py) -- the writeup block
+    # reads it unconditionally, so the stub must honor the real contract.
+    monkeypatch.setattr(
+        gp, "availability_for_match",
+        lambda _db, _m: (-0.20, 0.05, {"players_out": []}, {"players_out": []}),
+    )
 
     params_off = replace(load_params(), form_channels=None, use_availability=False)
     params_on = replace(params_off, use_availability=True)
