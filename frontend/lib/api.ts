@@ -14,6 +14,8 @@ import type {
   NrlMatchesResponse,
   NrlRecord,
   NrlTeamProfile,
+  OriginRecord,
+  OriginSeriesResponse,
   Prediction,
   ProbHistory,
   Team,
@@ -147,3 +149,10 @@ export const getNrlTeamServer = (id: number | string) =>
   getServer<NrlTeamProfile>(`/api/nrl/teams/${id}`, 300);
 export const getNrlRecordServer = () =>
   getServer<NrlRecord>("/api/nrl/model/record", 300);
+
+/** State of Origin (design 2026-07-11): series view + two-segment record. */
+export const getOriginSeriesServer = (season?: number) =>
+  getServer<OriginSeriesResponse>(
+    `/api/nrl/origin/series${season ? `?season=${season}` : ""}`, 300);
+export const getOriginRecordServer = () =>
+  getServer<OriginRecord>("/api/nrl/origin/record", 300);

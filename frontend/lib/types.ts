@@ -520,3 +520,59 @@ export interface NrlRecord {
   last_updated: string | null;
   disclaimer: string;
 }
+
+/** /api/nrl/origin/* shapes (backend/app/api/sports.py). */
+export interface OriginGame {
+  round: number | null;
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  neutral: boolean;
+  home: string | null;
+  away: string | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+  prediction: NrlPrediction | null;
+}
+export interface OriginSeriesState {
+  blues_wins: number;
+  maroons_wins: number;
+  drawn_games: number;
+  winner: string | null;
+  odds: { blues: number; maroons: number; drawn: number } | null;
+}
+export interface OriginSeriesResponse {
+  season: number;
+  seasons: number[];
+  games: OriginGame[];
+  series: OriginSeriesState;
+  disclaimer: string;
+}
+export interface OriginBacktest {
+  model_version: string;
+  span: [number, number];
+  n: number;
+  winner_accuracy: number;
+  avg_log_loss: number;
+  avg_brier: number;
+  home_baseline_accuracy: number;
+  home_prior_log_loss: number;
+  generated: string;
+  source: string;
+}
+export interface OriginLiveRecord {
+  evaluated_matches: number;
+  winner_accuracy: number | null;
+  winner_accuracy_ci95: [number, number] | null;
+  avg_log_loss: number | null;
+  avg_brier: number | null;
+  best_streak: number;
+  last_updated: string | null;
+}
+export interface OriginRecord {
+  backtest: OriginBacktest | null;
+  live: OriginLiveRecord;
+  model_version: string;
+  disclaimer: string;
+}

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getNrlLadderServer, getNrlMatchesServer } from "@/lib/api";
+import { getNrlLadderServer, getNrlMatchesServer, getOriginSeriesServer } from "@/lib/api";
 import { LadderTable } from "@/components/LadderTable";
 import { MoversPanel } from "@/components/MoversPanel";
 import { SportMatchCard } from "@/components/SportMatchCard";
@@ -16,9 +16,10 @@ export const metadata: Metadata = {
 /** NRL home: current-round fixtures + mini ladder + movers. The "current"
  *  round is the first round containing a scheduled match (else the last). */
 export default async function NrlHomePage() {
-  const [fixtures, ladder] = await Promise.all([
+  const [fixtures, ladder, origin] = await Promise.all([
     getNrlMatchesServer().catch(() => null),
     getNrlLadderServer().catch(() => null),
+    getOriginSeriesServer().catch(() => null),
   ]);
   if (!fixtures) notFound();
 
@@ -34,6 +35,29 @@ export default async function NrlHomePage() {
       </p>
 
       <MoversPanel sport="nrl" />
+
+      {origin ? (
+        <Link
+          href="/nrl/origin"
+          className="glass mt-6 block rounded-2xl p-4 transition hover:bg-white/5"
+        >
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+                State of Origin · {origin.season}
+              </p>
+              <p className="mt-1 font-display text-lg font-extrabold">
+                NSW Blues {origin.series.blues_wins} – {origin.series.maroons_wins} QLD
+                Maroons
+                {origin.series.drawn_games ? ` · ${origin.series.drawn_games} drawn` : ""}
+              </p>
+            </div>
+            <span className="shrink-0 text-xs font-semibold text-lime-deep">
+              Series &amp; model →
+            </span>
+          </div>
+        </Link>
+      ) : null}
 
       <div className="mt-6 grid gap-4 md:grid-cols-[1fr_320px]">
         <div className="grid gap-4">
