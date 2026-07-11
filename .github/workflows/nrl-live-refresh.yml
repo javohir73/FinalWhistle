@@ -1,0 +1,59 @@
+# NRL live layer: poll live scores + in-play win probability during NRL
+# match windows (Thu-Sun AEST rounds, with an extra Monday slot for the
+# occasional Monday game). POSTs to the token-guarded
+# /api/internal/nrl-refresh-live, which no-ops instantly for any match
+# outside its own live window (see pipeline/sports/nrl_live_poll.py's
+# matches_in_live_window) -- so a spurious tick or a slightly-off
+# day-of-week filter costs nothing but one HTTP call.
+#
+# GitHub's minimum schedule interval is 5 minutes; this workflow uses 15 to
+# keep Action-minutes modest and loops internally at ~1-minute cadence to
+# cover the gap to the next tick, exactly like refresh-live.yml does for
+# the football vertical.
+#
+# Day-of-week filtering uses UTC (cron's native clock), which can be off by
+# one calendar day from AEST at the edges (AEST is UTC+10/+11) -- harmless
+# here since the endpoint itself is the real gate; this filter only trims
+# obviously-idle days (Tue/Wed AEST).
+#
+# SETUP (one time) -- same two secrets as refresh-live.yml:
+#   - API_URL          the deployed API base
+#   - RECOMPUTE_TOKEN  same value as the backend's RECOMPUTE_TOKEN env var
+name: nrl-live-refresh
+
+on:
+  schedule:
+    - cron: "*/15 * * * 0,1,4,5,6"   # Sun,Mon,Thu,Fri,Sat (UTC) -- NRL round window
+  workflow_dispatch: {}
+
+concurrency:
+  group: nrl-live-refresh
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Poll /api/internal/nrl-refresh-live (~1-min cadence across the 15-min window)
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+        run: |
+          set -u
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set -- skipping."
+            exit 0
+          fi
+          ok=0
+          for i in $(seq 1 14); do
+            code=$(curl -sS -o /tmp/nrl_live.json -w "%{http_code}" -m 60 \
+              -X POST "${API_URL%/}/api/internal/nrl-refresh-live" \
+              -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" || echo 000)
+            echo "[$i/14] HTTP ${code} $(cat /tmp/nrl_live.json 2>/dev/null || true)"
+            if [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]; then ok=1; fi
+            if [ "$i" -lt 14 ]; then sleep 55; fi
+          done
+          if [ "${ok}" != 1 ]; then
+            echo "All NRL live pings failed this run (transient API error or misconfig)."
+            exit 1
+          fi

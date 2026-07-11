@@ -5,6 +5,8 @@ import { FormSection } from "./FormSection";
 import { ModelSection } from "./ModelSection";
 import StatsSection from "./StatsSection";
 import MatchupSection from "./MatchupSection";
+import LiveSection from "./LiveSection";
+import ScorersSection from "./ScorersSection";
 
 /** Props every Match Intelligence section component receives. Wave 1 ships
  *  overview/form/model; Wave 2 appends stats/matchup, Wave 3 appends
@@ -23,4 +25,6 @@ export const sections: IntelSection[] = [
   { id: "model", label: "Model", render: ModelSection },
   { id: "stats", label: "Stats", render: StatsSection },
   { id: "matchup", label: "Matchup", render: MatchupSection },
+  { id: "live", label: "Live", render: LiveSection },
+  { id: "scorers", label: "Scorers", render: ScorersSection },
 ];

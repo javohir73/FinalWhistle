@@ -12,6 +12,7 @@ on:
   schedule:
     - cron: "0 18 * * 1"
     - cron: "0 18 * * 5"
+    - cron: "0 8 * * 2"   # Tue ~18:00 AEST -- after the round's team-list announcement
   workflow_dispatch: {}
 
 # Never run two refreshes concurrently: overlapping runs race on
@@ -61,3 +62,8 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_projections
+      - name: Ingest NRL team lists (idempotent; late-change flagged)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_team_lists --season 2026

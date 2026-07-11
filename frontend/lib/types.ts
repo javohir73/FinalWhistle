@@ -699,3 +699,36 @@ export interface NrlStatsProfile {
   position_concessions: { position: string; tries_conceded: number }[];
   disclaimer: string;
 }
+
+/** /api/nrl/matches/{id}/scorers — Wave 3 try-scorer projection contract
+ *  (bare array; `team` is additive vs. the spec's literal field list, needed
+ *  to split jersey numbers that repeat across both squads). */
+export type NrlScorer = {
+  player: string;
+  jersey: number;
+  position: string;
+  unit: string;
+  tries_season: number;
+  games_season: number;
+  last10: { round: number; tries: number }[];
+  p_anytime: number;
+  team: "home" | "away";
+};
+
+/** /api/nrl/matches/{id}/live — Wave 3 live layer contract. */
+export type NrlLiveEvent = {
+  minute: number;
+  type: string;
+  team: "home" | "away";
+  player: string | null;
+  prob_after: number;
+};
+
+export type NrlLive = {
+  status: "pre" | "live" | "final";
+  minute: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  live_home_prob: number;
+  events: NrlLiveEvent[];
+};
