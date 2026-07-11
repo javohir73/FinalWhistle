@@ -145,7 +145,8 @@ export default async function OriginPage({
               <p className="mt-2 text-xs text-muted">
                 Backtest · walk-forward retrodictions over{" "}
                 {record.backtest.span[0]}–{record.backtest.span[1]} ({record.backtest.n}{" "}
-                games) — not live predictions. A fixed home-prior baseline scores{" "}
+                games) — not live predictions. A fixed base-rate prior (fitted in
+                hindsight) scores{" "}
                 {record.backtest.home_prior_log_loss.toFixed(3)} log loss.
               </p>
               <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

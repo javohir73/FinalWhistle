@@ -65,6 +65,7 @@ it("labels the backtest record segment as a backtest", async () => {
   render(await OriginPage({ searchParams: Promise.resolve({}) }));
   expect(screen.getByText(/backtest/i)).toBeInTheDocument();
   expect(screen.getByText(/1985–2024/)).toBeInTheDocument();
+  expect(screen.getByText(/base-rate prior \(fitted in hindsight\) scores 0\.710 log loss/i)).toBeInTheDocument();
   expect(screen.getByText(/no graded live predictions yet/i)).toBeInTheDocument();
 });
 
