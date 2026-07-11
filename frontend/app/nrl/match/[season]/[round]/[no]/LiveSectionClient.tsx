@@ -1,37 +1,52 @@
 "use client";
 
+import { createPortal } from "react-dom";
 import { pct } from "@/lib/format";
 import type { NrlLive } from "@/lib/types";
 
-/** Presentational half of the Wave 3 "live" section: the sticky pinned
- *  banner (only while `live.status === "live"`) plus the scoreboard/events
- *  card. Pure function of already-fetched data — LiveSection.tsx owns the
- *  60s-polling fetch and hands the resolved payload down here. The banner
- *  uses sticky positioning and is rendered as a sibling of the card (not
- *  nested inside it), so "live pinned first" holds regardless of where
- *  sections.ts places this section in the stacked-card DOM order. */
+/** Presentational half of the Wave 3 "live" section: the in-flow
+ *  scoreboard/events card, plus — only while `live.status === "live"` — a
+ *  compact fixed strip (minute + score + live win prob) pinned just below
+ *  the app header (`top-14`, under the header's z-50) so a live match is
+ *  visible the moment the page loads, regardless of where sections.ts
+ *  places this card in the stacked DOM order. The strip is portalled to
+ *  document.body: the page's `.fade-up` wrapper animates with fill-mode
+ *  `both`, ending on `transform: translateY(0)`, and any non-`none`
+ *  transform makes that ancestor the containing block for `position: fixed`
+ *  descendants — a strip rendered in place would anchor to the wrapper and
+ *  scroll away with it instead of pinning to the viewport. Pure function of
+ *  already-fetched data — LiveSection.tsx owns the 60s-polling fetch. */
 export function LiveSectionClient({
   home, away, live,
 }: { home: string; away: string; live: NrlLive }) {
   const isLive = live.status === "live";
 
+  const pinnedStrip =
+    isLive && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            className="pointer-events-none fixed inset-x-0 top-14 z-40 px-4"
+            role="status"
+            aria-label="Live score"
+          >
+            <div className="pointer-events-auto mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-border bg-surface/95 px-4 py-2 text-sm shadow-xl backdrop-blur">
+              <span className="flex items-center gap-1.5 font-semibold text-foreground">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
+                LIVE {live.minute}&apos;
+              </span>
+              <span className="tabular-nums text-foreground">
+                {home} {live.score_home}&ndash;{live.score_away} {away}
+              </span>
+              <span className="font-bold tabular-nums text-lime-deep">{pct(live.live_home_prob)}</span>
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
+
   return (
     <>
-      {isLive && (
-        <div
-          className="sticky top-14 z-40 mb-4 flex items-center justify-between gap-3 rounded-xl border border-border bg-surface/95 px-4 py-2 text-sm backdrop-blur"
-          aria-live="polite"
-        >
-          <span className="flex items-center gap-1.5 font-semibold text-foreground">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-            LIVE {live.minute}&apos;
-          </span>
-          <span className="tabular-nums text-foreground">
-            {home} {live.score_home}&ndash;{live.score_away} {away}
-          </span>
-          <span className="font-bold tabular-nums text-lime-deep">{pct(live.live_home_prob)}</span>
-        </div>
-      )}
+      {pinnedStrip}
       <div className="glass rounded-2xl p-6">
         <div className="mb-4 flex items-center justify-between gap-3">
           <h2 className="font-display text-lg font-bold text-foreground">{isLive ? "Live" : "Final"}</h2>
