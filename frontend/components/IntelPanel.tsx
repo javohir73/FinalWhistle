@@ -56,7 +56,7 @@ function MatchRow({ m, sport }: { m: IntelMatch; sport: "football" | "nrl" }) {
   const Body = sport === "football" ? Link : "div";
   return (
     <li className="border-t border-white/10 py-2.5 first:border-t-0">
-      <Body href={`/matches/${m.match_id}`} className="block">
+      <Body href={`/match/${m.match_id}`} className="block">
         <span className="font-display text-[15px] font-semibold text-white">
           {m.home?.name ?? "TBD"} vs {m.away?.name ?? "TBD"}
         </span>
