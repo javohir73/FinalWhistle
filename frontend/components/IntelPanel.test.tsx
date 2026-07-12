@@ -50,6 +50,12 @@ describe("IntelPanel", () => {
     // resolves before the fetch does; wait on real match content instead —
     // "France vs Morocco" only renders once getIntel's promise has settled.
     expect(await screen.findByText(/France vs Morocco/)).toBeInTheDocument();
+    // Football rows link to the match detail page — /match/{id}, the singular
+    // route. /matches/{id} does not exist and 404s (bug shipped 2026-07-10).
+    expect(screen.getByText(/France vs Morocco/).closest("a")).toHaveAttribute(
+      "href",
+      "/match/1",
+    );
     expect(screen.getByText(/Market 62%/)).toBeInTheDocument();
     expect(screen.getByText(/Model 55%/)).toBeInTheDocument();
     expect(screen.getByText(/Argentina to win the Cup/)).toBeInTheDocument();
