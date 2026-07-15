@@ -190,3 +190,7 @@ export const getOriginSeriesServer = (season?: number) =>
     `/api/nrl/origin/series${season ? `?season=${season}` : ""}`, 300);
 export const getOriginRecordServer = () =>
   getServer<OriginRecord>("/api/nrl/origin/record", 300);
+
+/** Client-side NRL fixtures fetch — backs the /nrl/matches island's 60s
+ *  refresh while a game is in its live window. */
+export const getNrlMatches = () => getJson<NrlMatchesResponse>("/api/nrl/matches");
