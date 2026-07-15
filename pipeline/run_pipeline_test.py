@@ -105,3 +105,31 @@ def test_pipeline_runs_odds_step_only_with_api_key(db_session, monkeypatch):
     summary = rp_mod.run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
     assert summary["odds"] == {"matches_priced": 0, "matches_skipped": 0}
     assert calls == ["k"]
+
+
+def test_pipeline_runs_odds_backfill_step_with_api_key(db_session, monkeypatch):
+    """Outage recovery: the post-match odds backfill runs right after the
+    pre-kickoff snapshot when the key is configured, and is skipped cleanly
+    without one — so a match whose kickoff fell inside a scheduler outage
+    still gets its market consensus while the provider retains it."""
+    from app.config import settings
+    import pipeline.run_pipeline as rp_mod
+
+    calls = []
+
+    def fake_backfill(db, api_key, max_age_days=7.0):
+        calls.append(api_key)
+        return {"matches_priced": 0, "matches_skipped": 0}
+
+    monkeypatch.setattr("pipeline.ingest.odds.refresh_odds",
+                        lambda db, key, window_hours=48.0: {"matches_priced": 0, "matches_skipped": 0})
+    monkeypatch.setattr("pipeline.ingest.odds.backfill_finished_odds", fake_backfill)
+
+    monkeypatch.setattr(settings, "api_football_api_key", "")
+    summary = rp_mod.run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+    assert "odds_backfill" not in summary and calls == []
+
+    monkeypatch.setattr(settings, "api_football_api_key", "k")
+    summary = rp_mod.run_pipeline(db_session, results_df=_sample_results(), n_sims=100)
+    assert summary["odds_backfill"] == {"matches_priced": 0, "matches_skipped": 0}
+    assert calls == ["k"]
