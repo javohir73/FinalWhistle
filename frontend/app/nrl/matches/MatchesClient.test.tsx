@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { MatchesClient } from "./MatchesClient";
+import { getNrlMatches } from "@/lib/api";
 import type { NrlMatchesResponse } from "@/lib/types";
 
 jest.mock("@/lib/api", () => ({ getNrlMatches: jest.fn() }));
@@ -48,4 +49,30 @@ it("Live tab shows only in-window matches", () => {
 it("shows the per-tab empty state", () => {
   render(<MatchesClient initial={{ ...fixtures, rounds: [] }} />);
   expect(screen.getByText("No upcoming fixtures yet.")).toBeInTheDocument();
+});
+
+it("self-promotes a match into the live strip at kickoff, from the clock tick alone", () => {
+  jest.useFakeTimers();
+  const soon: NrlMatchesResponse = {
+    season: 2026,
+    disclaimer: "d",
+    rounds: [
+      { round: 21, matches: [
+        { id: 4, match_no: 4, kickoff_utc: mins(2), venue: null, home: "Storm", away: "Eels",
+          home_team_id: 7, away_team_id: 8, score_home: null, score_away: null, status: "scheduled", prediction: null },
+      ]},
+    ],
+  };
+  (getNrlMatches as jest.Mock).mockResolvedValue(soon); // refetch effect starts once live; keep it harmless
+
+  render(<MatchesClient initial={soon} />);
+  expect(screen.queryByText(/live now/i)).not.toBeInTheDocument();
+
+  act(() => {
+    jest.advanceTimersByTime(3 * 60_000); // past kickoff — only the 30s clock tick drives this
+  });
+
+  expect(screen.getByText(/live now/i)).toBeInTheDocument();
+
+  jest.useRealTimers();
 });

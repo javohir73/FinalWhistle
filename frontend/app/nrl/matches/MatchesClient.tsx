@@ -16,9 +16,10 @@ const EMPTY: Record<Filter, string> = {
   Finished: "No finished fixtures yet.",
 };
 
-/** Client island: segmented Upcoming/Live/Finished over the SSR-seeded
- *  fixtures. While any match is in its live window the list is refetched
- *  every 60s (scores land via the 15-min live poller); otherwise no polling. */
+/** Client island: segmented Upcoming/Live/Finished over the SSR-seeded fixtures.
+ *  A 30s local clock tick runs unconditionally so a match self-promotes into the
+ *  live strip at kickoff even if none was live on first paint; the 60s data
+ *  refetch (scores land via the 15-min live poller) stays gated on ≥1 live match. */
 export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
   const [fixtures, setFixtures] = useState(initial);
   const [filter, setFilter] = useState<Filter>("Upcoming");
@@ -26,10 +27,19 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
 
   const live = useMemo(() => liveNow(fixtures.rounds, now), [fixtures, now]);
 
+  // Clock tick: local only, always on — this is what detects a match entering or
+  // leaving its live window, so it can't be gated behind `live.length` or a fixture
+  // that kicks off after first paint would never flip the strip on.
+  useEffect(() => {
+    const tick = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(tick);
+  }, []);
+
+  // Data refetch: network, only while live — scores land via the 15-min live
+  // poller, so there's nothing to gain from polling the API when nothing's on.
   useEffect(() => {
     if (live.length === 0) return;
     const tick = setInterval(() => {
-      setNow(new Date());
       getNrlMatches().then(setFixtures).catch(() => {});
     }, 60_000);
     return () => clearInterval(tick);
