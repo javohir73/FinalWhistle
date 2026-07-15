@@ -71,9 +71,14 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     # contract (refresh_odds never raises, FR-4.2); skipped without a key.
     if settings.api_football_api_key:
         from pipeline.ingest.injuries import refresh_injuries
-        from pipeline.ingest.odds import refresh_odds
+        from pipeline.ingest.odds import backfill_finished_odds, refresh_odds
 
         step("odds", lambda: refresh_odds(db, settings.api_football_api_key))
+        # Outage recovery: a match whose pre-kickoff window fell inside a
+        # scheduler outage still gets its frozen pre-match consensus while
+        # api-sports retains it (~7 days post-match). No-op when nothing owed.
+        step("odds_backfill",
+             lambda: backfill_finished_odds(db, settings.api_football_api_key))
         # Day-ahead availability snapshot, BEFORE predictions so the twin can use it.
         step("injuries", lambda: refresh_injuries(db, settings.api_football_api_key))
     else:

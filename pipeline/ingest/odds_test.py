@@ -12,17 +12,17 @@ import pytest
 
 from app.models import Match, Odds, Team, Tournament
 import pipeline.ingest.odds as odds_mod
-from pipeline.ingest.odds import median_prices, refresh_odds
+from pipeline.ingest.odds import backfill_finished_odds, median_prices, refresh_odds
 
 
-def _seed_match(db, *, hours_to_kickoff=12.0, fixture_id=9001) -> Match:
+def _seed_match(db, *, hours_to_kickoff=12.0, fixture_id=9001, status="scheduled") -> Match:
     wc = Tournament(name="FIFA World Cup 2026", year=2026)
     home = Team(name="Mexico")
     away = Team(name="South Africa")
     db.add_all([wc, home, away])
     db.flush()
     m = Match(
-        tournament_id=wc.id, stage="group", status="scheduled",
+        tournament_id=wc.id, stage="group", status=status,
         team_home_id=home.id, team_away_id=away.id,
         kickoff_utc=datetime.now(timezone.utc) + timedelta(hours=hours_to_kickoff),
         provider_fixture_id=fixture_id,
@@ -146,3 +146,93 @@ def test_refresh_skips_unresolvable_fixture_ids(db_session, monkeypatch):
                         lambda key, fid, timeout=15.0: calls.append(fid) or [])
     summary = refresh_odds(db_session, "key")
     assert calls == [] and summary["matches_priced"] == 0
+
+
+# --- post-match backfill (outage recovery) ---------------------------------------
+# A match whose pre-kickoff window fell inside a scheduler outage never got a
+# snapshot; api-sports keeps pre-match odds ~7 days after the fixture, so a
+# backfill pass can still store the frozen pre-match consensus.
+
+def test_backfill_prices_finished_match_missing_odds(db_session, monkeypatch):
+    m = _seed_match(db_session, hours_to_kickoff=-20.0, status="finished")
+    monkeypatch.setattr(odds_mod, "fetch_odds", lambda *a, **k: _response(
+        _bookmaker("A", 1.90, 3.40, 4.00),
+        _bookmaker("B", 2.00, 3.50, 4.20),
+        _bookmaker("C", 2.10, 3.30, 4.40),
+    ))
+
+    summary = backfill_finished_odds(db_session, "key")
+
+    assert summary["matches_priced"] == 1
+    row = db_session.query(Odds).one()
+    assert row.match_id == m.id
+    assert row.bookmaker == "median"
+    assert (row.odds_home, row.odds_draw, row.odds_away) == (2.00, 3.40, 4.20)
+    total = row.implied_prob_home + row.implied_prob_draw + row.implied_prob_away
+    assert total == pytest.approx(1.0)
+    assert row.captured_at is not None
+
+
+def test_backfill_skips_matches_that_already_have_a_snapshot(db_session, monkeypatch):
+    m = _seed_match(db_session, hours_to_kickoff=-20.0, status="finished")
+    db_session.add(Odds(
+        match_id=m.id, bookmaker="median",
+        implied_prob_home=0.5, implied_prob_draw=0.3, implied_prob_away=0.2,
+        captured_at=datetime.now(timezone.utc) - timedelta(hours=30),
+    ))
+    db_session.commit()
+    calls = []
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda key, fid, timeout=15.0: calls.append(fid) or [])
+
+    summary = backfill_finished_odds(db_session, "key")
+
+    assert calls == [] and summary["matches_priced"] == 0
+    assert db_session.query(Odds).count() == 1
+
+
+def test_backfill_reprices_a_snapshot_that_lacks_the_1x2_triple(db_session, monkeypatch):
+    # An OU-only row (no implied triple) can't feed the model-vs-market block,
+    # so the match still counts as unpriced for backfill purposes.
+    m = _seed_match(db_session, hours_to_kickoff=-20.0, status="finished")
+    db_session.add(Odds(match_id=m.id, bookmaker="median",
+                        odds_over25=1.9, odds_under25=1.9,
+                        captured_at=datetime.now(timezone.utc) - timedelta(hours=30)))
+    db_session.commit()
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda *a, **k: _response(_bookmaker("A", 2.0, 3.4, 3.8)))
+
+    summary = backfill_finished_odds(db_session, "key")
+
+    assert summary["matches_priced"] == 1
+    assert db_session.query(Odds).filter(Odds.implied_prob_home.isnot(None)).count() == 1
+
+
+def test_backfill_skips_matches_older_than_the_retention_window(db_session, monkeypatch):
+    _seed_match(db_session, hours_to_kickoff=-24.0 * 10, status="finished")  # 10 days ago
+    calls = []
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda key, fid, timeout=15.0: calls.append(fid) or [])
+    summary = backfill_finished_odds(db_session, "key")
+    assert calls == [] and summary["matches_priced"] == 0
+
+
+def test_backfill_ignores_scheduled_matches(db_session, monkeypatch):
+    _seed_match(db_session)  # scheduled, future — refresh_odds territory
+    calls = []
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda key, fid, timeout=15.0: calls.append(fid) or [])
+    summary = backfill_finished_odds(db_session, "key")
+    assert calls == [] and summary["matches_priced"] == 0
+
+
+def test_backfill_fetch_failure_leaves_db_unchanged_and_never_raises(db_session, monkeypatch):
+    _seed_match(db_session, hours_to_kickoff=-20.0, status="finished")
+
+    def boom(api_key, fixture_id, timeout=15.0):
+        raise RuntimeError("bookmaker feed down")
+
+    monkeypatch.setattr(odds_mod, "fetch_odds", boom)
+    summary = backfill_finished_odds(db_session, "key")  # must not raise
+    assert summary["matches_priced"] == 0
+    assert db_session.query(Odds).count() == 0

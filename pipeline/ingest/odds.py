@@ -38,6 +38,11 @@ _BET_OU = "Goals Over/Under"
 #: well inside 48h of every fixture, so one snapshot per match is guaranteed.
 WINDOW_HOURS = 48.0
 
+#: Post-match backfill horizon: api-sports keeps a fixture's frozen pre-match
+#: odds ~7 days after full time, so an outage-missed match is recoverable
+#: inside this window.
+BACKFILL_DAYS = 7.0
+
 
 def fetch_odds(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[dict]:
     """Return the raw odds list for one fixture from api-sports.io."""
@@ -113,6 +118,41 @@ def _fixture_id(db: Session, match: Match, api_key: str) -> int | None:
     return _resolve_fixture_id(db, match, api_key)
 
 
+def _snapshot_match(db: Session, m: Match, api_key: str, now: datetime) -> bool:
+    """Fetch and stage one median consensus row for ``m``. True when a row was
+    added to the session; False on any per-match miss (no fixture id, feed
+    down, no markets) — logged, never raised, commit stays with the caller."""
+    try:
+        fid = _fixture_id(db, m, api_key)
+        if fid is None:
+            return False
+        med = median_prices(fetch_odds(api_key, fid))
+    except Exception as exc:  # noqa: BLE001 - best-effort per match
+        log.warning("odds fetch failed for match %s: %s", m.id, exc)
+        return False
+    if med is None:
+        return False
+    implied = (None, None, None)
+    if med["home"] is not None:
+        implied = remove_margin((med["home"], med["draw"], med["away"]))
+    db.add(
+        Odds(
+            match_id=m.id,
+            bookmaker="median",
+            odds_home=med["home"],
+            odds_draw=med["draw"],
+            odds_away=med["away"],
+            odds_over25=med["over25"],
+            odds_under25=med["under25"],
+            implied_prob_home=implied[0],
+            implied_prob_draw=implied[1],
+            implied_prob_away=implied[2],
+            captured_at=now,
+        )
+    )
+    return True
+
+
 def refresh_odds(db: Session, api_key: str, window_hours: float = WINDOW_HOURS) -> dict:
     """One best-effort odds pass over upcoming matches. NEVER raises (FR-4.2).
 
@@ -139,42 +179,61 @@ def refresh_odds(db: Session, api_key: str, window_hours: float = WINDOW_HOURS) 
             .all()
         )
         for m in matches:
-            try:
-                fid = _fixture_id(db, m, api_key)
-                if fid is None:
-                    summary["matches_skipped"] += 1
-                    continue
-                med = median_prices(fetch_odds(api_key, fid))
-            except Exception as exc:  # noqa: BLE001 - best-effort per match
-                log.warning("odds fetch failed for match %s: %s", m.id, exc)
+            if _snapshot_match(db, m, api_key, now):
+                summary["matches_priced"] += 1
+            else:
                 summary["matches_skipped"] += 1
-                continue
-            if med is None:
-                summary["matches_skipped"] += 1
-                continue
-            implied = (None, None, None)
-            if med["home"] is not None:
-                implied = remove_margin((med["home"], med["draw"], med["away"]))
-            db.add(
-                Odds(
-                    match_id=m.id,
-                    bookmaker="median",
-                    odds_home=med["home"],
-                    odds_draw=med["draw"],
-                    odds_away=med["away"],
-                    odds_over25=med["over25"],
-                    odds_under25=med["under25"],
-                    implied_prob_home=implied[0],
-                    implied_prob_draw=implied[1],
-                    implied_prob_away=implied[2],
-                    captured_at=now,
-                )
-            )
-            summary["matches_priced"] += 1
         db.commit()
     except Exception as exc:  # noqa: BLE001 - the pass itself must never raise
         db.rollback()
         log.warning("odds refresh aborted: %s", exc)
+        return {"matches_priced": 0, "matches_skipped": summary["matches_skipped"],
+                "error": str(exc)}
+    return summary
+
+
+def backfill_finished_odds(db: Session, api_key: str,
+                           max_age_days: float = BACKFILL_DAYS) -> dict:
+    """Outage recovery: price recently FINISHED matches that never got a
+    pre-kickoff snapshot (e.g. the scheduler was down through kickoff).
+
+    api-sports serves a fixture's frozen pre-match odds for ~7 days after
+    full time, so the prices stored here are still the pre-match consensus —
+    only captured_at is honest (post-match), which keeps these rows out of
+    the pre-kickoff model-vs-market record while letting the match page show
+    the comparison. A match already holding an implied 1X2 triple is left
+    alone. Same best-effort contract as refresh_odds: NEVER raises.
+    """
+    now = datetime.now(timezone.utc)
+    summary = {"matches_priced": 0, "matches_skipped": 0}
+    try:
+        has_triple = (
+            db.query(Odds.id)
+            .filter(Odds.match_id == Match.id, Odds.implied_prob_home.isnot(None))
+            .exists()
+        )
+        matches = (
+            db.query(Match)
+            .filter(
+                Match.status == "finished",
+                Match.team_home_id.isnot(None),
+                Match.team_away_id.isnot(None),
+                Match.kickoff_utc.isnot(None),
+                Match.kickoff_utc >= now - timedelta(days=max_age_days),
+                ~has_triple,
+            )
+            .order_by(Match.kickoff_utc.asc(), Match.id.asc())
+            .all()
+        )
+        for m in matches:
+            if _snapshot_match(db, m, api_key, now):
+                summary["matches_priced"] += 1
+            else:
+                summary["matches_skipped"] += 1
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 - the pass itself must never raise
+        db.rollback()
+        log.warning("odds backfill aborted: %s", exc)
         return {"matches_priced": 0, "matches_skipped": summary["matches_skipped"],
                 "error": str(exc)}
     return summary
