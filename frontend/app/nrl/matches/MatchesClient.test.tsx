@@ -34,14 +34,15 @@ it("defaults to Upcoming with the live strip pinned on top", () => {
 
 it("Finished tab shows results, latest round first, and hides live", () => {
   render(<MatchesClient initial={fixtures} />);
-  fireEvent.click(screen.getByRole("button", { name: "Finished" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
   expect(screen.getByText("Dolphins")).toBeInTheDocument();
   expect(screen.queryByText("Panthers")).not.toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: "Finished" })).toHaveAttribute("aria-selected", "true");
 });
 
 it("Live tab shows only in-window matches", () => {
   render(<MatchesClient initial={fixtures} />);
-  fireEvent.click(screen.getByRole("button", { name: "Live" }));
+  fireEvent.click(screen.getByRole("tab", { name: "Live" }));
   expect(screen.getByText("Panthers")).toBeInTheDocument();
   expect(screen.queryByText("Raiders")).not.toBeInTheDocument();
 });

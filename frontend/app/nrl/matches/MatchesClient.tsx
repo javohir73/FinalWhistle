@@ -61,11 +61,17 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
 
       {/* Segmented control: Upcoming / Live / Finished — styling mirrors the
        *  WC26 MatchesClient island so the two fixtures pages match. */}
-      <div className="mb-6 mt-4 flex gap-1 rounded-[14px] bg-surface-2 p-1">
+      <div
+        role="tablist"
+        aria-label="Fixture filter"
+        className="mb-6 mt-4 flex gap-1 rounded-[14px] bg-surface-2 p-1"
+      >
         {FILTERS.map((f) => (
           <button
             key={f}
             type="button"
+            role="tab"
+            aria-selected={f === filter}
             onClick={() => setFilter(f)}
             className={cn(
               "flex-1 rounded-[11px] px-3 py-2 text-sm font-semibold transition",
