@@ -2,8 +2,11 @@
 # frozen shadow predictions and grade finished matches — against the Render
 # Postgres, via the same DATABASE_URL secret refresh.yml uses.
 #
-# Cadence: NRL rounds run Thu-Sun AEST; the Mon/Fri 18:00 UTC crons ingest
-# completed rounds promptly and freeze predictions well before the next round.
+# Cadence: NRL rounds run Thu-Sun AEST. Same-day sweeps run shortly after each
+# match day's last game ends (there is no live feed — these crons are the only
+# path that lands results, so without them a Thursday result sat "upcoming"
+# until Friday 18:00 and weekend results until Monday). The Mon/Fri 18:00 UTC
+# crons remain the catch-all + pre-round prediction freeze.
 # Manual "Run workflow" covers the one-off backfill and ad-hoc reruns.
 # Deliberately separate from the football daily pipeline (runbook §1).
 # Also refreshes State of Origin (sport="origin") — cheap no-ops outside May-July.
@@ -13,7 +16,9 @@ on:
   schedule:
     - cron: "0 18 * * 1"
     - cron: "0 18 * * 5"
-    - cron: "0 8 * * 2"   # Tue ~18:00 AEST -- after the round's team-list announcement
+    - cron: "0 8 * * 2"     # Tue ~18:00 AEST -- after the round's team-list announcement
+    - cron: "0 13 * * 4,5,6"  # Thu/Fri/Sat ~11pm AEST -- same-day results sweep
+    - cron: "0 9 * * 0"     # Sun ~7pm AEST -- same-day results sweep (last games end ~6pm)
   workflow_dispatch: {}
 
 # Never run two refreshes concurrently: overlapping runs race on
