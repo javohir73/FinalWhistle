@@ -16,7 +16,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 from app.api import (
-    auth, brackets, groups, intel, internal, knockout, leaderboard, markets, market_record,
+    auth, brackets, bridge, groups, intel, internal, knockout, leaderboard, markets, market_record,
     match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, predictions, prob_history, sports, teams,
 )
 from app.config import settings
@@ -268,3 +268,4 @@ app.include_router(nrl_intel.router)
 app.include_router(movers.router)
 app.include_router(intel.router)
 app.include_router(prob_history.router)
+app.include_router(bridge.router)

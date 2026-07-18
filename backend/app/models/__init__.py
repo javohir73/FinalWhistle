@@ -690,6 +690,25 @@ class LearningChainStatus(Base):
     covered_finished: Mapped[int] = mapped_column(Integer, default=0)
 
 
+class BridgeSignup(Base):
+    """WC26 retention bridge (app/api/bridge.py): post-final "what's next" email
+    capture, converting World Cup traffic into NRL users now and a
+    domestic-league launch list for mid-August. UNIQUE(email, source) makes a
+    resubmit idempotent rather than a duplicate row. user_id is best-effort —
+    set only when the request carries a live session cookie."""
+
+    __tablename__ = "bridge_signups"
+    __table_args__ = (UniqueConstraint("email", "source", name="uq_bridge_signup_email_source"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    email: Mapped[str] = mapped_column(String(320))
+    source: Mapped[str] = mapped_column(String(50))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("app_users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 # --- Multi-sport vertical (NRL first; NFL/NBA share these same tables) ---
 # `sport` scopes every row (e.g. "nrl", "nfl") so one schema serves all sports
 # rather than repeating the football tables per sport. Mirrors the football
@@ -987,6 +1006,7 @@ __all__ = [
     "BracketScore",
     "MatchPick",
     "LearningChainStatus",
+    "BridgeSignup",
     "SportTeam",
     "SportMatch",
     "SportPrediction",

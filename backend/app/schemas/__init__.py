@@ -338,6 +338,12 @@ class UserOut(BaseModel):
     email_verified: bool = False
 
 
+# ---- WC26 retention bridge (post-final "what's next" email capture) ----
+class BridgeNotifyIn(BaseModel):
+    email: str
+    source: str = "wc26_final_bridge"
+
+
 # ---- Accounts / brackets / leaderboard ----
 class GroupPickIn(BaseModel):
     match_id: int
