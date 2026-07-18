@@ -93,35 +93,39 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
             <p className="text-sm text-muted">
               Football returns mid-August. Get one email when your league kicks off.
             </p>
-            {status === "success" ? (
-              <p className="mt-2 text-sm font-semibold text-lime-deep" aria-live="polite">
-                Done — one email, mid-August, no spam.
-              </p>
-            ) : (
-              <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
-                <label htmlFor="bridge-email" className="sr-only">
-                  Email address
-                </label>
-                <input
-                  id="bridge-email"
-                  type="email"
-                  required
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Email address"
-                  aria-label="Email address"
-                  className="w-full min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win sm:w-auto"
-                />
-                <button
-                  type="submit"
-                  disabled={status === "submitting"}
-                  className="shrink-0 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-border disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {status === "submitting" ? "Please wait…" : "Notify me"}
-                </button>
-              </form>
-            )}
+            {/* Persistent container so the live region exists before the content
+             *  swap — a screen reader can miss an announcement from a region
+             *  that's inserted at the same moment as its text. */}
+            <div aria-live="polite">
+              {status === "success" ? (
+                <p className="mt-2 text-sm font-semibold text-lime-deep">
+                  Done — one email, mid-August, no spam.
+                </p>
+              ) : (
+                <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
+                  <label htmlFor="bridge-email" className="sr-only">
+                    Email address
+                  </label>
+                  <input
+                    id="bridge-email"
+                    type="email"
+                    required
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Email address"
+                    className="w-full min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win sm:w-auto"
+                  />
+                  <button
+                    type="submit"
+                    disabled={status === "submitting"}
+                    className="shrink-0 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-border disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {status === "submitting" ? "Please wait…" : "Notify me"}
+                  </button>
+                </form>
+              )}
+            </div>
             {status === "error" && (
               <p role="alert" className="mt-2 text-xs font-medium text-loss">
                 Something went wrong — please try again.
