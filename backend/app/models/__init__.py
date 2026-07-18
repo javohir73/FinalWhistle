@@ -701,7 +701,10 @@ class BridgeSignup(Base):
     __table_args__ = (UniqueConstraint("email", "source", name="uq_bridge_signup_email_source"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    email: Mapped[str] = mapped_column(String(320))
+    # 255 matches every other email column in the repo (AppUser, LoginAttempt,
+    # EmailActionAttempt) — the API layer rejects anything over 254 chars
+    # before insert, so this never truncates.
+    email: Mapped[str] = mapped_column(String(255))
     source: Mapped[str] = mapped_column(String(50))
     user_id: Mapped[int | None] = mapped_column(ForeignKey("app_users.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(

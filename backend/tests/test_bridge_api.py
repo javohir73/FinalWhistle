@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.api.bridge as bridge_api
 from app.db import Base, get_db
 from app.main import app
 from app.models import BridgeSignup
@@ -104,4 +105,52 @@ def test_signed_in_user_attaches_user_id(client):
     db = SessionF()
     row = db.query(BridgeSignup).filter_by(email="signedin@example.com").one()
     assert row.user_id == user_id
+    db.close()
+
+
+def test_oversized_email_rejected(client):
+    """A 400-char address passes _EMAIL_RE but must never reach the column —
+    Postgres (unlike sqlite) raises StringDataRightTruncation, which would
+    otherwise surface as a 500."""
+    c, SessionF = client
+    huge = f"{'a' * 300}@example.com"
+    r = c.post("/api/bridge/notify", json={"email": huge})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "invalid_email"
+
+    db = SessionF()
+    assert db.query(BridgeSignup).count() == 0
+    db.close()
+
+
+def test_rate_limited_per_ip_after_cap(client, monkeypatch):
+    """Unauthenticated write with no other guard — mirrors auth.py's register
+    throttle (test_email_verification_api.py's test_register_is_rate_limited_per_ip)."""
+    c, _ = client
+    monkeypatch.setattr(bridge_api, "_BRIDGE_MAX", 2, raising=False)
+    assert c.post("/api/bridge/notify", json={"email": "a@example.com"}).status_code == 200
+    assert c.post("/api/bridge/notify", json={"email": "b@example.com"}).status_code == 200
+    r = c.post("/api/bridge/notify", json={"email": "c@example.com"})
+    assert r.status_code == 429
+    assert r.json()["error"]["code"] == "too_many_attempts"
+
+
+def test_concurrent_duplicate_insert_is_idempotent_not_a_500(client, monkeypatch):
+    """Two concurrent submits can both pass the check-then-insert's pre-check;
+    the second's insert must hit the UNIQUE constraint and still resolve as a
+    no-op success, never a 500 — simulated by forcing the pre-check to miss a
+    row that's already committed."""
+    c, SessionF = client
+    db = SessionF()
+    db.add(BridgeSignup(email="race@example.com", source="wc26_final_bridge"))
+    db.commit()
+    db.close()
+
+    monkeypatch.setattr(bridge_api, "_find_signup", lambda db, email, source: None, raising=False)
+
+    r = c.post("/api/bridge/notify", json={"email": "race@example.com"})
+    assert r.status_code == 200, r.text
+
+    db = SessionF()
+    assert db.query(BridgeSignup).filter_by(email="race@example.com").count() == 1
     db.close()

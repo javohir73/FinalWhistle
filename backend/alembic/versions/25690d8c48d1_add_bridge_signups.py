@@ -25,10 +25,10 @@ def upgrade() -> None:
     op.create_table(
         "bridge_signups",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("email", sa.String(length=255), nullable=False),
         sa.Column("source", sa.String(length=50), nullable=False),
         sa.Column("user_id", sa.Integer(), sa.ForeignKey("app_users.id"), nullable=True),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.UniqueConstraint("email", "source", name="uq_bridge_signup_email_source"),
     )
     op.create_index("ix_bridge_signups_user_id", "bridge_signups", ["user_id"])
