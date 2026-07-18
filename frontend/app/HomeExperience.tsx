@@ -9,6 +9,7 @@ import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { IntelPanel } from "@/components/IntelPanel";
+import { RetentionBridge } from "@/components/RetentionBridge";
 import { Sparkline } from "@/components/Sparkline";
 import { useSelectedCountry } from "@/lib/useSelectedCountry";
 import { useFetch } from "@/lib/useFetch";
@@ -95,28 +96,34 @@ export function HomeExperience({
   // greeting, today's movers, match of the day, and the rest of today.
   if (!changing && selection?.prediction_revealed && selectedTeam) {
     return (
-      <HomeDashboard
-        team={selectedTeam}
-        teams={teams}
-        groups={groups}
-        odds={odds}
-        matches={matches}
-        onChangeCountry={() => setChanging(true)}
-      />
+      <>
+        <RetentionBridge matches={matches} />
+        <HomeDashboard
+          team={selectedTeam}
+          teams={teams}
+          groups={groups}
+          odds={odds}
+          matches={matches}
+          onChangeCountry={() => setChanging(true)}
+        />
+      </>
     );
   }
 
   return (
-    <CountryOnboarding
-      teams={teams}
-      selection={changing ? null : selection}
-      onSelect={(t) => {
-        select(t.id, t.name);
-        setChanging(false);
-      }}
-      onPredict={() => setCalculating(true)}
-      onChangeCountry={() => setChanging(true)}
-    />
+    <>
+      <RetentionBridge matches={matches} />
+      <CountryOnboarding
+        teams={teams}
+        selection={changing ? null : selection}
+        onSelect={(t) => {
+          select(t.id, t.name);
+          setChanging(false);
+        }}
+        onPredict={() => setCalculating(true)}
+        onChangeCountry={() => setChanging(true)}
+      />
+    </>
   );
 }
 
