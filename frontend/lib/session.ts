@@ -212,6 +212,15 @@ export async function getMyBracket(): Promise<SavedBracket | null> {
 export const joinLeaderboard = (body: { display_name: string; visibility: "public" | "private" }) =>
   request<SavedBracket>("/api/leaderboard/join", { method: "POST", body: JSON.stringify(body) });
 
+// ---- WC26 retention bridge (post-final "what's next" email capture) ----
+/** Best-effort: the session cookie (if any) is sent as usual, so the backend
+ *  attaches user_id when the caller is signed in — no extra param needed here. */
+export const notifyBridge = (email: string, source = "wc26_final_bridge") =>
+  request<{ ok: boolean }>("/api/bridge/notify", {
+    method: "POST",
+    body: JSON.stringify({ email, source }),
+  });
+
 // ---- Display-only signed-in hint ----
 // A cached copy of the public user fields so the account indicator can render
 // instantly on every page/navigation (and survive a reload) without waiting on
