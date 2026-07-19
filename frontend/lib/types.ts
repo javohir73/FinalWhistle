@@ -798,3 +798,24 @@ export interface OriginRecord {
   model_version: string;
   disclaimer: string;
 }
+
+// ---- Public device-level retention stats (D7/D14 cohorts since the WC26 final) ----
+export interface RetentionDauPoint {
+  day: string;
+  devices: number;
+}
+
+export interface RetentionCohort {
+  day: string;
+  cohort_size: number;
+  d1: number | null;
+  d7: number | null;
+  d14: number | null;
+}
+
+export interface RetentionStats {
+  since: string;
+  total_devices: number;
+  dau: RetentionDauPoint[];
+  cohorts: RetentionCohort[];
+}

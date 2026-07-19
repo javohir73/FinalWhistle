@@ -26,6 +26,7 @@ import type {
   OriginSeriesResponse,
   Prediction,
   ProbHistory,
+  RetentionStats,
   Team,
   TeamProfile,
   TournamentOdds,
@@ -190,6 +191,12 @@ export const getOriginSeriesServer = (season?: number) =>
     `/api/nrl/origin/series${season ? `?season=${season}` : ""}`, 300);
 export const getOriginRecordServer = () =>
   getServer<OriginRecord>("/api/nrl/origin/record", 300);
+
+/** Public device-level retention stats (D7/D14 cohorts since the WC26 final,
+ *  see backend/app/api/retention.py). The backend already caches this for
+ *  ~10 minutes, so a short ISR revalidate here just avoids hammering it. */
+export const getRetentionServer = () =>
+  getServer<RetentionStats>("/api/retention", 300);
 
 /** Client-side NRL fixtures fetch — backs the /nrl/matches island's 60s
  *  refresh while a game is in its live window. */

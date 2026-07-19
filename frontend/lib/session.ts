@@ -256,3 +256,64 @@ export function clearUserHint(): void {
     /* non-fatal */
   }
 }
+
+// ---- Anonymous device activity ping (D7/D14 retention cohorts) ----
+// A device id is NOT auth — it identifies a browser/install, not a person,
+// and only ever feeds POST /api/activity/ping (backend/app/api/activity.py).
+// The session cookie, if any, is still sent as usual (see notifyBridge above),
+// so the backend attaches user_id server-side without an extra param here.
+const DEVICE_ID_KEY = "fw_device_id";
+const LAST_PING_KEY = "fw_last_ping";
+
+/** The device's stable anonymous id, minted once via crypto.randomUUID() and
+ *  cached in localStorage. SSR-safe: returns null outside the browser (there
+ *  is nothing to persist to server-side, and no ping should ever fire there). */
+export function getOrCreateDeviceId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const existing = window.localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const id = crypto.randomUUID();
+    window.localStorage.setItem(DEVICE_ID_KEY, id);
+    return id;
+  } catch {
+    return null; // storage unavailable (private mode / quota) — non-fatal
+  }
+}
+
+function todayUtcString(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Best-effort once-a-day device ping (see backend/app/api/retention.py's
+ *  D7/D14 cohorts). Skips entirely when today's UTC date is already recorded;
+ *  the marker is set ONLY on a successful POST, so a failed ping retries on
+ *  the next page load rather than going silent for the rest of the day.
+ *  Never throws, never retries within a call, no console noise — this must
+ *  never affect the page it's mounted on. */
+export async function pingDailyActivity(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const today = todayUtcString();
+  let lastPing: string | null;
+  try {
+    lastPing = window.localStorage.getItem(LAST_PING_KEY);
+  } catch {
+    return; // storage unavailable — treat as a best-effort no-op
+  }
+  if (lastPing === today) return;
+  const deviceId = getOrCreateDeviceId();
+  if (!deviceId) return;
+  try {
+    await request<{ ok: boolean }>("/api/activity/ping", {
+      method: "POST",
+      body: JSON.stringify({ device_id: deviceId }),
+    });
+    try {
+      window.localStorage.setItem(LAST_PING_KEY, today);
+    } catch {
+      /* non-fatal — worst case it pings again next load */
+    }
+  } catch {
+    /* best-effort — a failed ping retries next page load, never surfaced */
+  }
+}

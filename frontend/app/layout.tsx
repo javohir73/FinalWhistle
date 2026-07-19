@@ -10,6 +10,7 @@ import { HideOnEmbed } from "@/components/HideOnEmbed";
 import { SiteNav } from "@/components/SiteNav";
 import { BottomNav } from "@/components/BottomNav";
 import { InstallAppPrompt } from "@/components/InstallAppPrompt";
+import { ActivityPing } from "@/components/ActivityPing";
 import { ServiceWorker } from "@/components/ServiceWorker";
 import { SentryInit } from "@/components/SentryInit";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -110,6 +111,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </HideOnEmbed>
           <BottomNav />
           <InstallAppPrompt />
+          <ActivityPing />
         </AuthProvider>
         <Analytics />
       </body>
