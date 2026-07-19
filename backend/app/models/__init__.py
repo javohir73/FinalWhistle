@@ -712,6 +712,29 @@ class BridgeSignup(Base):
     )
 
 
+class DailyActivity(Base):
+    """Anonymous device-level daily ping (app/api/activity.py): the source of
+    truth for D7/D14 retention cohorts measured from the WC26 final
+    (2026-07-19). UNIQUE(device_id, day) makes a same-day duplicate ping
+    idempotent rather than a second row. Most traffic never signs up, so
+    device_id — not user_id — is the cohort key; user_id is best-effort, set
+    only when the request carries a live session cookie."""
+
+    __tablename__ = "daily_activity"
+    __table_args__ = (
+        UniqueConstraint("device_id", "day", name="uq_daily_activity_device_day"),
+        Index("ix_daily_activity_day", "day"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(64))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("app_users.id"), index=True)
+    day: Mapped[date] = mapped_column(Date)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 # --- Multi-sport vertical (NRL first; NFL/NBA share these same tables) ---
 # `sport` scopes every row (e.g. "nrl", "nfl") so one schema serves all sports
 # rather than repeating the football tables per sport. Mirrors the football
@@ -1010,6 +1033,7 @@ __all__ = [
     "MatchPick",
     "LearningChainStatus",
     "BridgeSignup",
+    "DailyActivity",
     "SportTeam",
     "SportMatch",
     "SportPrediction",
