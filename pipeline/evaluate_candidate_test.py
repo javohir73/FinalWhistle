@@ -83,6 +83,44 @@ def test_evaluate_rules_fail_on_draw_ece_delta_over_tolerance():
     assert checks["draw_ece_delta"]["ok"] is False
 
 
+def test_evaluate_rules_ece_delta_at_exact_tolerance_is_not_a_hard_fail():
+    """ECE_TOL is a <= bound: exactly 0.010 must pass the check."""
+    gate = _gate(ll_ci=(-0.02, -0.005), ece_d=0.010)
+    res = evaluate_rules(gate, Thresholds())
+    checks = {c["name"]: c for c in res["checks"]}
+    assert checks["ece_delta"]["ok"] is True
+    assert res["verdict"] == "PASS"
+
+
+def test_evaluate_rules_draw_ece_delta_at_exact_tolerance_is_not_a_hard_fail():
+    """DRAW_ECE_TOL is a <= bound: exactly 0.015 must pass the check."""
+    gate = _gate(ll_ci=(-0.02, -0.005), draw_ece_d=0.015)
+    res = evaluate_rules(gate, Thresholds())
+    checks = {c["name"]: c for c in res["checks"]}
+    assert checks["draw_ece_delta"]["ok"] is True
+    assert res["verdict"] == "PASS"
+
+
+def test_evaluate_rules_log_loss_ci_upper_exactly_zero_is_neutral_not_pass():
+    """PASS needs ci[1] < 0 (strict); an upper bound of exactly 0 is not a
+    credible win, so the verdict must stay NEUTRAL."""
+    gate = _gate(ll_ci=(-0.01, 0.0))
+    res = evaluate_rules(gate, Thresholds())
+    checks = {c["name"]: c for c in res["checks"]}
+    assert checks["log_loss_not_worse"]["ok"] is True  # ci[0] <= 0, not a hard fail
+    assert res["verdict"] == "NEUTRAL"
+
+
+def test_evaluate_rules_log_loss_ci_lower_exactly_zero_is_neutral_not_fail():
+    """HARD FAIL needs ci[0] > 0 (strict); a lower bound of exactly 0 is not a
+    credible loss, so the verdict must stay NEUTRAL (not FAIL)."""
+    gate = _gate(ll_ci=(0.0, 0.01))
+    res = evaluate_rules(gate, Thresholds())
+    checks = {c["name"]: c for c in res["checks"]}
+    assert checks["log_loss_not_worse"]["ok"] is True  # ci[0] == 0, not > 0
+    assert res["verdict"] == "NEUTRAL"
+
+
 def test_evaluate_rules_neutral_capped_when_unmeasured_lever_differs():
     """Even a winning log-loss CI cannot PASS if a lever the harness can't
     measure (e.g. use_availability) differs from the baseline."""
@@ -197,9 +235,7 @@ def test_assert_leakfree_raises_on_missing_pre_ratings():
 
 # --- build_report shape --------------------------------------------------------
 
-def test_build_report_has_all_documented_top_level_keys():
-    from pipeline.evaluate_candidate import build_report
-
+def _edition_rows() -> list[dict]:
     rows = []
     for yr in range(2004, 2024):
         comp = "FIFA World Cup" if yr % 4 == 2 else "Friendly"
@@ -210,10 +246,49 @@ def test_build_report_has_all_documented_top_level_keys():
                 "competition": comp, "score_home": 2, "score_away": 0,
                 "date": date(yr, 6, 1 + (i % 20)),
             })
+    return rows
 
-    report = build_report(rows, DEFAULT_PARAMS, DEFAULT_PARAMS, since_year=2004, n_boot=10)
+
+def test_build_report_has_all_documented_top_level_keys():
+    from pipeline.evaluate_candidate import build_report
+
+    report = build_report(_edition_rows(), DEFAULT_PARAMS, DEFAULT_PARAMS, since_year=2004, n_boot=10)
     for key in ("candidate_version", "baseline_version", "since_year", "n_boot", "editions",
-                "matches", "summary", "deltas", "close_match", "rules", "market", "levers", "notes"):
+                "matches", "summary", "deltas", "close_match", "rules", "market", "levers",
+                "levers_resolved", "notes"):
         assert key in report, f"missing {key}"
     assert report["rules"]["verdict"] in ("PASS", "FAIL", "NEUTRAL")
     assert report["market"]["status"] == "not_evaluated"
+
+
+# --- build_report: team_offsets is ALWAYS advisory-only (review M1/M2) --------
+
+@pytest.mark.parametrize("advisory_verdict", ["SHIP", "do-not-ship"])
+def test_build_report_caps_neutral_when_only_team_offsets_differs(monkeypatch, advisory_verdict):
+    """A team_offsets diff must NEVER unblock PASS, no matter what the dedicated
+    run_team_offsets_gate backtest says — that backtest re-fits fresh offsets
+    from history, it does not validate the candidate's actual shipped
+    team_offsets file. Pins the write side of the levers coupling: build_report
+    must always fold team_offsets to NOT_HISTORICALLY_EVALUABLE regardless of
+    the advisory verdict, and surface the advisory result for a human to read."""
+    import pipeline.evaluate_candidate as ec
+    from dataclasses import replace
+
+    def _stub_team_offsets_gate(rows, n_boot=2000, served_params=None, **kwargs):
+        return {"verdict": advisory_verdict, "test_n": 42, "editions": 3}
+
+    monkeypatch.setattr(ec, "run_team_offsets_gate", _stub_team_offsets_gate)
+
+    baseline = DEFAULT_PARAMS
+    candidate = replace(baseline, team_offsets={"file": "team_offsets.json"})
+
+    report = ec.build_report(_edition_rows(), candidate, baseline, since_year=2004, n_boot=10)
+
+    assert "team_offsets_gate" in report
+    assert report["team_offsets_gate"]["verdict"] == advisory_verdict
+    assert report["rules"]["verdict"] == "NEUTRAL"
+    assert report["levers"]["team_offsets"] != NOT_HISTORICALLY_EVALUABLE  # raw tag, unresolved
+    resolved = report["levers_resolved"]["team_offsets"]
+    assert resolved.startswith(NOT_HISTORICALLY_EVALUABLE)
+    assert advisory_verdict in resolved
+    assert any("advisory" in n.lower() for n in report["notes"])

@@ -12,17 +12,45 @@ an eyeballed one:
     a blocker on their own.
   - PASS requires the log-loss CI to exclude 0 in the candidate's favor AND
     every differing ModelParams lever to be one this harness can actually
-    measure. wdl_and_grid only applies the goals/calibration levers (base,
-    beta, home_adv, rho, temperature, calibrator) plus team_offsets (which
-    gets its own dedicated walk-forward backtest, run_team_offsets_gate);
-    every other lever (use_availability, w_odds, use_odds, wdl_blend,
-    form_channels, suspensions, rest_days, pk_beta, et_tempo,
-    pk_keeper_delta) only takes effect on the live serving path. If one of
-    those differs, the gate can't see its effect at all — so it refuses to
-    PASS and caps the verdict at NEUTRAL instead of silently ignoring it.
+    measure AND validate. wdl_and_grid only applies the goals/calibration
+    levers (base, beta, home_adv, rho, temperature, calibrator) — those,
+    and only those, can clear the way to PASS. Every other lever caps the
+    verdict at NEUTRAL:
+      * use_availability, w_odds, use_odds, wdl_blend, form_channels,
+        suspensions, rest_days, pk_beta, et_tempo, pk_keeper_delta only
+        take effect on the live serving path — this harness can't see
+        their effect at all.
+      * team_offsets is different in kind: it DOES have a dedicated
+        historical backtest (run_team_offsets_gate), but that backtest
+        re-fits fresh walk-forward offsets from history — it certifies the
+        per-team attack/defence OFFSETTING MECHANISM on this data, never
+        the candidate's actual shipped team_offsets FILE CONTENT. A stale
+        or corrupt offsets file would still show SHIP. So a team_offsets
+        diff always caps the verdict at NEUTRAL too; its backtest result
+        is included in the report as an ADVISORY block only (see
+        `team_offsets_gate` below). A team_offsets change ships by running
+        run_team_offsets_gate directly plus owner judgment — never via an
+        evaluate_candidate PASS.
 
 This gate does not evaluate market/odds-anchoring behavior (no historical
 odds coverage) — see the `market` block in the report.
+
+Report shape (build_report): everything run_candidate_gate returns
+(candidate_version, baseline_version, since_year, n_boot, editions,
+matches, summary, deltas, close_match) plus:
+  - `rules`: the verdict + per-check breakdown + warnings (evaluate_rules).
+  - `market`: always {"status": "not_evaluated", ...} — see above.
+  - `levers`: the raw which_levers_differ classification ("historical",
+    the team_offsets tag, or NOT_HISTORICALLY_EVALUABLE) per differing field.
+  - `levers_resolved`: the same map, but team_offsets's entry is annotated
+    with its advisory backtest verdict — e.g. "...(advisory: SHIP)" or
+    "...(advisory: do-not-ship)" — so a reader can see the outcome without
+    cross-referencing `notes`. It is still NOT_HISTORICALLY_EVALUABLE for
+    rule-engine purposes either way.
+  - `team_offsets_gate`: the full run_team_offsets_gate() result, present
+    only when team_offsets differs. Advisory only — see above.
+  - `notes`: free-text caveats (calibrator fit-window overlap, the
+    team_offsets advisory disclaimer, etc).
 
 Usage:
     PYTHONPATH=backend:. .venv/bin/python -m pipeline.evaluate_candidate \\
@@ -101,11 +129,15 @@ def _coerce(raw: str, type_str: str):
 
 def which_levers_differ(candidate: ModelParams, baseline: ModelParams) -> dict[str, str]:
     """Classify every ModelParams field where candidate != baseline (ignoring
-    `version`): "historical" (fully evaluable by run_candidate_gate),
-    "team_offsets" (evaluable via the dedicated run_team_offsets_gate
-    backtest, folded in separately), or NOT_HISTORICALLY_EVALUABLE for
-    every other lever — those only run on the live serving path, so this
-    harness has no way to measure their effect."""
+    `version`): "historical" (fully evaluable by run_candidate_gate — can
+    clear the way to PASS), "team_offsets" (has a dedicated backtest,
+    run_team_offsets_gate, but that backtest validates the offsetting
+    MECHANISM on fresh walk-forward fits, not the candidate's actual
+    shipped file — so it is folded into the report as advisory-only and
+    NEVER clears PASS, same as an unmeasurable lever), or
+    NOT_HISTORICALLY_EVALUABLE for every other lever — those only run on
+    the live serving path, so this harness has no way to measure their
+    effect at all."""
     out: dict[str, str] = {}
     for f in dataclasses.fields(candidate):
         if f.name == "version":
@@ -122,9 +154,15 @@ def which_levers_differ(candidate: ModelParams, baseline: ModelParams) -> dict[s
 
 
 def assert_leakfree(rows: list[dict]) -> None:
-    """Assert rows are date-ascending and every row carries pre-match ratings
-    (backtest_data schema: pre_home/pre_away already reflect only strictly
-    earlier matches). Raises AssertionError with a clear message otherwise."""
+    """Sanity check, not a leak-free proof: assert rows are date-ascending
+    and every row carries pre-match rating keys (pre_home/pre_away, the
+    backtest_data schema). This can only catch gross mistakes — rows fed in
+    out of order, or a row shape that never went through the real pipeline
+    — it cannot verify that pre_home/pre_away actually reflect only
+    strictly earlier matches. That guarantee is built by construction in
+    pipeline.backtest_data.build_enriched_rows / ml.ratings.elo's
+    replay_with_prematch, which this function does not (and cannot)
+    re-derive. Raises AssertionError with a clear message on failure."""
     from ml.features.training_rows import _as_date
 
     prev = None
@@ -211,8 +249,10 @@ def build_report(rows: list[dict], candidate: ModelParams, baseline: ModelParams
                  since_year: int = 2004, n_boot: int = 2000,
                  thresholds: Thresholds = Thresholds()) -> dict:
     """The full gate report: run_candidate_gate's metrics, the pure rule
-    verdict, and lever bookkeeping so a lever the gate can't measure never
-    slips through as a silent PASS."""
+    verdict, and lever bookkeeping so a lever the gate can't measure — or,
+    for team_offsets, can't fully validate — never slips through as a
+    silent PASS. See the module docstring's "Report shape" section for the
+    full key list."""
     gate = run_candidate_gate(rows, candidate, baseline, since_year=since_year, n_boot=n_boot)
     levers = which_levers_differ(candidate, baseline)
 
@@ -223,20 +263,34 @@ def build_report(rows: list[dict], candidate: ModelParams, baseline: ModelParams
             "fit window (e.g. pipeline/fit_calibrator's 730-day lookback); confirm it was fit "
             "strictly before the earliest evaluated edition before trusting a close call.")
 
-    # team_offsets is evaluable, just not by run_candidate_gate's fixed-grid
-    # scoring — it needs its own walk-forward fit per edition. Run it and
-    # fold the verdict back into the levers the rule engine sees: SHIP stops
-    # blocking PASS, anything else keeps the NEUTRAL cap (do-not-harm).
+    # team_offsets has a dedicated backtest (run_team_offsets_gate), but that
+    # backtest re-fits fresh walk-forward offsets from history — it never
+    # validates the candidate's actual shipped team_offsets FILE, so a SHIP
+    # verdict there cannot be trusted to clear a corrupt/stale file (review
+    # M1). A pure-offsets candidate also can't PASS on log-loss alone: its
+    # run_candidate_gate log-loss CI is (0, 0) because wdl_and_grid never
+    # reads params.team_offsets (M2). So a team_offsets diff ALWAYS caps the
+    # verdict at NEUTRAL — same treatment as an unmeasurable lever — and its
+    # backtest result is surfaced as an ADVISORY block only. Promoting a
+    # team_offsets change is a run-run_team_offsets_gate-directly-plus-owner
+    # decision, never an evaluate_candidate PASS.
     rule_levers = dict(levers)
+    levers_resolved = dict(levers)
     team_offsets_gate = None
     if "team_offsets" in levers:
         team_offsets_gate = run_team_offsets_gate(rows, n_boot=n_boot, served_params=baseline)
         notes.append(
             f"team_offsets lever differs from baseline — ran the dedicated "
-            f"run_team_offsets_gate backtest: {team_offsets_gate['verdict']}.")
-        rule_levers["team_offsets"] = (
-            "team_offsets (cleared: run_team_offsets_gate SHIP)"
-            if team_offsets_gate["verdict"] == "SHIP" else NOT_HISTORICALLY_EVALUABLE)
+            f"run_team_offsets_gate backtest as an ADVISORY signal only "
+            f"(verdict: {team_offsets_gate['verdict']}). That backtest certifies the "
+            f"offsetting MECHANISM on this data, not the candidate's actual shipped "
+            f"team_offsets file, so it can never clear the NEUTRAL cap here — a "
+            f"team_offsets promotion ships via run_team_offsets_gate + owner judgment, "
+            f"never via this gate's PASS.")
+        rule_levers["team_offsets"] = NOT_HISTORICALLY_EVALUABLE
+        levers_resolved["team_offsets"] = NOT_HISTORICALLY_EVALUABLE + (
+            " (advisory: SHIP)" if team_offsets_gate["verdict"] == "SHIP"
+            else " (advisory: do-not-ship)")
 
     rules = evaluate_rules({**gate, "levers": rule_levers}, thresholds)
 
@@ -244,6 +298,7 @@ def build_report(rows: list[dict], candidate: ModelParams, baseline: ModelParams
     report["rules"] = rules
     report["market"] = {"status": "not_evaluated", "reason": "no odds coverage for historical window"}
     report["levers"] = levers
+    report["levers_resolved"] = levers_resolved
     if team_offsets_gate is not None:
         report["team_offsets_gate"] = team_offsets_gate
     report["notes"] = notes
@@ -288,11 +343,12 @@ def _print_summary(report: dict) -> None:
     print(f"  {'draw_ece':10s} d={d['draw_ece']['d']:+.4f}  (point estimate, no CI)")
 
     cm = report["close_match"]
+    fmt_ll = lambda v: f"{v:.4f}" if v is not None else "n/a (no draws in subset)"
     print(f"\nClose-match (effective gap < 50, n={cm['n']}): d_top1={cm['d_top1']:+.4f}  "
-          f"cand_draw_ll={cm['cand_draw_ll']:.4f}  base_draw_ll={cm['base_draw_ll']:.4f}")
+          f"cand_draw_ll={fmt_ll(cm['cand_draw_ll'])}  base_draw_ll={fmt_ll(cm['base_draw_ll'])}")
 
     print("\nLevers that differ from baseline:" if report["levers"] else "\nNo levers differ from baseline.")
-    for k, v in report["levers"].items():
+    for k, v in report["levers_resolved"].items():
         print(f"  {k}: {v}")
 
     print(f"\nMarket: {report['market']['status']} — {report['market']['reason']}")

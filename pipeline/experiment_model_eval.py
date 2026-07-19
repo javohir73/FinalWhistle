@@ -710,8 +710,10 @@ def run_candidate_gate(rows: list[dict], candidate: ModelParams, baseline: Model
         "n": len(close_idx),
         "d_top1": (float(np.mean([cand_rec["top1"][i] - base_rec["top1"][i] for i in close_idx]))
                    if close_idx else 0.0),
-        "cand_draw_ll": float(np.mean([cand_rec["ll"][i] for i in draw_idx])) if draw_idx else 0.0,
-        "base_draw_ll": float(np.mean([base_rec["ll"][i] for i in draw_idx])) if draw_idx else 0.0,
+        # None (not 0.0) when the close-match subset has no draws — 0.0 would
+        # read as a suspiciously perfect log-loss instead of "no data".
+        "cand_draw_ll": float(np.mean([cand_rec["ll"][i] for i in draw_idx])) if draw_idx else None,
+        "base_draw_ll": float(np.mean([base_rec["ll"][i] for i in draw_idx])) if draw_idx else None,
     }
 
     return {
