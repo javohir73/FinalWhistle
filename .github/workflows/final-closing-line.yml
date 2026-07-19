@@ -1,0 +1,25 @@
+# TEMPORARY — closing-line odds capture for the WC26 final (Jul 19 2026, 19:00 UTC).
+# Owner-approved 2026-07-19: dispatches the normal refresh-data pipeline at
+# ~T-6h / ~T-1h / ~T-25m so the odds table holds a phased pre-match archive
+# for match 104 (Spain–Argentina). GitHub cron can lag a few minutes, hence
+# the early offsets. DELETE THIS FILE after the final (second approved commit).
+name: final-closing-line
+
+on:
+  schedule:
+    - cron: "0 13 19 7 *"
+    - cron: "50 17 19 7 *"
+    - cron: "35 18 19 7 *"
+  workflow_dispatch: {}
+
+permissions:
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch refresh-data
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run refresh.yml --repo "${{ github.repository }}"
