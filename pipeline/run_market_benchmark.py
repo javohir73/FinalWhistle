@@ -127,6 +127,11 @@ def run_historical(csv_path: str, year: int, emit_json: str | None = None) -> in
     return 0
 
 
+#: A second benchmark (model vs. the OPENING line) is only worth reporting
+#: once enough matches carry an opening-phase snapshot to say something.
+_MIN_OPENING_COMPARISON_MATCHES = 10
+
+
 def market_record(db) -> dict:
     """Model-vs-market comparison from the live DB, page-ready. Honest-empty
     (status='pending') when no finished match has both a pre-kickoff prediction
@@ -144,6 +149,7 @@ def market_record(db) -> dict:
     )
 
     matched: list[MatchedMatch] = []
+    opening_matched: list[MatchedMatch] = []
     skipped_no_odds = skipped_no_pred = 0
     for m in finished:
         odds_q = db.query(Odds).filter(
@@ -151,7 +157,12 @@ def market_record(db) -> dict:
         )
         if m.kickoff_utc is not None:
             odds_q = odds_q.filter(Odds.captured_at <= m.kickoff_utc)
-        o = odds_q.order_by(Odds.captured_at.desc()).first()
+        candidates = odds_q.order_by(Odds.captured_at.desc()).all()
+        # Prefer the closing-line snapshot when we have one; else the latest
+        # pre-kickoff row (legacy behavior — NULL-phase rows keep working).
+        o = next((c for c in candidates if c.snapshot_phase == "closing"), None)
+        if o is None:
+            o = candidates[0] if candidates else None
         if o is None:
             skipped_no_odds += 1
             continue
@@ -171,27 +182,44 @@ def market_record(db) -> dict:
         if sh is None or sa is None:
             continue
         label = "H" if sh > sa else ("A" if sh < sa else "D")
+        date = (m.kickoff_utc or datetime.now(timezone.utc)).date()
+        home = id_to_name.get(m.team_home_id, str(m.team_home_id))
+        away = id_to_name.get(m.team_away_id, str(m.team_away_id))
+        model_probs = (p.prob_home_win, p.prob_draw, p.prob_away_win)
         matched.append(MatchedMatch(
-            date=(m.kickoff_utc or datetime.now(timezone.utc)).date(),
-            home=id_to_name.get(m.team_home_id, str(m.team_home_id)),
-            away=id_to_name.get(m.team_away_id, str(m.team_away_id)),
-            model_probs=(p.prob_home_win, p.prob_draw, p.prob_away_win),
+            date=date, home=home, away=away, model_probs=model_probs,
             market_probs=(o.implied_prob_home, o.implied_prob_draw, o.implied_prob_away),
             label=label,
         ))
 
+        opening = next((c for c in candidates if c.snapshot_phase == "opening"), None)
+        if opening is not None:
+            opening_matched.append(MatchedMatch(
+                date=date, home=home, away=away, model_probs=model_probs,
+                market_probs=(opening.implied_prob_home, opening.implied_prob_draw,
+                             opening.implied_prob_away),
+                label=label,
+            ))
+
     log.info(
-        "market record: finished=%d benchmarked=%d no_odds=%d no_pred=%d",
-        len(finished), len(matched), skipped_no_odds, skipped_no_pred,
+        "market record: finished=%d benchmarked=%d no_odds=%d no_pred=%d opening=%d",
+        len(finished), len(matched), skipped_no_odds, skipped_no_pred, len(opening_matched),
     )
     if not matched:
         return dict(_EMPTY_MARKET_RECORD)
     result = benchmark(matched)
-    return result_to_json(
+    payload = result_to_json(
         result,
         "WC26 live (final pre-kickoff consensus we captured)",
         datetime.now(timezone.utc).isoformat(),
     )
+    if len(opening_matched) >= _MIN_OPENING_COMPARISON_MATCHES:
+        payload["opening_comparison"] = result_to_json(
+            benchmark(opening_matched),
+            "WC26 live (opening line vs model)",
+            datetime.now(timezone.utc).isoformat(),
+        )
+    return payload
 
 
 def run_live(emit_json: str | None = None) -> int:
