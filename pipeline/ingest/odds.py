@@ -220,6 +220,23 @@ def snapshot_phased_odds(db: Session, api_key: str, budget: int = MAX_FETCHES_PE
     closest-kickoff-first and capped at ``budget`` fetches per pass — the
     api-sports free tier can't afford an unbounded hourly pass. Anything past
     the cap is left for a later pass and counted in ``budget_skipped``.
+
+    DUPLICATES ARE TOLERATED BY DESIGN: there's no unique constraint on
+    (match_id, snapshot_phase), so an overlapping pass (this cron plus a
+    manual workflow_dispatch, say) can rarely write two rows for the same
+    band. That's fine — run_market_benchmark.market_record always resolves
+    to the latest row per phase, and the extra api-sports call is negligible
+    against the daily quota below.
+
+    QUOTA: at most 5 fetches per match over its lifetime (one per band).
+    This pass and the daily refresh_odds pass share api-sports' free tier
+    (~100 req/day) — MAX_FETCHES_PER_PASS=40 leaves headroom for both plus
+    the live/lineups paths. On quota exhaustion, fetches simply fail (the
+    per-match best-effort contract below), so nothing is written for that
+    match this pass; a still-due band is picked up on a later hourly pass
+    (self-healing for the wider bands), but a band narrow enough to fully
+    elapse during an exhausted day (t1, closing) can be permanently missed —
+    market_record's pre-kickoff fallback absorbs that gap.
     """
     if now is None:
         now = datetime.now(timezone.utc)
@@ -244,6 +261,9 @@ def snapshot_phased_odds(db: Session, api_key: str, budget: int = MAX_FETCHES_PE
             kickoff = m.kickoff_utc if m.kickoff_utc.tzinfo else m.kickoff_utc.replace(
                 tzinfo=timezone.utc)  # SQLite drops tzinfo
             hours_to_kickoff = (kickoff - now).total_seconds() / 3600.0
+            # No unique constraint on (match_id, snapshot_phase) — an overlapping
+            # pass can rarely add a duplicate for a band already in this set.
+            # Tolerated by design (see docstring); we just skip re-fetching it.
             existing_phases = {
                 row[0] for row in
                 db.query(Odds.snapshot_phase)
