@@ -617,6 +617,116 @@ def run_global_split(rows: list[dict], train_lo: int, train_hi: int, test_since:
     }
 
 
+def run_candidate_gate(rows: list[dict], candidate: ModelParams, baseline: ModelParams,
+                       since_year: int = 2004, n_boot: int = 2000) -> dict:
+    """Hard promotion gate: score EVERY major-tournament-final match since
+    `since_year` under BOTH fixed param sets — no per-edition refitting, no
+    train/test split. candidate and baseline are complete fitted artifacts,
+    same philosophy as run_global_split's honest "can we ship a fixed model"
+    test, just against an arbitrary baseline rather than a freshly-tuned one.
+
+    Returns paired per-match deltas (candidate - baseline) with an
+    edition-clustered bootstrap CI on log_loss/rps/brier/exact_nll/top5 — the
+    only metrics reported with a CI, matching the module's existing
+    convention that pooled/per-class ECE are point estimates. Also reports a
+    close-match (effective gap < 50) slice, since that is where the model's
+    draw pathology bites hardest.
+    """
+    editions = tournament_editions(rows, since_year)
+    edition_keys: list[tuple] = []
+    eff_gaps: list[float] = []
+
+    def _blank() -> dict:
+        return {"ll": [], "rps": [], "brier": [], "esnll": [], "top1": [], "top3": [], "top5": [],
+                "wdl": [], "labels": []}
+
+    cand_rec, base_rec = _blank(), _blank()
+    match_count = 0
+
+    for comp, year, target in editions:
+        for r in target:
+            label = _LABEL_INDEX[result_label(r["score_home"], r["score_away"])]
+            sh, sa = r["score_home"], r["score_away"]
+            edition_keys.append((comp, year))
+            # Eval-side gap convention: bucket on the BASELINE's home-advantage
+            # (mirrors run_draw_cal_gate, which fits/buckets against the served
+            # engine, not the candidate under test).
+            eff_gaps.append(effective_gap(r["pre_home"], r["pre_away"], _eval_adv(r["is_neutral"], baseline)))
+            match_count += 1
+            for rec, params in ((cand_rec, candidate), (base_rec, baseline)):
+                wdl, grid = wdl_and_grid(r["pre_home"], r["pre_away"], r["is_neutral"], params)
+                rec["ll"].append(-math.log(max(_EPS, min(1 - _EPS, wdl[label]))))
+                rec["rps"].append(ranked_probability_score(wdl, label))
+                rec["brier"].append(sum((wdl[k] - (1.0 if k == label else 0.0)) ** 2 for k in range(3)))
+                rec["esnll"].append(exact_score_nll(grid, sh, sa))
+                pick = production_scoreline_pick(grid, wdl[0], wdl[1], wdl[2])
+                rec["top1"].append(1.0 if pick == (sh, sa) else 0.0)
+                rec["top3"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 3) else 0.0)
+                rec["top5"].append(1.0 if top_k_scoreline_hit(grid, sh, sa, 5) else 0.0)
+                rec["wdl"].append(wdl)
+                rec["labels"].append(label)
+
+    def summarize(rec: dict) -> dict:
+        n = len(rec["ll"])
+        if n == 0:
+            return {"log_loss": 0.0, "rps": 0.0, "brier": 0.0, "exact_nll": 0.0,
+                    "top1": 0.0, "top3": 0.0, "top5": 0.0, "ece": 0.0,
+                    "per_class": {"home": 0.0, "draw": 0.0, "away": 0.0}}
+        return {
+            "log_loss": float(np.mean(rec["ll"])),
+            "rps": float(np.mean(rec["rps"])),
+            "brier": float(np.mean(rec["brier"])),
+            "exact_nll": float(np.mean(rec["esnll"])),
+            "top1": float(np.mean(rec["top1"])),
+            "top3": float(np.mean(rec["top3"])),
+            "top5": float(np.mean(rec["top5"])),
+            "ece": expected_calibration_error(rec["wdl"], rec["labels"], bins=10),
+            "per_class": per_class_calibration_error(rec["wdl"], rec["labels"], bins=10),
+        }
+
+    cand_summary, base_summary = summarize(cand_rec), summarize(base_rec)
+    rng = np.random.default_rng(2026)
+
+    def delta_ci(key: str) -> dict:
+        d = np.array(cand_rec[key]) - np.array(base_rec[key])
+        if len(d) == 0:
+            return {"d": 0.0, "ci": (0.0, 0.0)}
+        return {"d": float(d.mean()), "ci": block_bootstrap_ci(d, edition_keys, n_boot, rng)}
+
+    deltas = {
+        "log_loss": delta_ci("ll"),
+        "rps": delta_ci("rps"),
+        "brier": delta_ci("brier"),
+        "exact_nll": delta_ci("esnll"),
+        "top5": delta_ci("top5"),
+        # Point estimates only (no CI) — matches the module's existing convention.
+        "ece": {"d": cand_summary["ece"] - base_summary["ece"]},
+        "draw_ece": {"d": cand_summary["per_class"]["draw"] - base_summary["per_class"]["draw"]},
+    }
+
+    close_idx = [i for i, g in enumerate(eff_gaps) if gap_bucket(g) == "0-50"]
+    draw_idx = [i for i in close_idx if cand_rec["labels"][i] == _LABEL_INDEX["D"]]
+    close_match = {
+        "n": len(close_idx),
+        "d_top1": (float(np.mean([cand_rec["top1"][i] - base_rec["top1"][i] for i in close_idx]))
+                   if close_idx else 0.0),
+        "cand_draw_ll": float(np.mean([cand_rec["ll"][i] for i in draw_idx])) if draw_idx else 0.0,
+        "base_draw_ll": float(np.mean([base_rec["ll"][i] for i in draw_idx])) if draw_idx else 0.0,
+    }
+
+    return {
+        "candidate_version": candidate.version,
+        "baseline_version": baseline.version,
+        "since_year": since_year,
+        "n_boot": n_boot,
+        "editions": len(editions),
+        "matches": match_count,
+        "summary": {"candidate": cand_summary, "baseline": base_summary},
+        "deltas": deltas,
+        "close_match": close_match,
+    }
+
+
 def run_blend_gate(rows: list[dict], train_lo: int = 2004, tail_years: int = 2,
                    test_since: int = 2018, n_boot: int = 2000,
                    served_params: ModelParams | None = None) -> dict:
