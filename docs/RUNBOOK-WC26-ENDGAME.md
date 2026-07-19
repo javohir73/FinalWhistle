@@ -35,7 +35,27 @@
    loss on ALL THREE holdouts (2018, 2022, WC26 replay). Otherwise it stays
    dark; record the result in docs/MODEL-V2-DESIGN.md §5b either way.
 
-## 4. Post-deploy verification (any promotion)
+## 4. Availability promotion
+
+The availability twin is measured live only (no XI data pre-2026 means it can't
+be historically backtested), so its promotion gate is a separate, weaker-n
+machine check rather than the odds twin's job-summary line.
+
+- Read it from the same shadow-record run summary: `shadow-record.yml`'s
+  "Availability promotion gate" section (`pipeline.run_availability_benchmark
+  .availability_gate` over the fetched availability-record — tested Python,
+  not jq) reports GATE MET / GATE NOT MET, n vs min_n, Δ log-loss, and a reason.
+- Criteria: n >= 20 scored pairs (production + availability twin both present
+  on the same finished match) AND diff_ci95's upper bound < 0 (availability
+  credibly ahead of production on log loss across the whole interval — same
+  CI convention as the odds gate, just a lower n floor given how few matches
+  carry announced-XI data).
+- Promote only after GATE MET: `PYTHONPATH=backend:. .venv/bin/python -m
+  pipeline.promote_blend --use-availability --ship`, shipped via PR through
+  the stop gate — model_params.json changes are a manual owner decision, same
+  as the odds twin. Bump MODEL_VERSION in render.yaml in lockstep.
+
+## 5. Post-deploy verification (any promotion)
 - GET /api/health → status ok.
 - GET /api/model/record → model_version reflects the new env pin.
 - Spot-check one scheduled match card: probabilities present, availability
