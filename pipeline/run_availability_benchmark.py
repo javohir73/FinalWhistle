@@ -11,7 +11,10 @@ from __future__ import annotations
 from app.db import SessionLocal
 from app.models import Match, Prediction
 from ml.evaluation.availability_benchmark import benchmark_availability
+from pipeline.availability_gate import availability_gate  # re-export: keep old import path working
 from pipeline.generate_predictions import AVAILABILITY_MODEL_VERSION
+
+__all__ = ["availability_gate", "availability_record"]
 
 
 def _latest(db, match_id, *, avail: bool) -> Prediction | None:
@@ -58,30 +61,6 @@ def availability_record(db) -> dict:
     res = benchmark_availability(prod_probs, avail_probs, labels)
     res["verdict"] = _verdict(res["diff_ci95"])
     return res
-
-
-def availability_gate(record: dict, min_n: int = 20) -> dict:
-    """Machine-checked promotion gate over an availability_record payload.
-
-    met iff n_matches >= min_n AND diff_ci95 is a valid 2-list/tuple with its
-    upper bound < 0 (availability credibly ahead of production on log-loss —
-    same CI convention as _verdict: diff = availability - production, so a
-    negative upper bound means availability wins across the whole interval).
-    Never raises on the honest-empty shape (n_matches: 0, diff_ci95: None)."""
-    n = record.get("n_matches", 0) or 0
-    ci = record.get("diff_ci95")
-    delta = record.get("diff_log_loss")
-    if not ci or len(ci) != 2:
-        return {"met": False, "n": n, "min_n": min_n, "delta_log_loss": delta,
-                "reason": "insufficient record"}
-    if n < min_n:
-        return {"met": False, "n": n, "min_n": min_n, "delta_log_loss": delta,
-                "reason": f"n below min_n ({n} < {min_n})"}
-    if ci[1] >= 0:
-        return {"met": False, "n": n, "min_n": min_n, "delta_log_loss": delta,
-                "reason": "CI straddles zero"}
-    return {"met": True, "n": n, "min_n": min_n, "delta_log_loss": delta,
-            "reason": "met: availability credibly ahead"}
 
 
 def main() -> None:

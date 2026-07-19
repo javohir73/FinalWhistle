@@ -8,14 +8,14 @@
   curls or a prod-replica SQL query to check status: GET
   /api/internal/shadow-record now reports avg_log_loss directly alongside
   winner_acc/brier.
-- Availability twin readout: same workflow run prints GET
+- Availability twin readout: same workflow run GETs
   /api/internal/availability-record (paired log losses + diff CI + verdict;
   the +avail twin writes NO prediction_results rows, so shadow-record cannot
-  answer its gate) — its verdict isn't folded into the job-summary gate line,
-  read it from the printed JSON.
-- Gate: >= 30 scored shadow pairs AND the odds-anchored twin
-  (poisson-elo-v0.3-shadow) ahead of production on avg log loss. Same rule
-  for the availability twin (poisson-elo-v0.3+avail).
+  answer its gate) and writes its own **Availability promotion gate** section
+  to the job summary — no more reading the raw JSON by hand, see §4.
+- Gate (odds twin): >= 30 scored shadow pairs AND the odds-anchored twin
+  (poisson-elo-v0.3-shadow) ahead of production on avg log loss. The
+  availability twin uses a different, lower-n rule — see §4.
 
 ## 2. Promotion (only after the summary says GATE MET)
 1. `PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --w-odds 0.35 --use-odds [--use-availability] --ship`
@@ -38,11 +38,11 @@
 ## 4. Availability promotion
 
 The availability twin is measured live only (no XI data pre-2026 means it can't
-be historically backtested), so its promotion gate is a separate, weaker-n
-machine check rather than the odds twin's job-summary line.
+be historically backtested), so its promotion gate is its own machine check
+with a lower n floor than the odds twin's — not the same >=30-pairs rule.
 
 - Read it from the same shadow-record run summary: `shadow-record.yml`'s
-  "Availability promotion gate" section (`pipeline.run_availability_benchmark
+  "Availability promotion gate" section (`pipeline.availability_gate
   .availability_gate` over the fetched availability-record — tested Python,
   not jq) reports GATE MET / GATE NOT MET, n vs min_n, Δ log-loss, and a reason.
 - Criteria: n >= 20 scored pairs (production + availability twin both present
@@ -53,7 +53,8 @@ machine check rather than the odds twin's job-summary line.
 - Promote only after GATE MET: `PYTHONPATH=backend:. .venv/bin/python -m
   pipeline.promote_blend --use-availability --ship`, shipped via PR through
   the stop gate — model_params.json changes are a manual owner decision, same
-  as the odds twin. Bump MODEL_VERSION in render.yaml in lockstep.
+  as the odds twin. Served version derives from model_params.json — no
+  render.yaml change needed.
 
 ## 5. Post-deploy verification (any promotion)
 - GET /api/health → status ok.

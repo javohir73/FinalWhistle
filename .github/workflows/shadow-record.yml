@@ -18,15 +18,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        # Needed to import pipeline.availability_gate below (stdlib-only module,
+        # so no backend install — this readout must not depend on that succeeding).
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
-      - name: Install Python deps
-        # Needed so the availability gate below can import pipeline.run_availability_benchmark
-        # (pulls in app.db/app.models/ml.* — same stack as ci.yml's python-tests job).
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
       - name: GET shadow-record + availability-record, evaluate the gate
         env:
           API_URL: ${{ secrets.API_URL }}
@@ -72,16 +68,17 @@ jobs:
           echo "${STATUS} — n=${N}/30, delta=${DELTA}"
 
           # Availability promotion gate (RUNBOOK-WC26-ENDGAME.md): machine-checked
-          # via pipeline.run_availability_benchmark.availability_gate (tested Python,
-          # not jq) — n >= 20 scored pairs AND diff_ci95 upper bound < 0.
+          # via pipeline.availability_gate.availability_gate (tested Python, not
+          # jq; stdlib-only module — no backend install needed to import it) —
+          # n >= 20 scored pairs AND diff_ci95 upper bound < 0.
           echo "$AVAIL" > /tmp/availability_record.json
           cat > /tmp/availability_gate.py <<'PYEOF'
           import json
-          from pipeline.run_availability_benchmark import availability_gate
+          from pipeline.availability_gate import availability_gate
           rec = json.load(open('/tmp/availability_record.json'))
           print(json.dumps(availability_gate(rec)))
           PYEOF
-          AVAIL_GATE=$(PYTHONPATH=backend:. python /tmp/availability_gate.py)
+          AVAIL_GATE=$(PYTHONPATH=. python /tmp/availability_gate.py)
           echo "$AVAIL_GATE" | jq .
           AVAIL_MET=$(echo "$AVAIL_GATE" | jq -r '.met')
           AVAIL_N=$(echo "$AVAIL_GATE" | jq -r '.n')
@@ -101,7 +98,7 @@ jobs:
             if [ "$AVAIL_MET" = "true" ]; then
               echo
               echo "Promotion stays MANUAL:"
-              echo '`PYTHONPATH=backend:. python -m pipeline.promote_blend --use-availability --ship` via PR (stop gate).'
+              echo '`PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --use-availability --ship` via PR (stop gate).'
             fi
           } >> "$GITHUB_STEP_SUMMARY"
           echo "${AVAIL_STATUS} — n=${AVAIL_N}/${AVAIL_MIN_N}, delta=${AVAIL_DELTA}, reason=${AVAIL_REASON}"

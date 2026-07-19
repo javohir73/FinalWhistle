@@ -121,3 +121,22 @@ def test_gate_respects_min_n_override():
     rec = {"n_matches": 10, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
     assert availability_gate(rec, min_n=5)["met"] is True
     assert availability_gate(rec, min_n=20)["met"] is False
+
+
+def test_gate_met_at_exactly_min_n():
+    rec = {"n_matches": 20, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
+    assert availability_gate(rec)["met"] is True  # n == min_n, not just >
+
+
+def test_gate_not_met_ci_upper_bound_exactly_zero():
+    rec = {"n_matches": 25, "diff_log_loss": -0.02, "diff_ci95": [-0.05, 0.0]}
+    gate = availability_gate(rec)
+    assert gate["met"] is False  # hi < 0 required; hi == 0 doesn't count
+    assert gate["reason"] == "CI straddles zero"
+
+
+def test_gate_not_met_ci_wrong_length():
+    rec = {"n_matches": 25, "diff_log_loss": -0.02, "diff_ci95": [-0.05]}
+    gate = availability_gate(rec)  # must not raise
+    assert gate["met"] is False
+    assert gate["reason"] == "insufficient record"
