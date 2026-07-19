@@ -81,12 +81,10 @@ DEFAULT_PARAMS = ModelParams(
 )
 
 
-def load_params() -> ModelParams:
-    """Load tuned params from model_params.json, or the v0.1 defaults if missing."""
-    try:
-        data = json.loads(_PARAMS_FILE.read_text())
-    except (FileNotFoundError, ValueError):
-        return DEFAULT_PARAMS
+def params_from_dict(data: dict) -> ModelParams:
+    """Parse a model_params.json-shaped dict into a ModelParams. Shared by
+    load_params() and any caller loading a candidate params file off disk
+    (pipeline/evaluate_candidate.py)."""
     return ModelParams(
         version=data.get("version", "poisson-elo-v0.2"),
         base=float(data["base"]),
@@ -107,6 +105,15 @@ def load_params() -> ModelParams:
         suspensions=data.get("suspensions"),
         rest_days=data.get("rest_days"),
     )
+
+
+def load_params() -> ModelParams:
+    """Load tuned params from model_params.json, or the v0.1 defaults if missing."""
+    try:
+        data = json.loads(_PARAMS_FILE.read_text())
+    except (FileNotFoundError, ValueError):
+        return DEFAULT_PARAMS
+    return params_from_dict(data)
 
 
 def save_params(params: ModelParams) -> None:
