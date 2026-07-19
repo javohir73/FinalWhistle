@@ -436,6 +436,9 @@ class Odds(Base):
     lambda-total anchor (ml/models/odds_blend.py)."""
 
     __tablename__ = "odds"
+    __table_args__ = (
+        Index("ix_odds_match_phase", "match_id", "snapshot_phase"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     match_id: Mapped[int | None] = mapped_column(ForeignKey("matches.id"))
@@ -449,6 +452,8 @@ class Odds(Base):
     implied_prob_draw: Mapped[float | None] = mapped_column(Float)
     implied_prob_away: Mapped[float | None] = mapped_column(Float)
     captured_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # opening|t24|t6|t1|closing; NULL = legacy single-snapshot rows
+    snapshot_phase: Mapped[str | None] = mapped_column(String(10))
 
 
 class AppUser(Base):
