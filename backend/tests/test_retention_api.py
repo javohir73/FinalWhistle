@@ -63,7 +63,7 @@ def test_empty_retention_is_honest(client):
     assert body["cohorts"][0] == {"day": "2026-07-19", "cohort_size": 0, "d1": None, "d7": None, "d14": None}
 
 
-def test_cohort_math_with_returning_and_non_returning_devices(client):
+def test_cohort_math_with_returning_and_non_returning_devices(client, monkeypatch):
     c, TestingSession = client
     db = TestingSession()
 
@@ -95,17 +95,30 @@ def test_cohort_math_with_returning_and_non_returning_devices(client):
     assert cohort_a["cohort_size"] == 3  # NOT 5 — first-ping assignment excludes device-4/5
     assert cohort_a["d1"] == pytest.approx(66.7, abs=0.1)   # 2 of 3 (device-1, device-2)
     assert cohort_a["d7"] == pytest.approx(33.3, abs=0.1)   # 1 of 3 (device-1 only)
-    assert cohort_a["d14"] == pytest.approx(33.3, abs=0.1)  # 1 of 3; day+14 == "today", not future
+    # day+14 == "today" (2026-08-02): that UTC day hasn't fully elapsed yet,
+    # so this is still null even though device-1 already pinged on it — a
+    # same-day count would climb through the day and read as final when it
+    # isn't (this is a public honesty surface).
+    assert cohort_a["d14"] is None
 
     cohort_b = by_day["2026-07-20"]
     assert cohort_b["cohort_size"] == 2  # device-4, device-5 only
     assert cohort_b["d1"] == pytest.approx(50.0, abs=0.1)   # 1 of 2 (device-4)
     assert cohort_b["d7"] == pytest.approx(0.0, abs=0.1)    # neither returned on 07-27
-    assert cohort_b["d14"] is None  # day+14 == 2026-08-03, one day past "today"
+    assert cohort_b["d14"] is None  # day+14 == 2026-08-03, entirely in the future
 
     # A day with no first-time devices at all: cohort_size 0, every dN null.
     empty_day = by_day["2026-07-22"]
     assert empty_day == {"day": "2026-07-22", "cohort_size": 0, "d1": None, "d7": None, "d14": None}
+
+    # Once "today" advances past the checkpoint day, the SAME cohort's d14
+    # becomes visible (device-1 pinged on 2026-08-02, which has now fully
+    # elapsed).
+    monkeypatch.setattr(retention_api, "_today", lambda: date(2026, 8, 3))
+    cache.clear()
+    r2 = c.get("/api/retention")
+    by_day2 = {row["day"]: row for row in r2.json()["cohorts"]}
+    assert by_day2["2026-07-19"]["d14"] == pytest.approx(33.3, abs=0.1)
 
 
 def test_dau_covers_last_30_days_including_zero_days(client):

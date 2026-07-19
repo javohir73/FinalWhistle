@@ -27,8 +27,10 @@ router = APIRouter(prefix="/api/activity", tags=["activity"])
 
 # Strict UUID v4 (the frontend mints this once via crypto.randomUUID()) — a
 # malformed/junk key is rejected before insert rather than bloating the table.
+# \Z (not $) anchors the end: `$` also matches just before a trailing
+# newline, so "<uuid>\n" would otherwise slip through and store a 37-char id.
 _DEVICE_ID_RE = re.compile(
-    r"^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$",
+    r"\A[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\Z",
     re.IGNORECASE,
 )
 # Unauthenticated write, no other guard -> mirrors auth.py's register throttle:
@@ -53,14 +55,20 @@ def ping(
     user: AppUser | None = Depends(get_current_user_optional),
 ):
     device_id = payload.device_id
+    # Format check FIRST, before any DB work: a malformed device_id is
+    # rejected on the cheap request path with no rate-limit SELECT and no
+    # EmailActionAttempt row — the old order ran the SELECT and staged the
+    # row anyway, then raised before either was ever committed, so a flood
+    # of junk from one IP burned a DB round trip for free and was never
+    # actually throttled.
+    if not _DEVICE_ID_RE.match(device_id):
+        raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
+                                                     "message": "device_id must be a UUID v4."})
     ip_h = hash_ip(client_ip(request))
     if _email_action_rate_limited(db, "ping", device_id, ip_h, _PING_MAX, _PING_WINDOW_MIN):
         raise HTTPException(status_code=429, detail={"code": "too_many_attempts",
                                                      "message": "Too many attempts. Try again later."})
     db.add(EmailActionAttempt(action="ping", email=device_id, ip_hash=ip_h))
-    if not _DEVICE_ID_RE.match(device_id):
-        raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
-                                                     "message": "device_id must be a UUID v4."})
     today = datetime.now(timezone.utc).date()
     existing = _find_ping(db, device_id, today)
     if existing is None:

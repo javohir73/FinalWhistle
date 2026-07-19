@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 import app.api.activity as activity_api
 from app.db import Base, get_db
 from app.main import app
-from app.models import DailyActivity
+from app.models import DailyActivity, EmailActionAttempt
 
 ALLOWED_ORIGIN = "http://localhost:3000"
 DEVICE_ID = "3fa85f64-5717-4562-b3fc-2c963f66afa6"
@@ -88,6 +88,40 @@ def test_non_v4_uuid_rejected(client):
     r = c.post("/api/activity/ping", json={"device_id": v1_uuid})
     assert r.status_code == 422
     assert r.json()["error"]["code"] == "invalid_device_id"
+
+
+def test_malformed_device_id_never_touches_rate_limit_or_attempts(client, monkeypatch):
+    """The format check must run BEFORE any DB work — a malformed device_id
+    must never cost a rate-limit SELECT or leave an EmailActionAttempt row,
+    so a flood of junk from one IP can't burn DB round trips for free."""
+    c, SessionF = client
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("rate limit check must not run for a malformed device_id")
+
+    monkeypatch.setattr(activity_api, "_email_action_rate_limited", _boom)
+
+    r = c.post("/api/activity/ping", json={"device_id": "not-a-uuid"})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "invalid_device_id"
+
+    db = SessionF()
+    assert db.query(EmailActionAttempt).count() == 0
+    db.close()
+
+
+def test_device_id_with_trailing_newline_rejected(client):
+    """`$` matches just before a trailing newline, not only end-of-string, so
+    "<uuid>\\n" would otherwise pass the old regex and store a 37-char id.
+    The anchor must be \\Z."""
+    c, SessionF = client
+    r = c.post("/api/activity/ping", json={"device_id": f"{DEVICE_ID}\n"})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "invalid_device_id"
+
+    db = SessionF()
+    assert db.query(DailyActivity).count() == 0
+    db.close()
 
 
 def test_foreign_origin_rejected(client):
