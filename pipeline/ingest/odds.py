@@ -8,9 +8,14 @@ rows feed the shadow model's market lambda-total anchor
 (ml/models/odds_blend.py) — odds are a model input only, never shown to
 users (PRD non-goal #8).
 
+``refresh_odds`` is the daily one-row-per-match pass. ``snapshot_phased_odds``
+is the hourly sibling that instead tags rows with a pre-kickoff band
+(opening/t24/t6/t1/closing, pipeline.ingest.odds_phases) so a match can carry
+a phased closing-line archive of up to five rows.
+
 BEST-EFFORT BY CONTRACT (FR-4.2): any fetch failure, malformed answer or
-empty market leaves the DB unchanged for that match and ``refresh_odds``
-NEVER raises to callers — prediction generation must be unblockable by a
+empty market leaves the DB unchanged for that match and neither pass ever
+raises to callers — prediction generation must be unblockable by a
 bookmaker feed being down. api-sports v3: GET /odds?fixture={id}, auth via
 the `x-apisports-key` header (same as pipeline.ingest.api_football).
 """
@@ -25,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Match, Odds
 from ml.models.odds_blend import remove_margin
+from pipeline.ingest.odds_phases import due_phase
 
 log = logging.getLogger(__name__)
 
@@ -42,6 +48,10 @@ WINDOW_HOURS = 48.0
 #: odds ~7 days after full time, so an outage-missed match is recoverable
 #: inside this window.
 BACKFILL_DAYS = 7.0
+
+#: Per-pass fetch cap for the hourly phased snapshot (api-sports free tier is
+#: ~100 req/day; 40 leaves headroom for the daily refresh + live/lineups paths).
+MAX_FETCHES_PER_PASS = 40
 
 
 def fetch_odds(api_key: str, fixture_id: int, timeout: float = 15.0) -> list[dict]:
@@ -118,8 +128,11 @@ def _fixture_id(db: Session, match: Match, api_key: str) -> int | None:
     return _resolve_fixture_id(db, match, api_key)
 
 
-def _snapshot_match(db: Session, m: Match, api_key: str, now: datetime) -> bool:
-    """Fetch and stage one median consensus row for ``m``. True when a row was
+def _snapshot_match(db: Session, m: Match, api_key: str, now: datetime,
+                    phase: str | None = None) -> bool:
+    """Fetch and stage one median consensus row for ``m``, tagged with
+    ``phase`` (default None — the legacy single-snapshot behavior used by
+    refresh_odds/backfill_finished_odds, unchanged). True when a row was
     added to the session; False on any per-match miss (no fixture id, feed
     down, no markets) — logged, never raised, commit stays with the caller."""
     try:
@@ -148,6 +161,7 @@ def _snapshot_match(db: Session, m: Match, api_key: str, now: datetime) -> bool:
             implied_prob_draw=implied[1],
             implied_prob_away=implied[2],
             captured_at=now,
+            snapshot_phase=phase,
         )
     )
     return True
@@ -189,6 +203,95 @@ def refresh_odds(db: Session, api_key: str, window_hours: float = WINDOW_HOURS) 
         log.warning("odds refresh aborted: %s", exc)
         return {"matches_priced": 0, "matches_skipped": summary["matches_skipped"],
                 "error": str(exc)}
+    return summary
+
+
+def snapshot_phased_odds(db: Session, api_key: str, budget: int = MAX_FETCHES_PER_PASS,
+                         now: datetime | None = None) -> dict:
+    """Hourly phased odds pass: capture at most one row per match per due
+    band (pipeline.ingest.odds_phases), building the closing-line archive
+    instead of refresh_odds' single row per match per day. NEVER raises
+    (FR-4.2).
+
+    For every scheduled match inside the 48h window, the match's current
+    pre-kickoff band is compared against the phases already captured for it
+    (a query per match against ix_odds_match_phase); a match whose band is
+    already archived is skipped without a fetch. Due matches are fetched
+    closest-kickoff-first and capped at ``budget`` fetches per pass — the
+    api-sports free tier can't afford an unbounded hourly pass. Anything past
+    the cap is left for a later pass and counted in ``budget_skipped``.
+
+    DUPLICATES ARE TOLERATED BY DESIGN: there's no unique constraint on
+    (match_id, snapshot_phase), so an overlapping pass (this cron plus a
+    manual workflow_dispatch, say) can rarely write two rows for the same
+    band. That's fine — run_market_benchmark.market_record always resolves
+    to the latest row per phase, and the extra api-sports call is negligible
+    against the daily quota below.
+
+    QUOTA: at most 5 fetches per match over its lifetime (one per band).
+    This pass and the daily refresh_odds pass share api-sports' free tier
+    (~100 req/day) — MAX_FETCHES_PER_PASS=40 leaves headroom for both plus
+    the live/lineups paths. On quota exhaustion, fetches simply fail (the
+    per-match best-effort contract below), so nothing is written for that
+    match this pass; a still-due band is picked up on a later hourly pass
+    (self-healing for the wider bands), but a band narrow enough to fully
+    elapse during an exhausted day (t1, closing) can be permanently missed —
+    market_record's pre-kickoff fallback absorbs that gap.
+    """
+    if now is None:
+        now = datetime.now(timezone.utc)
+    summary = {"matches_priced": 0, "matches_skipped": 0, "budget_skipped": 0}
+    try:
+        matches = (
+            db.query(Match)
+            .filter(
+                Match.status == "scheduled",
+                Match.team_home_id.isnot(None),
+                Match.team_away_id.isnot(None),
+                Match.kickoff_utc.isnot(None),
+                Match.kickoff_utc >= now,
+                Match.kickoff_utc <= now + timedelta(hours=WINDOW_HOURS),
+            )
+            .order_by(Match.kickoff_utc.asc(), Match.id.asc())
+            .all()
+        )
+
+        due: list[tuple[Match, str]] = []
+        for m in matches:
+            kickoff = m.kickoff_utc if m.kickoff_utc.tzinfo else m.kickoff_utc.replace(
+                tzinfo=timezone.utc)  # SQLite drops tzinfo
+            hours_to_kickoff = (kickoff - now).total_seconds() / 3600.0
+            # No unique constraint on (match_id, snapshot_phase) — an overlapping
+            # pass can rarely add a duplicate for a band already in this set.
+            # Tolerated by design (see docstring); we just skip re-fetching it.
+            existing_phases = {
+                row[0] for row in
+                db.query(Odds.snapshot_phase)
+                .filter(Odds.match_id == m.id, Odds.snapshot_phase.isnot(None))
+                .distinct()
+                .all()
+            }
+            phase = due_phase(hours_to_kickoff, existing_phases)
+            if phase is not None:
+                due.append((m, phase))  # already closest-kickoff-first (query order)
+
+        budget_skipped = max(0, len(due) - budget)
+        if budget_skipped:
+            log.warning("odds phased snapshot: budget cap (%d) reached, %d due match(es) skipped",
+                        budget, budget_skipped)
+        summary["budget_skipped"] = budget_skipped
+
+        for m, phase in due[:budget]:
+            if _snapshot_match(db, m, api_key, now, phase=phase):
+                summary["matches_priced"] += 1
+            else:
+                summary["matches_skipped"] += 1
+        db.commit()
+    except Exception as exc:  # noqa: BLE001 - the pass itself must never raise
+        db.rollback()
+        log.warning("odds phased snapshot aborted: %s", exc)
+        return {"matches_priced": 0, "matches_skipped": summary["matches_skipped"],
+                "budget_skipped": summary["budget_skipped"], "error": str(exc)}
     return summary
 
 

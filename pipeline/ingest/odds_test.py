@@ -12,13 +12,19 @@ import pytest
 
 from app.models import Match, Odds, Team, Tournament
 import pipeline.ingest.odds as odds_mod
-from pipeline.ingest.odds import backfill_finished_odds, median_prices, refresh_odds
+from pipeline.ingest.odds import (
+    backfill_finished_odds,
+    median_prices,
+    refresh_odds,
+    snapshot_phased_odds,
+)
 
 
-def _seed_match(db, *, hours_to_kickoff=12.0, fixture_id=9001, status="scheduled") -> Match:
+def _seed_match(db, *, hours_to_kickoff=12.0, fixture_id=9001, status="scheduled",
+                teams=("Mexico", "South Africa")) -> Match:
     wc = Tournament(name="FIFA World Cup 2026", year=2026)
-    home = Team(name="Mexico")
-    away = Team(name="South Africa")
+    home = Team(name=teams[0])
+    away = Team(name=teams[1])
     db.add_all([wc, home, away])
     db.flush()
     m = Match(
@@ -127,6 +133,8 @@ def test_refresh_stores_median_row_with_margin_free_probs(db_session, monkeypatc
     assert total == pytest.approx(1.0)
     assert row.implied_prob_home == pytest.approx((1 / 2.00) / (1 / 2.00 + 1 / 3.40 + 1 / 4.20))
     assert row.captured_at is not None
+    # Regression: the daily pass keeps writing legacy, unphased rows.
+    assert row.snapshot_phase is None
 
 
 def test_refresh_skips_matches_outside_the_window(db_session, monkeypatch):
@@ -236,3 +244,55 @@ def test_backfill_fetch_failure_leaves_db_unchanged_and_never_raises(db_session,
     summary = backfill_finished_odds(db_session, "key")  # must not raise
     assert summary["matches_priced"] == 0
     assert db_session.query(Odds).count() == 0
+
+
+# --- phased closing-line archive (hourly capture) -------------------------------
+
+def test_phased_snapshot_tags_the_row_with_the_due_phase(db_session, monkeypatch):
+    m = _seed_match(db_session, hours_to_kickoff=5.0)  # (1, 6] -> t6
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda *a, **k: _response(_bookmaker("A", 1.90, 3.40, 4.00)))
+
+    summary = snapshot_phased_odds(db_session, "key")
+
+    assert summary == {"matches_priced": 1, "matches_skipped": 0, "budget_skipped": 0}
+    row = db_session.query(Odds).one()
+    assert row.match_id == m.id
+    assert row.snapshot_phase == "t6"
+
+
+def test_phased_snapshot_does_not_refetch_an_already_captured_band(db_session, monkeypatch):
+    m = _seed_match(db_session, hours_to_kickoff=5.0)  # (1, 6] -> t6
+    db_session.add(Odds(match_id=m.id, bookmaker="median", snapshot_phase="t6",
+                        captured_at=datetime.now(timezone.utc)))
+    db_session.commit()
+    calls = []
+    monkeypatch.setattr(odds_mod, "fetch_odds",
+                        lambda key, fid, timeout=15.0: calls.append(fid) or [])
+
+    summary = snapshot_phased_odds(db_session, "key")
+
+    assert calls == []  # the t6 band is already archived for this match
+    assert summary["matches_priced"] == 0
+    assert db_session.query(Odds).count() == 1  # unchanged
+
+
+def test_phased_snapshot_budget_cap_fetches_closest_kickoff_first(db_session, monkeypatch):
+    close = _seed_match(db_session, hours_to_kickoff=5.0, fixture_id=9001)   # sooner kickoff
+    _seed_match(db_session, hours_to_kickoff=10.0, fixture_id=9002,          # further out
+               teams=("Brazil", "Japan"))
+    calls = []
+
+    def fake_fetch(key, fid, timeout=15.0):
+        calls.append(fid)
+        return _response(_bookmaker("A", 1.90, 3.40, 4.00))
+
+    monkeypatch.setattr(odds_mod, "fetch_odds", fake_fetch)
+
+    summary = snapshot_phased_odds(db_session, "key", budget=1)
+
+    assert calls == [9001]  # only the closest-kickoff due match got fetched
+    assert summary["matches_priced"] == 1
+    assert summary["budget_skipped"] == 1
+    row = db_session.query(Odds).one()
+    assert row.match_id == close.id
