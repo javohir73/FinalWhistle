@@ -11,7 +11,10 @@ from __future__ import annotations
 from app.db import SessionLocal
 from app.models import Match, Prediction
 from ml.evaluation.availability_benchmark import benchmark_availability
+from pipeline.availability_gate import availability_gate  # re-export: keep old import path working
 from pipeline.generate_predictions import AVAILABILITY_MODEL_VERSION
+
+__all__ = ["availability_gate", "availability_record"]
 
 
 def _latest(db, match_id, *, avail: bool) -> Prediction | None:
