@@ -1,0 +1,38 @@
+# Hard model-promotion gate (pipeline/evaluate_candidate.py). Manual-only:
+# scores a candidate ModelParams file against a baseline on the leak-free
+# historical replay and uploads the JSON verdict as a build artifact. Does
+# not touch the prod DB or model_params.json — read-only, no writes.
+name: model-gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: "repo-relative path to candidate params json"
+        required: true
+      baseline:
+        description: "baseline: path or 'current'"
+        default: "current"
+      since:
+        default: "2004"
+      boot:
+        default: "2000"
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install -r backend/requirements.txt
+      - name: Run promotion gate
+        env:
+          PYTHONPATH: "backend:."
+        run: python -m pipeline.evaluate_candidate --candidate "${{ inputs.candidate }}" --baseline "${{ inputs.baseline }}" --since "${{ inputs.since }}" --boot "${{ inputs.boot }}" --report artifacts/gate.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-report
+          path: artifacts/gate.json
