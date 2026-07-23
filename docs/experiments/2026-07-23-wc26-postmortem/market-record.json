@@ -1,0 +1,26 @@
+{
+    "status": "ready",
+    "dataset": "WC26 live (final pre-kickoff consensus we captured)",
+    "n_matches": 7,
+    "updated_at": "2026-07-23T04:39:51.014676+00:00",
+    "model": {
+        "log_loss": 0.9842741345783476,
+        "brier": 0.60269056,
+        "accuracy": 0.42857142857142855,
+        "n": 7
+    },
+    "market": {
+        "log_loss": 1.054875717970207,
+        "brier": 0.6450312237240067,
+        "accuracy": 0.2857142857142857,
+        "n": 7
+    },
+    "diff_log_loss": -0.0706,
+    "diff_ci95": [
+        -0.1749,
+        0.0235
+    ],
+    "model_win_rate": 0.5714,
+    "mean_edge": 0.0224,
+    "verdict": "NO CREDIBLE DIFFERENCE (CI straddles 0)"
+}

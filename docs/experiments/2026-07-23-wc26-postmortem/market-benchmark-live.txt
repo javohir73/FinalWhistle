@@ -1,0 +1,2 @@
+market record: finished=104 benchmarked=7 no_odds=97 no_pred=0 opening=0
+status=ready n_matches=7 verdict=NO CREDIBLE DIFFERENCE (CI straddles 0)

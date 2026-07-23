@@ -177,17 +177,24 @@ def _prune(db: Session, now: datetime) -> None:
 def run(db: Session, now: datetime) -> int:
     hour = now.replace(minute=0, second=0, microsecond=0)
     total = 0
+    succeeded = 0
     for cfg in CONFIGS:
         try:
             rows = _to_rows(db, cfg.sport, cfg.load(), hour)
             total += _replace_hour(db, cfg.sport, cfg.source, hour, rows)
+            succeeded += 1
             log.info("market intel: %s/%s wrote %d rows", cfg.source, cfg.sport, len(rows))
         except Exception:
             db.rollback()
             log.exception("market intel: %s/%s failed", cfg.source, cfg.sport)
     _prune(db, now)
+    if succeeded == 0:
+        raise RuntimeError("market intel: every source failed")
     if total == 0:
-        raise RuntimeError("market intel: no rows ingested from any source")
+        # Off-season is a clean no-op: sources answered but list no markets we
+        # recognize (post-WC lull, thin NRL coverage). Only all-sources-raised
+        # above is a real failure worth a red workflow run.
+        log.info("market intel: sources reachable, no active markets this hour")
     return total
 
 

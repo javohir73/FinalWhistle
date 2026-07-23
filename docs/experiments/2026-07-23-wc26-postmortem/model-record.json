@@ -1,0 +1,119 @@
+{
+    "evaluated_matches": 104,
+    "winner_accuracy": 0.6635,
+    "winner_accuracy_ci95": [
+        0.5683,
+        0.747
+    ],
+    "exact_score_rate": 0.0962,
+    "exact_score_ci95": [
+        0.0531,
+        0.168
+    ],
+    "winners_correct": 69,
+    "exact_score_hits": 10,
+    "best_streak": 9,
+    "advancement_matches": 32,
+    "advancement_correct": 26,
+    "advancement_accuracy": 0.8125,
+    "advancement_ci95": [
+        0.6469,
+        0.9111
+    ],
+    "avg_brier": 0.5013,
+    "avg_log_loss": 0.8584,
+    "calibration": [
+        {
+            "mean_predicted": 0.118,
+            "empirical_freq": 0.126,
+            "count": 87
+        },
+        {
+            "mean_predicted": 0.28,
+            "empirical_freq": 0.215,
+            "count": 135
+        },
+        {
+            "mean_predicted": 0.492,
+            "empirical_freq": 0.674,
+            "count": 43
+        },
+        {
+            "mean_predicted": 0.688,
+            "empirical_freq": 0.75,
+            "count": 32
+        },
+        {
+            "mean_predicted": 0.849,
+            "empirical_freq": 0.733,
+            "count": 15
+        }
+    ],
+    "best_calls": [
+        {
+            "match_id": 86,
+            "label": "Argentina 3\u20132 Cape Verde",
+            "predicted_score": "3-0",
+            "prob_assigned": 0.9282,
+            "winner_correct": true,
+            "exact_score_correct": false,
+            "brier": 0.0086,
+            "log_loss": 0.0745
+        },
+        {
+            "match_id": 59,
+            "label": "Jordan 1\u20133 Argentina",
+            "predicted_score": "0-3",
+            "prob_assigned": 0.9057,
+            "winner_correct": true,
+            "exact_score_correct": false,
+            "brier": 0.0147,
+            "log_loss": 0.099
+        },
+        {
+            "match_id": 45,
+            "label": "Spain 4\u20130 Saudi Arabia",
+            "predicted_score": "3-0",
+            "prob_assigned": 0.8904,
+            "winner_correct": true,
+            "exact_score_correct": false,
+            "brier": 0.0198,
+            "log_loss": 0.1161
+        }
+    ],
+    "biggest_misses": [
+        {
+            "match_id": 43,
+            "label": "Spain 0\u20130 Cape Verde",
+            "predicted_score": "4-0",
+            "prob_assigned": 0.0447,
+            "winner_correct": false,
+            "exact_score_correct": false,
+            "brier": 1.7983,
+            "log_loss": 3.1078
+        },
+        {
+            "match_id": 69,
+            "label": "England 0\u20130 Ghana",
+            "predicted_score": "3-0",
+            "prob_assigned": 0.0958,
+            "winner_correct": false,
+            "exact_score_correct": false,
+            "brier": 1.5819,
+            "log_loss": 2.3455
+        },
+        {
+            "match_id": 8,
+            "label": "Qatar 1\u20131 Switzerland",
+            "predicted_score": "0-2",
+            "prob_assigned": 0.1288,
+            "winner_correct": false,
+            "exact_score_correct": false,
+            "brier": 1.4112,
+            "log_loss": 2.0495
+        }
+    ],
+    "last_updated": "2026-07-20T08:55:19.776422+00:00",
+    "model_version": "poisson-elo-v0.5",
+    "disclaimer": "For analytics and entertainment only. Not betting advice."
+}

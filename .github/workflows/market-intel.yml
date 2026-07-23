@@ -1,13 +1,12 @@
-# Hourly prediction-market odds snapshot (Polymarket + Kalshi) for the intel
-# panel. Read-only public APIs — no keys. Migrations are refresh.yml's job;
-# this workflow assumes the schema is already at head. Reduce the cadence to
-# every 2-3 hours after the WC final (2026-07-19) when only thin NRL
-# coverage remains.
+# Prediction-market odds snapshot (Polymarket + Kalshi) for the intel panel,
+# every 3 hours post-WC (was hourly during the tournament; only thin NRL
+# coverage remains). Read-only public APIs — no keys. Migrations are
+# refresh.yml's job; this workflow assumes the schema is already at head.
 name: market-intel
 
 on:
   schedule:
-    - cron: "23 * * * *"
+    - cron: "23 */3 * * *"
   workflow_dispatch: {}
 
 jobs:

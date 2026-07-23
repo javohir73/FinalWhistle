@@ -1,0 +1,10 @@
+WC26 group stage replay (72 matches, leak-free)
+
+  v0.1-raw         log_loss=0.8392 brier=0.4833 acc=0.639 ece=0.0999 n=72
+  v0.2-tuned       log_loss=0.8144 brier=0.4744 acc=0.639 ece=0.0657 n=72
+  v0.2+form        log_loss=0.8255 brier=0.4827 acc=0.653 ece=0.0545 n=72
+  v0.2+cal         log_loss=0.8140 brier=0.4764 acc=0.653 ece=0.0651 n=72
+  v0.2+form+cal    log_loss=0.8221 brier=0.4827 acc=0.653 ece=0.0463 n=72
+
+Stored production ledger (poisson-elo-v0.2, for reference):
+  production ledger log_loss=0.8328 brier=0.4870 acc=0.638 n=58

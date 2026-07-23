@@ -1,0 +1,17 @@
+Downloading historical results …
+Replayed 49519 historical matches.
+
+World Cup 2018 (64 matches)
+  v0.1-raw         log_loss=0.9669 brier=0.5739 acc=0.562 ece=0.0620 n=64
+  v0.2-tuned       log_loss=0.9813 brier=0.5822 acc=0.562 ece=0.0538 n=64
+  v0.2+form        log_loss=0.9713 brier=0.5765 acc=0.578 ece=0.0361 n=64
+  v0.2+cal         log_loss=0.9791 brier=0.5792 acc=0.531 ece=0.0372 n=64
+  v0.2+form+cal    log_loss=0.9732 brier=0.5763 acc=0.578 ece=0.0550 n=64
+
+World Cup 2022 (64 matches)
+  v0.1-raw         log_loss=1.0693 brier=0.6236 acc=0.531 ece=0.0709 n=64
+  v0.2-tuned       log_loss=1.0943 brier=0.6288 acc=0.516 ece=0.0539 n=64
+  v0.2+form        log_loss=1.1071 brier=0.6373 acc=0.500 ece=0.0562 n=64
+  v0.2+cal         log_loss=1.0942 brier=0.6307 acc=0.516 ece=0.0627 n=64
+  v0.2+form+cal    log_loss=1.1178 brier=0.6408 acc=0.500 ece=0.0650 n=64
+
