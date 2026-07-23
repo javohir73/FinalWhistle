@@ -88,8 +88,29 @@ it("states the worst miss plainly when present", () => {
       })}
     />,
   );
-  expect(screen.getByText(/Last round's worst miss:/)).toBeInTheDocument();
   expect(screen.getByText(/picked Storm \(80%\)/)).toBeInTheDocument();
+});
+
+/** worst_miss.round (1) intentionally differs from the tipsheet's own round
+ *  (2, set by the `tipsheet()` helper's default) -- worst_miss is computed
+ *  from the most recently graded round overall, which need not be the round
+ *  this page is showing (see nrl_tips.py:_worst_miss). The label must name
+ *  worst_miss.round, not the page's round, or an archived permalink would
+ *  mislabel whose miss it's showing. */
+it("labels the worst miss with its own round, not the page's round", () => {
+  render(
+    <TipsheetBlock
+      tipsheet={tipsheet({
+        matches: [match()],
+        worst_miss: {
+          season: 2026, round: 1, home: "Storm", away: "Eels",
+          score_home: 12, score_away: 24, pick: "home", pick_team: "Storm",
+          pick_probability: 0.8, winner: "away", winner_team: "Eels",
+        },
+      })}
+    />,
+  );
+  expect(screen.getByText(/Round 1 worst miss:/)).toBeInTheDocument();
 });
 
 it("shows a Live badge for a match inside its kickoff window", () => {

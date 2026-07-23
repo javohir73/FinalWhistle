@@ -58,7 +58,7 @@ export function TipsheetBlock({ tipsheet }: { tipsheet: NrlTipsheet }) {
       <section className="glass rounded-2xl p-4">
         <div className="flex items-center justify-between gap-3">
           <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
-            Season record · Round {round}
+            Model record · Round {round}
           </span>
           <ShareButton label="Screenshot this" title={`NRL Round ${round} tips — ${season}`} />
         </div>
@@ -92,7 +92,12 @@ export function TipsheetBlock({ tipsheet }: { tipsheet: NrlTipsheet }) {
 
       {worst_miss ? (
         <p className="rounded-2xl border border-gold/20 bg-gold/[0.04] p-4 text-sm leading-relaxed text-muted">
-          <strong className="text-foreground">Last round&apos;s worst miss:</strong> picked{" "}
+          {/* worst_miss is the highest-confidence wrong pick in the most
+           *  recently graded round overall, not necessarily the round this
+           *  page is showing (see nrl_tips.py:_worst_miss) -- the label names
+           *  worst_miss.round explicitly rather than saying "last round's",
+           *  which would misattribute the miss on an archived permalink. */}
+          <strong className="text-foreground">Round {worst_miss.round} worst miss:</strong> picked{" "}
           {worst_miss.pick_team ?? "a draw"} ({pct(worst_miss.pick_probability)}) in {worst_miss.home} vs{" "}
           {worst_miss.away} — {worst_miss.winner_team ?? "it drew"} won {worst_miss.score_home}
           {"–"}

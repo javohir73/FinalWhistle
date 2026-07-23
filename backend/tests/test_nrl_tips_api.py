@@ -171,6 +171,57 @@ def test_worst_miss_picks_highest_confidence_wrong_pick(client):
     assert worst["winner_team"] == "Eels"
 
 
+def test_worst_miss_is_scoped_to_the_latest_graded_round(client):
+    """A higher-confidence wrong pick sits in an EARLIER round; a lower-
+    confidence wrong pick sits in the latest graded round. worst_miss must
+    return the latest round's (lower-confidence) miss -- proving the round
+    filter at nrl_tips.py:108 is load-bearing and not equivalent to a global
+    argmax over every miss ever graded."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+    broncos = _team(db, "Broncos")
+    titans = _team(db, "Titans")
+
+    def graded(rnd, home, away, p_home, score_home, score_away, kickoff):
+        m = SportMatch(sport="nrl", season=2026, round=rnd, match_no=1,
+                       kickoff_utc=kickoff, home_team_id=home.id, away_team_id=away.id,
+                       status="finished", score_home=score_home, score_away=score_away)
+        db.add(m)
+        db.flush()
+        p = SportPrediction(match_id=m.id, model_version="nrl-elo-v0.1",
+                            created_at=kickoff - timedelta(days=1),
+                            p_home=p_home, p_draw=0.01, p_away=round(1 - p_home - 0.01, 4),
+                            expected_margin=5.0)
+        db.add(p)
+        db.flush()
+        outcome = "home" if score_home > score_away else "away" if score_away > score_home else "draw"
+        idx = {"home": 0, "draw": 1, "away": 2}[outcome]
+        probs = (p.p_home, p.p_draw, p.p_away)
+        db.add(SportPredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version="nrl-elo-v0.1",
+            outcome=outcome, winner_correct=(probs.index(max(probs)) == idx),
+            prob_assigned=probs[idx], log_loss=0.5, brier=0.3, margin_error=4.0,
+        ))
+
+    # Round 1 (earlier): a wrong pick at 0.90 confidence -- the global max
+    # over every graded miss, were the round filter ever dropped.
+    graded(1, storm, eels, 0.90, 10, 24, datetime(2026, 3, 5, tzinfo=timezone.utc))
+    # Round 2 (latest graded): a wrong pick at only 0.55 confidence.
+    graded(2, broncos, titans, 0.55, 12, 18, datetime(2026, 3, 12, tzinfo=timezone.utc))
+    db.commit()
+
+    r = c.get("/api/nrl/tips", params={"season": 2026, "round": 2})
+    assert r.status_code == 200
+    worst = r.json()["worst_miss"]
+    assert worst is not None
+    assert worst["round"] == 2
+    assert worst["home"] == "Broncos"
+    assert worst["away"] == "Titans"
+    assert worst["pick_probability"] == pytest.approx(0.55)
+
+
 def test_worst_miss_null_when_nothing_graded(client):
     c, TestingSession = client
     db = TestingSession()
@@ -212,6 +263,43 @@ def test_finished_season_falls_back_to_latest_round(client):
     body = r.json()
     assert body["round"] == 2
     assert body["record"]["evaluated_matches"] == 0  # no SportPredictionResult rows seeded
+
+
+def test_record_is_all_time_not_scoped_to_the_requested_season(client):
+    """`record` reuses _ledger_record, which filters only on sport (see
+    sports.py) -- a graded match from a DIFFERENT season must still count
+    toward the tipsheet's record. This is deliberate (the strip is labelled
+    'Model record', not 'Season record') but was previously unguarded by any
+    test, so a future accidental season filter would pass CI silently."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+
+    def graded(season, kickoff):
+        m = SportMatch(sport="nrl", season=season, round=1, match_no=1,
+                       kickoff_utc=kickoff, home_team_id=storm.id, away_team_id=eels.id,
+                       status="finished", score_home=20, score_away=10)
+        db.add(m)
+        db.flush()
+        p = SportPrediction(match_id=m.id, model_version="nrl-elo-v0.1",
+                            created_at=kickoff - timedelta(days=1),
+                            p_home=0.7, p_draw=0.01, p_away=0.29, expected_margin=10.0)
+        db.add(p)
+        db.flush()
+        db.add(SportPredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version="nrl-elo-v0.1",
+            outcome="home", winner_correct=True, prob_assigned=0.7,
+            log_loss=0.2, brier=0.1, margin_error=2.0,
+        ))
+
+    graded(2025, datetime(2025, 3, 5, tzinfo=timezone.utc))
+    graded(2026, datetime(2026, 3, 5, tzinfo=timezone.utc))
+    db.commit()
+
+    r = c.get("/api/nrl/tips", params={"season": 2026, "round": 1})
+    assert r.status_code == 200
+    assert r.json()["record"]["evaluated_matches"] == 2
 
 
 def test_unknown_season_404s(client):

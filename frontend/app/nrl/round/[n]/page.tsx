@@ -12,6 +12,31 @@ function parseRound(n: string): number | null {
   return /^\d+$/.test(n) ? Number(n) : null;
 }
 
+/** Pre-render the current and next round permalinks at deploy (design doc:
+ *  NRL Round Tips, Slice 1 rendering bullet) -- these are the links actually
+ *  shared to a comp group chat or r/nrl, and the ones that must never block
+ *  on a Render cold start. `dynamicParams` defaults to true, so any round not
+ *  returned here (last week's, or the whole archive) still renders -- just
+ *  on demand, behind loading.tsx, with the same ~300s ISR revalidate. The
+ *  tipsheet endpoint already resolves "current" the same way nrl_tips.py's
+ *  `_current_round` does, so reusing it here (rather than re-deriving from
+ *  match status) keeps one source of truth for what "current" means. */
+export async function generateStaticParams() {
+  const [fixtures, tipsheet] = await Promise.all([
+    getNrlMatchesServer().catch(() => null),
+    getNrlTipsheetServer().catch(() => null),
+  ]);
+  if (!fixtures || !tipsheet) return [];
+
+  const roundNumbers = fixtures.rounds
+    .map((r) => r.round)
+    .filter((r): r is number => r != null)
+    .sort((a, b) => a - b);
+  const idx = roundNumbers.indexOf(tipsheet.round);
+  const rounds = idx === -1 ? [tipsheet.round] : roundNumbers.slice(idx, idx + 2);
+  return rounds.map((n) => ({ n: String(n) }));
+}
+
 /** Title/description carry the tipsheet's honest-record SEO angle (design
  *  doc: NRL Round Tips, Slice 1) rather than the site's usual "X — APP_NAME"
  *  shape -- the fetch here is the same getNrlMatchesServer() call the page

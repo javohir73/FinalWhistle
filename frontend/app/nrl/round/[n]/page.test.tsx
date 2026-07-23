@@ -3,7 +3,7 @@
  *  exercising the plain fixture-grid fallback unchanged; a dedicated test
  *  below covers the TipsheetBlock taking over when the endpoint succeeds. */
 import { render, screen } from "@testing-library/react";
-import NrlRoundPage from "./page";
+import NrlRoundPage, { generateStaticParams } from "./page";
 import { getNrlMatchesServer, getNrlTipsheetServer } from "@/lib/api";
 import type { NrlMatchesResponse, NrlTipsheet } from "@/lib/types";
 
@@ -102,4 +102,27 @@ it("renders the TipsheetBlock, season record and all, once the tipsheet endpoint
   expect(mockTipsheet).toHaveBeenCalledWith(2026, 19);
   expect(screen.getByText("Wests Tigers")).toBeInTheDocument();
   expect(screen.getByText(/5 graded/)).toBeInTheDocument();
+});
+
+describe("generateStaticParams", () => {
+  it("pre-renders the current round (from the tipsheet endpoint) and the next one", async () => {
+    mockMatches.mockResolvedValue(fixtures);
+    mockTipsheet.mockResolvedValue(tipsheet); // round 19
+
+    expect(await generateStaticParams()).toEqual([{ n: "19" }, { n: "20" }]);
+  });
+
+  it("omits the next round when the current round is the season's last", async () => {
+    mockMatches.mockResolvedValue(fixtures);
+    mockTipsheet.mockResolvedValue({ ...tipsheet, round: 20 });
+
+    expect(await generateStaticParams()).toEqual([{ n: "20" }]);
+  });
+
+  it("pre-renders nothing when the fixtures or tipsheet fetch fails", async () => {
+    mockMatches.mockResolvedValue(null);
+    mockTipsheet.mockResolvedValue(tipsheet);
+
+    expect(await generateStaticParams()).toEqual([]);
+  });
 });
