@@ -7,6 +7,7 @@ import {
   getMatchGoalscorersServer,
   getModelRecordServer,
 } from "@/lib/api";
+import { getTournament } from "@/lib/tournament";
 import { APP_NAME } from "@/lib/constants";
 import { pct, formatScore, topOutcome } from "@/lib/format";
 import { prematchCall } from "@/lib/verdict";
@@ -53,12 +54,13 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
   // Seeds the scoreboard with the actual status/score; the page must still
   // render (prediction-only) if this secondary fetch hiccups.
   const summary = await getMatchSummaryServer(id).catch(() => null);
+  const tournament = await getTournament();
   // A just-drawn knockout tie exists (summary is served) before its prediction is
   // generated. Show the matchup + a "prediction on the way" note rather than a
   // hard 404; only 404 when the match genuinely doesn't exist.
   if (!p) {
     if (!summary) notFound();
-    return <PredictionPending summary={summary} />;
+    return <PredictionPending summary={summary} tournamentName={tournament.name} />;
   }
   const record = await getModelRecordServer().catch(() => null);
   // Likely scorers (squad estimate or confirmed XI); null until player data
@@ -83,7 +85,7 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         {p.group && (
           <span className="font-display text-[13px] font-semibold text-muted">{p.group}</span>
         )}
-        <ShareButton title={`${home} vs ${away} — World Cup 2026 prediction`} />
+        <ShareButton title={`${home} vs ${away} — ${tournament.name} prediction`} />
       </div>
 
       <LocalKickoff iso={p.kickoff_utc} venue={venue || null} />
@@ -187,7 +189,13 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
 /** Shown when a match exists but its AI prediction hasn't been generated yet
  *  (e.g. a knockout tie just drawn, before the next pipeline run). Renders the
  *  matchup, any live/final score, and lineups — never a 404. */
-function PredictionPending({ summary }: { summary: MatchSummary }) {
+function PredictionPending({
+  summary,
+  tournamentName,
+}: {
+  summary: MatchSummary;
+  tournamentName: string;
+}) {
   const { home, away } = summary.teams;
   const venue = [summary.venue, summary.venue_city, summary.venue_country]
     .filter(Boolean)
@@ -206,7 +214,7 @@ function PredictionPending({ summary }: { summary: MatchSummary }) {
         {summary.group && (
           <span className="font-display text-[13px] font-semibold text-muted">{summary.group}</span>
         )}
-        <ShareButton title={`${home} vs ${away} — World Cup 2026`} />
+        <ShareButton title={`${home} vs ${away} — ${tournamentName}`} />
       </div>
 
       <LocalKickoff iso={summary.kickoff_utc} venue={venue || null} />

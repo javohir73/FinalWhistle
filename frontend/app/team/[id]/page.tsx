@@ -7,6 +7,7 @@ import {
   getUpcomingMatchesServer,
   getKnockoutOddsServer,
 } from "@/lib/api";
+import { getTournament } from "@/lib/tournament";
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
 import { FormStrip } from "@/components/FormStrip";
@@ -22,11 +23,11 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const data = await getTeamServer(id);
+  const [data, tournament] = await Promise.all([getTeamServer(id), getTournament()]);
   if (!data) return { title: `Team — ${APP_NAME}` };
   const t = data.team;
-  const title = `${t.name} — World Cup 2026 profile | ${APP_NAME}`;
-  const description = `${t.name} at the 2026 World Cup: Elo ${
+  const title = `${t.name} — ${tournament.name} profile | ${APP_NAME}`;
+  const description = `${t.name} at the ${tournament.name}: Elo ${
     t.elo_rating != null ? Math.round(t.elo_rating) : "—"
   }, FIFA rank ${t.fifa_rank ?? "—"}, recent form, strengths and weaknesses.`;
   return {
@@ -43,11 +44,13 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
 
   const { team, recent_form, strengths, weaknesses, group_id, group_name } = data;
 
-  // Pull the team's group table, fixtures and tournament odds for the dashboard.
-  const [group, allMatches, odds] = await Promise.all([
+  // Pull the team's group table, fixtures, tournament odds and active
+  // tournament (for the ShareButton title) for the dashboard.
+  const [group, allMatches, odds, tournament] = await Promise.all([
     group_id ? getGroupServer(group_id) : Promise.resolve(null),
     getUpcomingMatchesServer(),
     getKnockoutOddsServer(),
+    getTournament(),
   ]);
 
   // `group` is fetched above so the group table link resolves; the AI-outlook
@@ -83,7 +86,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
           <span aria-hidden>←</span> Groups
         </Link>
-        <ShareButton title={`${team.name} — World Cup 2026 profile`} />
+        <ShareButton title={`${team.name} — ${tournament.name} profile`} />
       </div>
 
       {/* Header — flag tile + name + group/rank/elo subtitle */}

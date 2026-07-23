@@ -7,6 +7,6 @@ export { default } from "../../leaderboard/page";
  *  Same title as the source page; canonical points back at /leaderboard so
  *  search engines don't index this as duplicate content. */
 export const metadata: Metadata = {
-  title: `${APP_NAME} — FIFA World Cup 2026 Predictions`,
+  title: `Leaderboard — ${APP_NAME}`,
   alternates: { canonical: "/leaderboard" },
 };
