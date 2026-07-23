@@ -1,0 +1,2875 @@
+{
+ "methodology": "Last pre-kickoff price per outcome. Kalshi: settled KXWCGAME markets, 1h candlesticks, mid of yes bid/ask close (fallback trade close). Polymarket: closed fifa-world-cup Gamma events, CLOB prices-history fidelity=10. Model: latest pre-kickoff predictions row (non-shadow). Grading: 90-minute W/D/L, all predictors devigged by normalization, identical for all parties. Collected 2026-07-23 from public historical APIs.",
+ "matches": [
+  {
+   "id": 1,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-11T19:00:00+00:00",
+   "home": "Mexico",
+   "away": "South Africa",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1781204400,
+   "nh": "mexico",
+   "na": "south africa"
+  },
+  {
+   "id": 2,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-12T02:00:00+00:00",
+   "home": "South Korea",
+   "away": "Czechia",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1781229600,
+   "nh": "korea republic",
+   "na": "czechia"
+  },
+  {
+   "id": 7,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-12T19:00:00+00:00",
+   "home": "Canada",
+   "away": "Bosnia and Herzegovina",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781290800,
+   "nh": "canada",
+   "na": "bosnia and herzegovina"
+  },
+  {
+   "id": 19,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-13T01:00:00+00:00",
+   "home": "United States",
+   "away": "Paraguay",
+   "h90": 4,
+   "a90": 1,
+   "kick_ts": 1781312400,
+   "nh": "united states",
+   "na": "paraguay"
+  },
+  {
+   "id": 8,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-13T19:00:00+00:00",
+   "home": "Qatar",
+   "away": "Switzerland",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781377200,
+   "nh": "qatar",
+   "na": "switzerland"
+  },
+  {
+   "id": 13,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-13T22:00:00+00:00",
+   "home": "Brazil",
+   "away": "Morocco",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781388000,
+   "nh": "brazil",
+   "na": "morocco"
+  },
+  {
+   "id": 14,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-14T01:00:00+00:00",
+   "home": "Haiti",
+   "away": "Scotland",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1781398800,
+   "nh": "haiti",
+   "na": "scotland"
+  },
+  {
+   "id": 20,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-14T04:00:00+00:00",
+   "home": "Australia",
+   "away": "Turkey",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1781409600,
+   "nh": "australia",
+   "na": "turkey"
+  },
+  {
+   "id": 25,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-14T17:00:00+00:00",
+   "home": "Germany",
+   "away": "Cura\u00e7ao",
+   "h90": 7,
+   "a90": 1,
+   "kick_ts": 1781456400,
+   "nh": "germany",
+   "na": "curacao"
+  },
+  {
+   "id": 31,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-14T20:00:00+00:00",
+   "home": "Netherlands",
+   "away": "Japan",
+   "h90": 2,
+   "a90": 2,
+   "kick_ts": 1781467200,
+   "nh": "netherlands",
+   "na": "japan"
+  },
+  {
+   "id": 26,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-14T23:00:00+00:00",
+   "home": "Ivory Coast",
+   "away": "Ecuador",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1781478000,
+   "nh": "cote divoire",
+   "na": "ecuador"
+  },
+  {
+   "id": 32,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-15T02:00:00+00:00",
+   "home": "Sweden",
+   "away": "Tunisia",
+   "h90": 5,
+   "a90": 1,
+   "kick_ts": 1781488800,
+   "nh": "sweden",
+   "na": "tunisia"
+  },
+  {
+   "id": 43,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-15T16:00:00+00:00",
+   "home": "Spain",
+   "away": "Cape Verde",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1781539200,
+   "nh": "spain",
+   "na": "cape verde"
+  },
+  {
+   "id": 37,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-15T19:00:00+00:00",
+   "home": "Belgium",
+   "away": "Egypt",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781550000,
+   "nh": "belgium",
+   "na": "egypt"
+  },
+  {
+   "id": 44,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-15T22:00:00+00:00",
+   "home": "Saudi Arabia",
+   "away": "Uruguay",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781560800,
+   "nh": "saudi arabia",
+   "na": "uruguay"
+  },
+  {
+   "id": 38,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-16T01:00:00+00:00",
+   "home": "Iran",
+   "away": "New Zealand",
+   "h90": 2,
+   "a90": 2,
+   "kick_ts": 1781571600,
+   "nh": "ir iran",
+   "na": "new zealand"
+  },
+  {
+   "id": 49,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-16T19:00:00+00:00",
+   "home": "France",
+   "away": "Senegal",
+   "h90": 3,
+   "a90": 1,
+   "kick_ts": 1781636400,
+   "nh": "france",
+   "na": "senegal"
+  },
+  {
+   "id": 50,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-16T22:00:00+00:00",
+   "home": "Iraq",
+   "away": "Norway",
+   "h90": 1,
+   "a90": 4,
+   "kick_ts": 1781647200,
+   "nh": "iraq",
+   "na": "norway"
+  },
+  {
+   "id": 55,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-17T01:00:00+00:00",
+   "home": "Argentina",
+   "away": "Algeria",
+   "h90": 3,
+   "a90": 0,
+   "kick_ts": 1781658000,
+   "nh": "argentina",
+   "na": "algeria"
+  },
+  {
+   "id": 56,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-17T04:00:00+00:00",
+   "home": "Austria",
+   "away": "Jordan",
+   "h90": 3,
+   "a90": 1,
+   "kick_ts": 1781668800,
+   "nh": "austria",
+   "na": "jordan"
+  },
+  {
+   "id": 61,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-17T17:00:00+00:00",
+   "home": "Portugal",
+   "away": "DR Congo",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781715600,
+   "nh": "portugal",
+   "na": "congo dr"
+  },
+  {
+   "id": 67,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-17T20:00:00+00:00",
+   "home": "England",
+   "away": "Croatia",
+   "h90": 4,
+   "a90": 2,
+   "kick_ts": 1781726400,
+   "nh": "england",
+   "na": "croatia"
+  },
+  {
+   "id": 68,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-17T23:00:00+00:00",
+   "home": "Ghana",
+   "away": "Panama",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1781737200,
+   "nh": "ghana",
+   "na": "panama"
+  },
+  {
+   "id": 62,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-18T02:00:00+00:00",
+   "home": "Uzbekistan",
+   "away": "Colombia",
+   "h90": 1,
+   "a90": 3,
+   "kick_ts": 1781748000,
+   "nh": "uzbekistan",
+   "na": "colombia"
+  },
+  {
+   "id": 4,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-18T16:00:00+00:00",
+   "home": "Czechia",
+   "away": "South Africa",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1781798400,
+   "nh": "czechia",
+   "na": "south africa"
+  },
+  {
+   "id": 10,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-18T19:00:00+00:00",
+   "home": "Switzerland",
+   "away": "Bosnia and Herzegovina",
+   "h90": 4,
+   "a90": 1,
+   "kick_ts": 1781809200,
+   "nh": "switzerland",
+   "na": "bosnia and herzegovina"
+  },
+  {
+   "id": 9,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-18T22:00:00+00:00",
+   "home": "Canada",
+   "away": "Qatar",
+   "h90": 6,
+   "a90": 0,
+   "kick_ts": 1781820000,
+   "nh": "canada",
+   "na": "qatar"
+  },
+  {
+   "id": 3,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-19T01:00:00+00:00",
+   "home": "Mexico",
+   "away": "South Korea",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1781830800,
+   "nh": "mexico",
+   "na": "korea republic"
+  },
+  {
+   "id": 21,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-19T19:00:00+00:00",
+   "home": "United States",
+   "away": "Australia",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1781895600,
+   "nh": "united states",
+   "na": "australia"
+  },
+  {
+   "id": 16,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-19T22:00:00+00:00",
+   "home": "Scotland",
+   "away": "Morocco",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1781906400,
+   "nh": "scotland",
+   "na": "morocco"
+  },
+  {
+   "id": 15,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-20T00:30:00+00:00",
+   "home": "Brazil",
+   "away": "Haiti",
+   "h90": 3,
+   "a90": 0,
+   "kick_ts": 1781915400,
+   "nh": "brazil",
+   "na": "haiti"
+  },
+  {
+   "id": 22,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-20T03:00:00+00:00",
+   "home": "Turkey",
+   "away": "Paraguay",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1781924400,
+   "nh": "turkey",
+   "na": "paraguay"
+  },
+  {
+   "id": 33,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-20T17:00:00+00:00",
+   "home": "Netherlands",
+   "away": "Sweden",
+   "h90": 5,
+   "a90": 1,
+   "kick_ts": 1781974800,
+   "nh": "netherlands",
+   "na": "sweden"
+  },
+  {
+   "id": 27,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-20T20:00:00+00:00",
+   "home": "Germany",
+   "away": "Ivory Coast",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1781985600,
+   "nh": "germany",
+   "na": "cote divoire"
+  },
+  {
+   "id": 28,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-21T00:00:00+00:00",
+   "home": "Ecuador",
+   "away": "Cura\u00e7ao",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782000000,
+   "nh": "ecuador",
+   "na": "curacao"
+  },
+  {
+   "id": 34,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-21T04:00:00+00:00",
+   "home": "Tunisia",
+   "away": "Japan",
+   "h90": 0,
+   "a90": 4,
+   "kick_ts": 1782014400,
+   "nh": "tunisia",
+   "na": "japan"
+  },
+  {
+   "id": 45,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-21T16:00:00+00:00",
+   "home": "Spain",
+   "away": "Saudi Arabia",
+   "h90": 4,
+   "a90": 0,
+   "kick_ts": 1782057600,
+   "nh": "spain",
+   "na": "saudi arabia"
+  },
+  {
+   "id": 39,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-21T19:00:00+00:00",
+   "home": "Belgium",
+   "away": "Iran",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782068400,
+   "nh": "belgium",
+   "na": "ir iran"
+  },
+  {
+   "id": 46,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-21T22:00:00+00:00",
+   "home": "Uruguay",
+   "away": "Cape Verde",
+   "h90": 2,
+   "a90": 2,
+   "kick_ts": 1782079200,
+   "nh": "uruguay",
+   "na": "cape verde"
+  },
+  {
+   "id": 40,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-22T01:00:00+00:00",
+   "home": "New Zealand",
+   "away": "Egypt",
+   "h90": 1,
+   "a90": 3,
+   "kick_ts": 1782090000,
+   "nh": "new zealand",
+   "na": "egypt"
+  },
+  {
+   "id": 57,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-22T17:00:00+00:00",
+   "home": "Argentina",
+   "away": "Austria",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1782147600,
+   "nh": "argentina",
+   "na": "austria"
+  },
+  {
+   "id": 51,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-22T21:00:00+00:00",
+   "home": "France",
+   "away": "Iraq",
+   "h90": 3,
+   "a90": 0,
+   "kick_ts": 1782162000,
+   "nh": "france",
+   "na": "iraq"
+  },
+  {
+   "id": 52,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-23T00:00:00+00:00",
+   "home": "Norway",
+   "away": "Senegal",
+   "h90": 3,
+   "a90": 2,
+   "kick_ts": 1782172800,
+   "nh": "norway",
+   "na": "senegal"
+  },
+  {
+   "id": 58,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-23T03:00:00+00:00",
+   "home": "Jordan",
+   "away": "Algeria",
+   "h90": 1,
+   "a90": 2,
+   "kick_ts": 1782183600,
+   "nh": "jordan",
+   "na": "algeria"
+  },
+  {
+   "id": 63,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-23T17:00:00+00:00",
+   "home": "Portugal",
+   "away": "Uzbekistan",
+   "h90": 5,
+   "a90": 0,
+   "kick_ts": 1782234000,
+   "nh": "portugal",
+   "na": "uzbekistan"
+  },
+  {
+   "id": 69,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-23T20:00:00+00:00",
+   "home": "England",
+   "away": "Ghana",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782244800,
+   "nh": "england",
+   "na": "ghana"
+  },
+  {
+   "id": 70,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-23T23:00:00+00:00",
+   "home": "Panama",
+   "away": "Croatia",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1782255600,
+   "nh": "panama",
+   "na": "croatia"
+  },
+  {
+   "id": 64,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-24T02:00:00+00:00",
+   "home": "Colombia",
+   "away": "DR Congo",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1782266400,
+   "nh": "colombia",
+   "na": "congo dr"
+  },
+  {
+   "id": 12,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-24T19:00:00+00:00",
+   "home": "Bosnia and Herzegovina",
+   "away": "Qatar",
+   "h90": 3,
+   "a90": 1,
+   "kick_ts": 1782327600,
+   "nh": "bosnia and herzegovina",
+   "na": "qatar"
+  },
+  {
+   "id": 11,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-24T19:00:00+00:00",
+   "home": "Switzerland",
+   "away": "Canada",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1782327600,
+   "nh": "switzerland",
+   "na": "canada"
+  },
+  {
+   "id": 17,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-24T22:00:00+00:00",
+   "home": "Scotland",
+   "away": "Brazil",
+   "h90": 0,
+   "a90": 3,
+   "kick_ts": 1782338400,
+   "nh": "scotland",
+   "na": "brazil"
+  },
+  {
+   "id": 18,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-24T22:00:00+00:00",
+   "home": "Morocco",
+   "away": "Haiti",
+   "h90": 4,
+   "a90": 2,
+   "kick_ts": 1782338400,
+   "nh": "morocco",
+   "na": "haiti"
+  },
+  {
+   "id": 5,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T01:00:00+00:00",
+   "home": "Czechia",
+   "away": "Mexico",
+   "h90": 0,
+   "a90": 3,
+   "kick_ts": 1782349200,
+   "nh": "czechia",
+   "na": "mexico"
+  },
+  {
+   "id": 6,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T01:00:00+00:00",
+   "home": "South Africa",
+   "away": "South Korea",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1782349200,
+   "nh": "south africa",
+   "na": "korea republic"
+  },
+  {
+   "id": 30,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T20:00:00+00:00",
+   "home": "Cura\u00e7ao",
+   "away": "Ivory Coast",
+   "h90": 0,
+   "a90": 2,
+   "kick_ts": 1782417600,
+   "nh": "curacao",
+   "na": "cote divoire"
+  },
+  {
+   "id": 29,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T20:00:00+00:00",
+   "home": "Ecuador",
+   "away": "Germany",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1782417600,
+   "nh": "ecuador",
+   "na": "germany"
+  },
+  {
+   "id": 36,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T23:00:00+00:00",
+   "home": "Japan",
+   "away": "Sweden",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1782428400,
+   "nh": "japan",
+   "na": "sweden"
+  },
+  {
+   "id": 35,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-25T23:00:00+00:00",
+   "home": "Tunisia",
+   "away": "Netherlands",
+   "h90": 1,
+   "a90": 3,
+   "kick_ts": 1782428400,
+   "nh": "tunisia",
+   "na": "netherlands"
+  },
+  {
+   "id": 23,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-26T02:00:00+00:00",
+   "home": "Turkey",
+   "away": "United States",
+   "h90": 3,
+   "a90": 2,
+   "kick_ts": 1782439200,
+   "nh": "turkey",
+   "na": "united states"
+  },
+  {
+   "id": 24,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-26T02:00:00+00:00",
+   "home": "Paraguay",
+   "away": "Australia",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782439200,
+   "nh": "paraguay",
+   "na": "australia"
+  },
+  {
+   "id": 54,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-26T19:00:00+00:00",
+   "home": "Senegal",
+   "away": "Iraq",
+   "h90": 5,
+   "a90": 0,
+   "kick_ts": 1782500400,
+   "nh": "senegal",
+   "na": "iraq"
+  },
+  {
+   "id": 53,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-26T19:00:00+00:00",
+   "home": "Norway",
+   "away": "France",
+   "h90": 1,
+   "a90": 4,
+   "kick_ts": 1782500400,
+   "nh": "norway",
+   "na": "france"
+  },
+  {
+   "id": 47,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T00:00:00+00:00",
+   "home": "Uruguay",
+   "away": "Spain",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1782518400,
+   "nh": "uruguay",
+   "na": "spain"
+  },
+  {
+   "id": 48,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T00:00:00+00:00",
+   "home": "Cape Verde",
+   "away": "Saudi Arabia",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782518400,
+   "nh": "cape verde",
+   "na": "saudi arabia"
+  },
+  {
+   "id": 41,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T03:00:00+00:00",
+   "home": "New Zealand",
+   "away": "Belgium",
+   "h90": 1,
+   "a90": 5,
+   "kick_ts": 1782529200,
+   "nh": "new zealand",
+   "na": "belgium"
+  },
+  {
+   "id": 42,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T03:00:00+00:00",
+   "home": "Egypt",
+   "away": "Iran",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1782529200,
+   "nh": "egypt",
+   "na": "ir iran"
+  },
+  {
+   "id": 71,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T21:00:00+00:00",
+   "home": "Panama",
+   "away": "England",
+   "h90": 0,
+   "a90": 2,
+   "kick_ts": 1782594000,
+   "nh": "panama",
+   "na": "england"
+  },
+  {
+   "id": 72,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T21:00:00+00:00",
+   "home": "Croatia",
+   "away": "Ghana",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1782594000,
+   "nh": "croatia",
+   "na": "ghana"
+  },
+  {
+   "id": 66,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T23:30:00+00:00",
+   "home": "DR Congo",
+   "away": "Uzbekistan",
+   "h90": 3,
+   "a90": 1,
+   "kick_ts": 1782603000,
+   "nh": "congo dr",
+   "na": "uzbekistan"
+  },
+  {
+   "id": 65,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-27T23:30:00+00:00",
+   "home": "Colombia",
+   "away": "Portugal",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1782603000,
+   "nh": "colombia",
+   "na": "portugal"
+  },
+  {
+   "id": 59,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-28T02:00:00+00:00",
+   "home": "Jordan",
+   "away": "Argentina",
+   "h90": 1,
+   "a90": 3,
+   "kick_ts": 1782612000,
+   "nh": "jordan",
+   "na": "argentina"
+  },
+  {
+   "id": 60,
+   "match_no": null,
+   "stage": "group",
+   "kickoff_utc": "2026-06-28T02:00:00+00:00",
+   "home": "Algeria",
+   "away": "Austria",
+   "h90": 3,
+   "a90": 3,
+   "kick_ts": 1782612000,
+   "nh": "algeria",
+   "na": "austria"
+  },
+  {
+   "id": 73,
+   "match_no": 73,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-28T19:00:00+00:00",
+   "home": "South Africa",
+   "away": "Canada",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1782673200,
+   "nh": "south africa",
+   "na": "canada"
+  },
+  {
+   "id": 76,
+   "match_no": 76,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-29T17:00:00+00:00",
+   "home": "Brazil",
+   "away": "Japan",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1782752400,
+   "nh": "brazil",
+   "na": "japan"
+  },
+  {
+   "id": 74,
+   "match_no": 74,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-29T20:30:00+00:00",
+   "home": "Germany",
+   "away": "Paraguay",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1782765000,
+   "nh": "germany",
+   "na": "paraguay"
+  },
+  {
+   "id": 75,
+   "match_no": 75,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-30T01:00:00+00:00",
+   "home": "Netherlands",
+   "away": "Morocco",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1782781200,
+   "nh": "netherlands",
+   "na": "morocco"
+  },
+  {
+   "id": 78,
+   "match_no": 78,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-30T17:00:00+00:00",
+   "home": "Ivory Coast",
+   "away": "Norway",
+   "h90": 1,
+   "a90": 2,
+   "kick_ts": 1782838800,
+   "nh": "cote divoire",
+   "na": "norway"
+  },
+  {
+   "id": 77,
+   "match_no": 77,
+   "stage": "R32",
+   "kickoff_utc": "2026-06-30T21:00:00+00:00",
+   "home": "France",
+   "away": "Sweden",
+   "h90": 3,
+   "a90": 0,
+   "kick_ts": 1782853200,
+   "nh": "france",
+   "na": "sweden"
+  },
+  {
+   "id": 79,
+   "match_no": 79,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-01T01:00:00+00:00",
+   "home": "Mexico",
+   "away": "Ecuador",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1782867600,
+   "nh": "mexico",
+   "na": "ecuador"
+  },
+  {
+   "id": 80,
+   "match_no": 80,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-01T16:00:00+00:00",
+   "home": "England",
+   "away": "DR Congo",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1782921600,
+   "nh": "england",
+   "na": "congo dr"
+  },
+  {
+   "id": 82,
+   "match_no": 82,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-01T20:00:00+00:00",
+   "home": "Belgium",
+   "away": "Senegal",
+   "h90": 2,
+   "a90": 2,
+   "kick_ts": 1782936000,
+   "nh": "belgium",
+   "na": "senegal"
+  },
+  {
+   "id": 81,
+   "match_no": 81,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-02T00:00:00+00:00",
+   "home": "United States",
+   "away": "Bosnia and Herzegovina",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1782950400,
+   "nh": "united states",
+   "na": "bosnia and herzegovina"
+  },
+  {
+   "id": 84,
+   "match_no": 84,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-02T19:00:00+00:00",
+   "home": "Spain",
+   "away": "Austria",
+   "h90": 3,
+   "a90": 0,
+   "kick_ts": 1783018800,
+   "nh": "spain",
+   "na": "austria"
+  },
+  {
+   "id": 83,
+   "match_no": 83,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-02T23:00:00+00:00",
+   "home": "Portugal",
+   "away": "Croatia",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1783033200,
+   "nh": "portugal",
+   "na": "croatia"
+  },
+  {
+   "id": 85,
+   "match_no": 85,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-03T03:00:00+00:00",
+   "home": "Switzerland",
+   "away": "Algeria",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1783047600,
+   "nh": "switzerland",
+   "na": "algeria"
+  },
+  {
+   "id": 88,
+   "match_no": 88,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-03T18:00:00+00:00",
+   "home": "Australia",
+   "away": "Egypt",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1783101600,
+   "nh": "australia",
+   "na": "egypt"
+  },
+  {
+   "id": 86,
+   "match_no": 86,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-03T22:00:00+00:00",
+   "home": "Argentina",
+   "away": "Cape Verde",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1783116000,
+   "nh": "argentina",
+   "na": "cape verde"
+  },
+  {
+   "id": 87,
+   "match_no": 87,
+   "stage": "R32",
+   "kickoff_utc": "2026-07-04T01:30:00+00:00",
+   "home": "Colombia",
+   "away": "Ghana",
+   "h90": 1,
+   "a90": 0,
+   "kick_ts": 1783128600,
+   "nh": "colombia",
+   "na": "ghana"
+  },
+  {
+   "id": 90,
+   "match_no": 90,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-04T17:00:00+00:00",
+   "home": "Canada",
+   "away": "Morocco",
+   "h90": 0,
+   "a90": 3,
+   "kick_ts": 1783184400,
+   "nh": "canada",
+   "na": "morocco"
+  },
+  {
+   "id": 89,
+   "match_no": 89,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-04T21:00:00+00:00",
+   "home": "Paraguay",
+   "away": "France",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1783198800,
+   "nh": "paraguay",
+   "na": "france"
+  },
+  {
+   "id": 91,
+   "match_no": 91,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-05T20:00:00+00:00",
+   "home": "Brazil",
+   "away": "Norway",
+   "h90": 1,
+   "a90": 2,
+   "kick_ts": 1783281600,
+   "nh": "brazil",
+   "na": "norway"
+  },
+  {
+   "id": 92,
+   "match_no": 92,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-06T00:00:00+00:00",
+   "home": "Mexico",
+   "away": "England",
+   "h90": 2,
+   "a90": 3,
+   "kick_ts": 1783296000,
+   "nh": "mexico",
+   "na": "england"
+  },
+  {
+   "id": 93,
+   "match_no": 93,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-06T19:00:00+00:00",
+   "home": "Portugal",
+   "away": "Spain",
+   "h90": 0,
+   "a90": 1,
+   "kick_ts": 1783364400,
+   "nh": "portugal",
+   "na": "spain"
+  },
+  {
+   "id": 94,
+   "match_no": 94,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-07T00:00:00+00:00",
+   "home": "United States",
+   "away": "Belgium",
+   "h90": 1,
+   "a90": 4,
+   "kick_ts": 1783382400,
+   "nh": "united states",
+   "na": "belgium"
+  },
+  {
+   "id": 95,
+   "match_no": 95,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-07T16:00:00+00:00",
+   "home": "Argentina",
+   "away": "Egypt",
+   "h90": 3,
+   "a90": 2,
+   "kick_ts": 1783440000,
+   "nh": "argentina",
+   "na": "egypt"
+  },
+  {
+   "id": 96,
+   "match_no": 96,
+   "stage": "R16",
+   "kickoff_utc": "2026-07-07T20:00:00+00:00",
+   "home": "Switzerland",
+   "away": "Colombia",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1783454400,
+   "nh": "switzerland",
+   "na": "colombia"
+  },
+  {
+   "id": 97,
+   "match_no": 97,
+   "stage": "QF",
+   "kickoff_utc": "2026-07-09T20:00:00+00:00",
+   "home": "France",
+   "away": "Morocco",
+   "h90": 2,
+   "a90": 0,
+   "kick_ts": 1783627200,
+   "nh": "france",
+   "na": "morocco"
+  },
+  {
+   "id": 98,
+   "match_no": 98,
+   "stage": "QF",
+   "kickoff_utc": "2026-07-10T19:00:00+00:00",
+   "home": "Spain",
+   "away": "Belgium",
+   "h90": 2,
+   "a90": 1,
+   "kick_ts": 1783710000,
+   "nh": "spain",
+   "na": "belgium"
+  },
+  {
+   "id": 99,
+   "match_no": 99,
+   "stage": "QF",
+   "kickoff_utc": "2026-07-11T21:00:00+00:00",
+   "home": "Norway",
+   "away": "England",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1783803600,
+   "nh": "norway",
+   "na": "england"
+  },
+  {
+   "id": 100,
+   "match_no": 100,
+   "stage": "QF",
+   "kickoff_utc": "2026-07-12T01:00:00+00:00",
+   "home": "Argentina",
+   "away": "Switzerland",
+   "h90": 1,
+   "a90": 1,
+   "kick_ts": 1783818000,
+   "nh": "argentina",
+   "na": "switzerland"
+  },
+  {
+   "id": 101,
+   "match_no": 101,
+   "stage": "SF",
+   "kickoff_utc": "2026-07-14T19:00:00+00:00",
+   "home": "France",
+   "away": "Spain",
+   "h90": 0,
+   "a90": 2,
+   "kick_ts": 1784055600,
+   "nh": "france",
+   "na": "spain"
+  },
+  {
+   "id": 102,
+   "match_no": 102,
+   "stage": "SF",
+   "kickoff_utc": "2026-07-15T19:00:00+00:00",
+   "home": "England",
+   "away": "Argentina",
+   "h90": 1,
+   "a90": 2,
+   "kick_ts": 1784142000,
+   "nh": "england",
+   "na": "argentina"
+  },
+  {
+   "id": 103,
+   "match_no": 103,
+   "stage": "third_place",
+   "kickoff_utc": "2026-07-18T21:00:00+00:00",
+   "home": "France",
+   "away": "England",
+   "h90": 4,
+   "a90": 6,
+   "kick_ts": 1784408400,
+   "nh": "france",
+   "na": "england"
+  },
+  {
+   "id": 104,
+   "match_no": 104,
+   "stage": "final",
+   "kickoff_utc": "2026-07-19T19:00:00+00:00",
+   "home": "Spain",
+   "away": "Argentina",
+   "h90": 0,
+   "a90": 0,
+   "kick_ts": 1784487600,
+   "nh": "spain",
+   "na": "argentina"
+  }
+ ],
+ "model": {
+  "1": [
+   0.8104,
+   0.1258,
+   0.0638
+  ],
+  "2": [
+   0.4623,
+   0.2512,
+   0.2865
+  ],
+  "3": [
+   0.5396,
+   0.2619,
+   0.1985
+  ],
+  "4": [
+   0.5205,
+   0.2675,
+   0.212
+  ],
+  "5": [
+   0.0879,
+   0.182,
+   0.7301
+  ],
+  "6": [
+   0.1336,
+   0.224,
+   0.6425
+  ],
+  "7": [
+   0.7395,
+   0.1621,
+   0.0983
+  ],
+  "8": [
+   0.0663,
+   0.1288,
+   0.8049
+  ],
+  "9": [
+   0.7708,
+   0.1597,
+   0.0694
+  ],
+  "10": [
+   0.6819,
+   0.2061,
+   0.112
+  ],
+  "11": [
+   0.3475,
+   0.2923,
+   0.3602
+  ],
+  "12": [
+   0.4369,
+   0.2857,
+   0.2774
+  ],
+  "13": [
+   0.4481,
+   0.2532,
+   0.2987
+  ],
+  "14": [
+   0.2039,
+   0.228,
+   0.5681
+  ],
+  "15": [
+   0.817,
+   0.1324,
+   0.0506
+  ],
+  "16": [
+   0.2103,
+   0.2668,
+   0.5229
+  ],
+  "17": [
+   0.1401,
+   0.2288,
+   0.6311
+  ],
+  "18": [
+   0.7947,
+   0.1459,
+   0.0594
+  ],
+  "19": [
+   0.3798,
+   0.2581,
+   0.3621
+  ],
+  "20": [
+   0.2961,
+   0.2528,
+   0.4511
+  ],
+  "21": [
+   0.3685,
+   0.2921,
+   0.3394
+  ],
+  "22": [
+   0.4264,
+   0.2872,
+   0.2864
+  ],
+  "23": [
+   0.2099,
+   0.2667,
+   0.5234
+  ],
+  "24": [
+   0.3296,
+   0.2917,
+   0.3787
+  ],
+  "25": [
+   0.8424,
+   0.1077,
+   0.0499
+  ],
+  "26": [
+   0.1583,
+   0.2059,
+   0.6358
+  ],
+  "27": [
+   0.582,
+   0.2479,
+   0.1702
+  ],
+  "28": [
+   0.8201,
+   0.1305,
+   0.0494
+  ],
+  "29": [
+   0.2466,
+   0.2788,
+   0.4746
+  ],
+  "30": [
+   0.1358,
+   0.2257,
+   0.6385
+  ],
+  "31": [
+   0.39,
+   0.2579,
+   0.3522
+  ],
+  "32": [
+   0.3982,
+   0.2575,
+   0.3443
+  ],
+  "33": [
+   0.5964,
+   0.2426,
+   0.1611
+  ],
+  "34": [
+   0.0842,
+   0.1779,
+   0.7379
+  ],
+  "35": [
+   0.0571,
+   0.1424,
+   0.8005
+  ],
+  "36": [
+   0.6382,
+   0.2258,
+   0.136
+  ],
+  "37": [
+   0.5748,
+   0.226,
+   0.1991
+  ],
+  "38": [
+   0.5733,
+   0.2509,
+   0.1758
+  ],
+  "39": [
+   0.4195,
+   0.2881,
+   0.2924
+  ],
+  "40": [
+   0.288,
+   0.2875,
+   0.4246
+  ],
+  "41": [
+   0.1299,
+   0.2212,
+   0.6489
+  ],
+  "42": [
+   0.2921,
+   0.2881,
+   0.4198
+  ],
+  "43": [
+   0.941,
+   0.0447,
+   0.0143
+  ],
+  "44": [
+   0.1033,
+   0.198,
+   0.6986
+  ],
+  "45": [
+   0.8904,
+   0.0844,
+   0.0252
+  ],
+  "46": [
+   0.7122,
+   0.1913,
+   0.0965
+  ],
+  "47": [
+   0.1055,
+   0.2002,
+   0.6943
+  ],
+  "48": [
+   0.326,
+   0.2915,
+   0.3825
+  ],
+  "49": [
+   0.6406,
+   0.2248,
+   0.1346
+  ],
+  "50": [
+   0.1239,
+   0.2164,
+   0.6597
+  ],
+  "51": [
+   0.8568,
+   0.1071,
+   0.0361
+  ],
+  "52": [
+   0.5051,
+   0.2716,
+   0.2233
+  ],
+  "53": [
+   0.2101,
+   0.2668,
+   0.5231
+  ],
+  "54": [
+   0.548,
+   0.2593,
+   0.1926
+  ],
+  "55": [
+   0.7246,
+   0.1849,
+   0.0905
+  ],
+  "56": [
+   0.5087,
+   0.2707,
+   0.2206
+  ],
+  "57": [
+   0.7062,
+   0.1943,
+   0.0995
+  ],
+  "58": [
+   0.21,
+   0.2667,
+   0.5232
+  ],
+  "59": [
+   0.0206,
+   0.0736,
+   0.9057
+  ],
+  "60": [
+   0.3363,
+   0.292,
+   0.3717
+  ],
+  "61": [
+   0.7298,
+   0.1822,
+   0.088
+  ],
+  "62": [
+   0.132,
+   0.2228,
+   0.6453
+  ],
+  "63": [
+   0.6256,
+   0.2311,
+   0.1433
+  ],
+  "64": [
+   0.7443,
+   0.1744,
+   0.0813
+  ],
+  "65": [
+   0.3978,
+   0.2904,
+   0.3118
+  ],
+  "66": [
+   0.324,
+   0.2913,
+   0.3846
+  ],
+  "67": [
+   0.5102,
+   0.2703,
+   0.2195
+  ],
+  "68": [
+   0.1389,
+   0.2279,
+   0.6332
+  ],
+  "69": [
+   0.8737,
+   0.0958,
+   0.0305
+  ],
+  "70": [
+   0.2017,
+   0.2633,
+   0.5349
+  ],
+  "71": [
+   0.0778,
+   0.1703,
+   0.7519
+  ],
+  "72": [
+   0.6829,
+   0.2057,
+   0.1115
+  ],
+  "73": [
+   0.1882,
+   0.2572,
+   0.5545
+  ],
+  "74": [
+   0.4951,
+   0.2741,
+   0.2307
+  ],
+  "75": [
+   0.3829,
+   0.2915,
+   0.3257
+  ],
+  "76": [
+   0.4634,
+   0.2811,
+   0.2555
+  ],
+  "77": [
+   0.8069,
+   0.1386,
+   0.0545
+  ],
+  "78": [
+   0.2116,
+   0.2674,
+   0.521
+  ],
+  "79": [
+   0.4011,
+   0.2901,
+   0.3088
+  ],
+  "80": [
+   0.7348,
+   0.1795,
+   0.0857
+  ],
+  "81": [
+   0.6339,
+   0.2276,
+   0.1385
+  ],
+  "82": [
+   0.4354,
+   0.2859,
+   0.2786
+  ],
+  "83": [
+   0.4607,
+   0.2816,
+   0.2577
+  ],
+  "84": [
+   0.7314,
+   0.1813,
+   0.0873
+  ],
+  "85": [
+   0.4659,
+   0.2806,
+   0.2535
+  ],
+  "86": [
+   0.9282,
+   0.0573,
+   0.0145
+  ],
+  "87": [
+   0.8294,
+   0.1247,
+   0.0459
+  ],
+  "88": [
+   0.4379,
+   0.2855,
+   0.2765
+  ],
+  "89": [
+   0.0904,
+   0.1848,
+   0.7248
+  ],
+  "90": [
+   0.195,
+   0.2604,
+   0.5446
+  ],
+  "91": [
+   0.4905,
+   0.2752,
+   0.2343
+  ],
+  "92": [
+   0.2847,
+   0.287,
+   0.4283
+  ],
+  "93": [
+   0.198,
+   0.2617,
+   0.5402
+  ],
+  "94": [
+   0.2856,
+   0.2871,
+   0.4273
+  ],
+  "95": [
+   0.8104,
+   0.1364,
+   0.0531
+  ],
+  "96": [
+   0.2724,
+   0.2848,
+   0.4429
+  ],
+  "97": [
+   0.5447,
+   0.2687,
+   0.1866
+  ],
+  "98": [
+   0.6221,
+   0.2646,
+   0.1133
+  ],
+  "99": [
+   0.2588,
+   0.296,
+   0.4452
+  ],
+  "100": [
+   0.6282,
+   0.2616,
+   0.1103
+  ],
+  "101": [
+   0.3304,
+   0.2985,
+   0.3711
+  ],
+  "102": [
+   0.2731,
+   0.2952,
+   0.4317
+  ],
+  "103": [
+   0.4018,
+   0.2962,
+   0.302
+  ],
+  "104": [
+   0.3734,
+   0.2984,
+   0.3282
+  ]
+ },
+ "kalshi": {
+  "104": {
+   "draw": 0.325,
+   "home": 0.425,
+   "away": 0.265
+  },
+  "103": {
+   "draw": 0.225,
+   "home": 0.575,
+   "away": 0.215
+  },
+  "102": {
+   "draw": 0.345,
+   "home": 0.345,
+   "away": 0.315
+  },
+  "101": {
+   "draw": 0.335,
+   "home": 0.365,
+   "away": 0.305
+  },
+  "100": {
+   "draw": 0.295,
+   "away": 0.14500000000000002,
+   "home": 0.565
+  },
+  "98": {
+   "draw": 0.255,
+   "home": 0.585,
+   "away": 0.175
+  },
+  "99": {
+   "draw": 0.245,
+   "home": 0.225,
+   "away": 0.535
+  },
+  "97": {
+   "draw": 0.245,
+   "away": 0.14500000000000002,
+   "home": 0.615
+  },
+  "96": {
+   "draw": 0.335,
+   "home": 0.265,
+   "away": 0.405
+  },
+  "95": {
+   "draw": 0.195,
+   "away": 0.07500000000000001,
+   "home": 0.735
+  },
+  "93": {
+   "draw": 0.275,
+   "home": 0.225,
+   "away": 0.505
+  },
+  "94": {
+   "home": 0.365,
+   "draw": 0.28500000000000003,
+   "away": 0.345
+  },
+  "92": {
+   "draw": 0.315,
+   "home": 0.335,
+   "away": 0.355
+  },
+  "89": {
+   "draw": 0.135,
+   "home": 0.045,
+   "away": 0.815
+  },
+  "91": {
+   "draw": 0.265,
+   "away": 0.195,
+   "home": 0.545
+  },
+  "90": {
+   "draw": 0.28500000000000003,
+   "away": 0.535,
+   "home": 0.175
+  },
+  "85": {
+   "draw": 0.305,
+   "home": 0.495,
+   "away": 0.20500000000000002
+  },
+  "84": {
+   "draw": 0.185,
+   "home": 0.725,
+   "away": 0.08499999999999999
+  },
+  "87": {
+   "draw": 0.225,
+   "away": 0.10500000000000001,
+   "home": 0.685
+  },
+  "83": {
+   "draw": 0.265,
+   "home": 0.585,
+   "away": 0.165
+  },
+  "82": {
+   "draw": 0.28500000000000003,
+   "away": 0.225,
+   "home": 0.505
+  },
+  "80": {
+   "draw": 0.185,
+   "home": 0.765,
+   "away": 0.055
+  },
+  "79": {
+   "draw": 0.355,
+   "home": 0.425,
+   "away": 0.225
+  },
+  "88": {
+   "draw": 0.355,
+   "away": 0.395,
+   "home": 0.265
+  },
+  "86": {
+   "draw": 0.10500000000000001,
+   "away": 0.035,
+   "home": 0.865
+  },
+  "77": {
+   "draw": 0.155,
+   "away": 0.07500000000000001,
+   "home": 0.765
+  },
+  "74": {
+   "draw": 0.185,
+   "away": 0.08499999999999999,
+   "home": 0.735
+  },
+  "78": {
+   "draw": 0.295,
+   "away": 0.445,
+   "home": 0.265
+  },
+  "81": {
+   "home": 0.725,
+   "draw": 0.185,
+   "away": 0.095
+  },
+  "75": {
+   "draw": 0.315,
+   "home": 0.405,
+   "away": 0.28500000000000003
+  },
+  "76": {
+   "draw": 0.265,
+   "away": 0.185,
+   "home": 0.545
+  },
+  "73": {
+   "draw": 0.28500000000000003,
+   "home": 0.185,
+   "away": 0.525
+  },
+  "66": {
+   "away": 0.175,
+   "draw": 0.245,
+   "home": 0.585
+  },
+  "54": {
+   "draw": 0.135,
+   "home": 0.805,
+   "away": 0.07500000000000001
+  },
+  "36": {
+   "draw": 0.28500000000000003,
+   "away": 0.315,
+   "home": 0.405
+  },
+  "5": {
+   "draw": 0.225,
+   "away": 0.575,
+   "home": 0.195
+  },
+  "12": {
+   "draw": 0.185,
+   "away": 0.125,
+   "home": 0.695
+  },
+  "64": {
+   "draw": 0.235,
+   "home": 0.645,
+   "away": 0.125
+  },
+  "51": {
+   "draw": 0.065,
+   "away": 0.025,
+   "home": 0.915
+  },
+  "33": {
+   "draw": 0.235,
+   "away": 0.195,
+   "home": 0.575
+  },
+  "10": {
+   "draw": 0.235,
+   "home": 0.625,
+   "away": 0.155
+  },
+  "4": {
+   "draw": 0.295,
+   "away": 0.20500000000000002,
+   "home": 0.505
+  },
+  "61": {
+   "draw": 0.165,
+   "home": 0.765,
+   "away": 0.065
+  },
+  "50": {
+   "draw": 0.14500000000000002,
+   "away": 0.795,
+   "home": 0.07500000000000001
+  },
+  "32": {
+   "away": 0.20500000000000002,
+   "draw": 0.28500000000000003,
+   "home": 0.515
+  },
+  "7": {
+   "draw": 0.265,
+   "home": 0.535,
+   "away": 0.195
+  },
+  "2": {
+   "draw": 0.325,
+   "home": 0.365,
+   "away": 0.315
+  },
+  "59": {
+   "draw": 0.095,
+   "home": 0.045,
+   "away": 0.865
+  },
+  "60": {
+   "draw": 0.455,
+   "home": 0.275,
+   "away": 0.275
+  },
+  "72": {
+   "draw": 0.295,
+   "away": 0.165,
+   "home": 0.545
+  },
+  "65": {
+   "draw": 0.235,
+   "away": 0.525,
+   "home": 0.245
+  },
+  "42": {
+   "draw": 0.355,
+   "away": 0.275,
+   "home": 0.375
+  },
+  "71": {
+   "draw": 0.10500000000000001,
+   "home": 0.045,
+   "away": 0.855
+  },
+  "41": {
+   "draw": 0.11499999999999999,
+   "home": 0.07500000000000001,
+   "away": 0.825
+  },
+  "48": {
+   "draw": 0.28500000000000003,
+   "away": 0.355,
+   "home": 0.375
+  },
+  "53": {
+   "draw": 0.155,
+   "home": 0.11499999999999999,
+   "away": 0.745
+  },
+  "47": {
+   "home": 0.165,
+   "draw": 0.265,
+   "away": 0.575
+  },
+  "24": {
+   "draw": 0.395,
+   "home": 0.385,
+   "away": 0.225
+  },
+  "35": {
+   "home": 0.045,
+   "draw": 0.095,
+   "away": 0.875
+  },
+  "30": {
+   "draw": 0.125,
+   "home": 0.055,
+   "away": 0.825
+  },
+  "29": {
+   "draw": 0.215,
+   "away": 0.555,
+   "home": 0.235
+  },
+  "6": {
+   "draw": 0.265,
+   "home": 0.175,
+   "away": 0.555
+  },
+  "17": {
+   "draw": 0.175,
+   "home": 0.095,
+   "away": 0.745
+  },
+  "18": {
+   "draw": 0.165,
+   "home": 0.755,
+   "away": 0.08499999999999999
+  },
+  "70": {
+   "draw": 0.20500000000000002,
+   "home": 0.11499999999999999,
+   "away": 0.695
+  },
+  "11": {
+   "draw": 0.325,
+   "home": 0.375,
+   "away": 0.305
+  },
+  "69": {
+   "draw": 0.11499999999999999,
+   "away": 0.045,
+   "home": 0.845
+  },
+  "63": {
+   "away": 0.045,
+   "draw": 0.10500000000000001,
+   "home": 0.865
+  },
+  "58": {
+   "draw": 0.20500000000000002,
+   "home": 0.135,
+   "away": 0.665
+  },
+  "57": {
+   "draw": 0.215,
+   "away": 0.10500000000000001,
+   "home": 0.685
+  },
+  "52": {
+   "draw": 0.28500000000000003,
+   "away": 0.325,
+   "home": 0.405
+  },
+  "40": {
+   "draw": 0.245,
+   "home": 0.165,
+   "away": 0.595
+  },
+  "46": {
+   "home": 0.705,
+   "draw": 0.20500000000000002,
+   "away": 0.095
+  },
+  "39": {
+   "draw": 0.20500000000000002,
+   "away": 0.10500000000000001,
+   "home": 0.695
+  },
+  "34": {
+   "home": 0.11499999999999999,
+   "draw": 0.225,
+   "away": 0.665
+  },
+  "45": {
+   "draw": 0.07500000000000001,
+   "away": 0.035,
+   "home": 0.885
+  },
+  "28": {
+   "draw": 0.10500000000000001,
+   "home": 0.845,
+   "away": 0.055
+  },
+  "15": {
+   "draw": 0.07500000000000001,
+   "away": 0.045,
+   "home": 0.885
+  },
+  "27": {
+   "draw": 0.195,
+   "home": 0.655,
+   "away": 0.135
+  },
+  "16": {
+   "draw": 0.265,
+   "home": 0.155,
+   "away": 0.595
+  },
+  "21": {
+   "home": 0.625,
+   "draw": 0.215,
+   "away": 0.155
+  },
+  "3": {
+   "draw": 0.295,
+   "home": 0.485,
+   "away": 0.215
+  },
+  "62": {
+   "home": 0.07500000000000001,
+   "draw": 0.175,
+   "away": 0.765
+  },
+  "67": {
+   "draw": 0.255,
+   "home": 0.585,
+   "away": 0.165
+  },
+  "9": {
+   "draw": 0.155,
+   "away": 0.07500000000000001,
+   "home": 0.785
+  },
+  "68": {
+   "draw": 0.315,
+   "away": 0.295,
+   "home": 0.395
+  },
+  "56": {
+   "draw": 0.20500000000000002,
+   "away": 0.10500000000000001,
+   "home": 0.705
+  },
+  "55": {
+   "draw": 0.235,
+   "away": 0.135,
+   "home": 0.635
+  },
+  "49": {
+   "draw": 0.215,
+   "away": 0.135,
+   "home": 0.665
+  },
+  "38": {
+   "draw": 0.275,
+   "away": 0.20500000000000002,
+   "home": 0.515
+  },
+  "37": {
+   "draw": 0.235,
+   "away": 0.125,
+   "home": 0.665
+  },
+  "44": {
+   "away": 0.645,
+   "draw": 0.245,
+   "home": 0.125
+  },
+  "26": {
+   "draw": 0.335,
+   "away": 0.395,
+   "home": 0.28500000000000003
+  },
+  "43": {
+   "draw": 0.065,
+   "home": 0.905,
+   "away": 0.025
+  },
+  "25": {
+   "draw": 0.045,
+   "home": 0.935,
+   "away": 0.025
+  },
+  "31": {
+   "draw": 0.275,
+   "home": 0.485,
+   "away": 0.245
+  },
+  "14": {
+   "draw": 0.215,
+   "away": 0.615,
+   "home": 0.165
+  },
+  "8": {
+   "draw": 0.125,
+   "away": 0.825,
+   "home": 0.055
+  },
+  "13": {
+   "draw": 0.255,
+   "away": 0.175,
+   "home": 0.585
+  },
+  "19": {
+   "home": 0.485,
+   "draw": 0.305,
+   "away": 0.235
+  },
+  "1": {
+   "draw": 0.20500000000000002,
+   "away": 0.10500000000000001,
+   "home": 0.695
+  },
+  "23": {
+   "away": 0.455,
+   "home": 0.295,
+   "draw": 0.235
+  },
+  "22": {
+   "home": 0.475,
+   "draw": 0.28500000000000003,
+   "away": 0.245
+  },
+  "20": {
+   "away": 0.575,
+   "draw": 0.265,
+   "home": 0.175
+  }
+ },
+ "polymarket": {
+  "1": {
+   "home": 0.685,
+   "draw": 0.215,
+   "away": 0.105
+  },
+  "2": {
+   "home": 0.375,
+   "draw": 0.315,
+   "away": 0.315
+  },
+  "19": {
+   "home": 0.475,
+   "draw": 0.305,
+   "away": 0.225
+  },
+  "8": {
+   "home": 0.0545,
+   "draw": 0.115,
+   "away": 0.825
+  },
+  "13": {
+   "home": 0.585,
+   "draw": 0.265,
+   "away": 0.165
+  },
+  "14": {
+   "home": 0.165,
+   "draw": 0.215,
+   "away": 0.605
+  },
+  "25": {
+   "home": 0.9405,
+   "draw": 0.0395,
+   "away": 0.0235
+  },
+  "31": {
+   "home": 0.485,
+   "draw": 0.275,
+   "away": 0.245
+  },
+  "32": {
+   "home": 0.515,
+   "draw": 0.285,
+   "away": 0.205
+  },
+  "37": {
+   "home": 0.655,
+   "draw": 0.215,
+   "away": 0.125
+  },
+  "44": {
+   "home": 0.115,
+   "draw": 0.235,
+   "away": 0.645
+  },
+  "38": {
+   "home": 0.515,
+   "draw": 0.285,
+   "away": 0.205
+  },
+  "49": {
+   "home": 0.655,
+   "draw": 0.215,
+   "away": 0.135
+  },
+  "50": {
+   "home": 0.065,
+   "draw": 0.145,
+   "away": 0.795
+  },
+  "55": {
+   "home": 0.625,
+   "draw": 0.235,
+   "away": 0.135
+  },
+  "56": {
+   "home": 0.705,
+   "draw": 0.195,
+   "away": 0.105
+  },
+  "61": {
+   "home": 0.765,
+   "draw": 0.165,
+   "away": 0.075
+  },
+  "67": {
+   "home": 0.585,
+   "draw": 0.245,
+   "away": 0.165
+  },
+  "68": {
+   "home": 0.395,
+   "draw": 0.315,
+   "away": 0.295
+  },
+  "62": {
+   "home": 0.085,
+   "draw": 0.185,
+   "away": 0.745
+  },
+  "4": {
+   "home": 0.505,
+   "draw": 0.285,
+   "away": 0.215
+  },
+  "9": {
+   "home": 0.765,
+   "draw": 0.155,
+   "away": 0.075
+  },
+  "3": {
+   "home": 0.465,
+   "draw": 0.305,
+   "away": 0.225
+  },
+  "21": {
+   "home": 0.615,
+   "draw": 0.225,
+   "away": 0.165
+  },
+  "16": {
+   "home": 0.155,
+   "draw": 0.265,
+   "away": 0.575
+  },
+  "15": {
+   "home": 0.885,
+   "draw": 0.0795,
+   "away": 0.0455
+  },
+  "33": {
+   "home": 0.575,
+   "draw": 0.235,
+   "away": 0.195
+  },
+  "28": {
+   "home": 0.845,
+   "draw": 0.105,
+   "away": 0.0565
+  },
+  "34": {
+   "home": 0.115,
+   "draw": 0.215,
+   "away": 0.675
+  },
+  "45": {
+   "home": 0.895,
+   "draw": 0.075,
+   "away": 0.0365
+  },
+  "39": {
+   "home": 0.695,
+   "draw": 0.205,
+   "away": 0.105
+  },
+  "40": {
+   "home": 0.165,
+   "draw": 0.245,
+   "away": 0.595
+  },
+  "57": {
+   "home": 0.675,
+   "draw": 0.225,
+   "away": 0.105
+  },
+  "51": {
+   "home": 0.905,
+   "draw": 0.065,
+   "away": 0.0225
+  },
+  "52": {
+   "home": 0.395,
+   "draw": 0.285,
+   "away": 0.325
+  },
+  "58": {
+   "home": 0.135,
+   "draw": 0.205,
+   "away": 0.665
+  },
+  "63": {
+   "home": 0.855,
+   "draw": 0.105,
+   "away": 0.045
+  },
+  "69": {
+   "home": 0.835,
+   "draw": 0.115,
+   "away": 0.045
+  },
+  "70": {
+   "home": 0.115,
+   "draw": 0.205,
+   "away": 0.685
+  },
+  "64": {
+   "home": 0.635,
+   "draw": 0.235,
+   "away": 0.125
+  },
+  "11": {
+   "home": 0.375,
+   "draw": 0.325,
+   "away": 0.295
+  },
+  "18": {
+   "home": 0.745,
+   "draw": 0.155,
+   "away": 0.075
+  },
+  "17": {
+   "home": 0.085,
+   "draw": 0.175,
+   "away": 0.735
+  },
+  "5": {
+   "home": 0.205,
+   "draw": 0.225,
+   "away": 0.565
+  },
+  "6": {
+   "home": 0.175,
+   "draw": 0.255,
+   "away": 0.565
+  },
+  "29": {
+   "home": 0.2125,
+   "draw": 0.2195,
+   "away": 0.5695
+  },
+  "36": {
+   "home": 0.4135,
+   "draw": 0.2795,
+   "away": 0.3005
+  },
+  "35": {
+   "home": 0.0385,
+   "draw": 0.085,
+   "away": 0.875
+  },
+  "24": {
+   "home": 0.385,
+   "draw": 0.405,
+   "away": 0.225
+  },
+  "53": {
+   "home": 0.115,
+   "draw": 0.155,
+   "away": 0.725
+  },
+  "54": {
+   "home": 0.805,
+   "draw": 0.125,
+   "away": 0.075
+  },
+  "47": {
+   "home": 0.155,
+   "draw": 0.275,
+   "away": 0.575
+  },
+  "42": {
+   "home": 0.375,
+   "draw": 0.355,
+   "away": 0.275
+  },
+  "41": {
+   "home": 0.065,
+   "draw": 0.105,
+   "away": 0.825
+  },
+  "71": {
+   "home": 0.045,
+   "draw": 0.105,
+   "away": 0.855
+  },
+  "72": {
+   "home": 0.545,
+   "draw": 0.295,
+   "away": 0.165
+  },
+  "65": {
+   "home": 0.235,
+   "draw": 0.235,
+   "away": 0.535
+  },
+  "66": {
+   "home": 0.575,
+   "draw": 0.245,
+   "away": 0.175
+  },
+  "59": {
+   "home": 0.0435,
+   "draw": 0.095,
+   "away": 0.865
+  },
+  "60": {
+   "home": 0.265,
+   "draw": 0.455,
+   "away": 0.265
+  },
+  "73": {
+   "home": 0.185,
+   "draw": 0.285,
+   "away": 0.525
+  },
+  "76": {
+   "home": 0.545,
+   "draw": 0.275,
+   "away": 0.185
+  },
+  "75": {
+   "home": 0.405,
+   "draw": 0.315,
+   "away": 0.285
+  },
+  "81": {
+   "home": 0.715,
+   "draw": 0.185,
+   "away": 0.095
+  },
+  "74": {
+   "home": 0.735,
+   "draw": 0.185,
+   "away": 0.085
+  },
+  "77": {
+   "home": 0.765,
+   "draw": 0.155,
+   "away": 0.075
+  },
+  "88": {
+   "home": 0.255,
+   "draw": 0.345,
+   "away": 0.405
+  },
+  "79": {
+   "home": 0.425,
+   "draw": 0.355,
+   "away": 0.225
+  },
+  "80": {
+   "home": 0.755,
+   "draw": 0.185,
+   "away": 0.055
+  },
+  "82": {
+   "home": 0.505,
+   "draw": 0.285,
+   "away": 0.225
+  },
+  "84": {
+   "home": 0.72625,
+   "draw": 0.18625,
+   "away": 0.08875
+  },
+  "83": {
+   "home": 0.57375,
+   "draw": 0.26375,
+   "away": 0.16125
+  },
+  "85": {
+   "home": 0.48875,
+   "draw": 0.30625,
+   "away": 0.21125
+  },
+  "87": {
+   "home": 0.675,
+   "draw": 0.225,
+   "away": 0.105
+  },
+  "90": {
+   "home": 0.185,
+   "draw": 0.295,
+   "away": 0.525
+  },
+  "89": {
+   "home": 0.045,
+   "draw": 0.135,
+   "away": 0.815
+  },
+  "91": {
+   "home": 0.545,
+   "draw": 0.265,
+   "away": 0.195
+  },
+  "92": {
+   "home": 0.315,
+   "draw": 0.315,
+   "away": 0.375
+  },
+  "94": {
+   "home": 0.365,
+   "draw": 0.305,
+   "away": 0.335
+  },
+  "93": {
+   "home": 0.235,
+   "draw": 0.275,
+   "away": 0.495
+  },
+  "95": {
+   "home": 0.735,
+   "draw": 0.195,
+   "away": 0.075
+  },
+  "96": {
+   "home": 0.255,
+   "draw": 0.335,
+   "away": 0.405
+  },
+  "97": {
+   "home": 0.61625,
+   "draw": 0.24625,
+   "away": 0.14125
+  },
+  "99": {
+   "home": 0.21625,
+   "draw": 0.24875,
+   "away": 0.53375
+  },
+  "98": {
+   "home": 0.58625,
+   "draw": 0.24625,
+   "away": 0.17125
+  },
+  "100": {
+   "home": 0.56625,
+   "draw": 0.29125,
+   "away": 0.14375
+  },
+  "101": {
+   "home": 0.36625,
+   "draw": 0.32875,
+   "away": 0.30125
+  },
+  "102": {
+   "home": 0.34375,
+   "draw": 0.33875,
+   "away": 0.31125
+  },
+  "103": {
+   "home": 0.565,
+   "draw": 0.225,
+   "away": 0.215
+  },
+  "104": {
+   "home": 0.42375,
+   "draw": 0.32375,
+   "away": 0.25875
+  },
+  "20": {
+   "home": 0.175,
+   "draw": 0.265,
+   "away": 0.565
+  },
+  "22": {
+   "home": 0.465,
+   "draw": 0.295,
+   "away": 0.245
+  },
+  "23": {
+   "home": 0.295,
+   "draw": 0.245,
+   "away": 0.455
+  }
+ },
+ "coverage": {
+  "kalshi": 104,
+  "polymarket": 93,
+  "model": 104,
+  "polymarket_missing_note": "11 matches had no complete 3-outcome Polymarket market; misses list omitted (dominated by non-WC26 vs-events under the same tag)"
+ },
+ "bookmaker_note": "API-Football purges odds shortly after fixtures; only the 7-match archived odds table exists (see market-record.json)"
+}

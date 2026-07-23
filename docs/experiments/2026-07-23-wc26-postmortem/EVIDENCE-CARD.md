@@ -28,8 +28,41 @@ the closing line.
   market 2/7; model ahead on 4 of 7 (win rate 0.571), mean edge +0.022.
 - Δ log loss −0.0706, CI95 [−0.1749, +0.0235] →
   **NO CREDIBLE DIFFERENCE (CI straddles 0)**.
-- Honest read: directionally ahead of the market, sample far too small to
-  claim anything. Keep publishing exactly this framing.
+- Honest read: directionally ahead on this slice, but see the full-tournament
+  benchmark below — the n=7 window was favorable noise.
+
+## Model vs exchanges, FULL tournament (added 2026-07-23)
+
+Post-hoc reconstruction from public historical APIs (Kalshi settled-market
+candlesticks, Polymarket CLOB price history): last pre-kickoff price for
+every match. **Kalshi n=104 (complete), Polymarket n=93** (11 matches had no
+complete 3-outcome market). Bookmakers not recoverable (API-Football purges
+odds post-fixture; the n=7 above is all that exists). Grading: 90-minute
+W/D/L, identical devig and argmax-favorite convention for every predictor —
+which is why the model shows 61.5% here vs the 66.35% headline (the public
+record credits ET/pens winners; here 90' draws count against everyone
+equally). Raw data: `exchange-prices-n104.json`; full output incl. all
+favorite disagreements: `exchange-benchmark-n104.txt`.
+
+| | favorite hit | avg log loss | avg Brier |
+|---|---|---|---|
+| model (n=104) | 61.5% | 0.9042 | 0.5327 |
+| **Kalshi (n=104)** | **63.5%** | **0.8402** | **0.4967** |
+| model (n=93 overlap) | 63.4% | 0.8459 | 0.4953 |
+| **Polymarket (n=93)** | **65.6%** | **0.8062** | **0.4732** |
+
+- Paired Δ log loss model−Kalshi: **+0.0640, CI95 [+0.0173, +0.1105] →
+  model credibly BEHIND** the exchange over the full tournament.
+- Paired Δ model−Polymarket: +0.0397, CI95 [−0.0059, +0.0878] → no credible
+  difference (leaning behind).
+- The QF→final window (model 4/8 vs exchanges 2/8, incl. both contrarian
+  semifinal calls) was real but unrepresentative; the markets won it back in
+  the group stage. Of 12 outright disagreements with Kalshi: model 3,
+  Kalshi 5, 4 draws nobody called.
+- **This is the strongest evidence yet FOR the odds-anchored blend twin**
+  (§gates: 22/30 pairs, marginally ahead): the market carries signal the
+  pure Elo-Poisson engine lacks. It is also the definitive receipt behind
+  the public "we don't claim to beat the market" stance.
 
 ## Promotion gates at tournament end (shadow-record run 2026-07-22)
 

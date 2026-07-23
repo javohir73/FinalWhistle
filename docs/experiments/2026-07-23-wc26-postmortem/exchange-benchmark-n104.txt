@@ -1,0 +1,52 @@
+
+===== model vs kalshi: n=104 shared matches (QF:4, R16:8, R32:16, SF:2, final:1, group:72, third_place:1)
+  model      favorite 64/104 = 61.5%  avg_LL=0.9042  avg_brier=0.5327
+  kalshi     favorite 66/104 = 63.5%  avg_LL=0.8402  avg_brier=0.4967
+  paired LL diff (model-kalshi): +0.0640  CI95 [+0.0173, +0.1105] -> model credibly BEHIND
+  favorite disagreements: 12; model right on 3, kalshi right on 5
+    m 68 Ghana v Panama: model=away kalshi=home res=home [kalshi✓]
+    m 11 Switzerland v Canada: model=away kalshi=home res=home [kalshi✓]
+    m 24 Paraguay v Australia: model=away kalshi=draw res=draw [kalshi✓]
+    m 48 Cape Verde v Saudi Arabia: model=away kalshi=home res=draw [both✗]
+    m 42 Egypt v Iran: model=away kalshi=home res=draw [both✗]
+    m 65 Colombia v Portugal: model=home kalshi=away res=draw [both✗]
+    m 66 DR Congo v Uzbekistan: model=away kalshi=home res=home [kalshi✓]
+    m 60 Algeria v Austria: model=away kalshi=draw res=draw [kalshi✓]
+    m 88 Australia v Egypt: model=home kalshi=away res=draw [both✗]
+    m 94 United States v Belgium: model=away kalshi=home res=away [model✓]
+    m101 France v Spain: model=away kalshi=home res=away [model✓]
+    m102 England v Argentina: model=away kalshi=draw res=away [model✓]
+
+===== model vs polymarket: n=93 shared matches (QF:4, R16:8, R32:14, SF:2, final:1, group:63, third_place:1)
+  model      favorite 59/93 = 63.4%  avg_LL=0.8459  avg_brier=0.4953
+  polymarket favorite 61/93 = 65.6%  avg_LL=0.8062  avg_brier=0.4732
+  paired LL diff (model-polymarket): +0.0397  CI95 [-0.0059, +0.0878] -> no credible difference
+  favorite disagreements: 11; model right on 3, polymarket right on 5
+    m 68 Ghana v Panama: model=away polymarket=home res=home [polymarket✓]
+    m 11 Switzerland v Canada: model=away polymarket=home res=home [polymarket✓]
+    m 24 Paraguay v Australia: model=away polymarket=draw res=draw [polymarket✓]
+    m 42 Egypt v Iran: model=away polymarket=home res=draw [both✗]
+    m 65 Colombia v Portugal: model=home polymarket=away res=draw [both✗]
+    m 66 DR Congo v Uzbekistan: model=away polymarket=home res=home [polymarket✓]
+    m 60 Algeria v Austria: model=away polymarket=draw res=draw [polymarket✓]
+    m 88 Australia v Egypt: model=home polymarket=away res=draw [both✗]
+    m 94 United States v Belgium: model=away polymarket=home res=away [model✓]
+    m101 France v Spain: model=away polymarket=home res=away [model✓]
+    m102 England v Argentina: model=away polymarket=home res=away [model✓]
+
+===== three-way overlap n=93
+  model      favorite 59/93 = 63.4%  avg_LL=0.8459  avg_brier=0.4953
+  kalshi     favorite 61/93 = 65.6%  avg_LL=0.8029  avg_brier=0.4709
+  polymarket favorite 61/93 = 65.6%  avg_LL=0.8062  avg_brier=0.4732
+
+book_probe (api-football historical odds for a group fixture): 0
+kalshi missing: 3 | poly missing: 811
+  k-miss: Turkiye vs USA Winner?
+  k-miss: Turkiye vs Paraguay Winner?
+  k-miss: Australia vs Turkiye Winner?
+  p-miss: Canada vs. Bosnia-Herzegovina
+  p-miss: Australia vs. Türkiye
+  p-miss: Côte d'Ivoire vs. Ecuador (only ['away', 'draw'])
+  p-miss: Spain vs. Cabo Verde
+  p-miss: Switzerland vs. Bosnia-Herzegovina
+  p-miss: Türkiye vs. Paraguay
