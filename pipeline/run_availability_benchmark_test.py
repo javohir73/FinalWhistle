@@ -10,9 +10,10 @@ from pipeline.run_availability_benchmark import (
     _verdict, availability_gate, availability_record,
 )
 
-_EMPTY = {"n_matches": 0, "verdict": "insufficient", "production": None,
-          "availability": None, "diff_log_loss": None, "diff_ci95": None,
-          "availability_win_rate": None}
+_EMPTY_LEDGER = {"n_matches": 0, "verdict": "insufficient", "production": None,
+                 "availability": None, "diff_log_loss": None, "diff_ci95": None,
+                 "availability_win_rate": None}
+_EMPTY = {**_EMPTY_LEDGER, "club": _EMPTY_LEDGER}
 
 
 def _session():
@@ -74,6 +75,53 @@ def test_excludes_match_missing_twin():
 
 def test_honest_empty_with_no_data():
     assert availability_record(_session()) == _EMPTY
+
+
+# --- league pivot ledger scoping (same leak as the shadow fix, PR #171) ------
+
+def _club_fixture(db):
+    epl = Tournament(name="Premier League 2026-27", year=2026)
+    home, away = Team(name="Arsenal"), Team(name="Chelsea")
+    db.add_all([epl, home, away]); db.flush()
+    return epl, home, away
+
+
+def test_club_ledger_never_pools_into_wc26():
+    """A WC26 pair and an EPL pair in the same DB: the top-level record must
+    hold ONLY the WC26 pair (its sample cannot move because an EPL match
+    finished), with the EPL pair reported separately under "club"."""
+    db = _session()
+    wc, home, away = _fixture(db)
+    m = _finished(db, wc, home, away, 2, 0)
+    _pred(db, m, "poisson-elo-v0.2", (0.55, 0.25, 0.20), is_shadow=False)
+    _pred(db, m, AVAILABILITY_MODEL_VERSION, (0.70, 0.18, 0.12), is_shadow=True)
+    epl, ars, che = _club_fixture(db)
+    em = _finished(db, epl, ars, che, 3, 1)
+    _pred(db, em, "poisson-elo-club-v0.1", (0.50, 0.30, 0.20), is_shadow=False)
+    _pred(db, em, "poisson-elo-club-v0.1+avail", (0.62, 0.24, 0.14), is_shadow=True)
+    db.commit()
+
+    rec = availability_record(db)
+    assert rec["n_matches"] == 1  # the WC26 pair only
+    assert rec["verdict"] == "availability_beats_published"
+    assert rec["club"]["n_matches"] == 1  # the EPL pair, own ledger
+    assert rec["club"]["verdict"] == "availability_beats_published"
+
+
+def test_club_match_with_frozen_wc26_tag_twin_pairs_nowhere():
+    """The pre-fix corruption shape: an EPL twin wrongly tagged with the frozen
+    WC26 constant must not pair into EITHER ledger — the club production row
+    only ever pairs with its own derived "+avail" tag."""
+    db = _session()
+    epl, ars, che = _club_fixture(db)
+    em = _finished(db, epl, ars, che, 3, 1)
+    _pred(db, em, "poisson-elo-club-v0.1", (0.50, 0.30, 0.20), is_shadow=False)
+    _pred(db, em, AVAILABILITY_MODEL_VERSION, (0.62, 0.24, 0.14), is_shadow=True)
+    db.commit()
+
+    rec = availability_record(db)
+    assert rec["n_matches"] == 0
+    assert rec["club"]["n_matches"] == 0
 
 
 def test_verdict_covers_all_three_branches():

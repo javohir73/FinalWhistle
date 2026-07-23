@@ -13,12 +13,14 @@ from pipeline import generate_predictions
 from pipeline.generate_predictions import (
     AVAILABILITY_MODEL_VERSION,
     OFFSETS_MODEL_VERSION,
+    offsets_model_version_for,
     write_offsets_prediction,
 )
 
 
 def _payload(match_id):
-    return {"match_id": match_id, "lambda_home": 2.0, "lambda_away": 1.0, "rho": -0.1,
+    return {"match_id": match_id, "model_version": "poisson-elo-v0.1",
+            "lambda_home": 2.0, "lambda_away": 1.0, "rho": -0.1,
             "probabilities": {"home_win": 0.55, "draw": 0.27, "away_win": 0.18},
             "predicted_score": {"home": 2, "away": 1, "probability": 0.12},
             "confidence": "Medium", "reasons": ["a", "b", "c"], "top_features": []}
@@ -104,3 +106,31 @@ def test_independent_of_team_offsets_flag(db_session, monkeypatch):
     db_session.commit()
     assert (db_session.query(Prediction)
             .filter_by(match_id=m.id, model_version=OFFSETS_MODEL_VERSION).count() == 1)
+
+
+# --- league pivot ledger scoping (same leak as the shadow fix, PR #171) ------
+
+def test_offsets_model_version_for_wc26_keeps_the_frozen_tag():
+    assert offsets_model_version_for("poisson-elo-v0.1") == OFFSETS_MODEL_VERSION
+    assert offsets_model_version_for("poisson-elo-v0.5") == OFFSETS_MODEL_VERSION
+
+
+def test_offsets_model_version_for_club_is_derived():
+    assert offsets_model_version_for("poisson-elo-club-v0.1") == "poisson-elo-club-v0.1+xg"
+
+
+def test_club_production_gets_its_own_offsets_tag(db_session, monkeypatch):
+    """A club-family payload's twin must carry the derived "+xg" tag, never
+    the frozen WC26 constant — otherwise the club row pools into the WC26-only
+    offsets benchmark the moment the match finishes."""
+    m, h, a = _scheduled_match(db_session)
+    store = {"France": {"atk": 0.05, "def": -0.02, "n_matches": 40},
+             "Senegal": {"atk": -0.03, "def": 0.01, "n_matches": 40}}
+    monkeypatch.setattr(generate_predictions, "load_team_offsets", lambda path=None: store)
+    payload = {**_payload(m.id), "model_version": "poisson-elo-club-v0.1"}
+    write_offsets_prediction(db_session, m, payload, {}, DEFAULT_PARAMS)
+    db_session.commit()
+    twin = db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=True).one()
+    assert twin.model_version == "poisson-elo-club-v0.1+xg"
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=m.id, model_version=OFFSETS_MODEL_VERSION).count() == 0)

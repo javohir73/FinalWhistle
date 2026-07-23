@@ -94,6 +94,36 @@ def shadow_model_version_for(production_version: str) -> str:
     return f"{production_version}-shadow"
 
 
+def availability_model_version_for(production_version: str) -> str:
+    """The availability twin's tag, scoped to its OWN production model's
+    ledger — the same leak shadow_model_version_for closes (league pivot:
+    Opus review of PR #171, item 1), for the same reason: the twin of a club
+    production row must never pool into the WC26-only availability benchmark
+    (pipeline/run_availability_benchmark.py, /api/internal/availability-record).
+
+    The WC26/international family ("poisson-elo-v...") keeps the historical
+    frozen AVAILABILITY_MODEL_VERSION exactly, so the existing WC26 paired
+    sample never moves; any other production family (starting with the EPL
+    "poisson-elo-club-v0.1") gets its own "<version>+avail" tag.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return AVAILABILITY_MODEL_VERSION
+    return f"{production_version}+avail"
+
+
+def offsets_model_version_for(production_version: str) -> str:
+    """The xG-offsets twin's tag, scoped to its OWN production model's
+    ledger. Mirrors availability_model_version_for exactly (same leak, same
+    fix): the WC26/international family keeps the frozen OFFSETS_MODEL_VERSION,
+    any other production family gets its own "<version>+xg" tag, so a club
+    twin never pools into the WC26-only offsets benchmark
+    (pipeline/run_offsets_benchmark.py, /api/internal/offsets-record).
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return OFFSETS_MODEL_VERSION
+    return f"{production_version}+xg"
+
+
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
     """Signed home-advantage Elo bonus for the match's home side.
 
@@ -648,7 +678,10 @@ def write_availability_prediction(
     offset scales the production lambdas (lambda *= exp(offset)); the grid/triple/
     headline are recomputed through the same calibrated pipeline
     (predict_from_lambdas). No XI on either side -> no row (partial coverage is
-    expected). Never served — is_shadow=True, tagged AVAILABILITY_MODEL_VERSION."""
+    expected). Never served — is_shadow=True, tagged with its production model's
+    own availability ledger (availability_model_version_for: the frozen
+    AVAILABILITY_MODEL_VERSION for the WC26 family, a derived "+avail" tag for
+    any other family)."""
     adj = availability_for_match(db, match)
     if adj is None:
         return
@@ -676,7 +709,8 @@ def write_availability_prediction(
         "lambda_home": round(pred.lambda_home, 4),
         "lambda_away": round(pred.lambda_away, 4),
     }
-    _write_prediction(db, match, twin, AVAILABILITY_MODEL_VERSION, is_shadow=True)
+    avail_version = availability_model_version_for(payload["model_version"])
+    _write_prediction(db, match, twin, avail_version, is_shadow=True)
 
 
 def write_offsets_prediction(
@@ -695,7 +729,9 @@ def write_offsets_prediction(
     (ml/models/poisson.py:66-69): lambda_home *= exp(atk_home + def_away),
     lambda_away *= exp(atk_away + def_home). The grid/triple/headline are
     recomputed through the same calibrated pipeline (predict_from_lambdas).
-    Never served — is_shadow=True, tagged OFFSETS_MODEL_VERSION."""
+    Never served — is_shadow=True, tagged with its production model's own
+    offsets ledger (offsets_model_version_for: the frozen OFFSETS_MODEL_VERSION
+    for the WC26 family, a derived "+xg" tag for any other family)."""
     store = load_team_offsets("ml/models/team_offsets_xg.json")
     home = db.get(Team, match.team_home_id)
     away = db.get(Team, match.team_away_id)
@@ -726,7 +762,8 @@ def write_offsets_prediction(
         "lambda_home": round(pred.lambda_home, 4),
         "lambda_away": round(pred.lambda_away, 4),
     }
-    _write_prediction(db, match, twin, OFFSETS_MODEL_VERSION, is_shadow=True)
+    offsets_version = offsets_model_version_for(payload["model_version"])
+    _write_prediction(db, match, twin, offsets_version, is_shadow=True)
 
 
 def _rest_days_for_match(db: Session, match: Match) -> tuple[float, float] | None:

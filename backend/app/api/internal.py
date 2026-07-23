@@ -328,7 +328,12 @@ def availability_record_endpoint(
     availability signal's ONLY evidence path (it is live-only; no backtest gate).
     Token-guarded and internal: the input to the MANUAL promotion decision
     (FR-4.8), nothing here auto-promotes. Compute-on-read over frozen Prediction
-    rows — no persistence, no prediction_results row (that stays odds-only)."""
+    rows — no persistence, no prediction_results row (that stays odds-only).
+
+    League pivot (same ledger scoping as /shadow-record): the top-level keys
+    stay the WC26/international pairing exactly as before; club-family pairs
+    (each matched to its own "+avail" twin tag via
+    availability_model_version_for) report separately under "club"."""
     _require_token(x_recompute_token)
     # Lazy import (call-time) mirrors this module's other pipeline imports and
     # avoids the app->pipeline cycle at load.
@@ -347,7 +352,12 @@ def offsets_record_endpoint(
     (docs/superpowers/plans/2026-07-04-statsbomb-xg-team-offsets.md).
     Token-guarded and internal: the input to the MANUAL promotion decision,
     nothing here auto-promotes. Compute-on-read over frozen Prediction rows —
-    no persistence, no prediction_results row (that stays odds-only)."""
+    no persistence, no prediction_results row (that stays odds-only).
+
+    League pivot (same ledger scoping as /shadow-record): the top-level keys
+    stay the WC26/international pairing exactly as before; club-family pairs
+    (each matched to its own "+xg" twin tag via offsets_model_version_for)
+    report separately under "club"."""
     _require_token(x_recompute_token)
     # Lazy import (call-time) mirrors this module's other pipeline imports and
     # avoids the app->pipeline cycle at load.
