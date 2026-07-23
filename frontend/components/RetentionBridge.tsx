@@ -91,7 +91,7 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
 
           <div className="mt-4 border-t border-border pt-4">
             <p className="text-sm text-muted">
-              Football returns mid-August. Get one email when your league kicks off.
+              Premier League predictions arrive before kickoff on Aug 21. Get one email when your league kicks off.
             </p>
             {/* Persistent container so the live region exists before the content
              *  swap — a screen reader can miss an announcement from a region
