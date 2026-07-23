@@ -47,6 +47,7 @@ def upgrade() -> None:
         sa.Column("player_id", sa.Integer(), sa.ForeignKey("tip_players.id"), nullable=False),
         sa.Column("pick", sa.String(length=4), nullable=False),
         sa.Column("margin", sa.Integer(), nullable=True),
+        sa.Column("is_featured", sa.Boolean(), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
         sa.Column("points", sa.Integer(), nullable=True),

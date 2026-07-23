@@ -896,10 +896,23 @@ class UserTip(Base):
     player_id: Mapped[int] = mapped_column(ForeignKey("tip_players.id"), index=True)
     pick: Mapped[str] = mapped_column(String(4))  # home/draw/away
     margin: Mapped[int | None] = mapped_column(Integer)  # featured-match-only guess, 0..100
+    # Snapshot of "was this the round's featured match" as of submit_tip's most
+    # recent write to this row -- NULL on rows written before this column
+    # existed (or written directly by a test fixture), in which case grade()
+    # falls back to recomputing it live. Pinning it here means a later
+    # fixture reschedule that changes the round's earliest kickoff can't
+    # retroactively erase a margin the player legitimately entered (see
+    # pipeline.sports.nrl_user_tips.grade()).
+    is_featured: Mapped[bool | None] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
+    # No onupdate=func.now() here -- submit_tip sets this explicitly on every
+    # pick write, and grade()'s post-kickoff belt-and-braces filter (tip
+    # eligible only if updated_at <= kickoff_utc) depends on it tracking ONLY
+    # pick changes. An onupdate would also bump it on the grading pass's own
+    # write and on /claim's player_id reassignment, both of which happen
+    # after kickoff -- pushing updated_at past kickoff_utc and making the
+    # filter wrongly exclude an already-locked, legitimately-graded tip.
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Grading columns (nullable until the grading pass runs): 1 point for a
     # correct winner pick, or any pick at all if the match drew (comp-standard
     # scoring -- design doc: NRL Round Tips, Slice 2). round_margin is the

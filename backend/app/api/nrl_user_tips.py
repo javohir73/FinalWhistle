@@ -28,6 +28,7 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
 from app import schemas
@@ -110,13 +111,36 @@ def _featured_match_id(db: Session, season: int, round: int) -> int | None:
     return row[0] if row else None
 
 
+def _find_player(db: Session, device_id: str) -> TipPlayer | None:
+    """Split out from _get_or_create_player so the check-then-insert race (two
+    concurrent requests both passing this check) is easy to force in tests --
+    mirrors app.api.activity's _find_ping."""
+    return db.query(TipPlayer).filter_by(device_id=device_id).one_or_none()
+
+
 def _get_or_create_player(db: Session, device_id: str) -> TipPlayer:
-    player = db.query(TipPlayer).filter_by(device_id=device_id).one_or_none()
+    player = _find_player(db, device_id)
     if player is None:
         player = TipPlayer(device_id=device_id, handle=_generate_handle())
         db.add(player)
-        db.flush()  # need player.id before it can own a UserTip row
+        try:
+            db.flush()  # need player.id before it can own a UserTip row
+        except IntegrityError:
+            # Lost a race with a concurrent first-play from the same brand-new
+            # device (both passed the check above before either flushed) --
+            # the row exists either way, so re-read it instead of 500ing
+            # (mirrors app.api.activity's ping()). Queried directly rather
+            # than via _find_player so a test forcing that check to miss
+            # doesn't also poison this re-read.
+            db.rollback()
+            player = db.query(TipPlayer).filter_by(device_id=device_id).one()
     return player
+
+
+def _find_tip(db: Session, match_id: int, player_id: int) -> UserTip | None:
+    """Mirrors _find_player -- split out so a concurrent first-submit race on
+    the same (match, player) is easy to force in tests."""
+    return db.query(UserTip).filter_by(match_id=match_id, player_id=player_id).one_or_none()
 
 
 @router.post("/tips/submit", dependencies=[Depends(require_same_origin)])
@@ -151,29 +175,54 @@ def submit_tip(payload: schemas.NrlTipSubmitIn, request: Request, db: Session = 
                                                      "message": f"No NRL match {payload.match_id}"})
 
     now = datetime.now(timezone.utc)
-    if m.kickoff_utc is not None and now >= to_aware_utc(m.kickoff_utc):
+    # Belt-and-braces on top of the kickoff comparison below: a match that's
+    # already finished (or already has a final score) is locked even if its
+    # kickoff_utc is somehow missing -- not reachable via today's NRL feed,
+    # but the kickoff check alone would otherwise wave a null-kickoff match
+    # through regardless of status.
+    already_played = m.status == "finished" or (m.score_home is not None and m.score_away is not None)
+    if already_played or (m.kickoff_utc is not None and now >= to_aware_utc(m.kickoff_utc)):
         raise HTTPException(status_code=422, detail={
             "code": "match_locked",
             "message": f"Match {m.id} has kicked off and is locked.",
         })
 
-    if payload.margin is not None and m.id != _featured_match_id(db, m.season, m.round):
+    # Computed once and reused for both the margin gate and the is_featured
+    # snapshot stored on the tip below (see UserTip.is_featured).
+    featured_id = _featured_match_id(db, m.season, m.round)
+    if payload.margin is not None and m.id != featured_id:
         raise HTTPException(status_code=422, detail={
             "code": "margin_not_allowed",
             "message": "Margin guesses are only accepted for the round's featured match.",
         })
+    is_featured_now = m.id == featured_id
 
     player = _get_or_create_player(db, device_id)
-    tip = db.query(UserTip).filter_by(match_id=m.id, player_id=player.id).one_or_none()
+    tip = _find_tip(db, m.id, player.id)
     if tip is None:
         tip = UserTip(match_id=m.id, player_id=player.id, pick=payload.pick,
-                     margin=payload.margin, updated_at=now)
+                     margin=payload.margin, updated_at=now, is_featured=is_featured_now)
         db.add(tip)
+        try:
+            db.commit()
+        except IntegrityError:
+            # Lost a race with a concurrent first tip for this (match,
+            # player) -- the row exists either way; re-read it (directly,
+            # not via _find_tip -- see _get_or_create_player) and apply this
+            # request's pick as the update, same idempotent-success idiom.
+            db.rollback()
+            tip = db.query(UserTip).filter_by(match_id=m.id, player_id=player.id).one()
+            tip.pick = payload.pick
+            tip.margin = payload.margin
+            tip.updated_at = now
+            tip.is_featured = is_featured_now
+            db.commit()
     else:
         tip.pick = payload.pick
         tip.margin = payload.margin
         tip.updated_at = now
-    db.commit()
+        tip.is_featured = is_featured_now
+        db.commit()
 
     return {
         "ok": True,
@@ -403,7 +452,13 @@ def claim_device_tips(
     further change. When the account already owns a different player row,
     the device's tips are merged into it -- conflict rule: the account's own
     tip wins wherever both exist for the same match (mirrors match_picks.py's
-    "existing row is never silently overwritten" idiom)."""
+    "existing row is never silently overwritten" idiom).
+
+    device_id is a bare, unauthenticated body param (no proof of possession),
+    so it must never be trusted to REASSIGN or MERGE-AND-DELETE a player row
+    that's already claimed by a *different* account -- a shared/kiosk device,
+    or a device_id read off an access log, would otherwise let anyone steal
+    another account's tip history out from under it."""
     device_id = payload.device_id
     if not _DEVICE_ID_RE.match(device_id):
         raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
@@ -416,6 +471,13 @@ def claim_device_tips(
         # Nothing to claim -- a friendly no-op rather than an error, since the
         # frontend calls this on every sign-in without knowing in advance
         # whether the device ever tipped.
+        return {"ok": True, "handle": existing.handle if existing else None, "claimed_tips": 0}
+
+    if device_player.user_id is not None and device_player.user_id != user.id:
+        # Device is already claimed by a DIFFERENT account -- never reassign,
+        # merge, or delete another account's player row. Same no-op shape as
+        # "nothing to claim" so this doesn't leak whether the device is
+        # claimed, or by whom.
         return {"ok": True, "handle": existing.handle if existing else None, "claimed_tips": 0}
 
     if existing is None:

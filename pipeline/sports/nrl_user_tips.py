@@ -20,9 +20,11 @@ only guard, which never revisits a match once a SportPredictionResult
 exists). graded_at is (re)stamped only on an actual write.
 
 INTEGRITY belt-and-braces: a tip's updated_at must be <= the match's
-kickoff_utc to be eligible at all (mirrors nrl_predict.grade()'s pre-kickoff
-prediction filter). The submit API already rejects any post-kickoff write, so
-this should never trigger in practice -- a tip that somehow slipped through
+kickoff_utc to be eligible at all, and a match with no kickoff_utc recorded is
+never eligible either (mirrors nrl_predict.grade()'s pre-kickoff prediction
+filter). Neither should trigger in practice against today's NRL feed -- the
+submit API already rejects any post-kickoff write, and a real match always has
+a kickoff_utc -- but a tip that somehow slipped through either gap
 is EXCLUDED, not scored zero: it's left permanently ungraded
 (points/round_margin/graded_at stay NULL), the same "skip, don't half-score"
 convention app.api.nrl_tips._kickoff_locked_prediction uses for a stray
@@ -70,7 +72,12 @@ def _featured_match_ids(db: Session, sport: str) -> dict[tuple[int, int], int]:
     """{(season, round): featured_match_id} for every round with at least one
     match -- earliest kickoff, ties broken by match_no, the same ordering
     app.api.nrl_user_tips._featured_match_id uses per round. Computed once
-    per grade() call (one query) rather than once per match."""
+    per grade() call (one query) rather than once per match.
+
+    This is the CURRENT featured match, which can drift from what a tip's own
+    UserTip.is_featured snapshot recorded at submit time if a fixture
+    reschedule reorders the round's kickoffs after picks were taken -- grade()
+    only falls back to this for tips written before that column existed."""
     rows = (
         db.query(SportMatch)
         .filter(SportMatch.sport == sport)
@@ -127,12 +134,20 @@ def grade(db: Session, sport: str = SPORT) -> int:
             continue
         outcome = _outcome(m.score_home, m.score_away)
         actual_margin = abs(m.score_home - m.score_away)
-        is_featured = featured_by_round.get((m.season, m.round)) == m.id
+        is_featured_dynamic = featured_by_round.get((m.season, m.round)) == m.id
 
         for tip in match_tips:
-            if m.kickoff_utc is not None and tip.updated_at > m.kickoff_utc:
-                continue  # belt-and-braces: shouldn't exist, never graded
+            if m.kickoff_utc is None or tip.updated_at > m.kickoff_utc:
+                continue  # belt-and-braces: no kickoff to check against, or submitted after
 
+            # Prefer the snapshot submit_tip took of "was this the featured
+            # match" at the time of the pick (UserTip.is_featured) over
+            # recomputing it from the round's CURRENT earliest kickoff -- a
+            # fixture reschedule that reorders a round's kickoffs must not
+            # retroactively strip a margin the player legitimately entered.
+            # Rows written before this column existed (or built directly by a
+            # test fixture) leave it NULL, so fall back to the live check.
+            is_featured = tip.is_featured if tip.is_featured is not None else is_featured_dynamic
             points, round_margin = _score_tip(tip, outcome, actual_margin, is_featured)
             if tip.graded_at is not None and tip.points == points and tip.round_margin == round_margin:
                 continue  # already graded to the current result -- no-op

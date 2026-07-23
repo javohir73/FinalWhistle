@@ -205,6 +205,85 @@ def test_grade_recomputes_when_match_result_changes(db_session):
     assert tip.graded_at >= first_graded_at
 
 
+def test_grade_recomputes_when_match_result_changes_past_kickoff(db_session):
+    """Regression: UserTip.updated_at must track ONLY submit_tip's own pick
+    writes, never a grading write (see models.UserTip -- no more
+    onupdate=func.now()). test_grade_recomputes_when_match_result_changes
+    covers the same "a correction must flip the stored result" behavior but
+    with a future-dated fixture kickoff, which never exercised the bug: the
+    ORM's onupdate used to bump updated_at to grade-time on the FIRST grade()
+    write, and with a past kickoff that pushed updated_at past kickoff_utc --
+    so every later grade() run wrongly excluded the tip via the
+    belt-and-braces filter above, and a correction could never land."""
+    storm, eels = _team(db_session, "Storm"), _team(db_session, "Eels")
+    kickoff = datetime.now(timezone.utc) - timedelta(days=2)
+    m = _match(db_session, storm, eels, 2026, 9, 1, kickoff, score_home=20, score_away=10)
+    player = _player(db_session)
+    tip = _tip(db_session, m, player, "home", margin=10, updated_at=kickoff - timedelta(hours=1))
+    db_session.commit()
+
+    grade(db_session)
+    db_session.refresh(tip)
+    assert tip.points == 1
+    assert tip.round_margin == 0
+
+    # Score correction flips the result to an away win.
+    m.score_home, m.score_away = 10, 20
+    db_session.commit()
+
+    n = grade(db_session)
+
+    assert n == 1
+    db_session.refresh(tip)
+    assert tip.points == 0
+    assert tip.round_margin == 10 + 10  # actual_margin(10) + guess(10), now the wrong side
+
+
+# ---- is_featured is a snapshot, not recomputed live (reschedule safety) ----
+
+def test_grade_prefers_pinned_is_featured_over_current_reschedule(db_session):
+    """A margin legitimately entered on the round's featured match at submit
+    time must still score even if the round is later reshuffled so a
+    DIFFERENT match becomes the earliest kickoff -- UserTip.is_featured pins
+    the snapshot submit_tip took, so grade() doesn't silently drop the
+    margin by recomputing "featured" from the round's current order."""
+    storm, eels = _team(db_session, "Storm"), _team(db_session, "Eels")
+    broncos, titans = _team(db_session, "Broncos"), _team(db_session, "Titans")
+    # A was earliest at submit time (hence its tip was pinned featured); a
+    # reschedule since then made B the earliest kickoff in the round.
+    a = _match(db_session, storm, eels, 2026, 10, 1, _kickoff(2026, 8, 20),
+               score_home=20, score_away=10)
+    _match(db_session, broncos, titans, 2026, 10, 2, _kickoff(2026, 8, 19),
+           score_home=14, score_away=18)
+    player = _player(db_session)
+    tip = _tip(db_session, a, player, "home", margin=8)
+    tip.is_featured = True
+    db_session.commit()
+
+    n = grade(db_session)
+
+    assert n == 1
+    db_session.refresh(tip)
+    assert tip.points == 1
+    assert tip.round_margin == abs(10 - 8)  # margin honored despite B now being earliest
+
+
+def test_grade_falls_back_to_live_featured_check_when_pin_is_null(db_session):
+    """Rows written before is_featured existed (or built directly, as every
+    other test here does) carry NULL -- grade() must fall back to the live
+    earliest-kickoff computation for those, unchanged from before the pin."""
+    featured, other = _two_match_round(db_session)
+    player = _player(db_session)
+    tip = _tip(db_session, featured, player, "home", margin=7)
+    assert tip.is_featured is None
+    db_session.commit()
+
+    grade(db_session)
+
+    db_session.refresh(tip)
+    assert tip.round_margin == abs(10 - 7)
+
+
 # ---- belt-and-braces: post-kickoff tip is excluded, not scored zero ----
 
 def test_grade_excludes_tip_submitted_after_kickoff(db_session):
@@ -229,6 +308,29 @@ def test_grade_excludes_tip_submitted_after_kickoff(db_session):
 
     n2 = grade(db_session)  # re-running never picks it up either
     assert n2 == 0
+
+
+def test_grade_excludes_tip_on_match_with_no_kickoff_recorded(db_session):
+    """Belt-and-braces: not reachable via today's NRL feed (every real match
+    has a kickoff_utc), but a finished match missing one has nothing to check
+    a tip's updated_at against, so it must be excluded rather than graded
+    on trust."""
+    storm, eels = _team(db_session, "Storm"), _team(db_session, "Eels")
+    m = SportMatch(sport=SPORT, season=2026, round=8, match_no=1, kickoff_utc=None,
+                   home_team_id=storm.id, away_team_id=eels.id,
+                   score_home=20, score_away=10, status="finished")
+    db_session.add(m)
+    db_session.flush()
+    player = _player(db_session)
+    tip = _tip(db_session, m, player, "home", updated_at=datetime.now(timezone.utc))
+    db_session.commit()
+
+    n = grade(db_session)
+
+    assert n == 0
+    db_session.refresh(tip)
+    assert tip.points is None
+    assert tip.graded_at is None
 
 
 # ---- no-ops ----

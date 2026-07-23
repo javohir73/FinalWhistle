@@ -246,6 +246,73 @@ def test_unknown_match_404s(client):
     assert r.json()["error"]["code"] == "match_not_found"
 
 
+def test_finished_match_with_no_kickoff_is_locked(client):
+    """Belt-and-braces on top of the kickoff comparison: a match that already
+    has a final score is locked even with kickoff_utc missing -- not
+    reachable via today's NRL feed, but the kickoff check alone would
+    otherwise wave a null-kickoff match through regardless of status."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 1, 1, storm, eels, None, status="finished",
+              score_home=20, score_away=10)
+    db.commit()
+
+    r = c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "match_locked"
+
+
+def test_concurrent_first_submit_new_device_is_idempotent_not_a_500(client, monkeypatch):
+    """Two concurrent first-submits from the same brand-new device can both
+    pass _get_or_create_player's pre-check; the second's insert must hit
+    tip_players.device_id's UNIQUE constraint and still resolve as a normal
+    success, never a 500 -- simulated by forcing the pre-check to miss a row
+    that's already committed (mirrors test_activity_api.py's race test)."""
+    import app.api.nrl_user_tips as nrl_user_tips_api
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 1, 1, storm, eels, datetime.now(timezone.utc) + timedelta(days=1))
+    db.add(TipPlayer(device_id=DEVICE_A, handle="AlreadyThere"))
+    db.commit()
+
+    monkeypatch.setattr(nrl_user_tips_api, "_find_player", lambda db, device_id: None, raising=False)
+
+    r = c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+    assert r.status_code == 200, r.text
+
+    db2 = TestingSession()
+    assert db2.query(TipPlayer).filter_by(device_id=DEVICE_A).count() == 1
+    tip = db2.query(UserTip).one()
+    assert tip.pick == "home"
+    db2.close()
+
+
+def test_concurrent_first_tip_same_match_is_idempotent_not_a_500(client, monkeypatch):
+    """Two concurrent first-submits to the same (match, player) can both pass
+    _find_tip's pre-check; the second's insert must hit
+    uq_user_tip_match_player and still resolve as a normal success, never a
+    500 -- same forced-miss idiom as the device-race test above."""
+    import app.api.nrl_user_tips as nrl_user_tips_api
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 1, 1, storm, eels, datetime.now(timezone.utc) + timedelta(days=1))
+    db.commit()
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+
+    monkeypatch.setattr(nrl_user_tips_api, "_find_tip", lambda db, match_id, player_id: None, raising=False)
+
+    r = c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "away"})
+    assert r.status_code == 200, r.text
+
+    db2 = TestingSession()
+    assert db2.query(UserTip).count() == 1  # still one row, not a duplicate
+    assert db2.query(UserTip).one().pick == "away"  # this request's pick won the race
+    db2.close()
+
+
 # ---------------------------------------------------------------------------
 # GET /mine
 # ---------------------------------------------------------------------------
@@ -495,6 +562,65 @@ def test_claim_merges_second_device_keeping_accounts_tip_on_conflict(client):
     assert tips[m2.id] == "home"  # non-conflicting pick moved over
     # Device B's player row is gone -- its tips were fully migrated/dropped.
     assert db2.query(TipPlayer).filter_by(device_id=DEVICE_B).one_or_none() is None
+    db2.close()
+
+
+def test_claim_does_not_reassign_device_owned_by_another_account(client):
+    """Account V already claimed device D. On the same device, account A
+    (freshly registered, no player row of its own) must never be able to
+    steal D by claiming it -- that would silently strip V of their entire
+    tip history (broken access control)."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 1, 1, storm, eels, datetime.now(timezone.utc) + timedelta(days=1))
+    db.commit()
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+
+    victim_id = _register(c, "victim@example.com")
+    c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_A})
+
+    _register(c, "attacker@example.com")  # same cookie jar -- now signed in as the attacker
+    r = c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_A})
+    assert r.status_code == 200
+    assert r.json()["claimed_tips"] == 0  # no-op, not a hijack
+
+    db2 = TestingSession()
+    device_player = db2.query(TipPlayer).filter_by(device_id=DEVICE_A).one()
+    assert device_player.user_id == victim_id  # still owned by the victim, unchanged
+    db2.close()
+
+
+def test_claim_does_not_merge_or_delete_device_owned_by_another_account(client):
+    """Same access-control gap via the merge branch: an attacker who already
+    has their own player row must not be able to merge-and-delete a device's
+    TipPlayer that a different account already claimed."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels, broncos, titans = (_team(db, n) for n in ("Storm", "Eels", "Broncos", "Titans"))
+    now = datetime.now(timezone.utc)
+    m1 = _match(db, 2026, 1, 1, storm, eels, now + timedelta(days=1))
+    m2 = _match(db, 2026, 1, 2, broncos, titans, now + timedelta(days=1))
+    db.commit()
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m1.id, "pick": "home"})
+
+    victim_id = _register(c, "victim2@example.com")
+    c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_A})
+
+    _register(c, "attacker2@example.com")
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_B, "match_id": m2.id, "pick": "away"})
+    c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_B})  # attacker claims their own device
+
+    r = c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_A})  # attacker tries to grab victim's device
+    assert r.status_code == 200
+    assert r.json()["claimed_tips"] == 0
+
+    db2 = TestingSession()
+    device_player = db2.query(TipPlayer).filter_by(device_id=DEVICE_A).one_or_none()
+    assert device_player is not None  # never deleted
+    assert device_player.user_id == victim_id  # still the victim's
+    tip = db2.query(UserTip).filter_by(player_id=device_player.id).one()
+    assert tip.match_id == m1.id and tip.pick == "home"  # victim's tip untouched
     db2.close()
 
 
