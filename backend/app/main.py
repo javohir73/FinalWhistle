@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 from app.api import (
     activity, auth, brackets, bridge, groups, intel, internal, knockout, leaderboard, markets, market_record,
-    match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, predictions, prob_history,
-    retention, sports, teams, tournaments,
+    match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, nrl_tips, predictions,
+    prob_history, retention, sports, teams, tournaments,
 )
 from app.config import settings
 from app.cache import cache
@@ -267,6 +267,7 @@ app.include_router(sports.router)
 app.include_router(nrl_live.router)
 app.include_router(nrl_players.router)
 app.include_router(nrl_intel.router)
+app.include_router(nrl_tips.router)
 app.include_router(movers.router)
 app.include_router(intel.router)
 app.include_router(prob_history.router)
