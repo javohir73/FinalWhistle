@@ -196,6 +196,18 @@ def load_league_structure(
 
     db.commit()
 
+    # Best-effort: only matters if this ever runs inside the web process
+    # itself (a separate CLI run — the daily/cutover case — has its own cache
+    # instance, so this line is a no-op there; GET /api/tournaments/active's
+    # short ttl_seconds is what actually bounds staleness across that
+    # boundary — see backend/app/cache.py and backend/app/api/tournaments.py).
+    try:
+        from app.cache import cache
+
+        cache.invalidate("tournaments:active")
+    except Exception:  # noqa: BLE001 - never let cache housekeeping fail the load
+        log.warning("could not invalidate tournaments:active cache", exc_info=True)
+
     total_matches = db.query(Match).filter_by(tournament_id=tournament.id).count()
     return {
         "tournament_id": tournament.id,

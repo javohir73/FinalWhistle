@@ -1,4 +1,5 @@
 """Tests for the EPL 2026-27 structure loader (league pivot D1/D2)."""
+from app.cache import cache
 from app.models import Group, GroupTeam, Match, Team, Tournament
 from pipeline.ingest import league_structure as ls_mod
 from pipeline.ingest.league_structure import load_league_structure
@@ -92,6 +93,23 @@ def test_never_touches_wc26_rows(db_session, monkeypatch):
     ).one()
     assert epl_tournament.id != wc26_tournament.id
     assert db_session.query(Match).filter_by(tournament_id=epl_tournament.id).count() == 1
+
+
+def test_load_invalidates_the_tournaments_active_cache(db_session, monkeypatch):
+    """Opus review of PR #171, item 2: a stale "tournaments:active" cached
+    answer (e.g. WC26/knockout, from before this load ran) must not survive
+    a structure load in the SAME process. (In the real deployed topology the
+    daily pipeline runs in a separate process from the web server, where this
+    is a no-op — GET /api/tournaments/active's short ttl_seconds is what
+    bounds staleness there; this test covers the in-process case directly.)"""
+    cache.set("tournaments:active", {"name": "FIFA World Cup 2026", "format": "knockout"})
+    assert cache.get("tournaments:active") is not None
+
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [])
+    load_league_structure(db_session, api_key="x")
+
+    assert cache.get("tournaments:active") is None
+    cache.clear()
 
 
 def test_skips_fixture_with_unknown_team(db_session, monkeypatch):

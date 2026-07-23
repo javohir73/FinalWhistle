@@ -110,3 +110,24 @@ def test_empty_db_returns_404():
     assert r.status_code == 404
     app.dependency_overrides.clear()
     cache.clear()
+
+
+def test_active_cache_entry_uses_a_bounded_short_ttl():
+    """Opus review of PR #171, item 2: this key's staleness must be bounded
+    well under the ~600s default (the pipeline writer runs in a separate
+    process, so a short TTL — not in-process invalidation — is what actually
+    keeps a WC26 -> EPL cutover from serving the stale answer for a full
+    cache lifetime)."""
+    import time
+
+    def seed(db):
+        load_structure(db)
+
+    client = _make_client(seed)
+    r = client.get("/api/tournaments/active")
+    assert r.status_code == 200
+
+    expires_at, _ = cache._store["tournaments:active"]
+    assert expires_at - time.time() <= 65  # bounded short, not the ~600s default
+    app.dependency_overrides.clear()
+    cache.clear()

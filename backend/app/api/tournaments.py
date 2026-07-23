@@ -10,6 +10,12 @@ from app.models import Match, Tournament
 
 router = APIRouter(prefix="/api/tournaments", tags=["tournaments"])
 
+# Short TTL (vs. the ~600s default): the daily pipeline / cutover writer runs
+# in a SEPARATE process from this one (see app.cache.InMemoryCache.invalidate),
+# so bounding this key's own staleness is what actually keeps the WC26 -> EPL
+# cutover from serving the stale knockout answer for a full cache lifetime.
+_ACTIVE_TTL_SECONDS = 60
+
 
 @router.get("/active")
 def active_tournament(db: Session = Depends(get_db)):
@@ -63,5 +69,5 @@ def active_tournament(db: Session = Depends(get_db)):
         "format": "knockout" if has_brackets else "league",
         "has_brackets": has_brackets,
     }
-    cache.set("tournaments:active", result)
+    cache.set("tournaments:active", result, ttl_seconds=_ACTIVE_TTL_SECONDS)
     return result
