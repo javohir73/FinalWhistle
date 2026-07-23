@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SPORTS, isSportHomeHref, sportFromPathname } from "@/lib/sports";
+import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, React.ReactNode> = {
@@ -47,10 +48,14 @@ const hit = (pathname: string, prefix: string) =>
  *  Matches, Groups, Bracket and You — each one tap away, no overflow sheet. */
 export function BottomNav() {
   const pathname = usePathname();
+  const { has_brackets } = useTournament();
   // /embed/[matchId] is a standalone, partner-iframeable widget — it must not
   // carry the full site chrome.
   if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
-  const tabs = SPORTS[sportFromPathname(pathname)].navLinks;
+  // C6: the Bracket tab only makes sense for tournaments that have one.
+  const tabs = SPORTS[sportFromPathname(pathname)].navLinks.filter(
+    (tab) => !tab.requiresBrackets || has_brackets,
+  );
 
   return (
     <nav

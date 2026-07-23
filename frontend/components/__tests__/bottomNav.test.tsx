@@ -3,6 +3,8 @@
  *  including detail pages like /match/[id] that don't share the tab's prefix. */
 import { render, screen } from "@testing-library/react";
 import { BottomNav } from "@/components/BottomNav";
+import { TournamentProvider } from "@/components/TournamentProvider";
+import type { ActiveTournament } from "@/lib/types";
 
 let mockPath = "/";
 jest.mock("next/navigation", () => ({
@@ -77,4 +79,30 @@ it("keeps the safe-area inset on the fixed bar", () => {
   // can't represent env() inline styles).
   expect(nav.className).toContain("safe-bottom");
   expect(nav.className).toContain("safe-x");
+});
+
+// League pivot (C6/D6, docs/LEAGUE-PIVOT-PLAN.md): a tournament with no
+// knockout stage hides the Bracket tab everywhere it appears.
+const LEAGUE: ActiveTournament = {
+  id: 1,
+  name: "Premier League 2026-27",
+  year: 2026,
+  format: "league",
+  has_brackets: false,
+};
+
+it("hides the Bracket tab when the active tournament has no bracket", () => {
+  mockPath = "/";
+  render(
+    <TournamentProvider tournament={LEAGUE}>
+      <BottomNav />
+    </TournamentProvider>,
+  );
+  expect(screen.queryByRole("link", { name: /Bracket/ })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("link")).toHaveLength(4);
+});
+
+it("still shows the Bracket tab with no provider (WC26 fallback)", () => {
+  renderAt("/");
+  expect(screen.getByRole("link", { name: /Bracket/ })).toBeInTheDocument();
 });

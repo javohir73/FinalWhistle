@@ -6,6 +6,7 @@ import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
 import { SportSwitcher } from "@/components/SportSwitcher";
 import { SPORTS, isSportHomeHref, sportFromPathname } from "@/lib/sports";
+import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
@@ -25,10 +26,14 @@ const hit = (pathname: string, prefix: string) =>
  *  bar handles navigation. */
 export function SiteNav() {
   const pathname = usePathname();
+  const { has_brackets } = useTournament();
   // /embed/[matchId] is a standalone, partner-iframeable widget — it must not
   // carry the full site chrome.
   if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
-  const links = SPORTS[sportFromPathname(pathname)].navLinks;
+  // C6: the Bracket link only makes sense for tournaments that have one.
+  const links = SPORTS[sportFromPathname(pathname)].navLinks.filter(
+    (link) => !link.requiresBrackets || has_brackets,
+  );
 
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-xl">
