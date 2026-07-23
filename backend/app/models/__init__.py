@@ -857,6 +857,58 @@ class NrlProjection(Base):
     computed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
+# --- Beat-the-AI loop (Slice 2): device-first tipping against the NRL model.
+# Named tip_players/user_tips (not "nrl_tips") to stay distinct from
+# app.api.nrl_tips, which is the model's OWN round tipsheet (GET-only, no
+# player rows involved) -- these tables are the human side of the comparison.
+
+
+class TipPlayer(Base):
+    """A tipper's identity for the beat-the-AI loop. device_id-first, same
+    shape as DailyActivity: most play never signs up, so the device id is the
+    durable key and user_id is an optional upgrade attached later by the claim
+    endpoint (unique -- an account merges into at most one player row).
+    `handle` is an auto-generated readable display name (never the raw
+    device_id), shown wherever a leaderboard needs a name."""
+
+    __tablename__ = "tip_players"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    device_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    handle: Mapped[str] = mapped_column(String(40))
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("app_users.id"), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class UserTip(Base):
+    """One player's pick for one sport_matches row. Upserted freely until the
+    match's kickoff_utc (server clock, never trusted from the client -- see
+    app/api/nrl_user_tips.py); `margin` is only ever set on the round's
+    featured match. The last three columns are grading output, written by a
+    separate pass hooked into nrl-refresh once the match is finished -- NULL
+    until then, and this table's own API never fills them in."""
+
+    __tablename__ = "user_tips"
+    __table_args__ = (UniqueConstraint("match_id", "player_id", name="uq_user_tip_match_player"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("sport_matches.id"), index=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("tip_players.id"), index=True)
+    pick: Mapped[str] = mapped_column(String(4))  # home/draw/away
+    margin: Mapped[int | None] = mapped_column(Integer)  # featured-match-only guess, 0..100
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    # Grading columns (nullable until the grading pass runs): 1 point for a
+    # correct winner pick, or any pick at all if the match drew (comp-standard
+    # scoring -- design doc: NRL Round Tips, Slice 2). round_margin is the
+    # featured-match tiebreak value -- only ever set on that match's tip row.
+    points: Mapped[int | None] = mapped_column(Integer)
+    round_margin: Mapped[int | None] = mapped_column(Integer)
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class ProbabilitySnapshot(Base):
     """Daily model-probability snapshots for movement deltas + sparklines.
 

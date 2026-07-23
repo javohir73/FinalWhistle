@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 from app.api import (
     activity, auth, brackets, bridge, groups, intel, internal, knockout, leaderboard, markets, market_record,
-    match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, nrl_tips, predictions,
-    prob_history, retention, sports, teams, tournaments,
+    match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, nrl_tips, nrl_user_tips,
+    predictions, prob_history, retention, sports, teams, tournaments,
 )
 from app.config import settings
 from app.cache import cache
@@ -77,6 +77,14 @@ async def cache_control(request: Request, call_next):
         path.startswith("/api/auth")
         or path.startswith("/api/brackets")
         or path.startswith("/api/match-picks")
+        # Beat-the-AI loop (Slice 2): device-keyed, per-caller like the routes
+        # above -- /submit and /claim change state, /mine and /summary read
+        # back one device's own tips. NOT /api/nrl/tips or /leaderboard, which
+        # stay on the shared-cacheable GET path below (no device_id in either).
+        or path.startswith("/api/nrl/tips/submit")
+        or path.startswith("/api/nrl/tips/claim")
+        or path.startswith("/api/nrl/tips/mine")
+        or path.startswith("/api/nrl/tips/summary")
     ):
         response.headers["Cache-Control"] = "no-store"
     elif path.startswith("/api/knockout/bracket") or path == "/api/matches/upcoming" or (
@@ -268,6 +276,7 @@ app.include_router(nrl_live.router)
 app.include_router(nrl_players.router)
 app.include_router(nrl_intel.router)
 app.include_router(nrl_tips.router)
+app.include_router(nrl_user_tips.router)
 app.include_router(movers.router)
 app.include_router(intel.router)
 app.include_router(prob_history.router)

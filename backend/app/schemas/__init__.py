@@ -349,6 +349,18 @@ class ActivityPingIn(BaseModel):
     device_id: str
 
 
+# ---- NRL user tips (beat-the-AI loop, Slice 2) ----
+class NrlTipSubmitIn(BaseModel):
+    device_id: str
+    match_id: int
+    pick: str  # home/draw/away
+    margin: int | None = None  # featured-match-only guess, 0..100
+
+
+class NrlTipClaimIn(BaseModel):
+    device_id: str
+
+
 # ---- Accounts / brackets / leaderboard ----
 class GroupPickIn(BaseModel):
     match_id: int
