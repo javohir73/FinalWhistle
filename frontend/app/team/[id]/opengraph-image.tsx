@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
-import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, C } from "@/lib/og";
+import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, ogFooter, C } from "@/lib/og";
 import { getTeamServer } from "@/lib/api";
+import { getTournament } from "@/lib/tournament";
 import { flagUrl } from "@/lib/flags";
 
 export const size = OG_SIZE;
@@ -9,13 +10,16 @@ export const alt = "Team profile — FinalWhistle";
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const data = await getTeamServer(id).catch(() => null);
+  const [data, tournament] = await Promise.all([
+    getTeamServer(id).catch(() => null),
+    getTournament(),
+  ]);
 
   if (!data) {
     return new ImageResponse(
       (
-        <Shell eyebrow="Team profile">
-          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>World Cup 2026 team</div>
+        <Shell eyebrow="Team profile" footer={ogFooter(tournament.name)}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>{tournament.name} team</div>
         </Shell>
       ),
       { ...size },
@@ -32,14 +36,14 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
   return new ImageResponse(
     (
-      <Shell eyebrow="Team profile">
+      <Shell eyebrow="Team profile" footer={ogFooter(tournament.name)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 40 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
             <OgFlag url={flagUrl(t.name)} size={120} />
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={{ display: "flex", fontSize: 68, fontWeight: 800, letterSpacing: -2 }}>{t.name}</div>
               <div style={{ display: "flex", fontSize: 28, color: C.muted }}>
-                {data.group_name ?? "World Cup 2026"}{t.is_host ? " · Host nation" : ""}
+                {data.group_name ?? tournament.name}{t.is_host ? " · Host nation" : ""}
               </div>
             </div>
           </div>
