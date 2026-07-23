@@ -1,4 +1,6 @@
 """Tests for the league (EPL 2026-27) branch of run_pipeline (league pivot D5/D7)."""
+import pandas as pd
+
 from app.config import settings
 from app.models import HistoricalMatch, Prediction, Team, Tournament
 from pipeline.ingest import league_structure as ls_mod
@@ -11,6 +13,26 @@ def _fixture(fid, home, away, status="NS", gh=None, ga=None):
         "teams": {"home": {"name": home}, "away": {"name": away}},
         "goals": {"home": gh, "away": ga},
     }
+
+
+def _sample_wc26_results() -> pd.DataFrame:
+    """A handful of results among real WC2026 teams — same shape as
+    pipeline/run_pipeline_test.py's own fixture — so the WC branch's
+    historical/elo/predictions steps have something to chew on."""
+    teams = ["Brazil", "Argentina", "France", "Spain", "Mexico", "South Korea"]
+    rows = []
+    date = 2015
+    for i in range(len(teams)):
+        for j in range(len(teams)):
+            if i == j:
+                continue
+            rows.append({
+                "date": f"{date}-03-01", "home_team": teams[i], "away_team": teams[j],
+                "home_score": (i + 1) % 4, "away_score": j % 3,
+                "tournament": "Friendly", "city": "X", "country": "Y", "neutral": "TRUE",
+            })
+            date += 1
+    return pd.DataFrame(rows)
 
 
 def test_league_path_runs_the_epl_steps_and_skips_wc_only_ones(db_session, monkeypatch):
@@ -51,5 +73,18 @@ def test_league_path_runs_the_epl_steps_and_skips_wc_only_ones(db_session, monke
 
 def test_wc_path_stays_default_when_pipeline_target_unset(db_session):
     """settings.pipeline_target defaults to "wc26" — the guard clause in
-    run_pipeline is a no-op unless explicitly flipped."""
+    run_pipeline is a no-op unless explicitly flipped, so a run with no
+    override at all takes the full WC26 sequence, not the league branch."""
     assert settings.pipeline_target == "wc26"
+
+    summary = run_pipeline(db_session, results_df=_sample_wc26_results(), n_sims=100)
+
+    for wc_step in ("structure", "ko_venues", "historical", "elo", "team_stats",
+                    "predictions", "learning_loop", "bracket_scores", "chain_status"):
+        assert wc_step in summary, f"missing WC26 step: {wc_step}"
+    for league_only in ("league_structure", "league_results_sync", "club_elo"):
+        assert league_only not in summary
+
+    assert summary["structure"]["teams"] == 48
+    tournament = db_session.query(Tournament).filter_by(name="FIFA World Cup 2026").one()
+    assert tournament.home_advantage_mode == "host_bonus"

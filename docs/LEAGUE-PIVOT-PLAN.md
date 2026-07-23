@@ -77,7 +77,11 @@ kickoff **2026-08-21** (Arsenal v Coventry). Both providers verified serving
   (C6); fixtures/match pages unchanged.
 - **WS-C (ops, stop-gated):** config flip on Render, refresh workflow cadence,
   odds-snapshots scope check, prod seed + verify. Ships only after WS-A/B are
-  merged and locally proven end to end.
+  merged and locally proven end to end. The cutover must (a) run the
+  one-time `load_club_results` seed and (b) flip `PIPELINE_TARGET` + seed
+  atomically, because the WC26-mode pipeline running with EPL rows already
+  present would cross-predict (reviewer-accepted latent risk, mitigated by
+  the cutover runbook, not by code).
 
 ## 4. Gate plan
 
