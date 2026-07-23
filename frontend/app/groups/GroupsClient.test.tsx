@@ -62,6 +62,9 @@ it("renders a single full-width league table titled with the tournament name", (
   expect(screen.getByText("Arsenal")).toBeInTheDocument();
   expect(screen.getByText("Coventry City")).toBeInTheDocument();
   expect(screen.queryByText("View matches")).not.toBeInTheDocument();
+  // League mode drops the WC-specific Top-2 qualification column — "top two"
+  // is not a real finish line in a 20-team league (GroupTable mode="league").
+  expect(screen.queryByText("Top 2")).not.toBeInTheDocument();
 });
 
 it("falls back to the card grid if a league tournament somehow has more than one group", () => {

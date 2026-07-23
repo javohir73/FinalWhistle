@@ -62,7 +62,7 @@ export function GroupsClient({
           <Empty />
         ) : leagueMode ? (
           <div className="glass rounded-2xl p-5 sm:p-6">
-            <GroupTable standings={state.data[0].standings} />
+            <GroupTable standings={state.data[0].standings} mode="league" />
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">

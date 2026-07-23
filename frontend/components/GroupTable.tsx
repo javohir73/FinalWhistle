@@ -12,10 +12,18 @@ import { Flag } from "./Flag";
 export function GroupTable({
   standings,
   highlightTeamId,
+  mode = "group",
 }: {
   standings: StandingRow[];
   highlightTeamId?: number;
+  /** "group": WC-style 4-team group — Top-2 qualification column + shading.
+   *  "league": full-season table (D1) — the sim's qualification_prob still
+   *  means "top two", which is not a real finish line in a 20-team league,
+   *  so the column and the top-2 shading are dropped until the simulator
+   *  grows league finish lines (title/UCL/relegation). */
+  mode?: "group" | "league";
 }) {
+  const isLeague = mode === "league";
   return (
     // Auto-layout tables ignore truncate on long names ("Bosnia and
     // Herzegovina") — the scroll guard keeps 390px viewports overflow-free.
@@ -26,7 +34,9 @@ export function GroupTable({
           <th className="pb-2 pr-2 font-medium">Team</th>
           <th className="px-1 text-center font-medium" title="Points">Pts</th>
           <th className="px-1 text-center font-medium" title="Goal difference">GD</th>
-          <th className="pb-2 pl-2 text-right font-medium" title="Chance of finishing in the top two (direct qualification)">Top 2</th>
+          {!isLeague && (
+            <th className="pb-2 pl-2 text-right font-medium" title="Chance of finishing in the top two (direct qualification)">Top 2</th>
+          )}
         </tr>
       </thead>
       <tbody>
@@ -35,7 +45,7 @@ export function GroupTable({
             key={row.team_id}
             className={cn(
               "border-t border-border",
-              i < 2 && "bg-win/[0.06]",
+              !isLeague && i < 2 && "bg-win/[0.06]",
               row.team_id === highlightTeamId && "bg-win/10",
             )}
           >
@@ -65,11 +75,13 @@ export function GroupTable({
             <td className="px-1 text-center tabular-nums text-muted">
               {row.projected_goal_diff > 0 ? `+${row.projected_goal_diff}` : row.projected_goal_diff}
             </td>
-            <td className="py-2.5 pl-2">
-              <div className="flex justify-end">
-                <QualificationBar prob={row.qualification_prob} />
-              </div>
-            </td>
+            {!isLeague && (
+              <td className="py-2.5 pl-2">
+                <div className="flex justify-end">
+                  <QualificationBar prob={row.qualification_prob} />
+                </div>
+              </td>
+            )}
           </tr>
         ))}
       </tbody>
