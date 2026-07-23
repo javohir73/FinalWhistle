@@ -1,0 +1,33 @@
+# TEMPORARY — YC application stats pull (2026-07-23). Owner-approved pattern
+# (same as the final-closing-line temp workflow, removed 2026-07-20): lives on
+# main only because workflow_dispatch requires it; delete after the readout.
+# Prints aggregate ops counts (no PII beyond city/country signup aggregates)
+# from the token-guarded /api/internal/stats endpoint.
+name: tmp-stats-readout
+on:
+  workflow_dispatch:
+
+jobs:
+  readout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /api/internal/stats
+        env:
+          API_URL: ${{ secrets.API_URL }}
+          RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
+            echo "API_URL / RECOMPUTE_TOKEN secrets not set — cannot call the API." >&2
+            exit 1
+          fi
+          STATS=$(curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \
+            "${API_URL}/api/internal/stats")
+          echo "$STATS" | jq .
+          {
+            echo '## /api/internal/stats readout'
+            echo '```json'
+            echo "$STATS" | jq .
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
