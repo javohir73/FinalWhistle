@@ -871,10 +871,21 @@ def _simulate_standings(
 
 def _simulate_tournament(
     db: Session, n_sims: int, strengths: dict[int, float] | None = None,
-    params: ModelParams | None = None,
+    params: ModelParams | None = None, tournament_id: int | None = None,
 ) -> int:
     """Run the full group→knockout Monte-Carlo and persist per-team round/title
-    probabilities. Returns the number of teams with odds written."""
+    probabilities. Returns the number of teams with odds written.
+
+    ``tournament_id`` scopes the group/knockout scan to one tournament (league
+    pivot D5/D6): without it every Group row in the DB is considered, which is
+    the original WC26-only behavior (byte-identical — the existing call site
+    in generate_predictions() never passes it) but would otherwise merge a
+    league's single group into the international bracket count once EPL data
+    shares the DB with the archived WC26 rows. A league's one group makes
+    ``len(groups) < 12`` below true regardless, so bracket sim still skips
+    cleanly, but scoping avoids polluting `groups`/`fixtures` with a
+    non-tournament group in the meantime.
+    """
     params = params or load_params()
     groups: dict[str, list[int]] = {}
     fixtures: dict[str, list[KnockoutFixture]] = {}
@@ -882,7 +893,10 @@ def _simulate_tournament(
     strengths = strengths or {}
     all_members: list[Team] = []
 
-    for group in db.query(Group).all():
+    groups_q = db.query(Group)
+    if tournament_id is not None:
+        groups_q = groups_q.filter_by(tournament_id=tournament_id)
+    for group in groups_q.all():
         letter = group.name.split()[-1]  # "Group A" -> "A"
         members = [gt.team for gt in group.group_teams]
         all_members.extend(members)
@@ -950,6 +964,7 @@ def generate_predictions(
     model_version: str | None = None,
     n_sims: int = 5000,
     tournament_sims: int = 2000,
+    tournament_id: int | None = None,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -959,6 +974,12 @@ def generate_predictions(
     model_params.json if present, else the v0.1 constants. The served model
     version follows the loaded params (so v0.2 predictions are tagged v0.2)
     unless an explicit ``model_version`` is passed.
+
+    ``tournament_id`` (league pivot D5) restricts the match/group scan to one
+    tournament. The WC26 call site (pipeline/run_pipeline.py) never passes it,
+    so its behavior is unchanged; pipeline/run_pipeline.py's league branch
+    passes the EPL tournament's id so a shared DB never mixes the two
+    tournaments' matches/groups into one prediction/simulation pass.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -985,15 +1006,14 @@ def generate_predictions(
     # knockout ties. The official bracket links each tie to its match-detail page,
     # which needs a prediction, so KO matches must be predicted once their teams are
     # known (build_payload skips a teamless placeholder defensively anyway).
-    matches = (
-        db.query(Match)
-        .filter(
-            Match.status == "scheduled",
-            Match.team_home_id.isnot(None),
-            Match.team_away_id.isnot(None),
-        )
-        .all()
+    matches_q = db.query(Match).filter(
+        Match.status == "scheduled",
+        Match.team_home_id.isnot(None),
+        Match.team_away_id.isnot(None),
     )
+    if tournament_id is not None:
+        matches_q = matches_q.filter(Match.tournament_id == tournament_id)
+    matches = matches_q.all()
     predicted = 0
     for match in matches:
         payload = build_payload(db, match, active_model_version,
@@ -1010,11 +1030,16 @@ def generate_predictions(
         write_rest_prediction(db, match, payload, strengths, params)
         predicted += 1
 
-    groups = db.query(Group).all()
+    groups_q = db.query(Group)
+    if tournament_id is not None:
+        groups_q = groups_q.filter_by(tournament_id=tournament_id)
+    groups = groups_q.all()
     for group in groups:
         _simulate_standings(db, group, active_model_version, n_sims, strengths=strengths, params=params)
 
-    teams_simulated = _simulate_tournament(db, tournament_sims, strengths=strengths, params=params)
+    teams_simulated = _simulate_tournament(
+        db, tournament_sims, strengths=strengths, params=params, tournament_id=tournament_id
+    )
 
     db.commit()
     return {
