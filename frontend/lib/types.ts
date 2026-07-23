@@ -657,6 +657,81 @@ export interface NrlTipsheet {
   disclaimer: string;
 }
 
+/** /api/nrl/tips/{submit,mine,summary,leaderboard,claim} -- the beat-the-AI
+ *  loop (backend/app/api/nrl_user_tips.py, design doc: NRL Round Tips,
+ *  Slice 2). device_id is not auth -- see lib/nrlTips.ts. */
+export interface NrlTipSubmitResponse {
+  ok: boolean;
+  handle: string;
+  tip: {
+    match_id: number;
+    pick: "home" | "draw" | "away";
+    margin: number | null;
+    updated_at: string | null;
+  };
+}
+export interface NrlMyTipModel {
+  pick: "home" | "draw" | "away";
+  pick_confidence: number;
+  expected_margin: number | null;
+}
+export interface NrlMyTipYourTip {
+  pick: "home" | "draw" | "away";
+  margin: number | null;
+  points: number | null;
+  round_margin: number | null;
+  graded_at: string | null;
+  updated_at: string | null;
+}
+export interface NrlMyTipsMatch {
+  id: number;
+  home: string | null;
+  away: string | null;
+  kickoff_utc: string | null;
+  status: string;
+  score_home: number | null;
+  score_away: number | null;
+  is_featured: boolean;
+  model: NrlMyTipModel | null;
+  your_tip: NrlMyTipYourTip | null;
+}
+export interface NrlMyTipsResponse {
+  season: number;
+  round: number;
+  handle: string | null;
+  matches: NrlMyTipsMatch[];
+  disclaimer: string;
+}
+export interface NrlTipsSummaryRound {
+  season: number;
+  round: number;
+  your_points: number;
+  model_points: number;
+  matches_played: number;
+}
+export interface NrlTipsSummaryResponse {
+  handle: string | null;
+  rounds: NrlTipsSummaryRound[];
+  totals: { your_points: number; model_points: number; rounds_played: number };
+  disclaimer: string;
+}
+export interface NrlTipsLeaderboardEntry {
+  handle: string;
+  points: number;
+  round_margin: number | null;
+}
+export interface NrlTipsLeaderboardResponse {
+  season: number;
+  round: number;
+  participant_count: number;
+  entries: NrlTipsLeaderboardEntry[];
+}
+export interface NrlTipClaimResponse {
+  ok: boolean;
+  handle: string | null;
+  claimed_tips: number;
+}
+
 /** /api/nrl/matches/{id} -- Wave 1 match intelligence detail. */
 export interface NrlMatchInfo {
   id: number;

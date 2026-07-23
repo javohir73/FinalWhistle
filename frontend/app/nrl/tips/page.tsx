@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getNrlTipsheetServer } from "@/lib/api";
 import { TipsheetBlock } from "@/components/nrl/TipsheetBlock";
+import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 
 export const revalidate = 300;
 
@@ -29,6 +30,9 @@ export default async function NrlTipsPage() {
       <div className="mt-6">
         <TipsheetBlock tipsheet={tipsheet} />
       </div>
+      {/* Beat-the-AI loop (Slice 2): play, "you vs the AI", leaderboard --
+       *  design doc scopes all of it to /nrl/tips, not the round permalinks. */}
+      <NrlTipsPlaySection season={tipsheet.season} round={tipsheet.round} />
     </div>
   );
 }

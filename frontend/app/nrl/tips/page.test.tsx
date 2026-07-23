@@ -1,4 +1,7 @@
-/** NRL tips page -- server component (SSR) output. */
+/** NRL tips page -- server component (SSR) output. NrlTipsPlaySection (the
+ *  Slice 2 beat-the-AI client half: device id, auth context, network calls)
+ *  is stubbed here -- it has its own dedicated tests -- so this file stays
+ *  focused on what the server component itself renders. */
 import { render, screen } from "@testing-library/react";
 import NrlTipsPage from "./page";
 import { getNrlTipsheetServer } from "@/lib/api";
@@ -6,6 +9,12 @@ import type { NrlTipsheet } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockTipsheet = getNrlTipsheetServer as jest.MockedFunction<typeof getNrlTipsheetServer>;
+
+jest.mock("@/components/nrl/NrlTipsPlaySection", () => ({
+  NrlTipsPlaySection: ({ season, round }: { season: number; round: number }) => (
+    <div data-testid="play-section">{`${season}-${round}`}</div>
+  ),
+}));
 
 const fixtures: NrlTipsheet = {
   season: 2026,
@@ -42,6 +51,8 @@ it("renders the round heading and the tipsheet block", async () => {
   expect(screen.getByText("Round 2 · 2026")).toBeInTheDocument();
   expect(screen.getByText("Storm")).toBeInTheDocument();
   expect(mockTipsheet).toHaveBeenCalledWith();
+  // Beat-the-AI section gets the same season/round as the tipsheet above it.
+  expect(screen.getByTestId("play-section")).toHaveTextContent("2026-2");
 });
 
 it("calls notFound() when no NRL data is loaded yet", async () => {

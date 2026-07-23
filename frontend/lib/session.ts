@@ -39,7 +39,9 @@ export class ApiError extends Error {
 // timeout so the UI can say "waking up — try again" instead of spinning forever.
 const REQUEST_TIMEOUT_MS = 30_000;
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+// Exported so other device-id-keyed clients (lib/nrlTips.ts) get the same
+// timeout/ApiError handling instead of a second copy of this plumbing.
+export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   let res: Response;
