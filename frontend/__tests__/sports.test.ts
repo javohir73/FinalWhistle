@@ -26,12 +26,13 @@ describe("sport config", () => {
     expect(SPORTS.football.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Groups", "Bracket", "You"]);
     expect(SPORTS.nrl.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Matches", "Ladder", "Record", "You"]);
+      ["Home", "Matches", "Ladder", "Record", "Tips"]);
   });
 
-  it("gives NRL's You link its own aliased route so the pathname carries NRL context", () => {
-    const youLink = SPORTS.nrl.navLinks.find((l) => l.label === "You");
-    expect(youLink?.href).toBe("/nrl/leaderboard");
+  it("gives NRL a Tips link to the tipsheet (design doc: NRL Round Tips) instead of the You/leaderboard slot", () => {
+    const tipsLink = SPORTS.nrl.navLinks.find((l) => l.label === "Tips");
+    expect(tipsLink?.href).toBe("/nrl/tips");
+    expect(SPORTS.nrl.navLinks.find((l) => l.label === "You")).toBeUndefined();
   });
 
   it("recognizes /nrl/leaderboard as NRL context", () => {

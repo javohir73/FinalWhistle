@@ -23,6 +23,7 @@ import type {
   NrlScorer,
   NrlStatsProfile,
   NrlTeamProfile,
+  NrlTipsheet,
   OriginRecord,
   OriginSeriesResponse,
   Prediction,
@@ -174,6 +175,17 @@ export const getNrlStatsProfileServer = (slug: string) =>
   getServer<NrlStatsProfile>(`/api/nrl/teams/${slug}/profile`, 300);
 export const getNrlRecordServer = () =>
   getServer<NrlRecord>("/api/nrl/model/record", 300);
+/** Round tipsheet (design doc: NRL Round Tips, Slice 1): model pick per game,
+ *  season record, and last round's worst miss, in one payload. No args
+ *  resolves the current round server-side; pass season+round for a specific
+ *  round permalink (see /nrl/round/[n]). */
+export const getNrlTipsheetServer = (season?: number, round?: number) =>
+  getServer<NrlTipsheet>(
+    season != null && round != null
+      ? `/api/nrl/tips?season=${season}&round=${round}`
+      : "/api/nrl/tips",
+    300,
+  );
 export const getNrlMatchDetailServer = (id: number | string) =>
   getServer<NrlMatchDetail>(`/api/nrl/matches/${id}`, 300);
 export const getNrlProjectionsServer = () =>

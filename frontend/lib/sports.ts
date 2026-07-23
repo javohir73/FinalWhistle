@@ -40,7 +40,11 @@ export const SPORTS: Record<
       { href: "/nrl/matches", label: "Matches", activePrefixes: [] },
       { href: "/nrl/ladder", label: "Ladder", activePrefixes: [] },
       { href: "/nrl/record", label: "Record", activePrefixes: [] },
-      { href: "/nrl/leaderboard", label: "You", activePrefixes: [] },
+      // Tips replaces the aliased-away "You"/leaderboard slot (design doc: NRL
+      // Round Tips) -- the five-destination cap is hard, see BottomNav.tsx.
+      // /nrl/leaderboard stays a live route (alias of /leaderboard); it's just
+      // no longer one tap away from the NRL tab bar.
+      { href: "/nrl/tips", label: "Tips", activePrefixes: [] },
     ],
   },
 };

@@ -593,6 +593,70 @@ export interface NrlRecord {
   disclaimer: string;
 }
 
+/** /api/nrl/tips -- the round tipsheet (backend/app/api/nrl_tips.py, design
+ *  doc: NRL Round Tips, Slice 1). The embedded prediction is always the
+ *  kickoff-locked row (never a post-kickoff write) and carries the model's
+ *  pick + confidence alongside the raw probabilities. */
+export interface NrlTipsheetPrediction {
+  p_home: number;
+  p_draw: number;
+  p_away: number;
+  expected_margin: number | null;
+  model_version: string;
+  created_at: string | null;
+  is_shadow: boolean;
+  pick: "home" | "draw" | "away";
+  pick_confidence: number;
+}
+export interface NrlTipsheetMatch {
+  id: number;
+  match_no: number;
+  kickoff_utc: string | null;
+  venue: string | null;
+  home: string | null;
+  away: string | null;
+  home_team_id: number | null;
+  away_team_id: number | null;
+  score_home: number | null;
+  score_away: number | null;
+  status: string;
+  prediction: NrlTipsheetPrediction | null;
+}
+/** Season-long ledger, same shape as NrlRecord minus model_version/disclaimer
+ *  (nrl_tips.py returns _ledger_record()'s output as-is, unwrapped). */
+export interface NrlTipsheetRecord {
+  evaluated_matches: number;
+  winner_accuracy: number | null;
+  winner_accuracy_ci95: [number, number] | null;
+  avg_log_loss: number | null;
+  avg_brier: number | null;
+  best_streak: number;
+  last_updated: string | null;
+}
+/** Highest-confidence wrong pick from the most recently graded round; null
+ *  until something's graded, or the latest graded round was a clean sweep. */
+export interface NrlWorstMiss {
+  season: number;
+  round: number | null;
+  home: string | null;
+  away: string | null;
+  score_home: number | null;
+  score_away: number | null;
+  pick: "home" | "draw" | "away";
+  pick_team: string | null;
+  pick_probability: number;
+  winner: "home" | "draw" | "away";
+  winner_team: string | null;
+}
+export interface NrlTipsheet {
+  season: number;
+  round: number;
+  matches: NrlTipsheetMatch[];
+  record: NrlTipsheetRecord;
+  worst_miss: NrlWorstMiss | null;
+  disclaimer: string;
+}
+
 /** /api/nrl/matches/{id} -- Wave 1 match intelligence detail. */
 export interface NrlMatchInfo {
   id: number;
