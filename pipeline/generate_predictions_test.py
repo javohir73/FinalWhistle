@@ -1132,6 +1132,70 @@ def test_rest_twin_written_for_unequal_rest(db_session):
     assert twin.lambda_home != payload["lambda_home"] or twin.lambda_away != payload["lambda_away"]
 
 
+# --- league pivot ledger scoping for the +bans/+rest twins (same leak as the
+# --- shadow/availability/offsets fix, PR #171) -------------------------------
+
+def test_bans_model_version_for_wc26_keeps_the_frozen_tag():
+    from pipeline.generate_predictions import BANS_MODEL_VERSION, bans_model_version_for
+
+    assert bans_model_version_for("poisson-elo-v0.1") == BANS_MODEL_VERSION
+    assert bans_model_version_for("poisson-elo-v0.5") == BANS_MODEL_VERSION
+
+
+def test_bans_model_version_for_club_is_derived():
+    from pipeline.generate_predictions import bans_model_version_for
+
+    assert bans_model_version_for("poisson-elo-club-v0.1") == "poisson-elo-club-v0.1+bans"
+
+
+def test_rest_model_version_for_wc26_keeps_the_frozen_tag():
+    from pipeline.generate_predictions import REST_MODEL_VERSION, rest_model_version_for
+
+    assert rest_model_version_for("poisson-elo-v0.1") == REST_MODEL_VERSION
+    assert rest_model_version_for("poisson-elo-v0.5") == REST_MODEL_VERSION
+
+
+def test_rest_model_version_for_club_is_derived():
+    from pipeline.generate_predictions import rest_model_version_for
+
+    assert rest_model_version_for("poisson-elo-club-v0.1") == "poisson-elo-club-v0.1+rest"
+
+
+def test_club_production_gets_its_own_bans_tag(db_session):
+    """A club-family payload's +bans twin must carry the derived tag, never the
+    frozen WC26 constant — otherwise the club row pollutes the WC26 bans ledger
+    before any future benchmark is built."""
+    from pipeline.generate_predictions import BANS_MODEL_VERSION, write_suspension_prediction
+
+    upcoming, _home, _away = _rig_signal_fixture(db_session)
+    payload = {**build_payload(db_session, upcoming, "poisson-elo-v0.5"),
+               "model_version": "poisson-elo-club-v0.1"}
+    write_suspension_prediction(db_session, upcoming, payload, {}, load_params_for_test())
+    db_session.commit()
+    twin = (db_session.query(Prediction)
+            .filter_by(match_id=upcoming.id, is_shadow=True).one())
+    assert twin.model_version == "poisson-elo-club-v0.1+bans"
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=upcoming.id, model_version=BANS_MODEL_VERSION).count() == 0)
+
+
+def test_club_production_gets_its_own_rest_tag(db_session):
+    """Same leak, +rest twin: the derived club tag, never the frozen WC26
+    constant."""
+    from pipeline.generate_predictions import REST_MODEL_VERSION, write_rest_prediction
+
+    upcoming, _home, _away = _rig_signal_fixture(db_session)
+    payload = {**build_payload(db_session, upcoming, "poisson-elo-v0.5"),
+               "model_version": "poisson-elo-club-v0.1"}
+    write_rest_prediction(db_session, upcoming, payload, {}, load_params_for_test())
+    db_session.commit()
+    twin = (db_session.query(Prediction)
+            .filter_by(match_id=upcoming.id, is_shadow=True).one())
+    assert twin.model_version == "poisson-elo-club-v0.1+rest"
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=upcoming.id, model_version=REST_MODEL_VERSION).count() == 0)
+
+
 def test_signals_default_off_is_a_noop_in_served_payload(db_session):
     """model_params.json nulls: enabling the code paths must not move a single
     served number until a param is explicitly flipped."""

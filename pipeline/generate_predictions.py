@@ -124,6 +124,31 @@ def offsets_model_version_for(production_version: str) -> str:
     return f"{production_version}+xg"
 
 
+def bans_model_version_for(production_version: str) -> str:
+    """The suspension twin's tag, scoped to its OWN production model's
+    ledger. Mirrors offsets_model_version_for exactly (same leak, same fix):
+    the WC26/international family keeps the frozen BANS_MODEL_VERSION, any
+    other production family gets its own "<version>+bans" tag. No benchmark
+    consumes this ledger yet — the scoping keeps the rows clean for whenever
+    one is built.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return BANS_MODEL_VERSION
+    return f"{production_version}+bans"
+
+
+def rest_model_version_for(production_version: str) -> str:
+    """The rest-days twin's tag, scoped to its OWN production model's
+    ledger. Mirrors bans_model_version_for exactly: the WC26/international
+    family keeps the frozen REST_MODEL_VERSION, any other production family
+    gets its own "<version>+rest" tag. No benchmark consumes this ledger yet
+    — the scoping keeps the rows clean for whenever one is built.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return REST_MODEL_VERSION
+    return f"{production_version}+rest"
+
+
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
     """Signed home-advantage Elo bonus for the match's home side.
 
@@ -849,7 +874,8 @@ def write_suspension_prediction(
     res = suspension_offsets_for_match(db, match)
     if res is None:
         return
-    _write_scaled_twin(db, match, payload, strengths, params, res[0], res[1], BANS_MODEL_VERSION)
+    _write_scaled_twin(db, match, payload, strengths, params, res[0], res[1],
+                       bans_model_version_for(payload["model_version"]))
 
 
 def write_rest_prediction(
@@ -865,7 +891,8 @@ def write_rest_prediction(
     offs = rest_offsets(rest[0], rest[1], DEFAULT_REST["coef"], DEFAULT_REST["cap"])
     if offs is None or (offs[0] == 0.0 and offs[1] == 0.0):
         return
-    _write_scaled_twin(db, match, payload, strengths, params, offs[0], offs[1], REST_MODEL_VERSION)
+    _write_scaled_twin(db, match, payload, strengths, params, offs[0], offs[1],
+                       rest_model_version_for(payload["model_version"]))
 
 
 def _played_score(m: Match) -> tuple[int, int] | None:
