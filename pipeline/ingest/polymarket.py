@@ -7,8 +7,9 @@ Gamma's binary Yes/No markets into neutral rows the orchestrator can map.
 Event shapes handled:
 - Match events: title "A vs B" / "A vs. B"; one binary market per outcome,
   identified by the team name (or the word "draw") in the market question.
-- Title events: title containing "winner"; one binary market per team,
-  question "Will <team> win the ...?".
+- Title events: the ONE championship event per tag, recognized by its full
+  title against TITLE_PATTERNS; one binary market per team, question
+  "Will <team> win the ...?".
 
 Anything that doesn't fit is skipped — the intel panel would rather show
 nothing than a wrong mapping.
@@ -31,6 +32,19 @@ WC_TAG_SLUG = "fifa-world-cup"
 NRL_TAG_SLUG = "nrl"
 
 _VS = re.compile(r"^(?P<home>.+?)\s+vs\.?\s+(?P<away>.+?)$", re.IGNORECASE)
+
+#: Championship-event title per tag, matched against the normalized (lowercase,
+#: punctuation-stripped) event title. "winner" alone is NOT enough: the
+#: fifa-world-cup tag also lists group-winner, qualifying-group and award
+#: events ("World Cup: Fair Play Award Winner", "World Cup Group A Winner"),
+#: whose questions are also "Will <team> win ...?" — the Fair Play event put
+#: Netherlands at 87.9% into title_winner on 2026-07-20. Tags without a
+#: vetted pattern yield no title rows at all (skip rather than guess).
+TITLE_PATTERNS: dict[str, re.Pattern[str]] = {
+    WC_TAG_SLUG: re.compile(r"^(?:\d{4} )?(?:fifa )?world cup winner$"),
+    # No live NRL title event yet (tag currently empty) — verify at rollout.
+    NRL_TAG_SLUG: re.compile(r"^(?:\d{4} )?nrl (?:premiership |grand final )?winner$"),
+}
 
 
 def fetch_events(tag_slug: str, timeout: float = 15.0) -> list[dict]:
@@ -60,7 +74,8 @@ def _is_active(market: dict) -> bool:
     return bool(market.get("active")) and not market.get("closed")
 
 
-def parse_events(events: list[dict]) -> list[dict]:
+def parse_events(events: list[dict], tag_slug: str) -> list[dict]:
+    title_pattern = TITLE_PATTERNS.get(tag_slug)
     rows: list[dict] = []
     for event in events:
         if event.get("closed"):
@@ -69,7 +84,7 @@ def parse_events(events: list[dict]) -> list[dict]:
         vs = _VS.match(title.strip())
         if vs:
             rows.extend(_parse_match_event(event, vs["home"].strip(), vs["away"].strip()))
-        elif "winner" in title.lower():
+        elif title_pattern and title_pattern.match(normalize_text(title)):
             rows.extend(_parse_title_event(event))
         else:
             log.info("polymarket: skipping unrecognized event %r", title)

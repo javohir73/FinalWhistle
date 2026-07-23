@@ -91,5 +91,81 @@
         "outcomePrices": "[\"0.001\", \"0.999\"]"
       }
     ]
+  },
+  {
+    "slug": "world-cup-fair-play-award-winner-20260603201520240",
+    "title": "World Cup: Fair Play Award Winner",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-netherlands-win-the-fair-play-award-for-the-2026-fifa-world-cup-20260603201521217",
+        "question": "Will Netherlands win the Fair Play Award for the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.879\", \"0.121\"]"
+      },
+      {
+        "slug": "will-england-win-the-fair-play-award-for-the-2026-fifa-world-cup-20260603201521205",
+        "question": "Will England win the Fair Play Award for the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.086\", \"0.914\"]"
+      }
+    ]
+  },
+  {
+    "slug": "world-cup-group-a-winner",
+    "title": "World Cup Group A Winner",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-mexico-win-group-a-in-the-2026-fifa-world-cup",
+        "question": "Will Mexico win Group A in the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.55\", \"0.45\"]"
+      },
+      {
+        "slug": "will-south-korea-win-group-a-in-the-2026-fifa-world-cup",
+        "question": "Will South Korea win Group A in the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.2\", \"0.8\"]"
+      }
+    ]
+  },
+  {
+    "slug": "world-cup-golden-boot-winner",
+    "title": "World Cup: Golden Boot Winner",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-kylian-mbappe-be-the-top-goalscorer-at-the-2026-fifa-world-cup",
+        "question": "Will Kylian Mbappe be the top goalscorer at the 2026 FIFA World Cup?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.18\", \"0.82\"]"
+      }
+    ]
+  },
+  {
+    "slug": "uefa-wc-qualifying-group-a-winner",
+    "title": "UEFA WC Qualifying – Group A winner ",
+    "closed": false,
+    "markets": [
+      {
+        "slug": "will-germany-win-uefa-wc-qualifying-group-a",
+        "question": "Will Germany win Group A in UEFA World Cup Qualifying?",
+        "active": true,
+        "closed": false,
+        "outcomes": "[\"Yes\", \"No\"]",
+        "outcomePrices": "[\"0.81\", \"0.19\"]"
+      }
+    ]
   }
 ]
