@@ -128,7 +128,7 @@ def test_kalshi_leg_failure_does_not_drop_the_other_leg(monkeypatch):
     assert [r["kind"] for r in rows] == ["match"]
 
 
-def test_run_raises_only_when_all_sources_empty(monkeypatch):
+def test_run_raises_only_when_all_sources_fail(monkeypatch):
     db = _session()
     _seed_football(db)
 
@@ -146,3 +146,15 @@ def test_run_raises_only_when_all_sources_empty(monkeypatch):
     ])
     with pytest.raises(RuntimeError):
         market_intel.run(db, NOW)
+
+
+def test_run_zero_rows_offseason_is_clean_noop(monkeypatch):
+    """Post-WC: sources answer but list no recognizable markets. That is a
+    normal off-season hour, not a failure — no raise, returns 0."""
+    db = _session()
+    _seed_football(db)
+    monkeypatch.setattr(market_intel, "CONFIGS", [
+        market_intel.SourceConfig("football", "polymarket", lambda: []),
+        market_intel.SourceConfig("football", "kalshi", lambda: []),
+    ])
+    assert market_intel.run(db, NOW) == 0

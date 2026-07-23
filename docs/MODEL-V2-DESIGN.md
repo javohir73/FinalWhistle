@@ -172,6 +172,26 @@ log loss 0.8611 → 0.8564, ECE 0.0092 → 0.0055.
   is still at its Elo-only ceiling; the next real outcome lever is a market
   (odds) prior."
 
+## 5c. Post-tournament form-channel re-gate (2026-07-23)
+
+RUNBOOK-WC26-ENDGAME.md §3 rerun after the final, with the completed group
+stage (n=72) as the third holdout. Raw outputs archived in
+`docs/experiments/2026-07-23-wc26-postmortem/`.
+
+| Variant | WC2018 LL | WC2022 LL | WC26 replay LL (n=72) |
+|---|---|---|---|
+| v0.1-raw | 0.9669 | **1.0693** | 0.8392 |
+| v0.2-tuned | 0.9813 | 1.0943 | 0.8144 |
+| v0.2+form (C1) | 0.9713 | 1.1071 | 0.8255 |
+| v0.2+cal (C2) | 0.9791 | 1.0942 | **0.8140** |
+| v0.2+form+cal | 0.9732 | 1.1178 | 0.8221 |
+
+**Verdict: GATE NOT MET — form channels stay dark.** +form beats no-form on
+WC2018 only; it loses on WC2022 (1.1071 vs 1.0943) and on the full WC26 replay
+(0.8255 vs 0.8144). The §5b decision stands on the complete tournament, so
+`form_channels: null` remains the served config. C2 (calibrator) again holds
+or improves every holdout, confirming the v0.4/v0.5 lineage.
+
 ## 6. Open items requiring owner action
 
 - **Prod shadow-ledger readout** (gates C4/C5 promotion): read-only queries

@@ -1,0 +1,319 @@
+readout	UNKNOWN STEP	﻿2026-07-22T10:00:01.7800723Z Current runner version: '2.335.1'
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7836039Z ##[group]Runner Image Provisioner
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7837249Z Hosted Compute Agent
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7838305Z Version: 20260707.563
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7839197Z Commit: 02667638d2b423fbc733a8e32a88b44996a3ba6e
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7839983Z Build Date: 2026-07-07T19:33:50Z
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7840775Z Worker ID: {1b1dd536-9abd-4cde-b38a-ce4107d2ff43}
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7841570Z Azure Region: northcentralus
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7842251Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7843769Z ##[group]Operating System
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7844473Z Ubuntu
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7845083Z 24.04.4
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7845646Z LTS
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7846244Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7846882Z ##[group]Runner Image
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7847550Z Image: ubuntu-24.04
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7848490Z Version: 20260714.240.1
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7849837Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260714.240/images/ubuntu/Ubuntu2404-Readme.md
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7851571Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260714.240
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7852659Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7853937Z ##[group]GITHUB_TOKEN Permissions
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7856046Z Contents: read
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7856742Z Metadata: read
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7857362Z Packages: read
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7858592Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7860884Z Secret source: Actions
+readout	UNKNOWN STEP	2026-07-22T10:00:01.7861885Z Prepare workflow directory
+readout	UNKNOWN STEP	2026-07-22T10:00:01.8289170Z Prepare all required actions
+readout	UNKNOWN STEP	2026-07-22T10:00:01.8343981Z Getting action download info
+readout	UNKNOWN STEP	2026-07-22T10:00:02.0564192Z Download action repository 'actions/checkout@v6' (SHA:d23441a48e516b6c34aea4fa41551a30e30af803)
+readout	UNKNOWN STEP	2026-07-22T10:00:02.3801719Z Download action repository 'actions/setup-python@v6' (SHA:ece7cb06caefa5fff74198d8649806c4678c61a1)
+readout	UNKNOWN STEP	2026-07-22T10:00:02.5939572Z Complete job name: readout
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6659987Z ##[group]Run actions/checkout@v6
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6660824Z with:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6661286Z   repository: javohir73/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6665379Z   token: ***
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6665838Z   ssh-strict: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6666293Z   ssh-user: git
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6666754Z   persist-credentials: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6667251Z   clean: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6667716Z   sparse-checkout-cone-mode: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6668626Z   fetch-depth: 1
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6669075Z   fetch-tags: false
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6669539Z   show-progress: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6670009Z   lfs: false
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6670434Z   submodules: false
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6670897Z   set-safe-directory: true
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6671432Z   allow-unsafe-pr-checkout: false
+readout	UNKNOWN STEP	2026-07-22T10:00:02.6672210Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7718980Z Syncing repository: javohir73/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7720979Z ##[group]Getting Git version info
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7721825Z Working directory is '/home/runner/work/FinalWhistle/FinalWhistle'
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7722888Z [command]/usr/bin/git version
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7792550Z git version 2.54.0
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7823397Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7847071Z Temporarily overriding HOME='/home/runner/work/_temp/139d5b03-6876-4c56-8a2b-7fc31271ceb7' before making global git config changes
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7848709Z Adding repository directory to the temporary git global config as a safe directory
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7849874Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/FinalWhistle/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7889824Z Deleting the contents of '/home/runner/work/FinalWhistle/FinalWhistle'
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7893863Z ##[group]Determining repository object format
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7896037Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7897598Z ##[group]Initializing the repository
+readout	UNKNOWN STEP	2026-07-22T10:00:02.7921446Z [command]/usr/bin/git init /home/runner/work/FinalWhistle/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8008465Z hint: Using 'master' as the name for the initial branch. This default branch name
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8010521Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8012388Z hint: to use in all of your new repositories, which will suppress this warning,
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8013690Z hint: call:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8014443Z hint:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8015362Z hint: 	git config --global init.defaultBranch <name>
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8016505Z hint:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8017539Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8019525Z hint: 'development'. The just-created branch can be renamed via this command:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8020962Z hint:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8021858Z hint: 	git branch -m <name>
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8022916Z hint:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8024108Z hint: Disable this message with "git config set advice.defaultBranchName false"
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8025998Z Initialized empty Git repository in /home/runner/work/FinalWhistle/FinalWhistle/.git/
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8032321Z [command]/usr/bin/git remote add origin https://github.com/javohir73/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8074474Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8075874Z ##[group]Disabling automatic garbage collection
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8079420Z [command]/usr/bin/git config --local gc.auto 0
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8115072Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8116638Z ##[group]Setting up auth
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8117786Z Removing SSH command configuration
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8123681Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8160882Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8565460Z Removing HTTP extra header
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8574877Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8632519Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8901958Z Removing includeIf entries pointing to credentials config files
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8910285Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+readout	UNKNOWN STEP	2026-07-22T10:00:02.8950879Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9198170Z [command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9241457Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git.path /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9281637Z [command]/usr/bin/git config --local includeIf.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9330569Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9362912Z [command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9395305Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9396092Z ##[group]Fetching the repository
+readout	UNKNOWN STEP	2026-07-22T10:00:02.9406879Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a7ca223da9c636bfdd59cec0a559fb3af74f709d:refs/remotes/origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8631933Z From https://github.com/javohir73/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8633799Z  * [new ref]         a7ca223da9c636bfdd59cec0a559fb3af74f709d -> origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8675396Z [command]/usr/bin/git branch --list --remote origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8711403Z   origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8720929Z [command]/usr/bin/git rev-parse refs/remotes/origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8751144Z a7ca223da9c636bfdd59cec0a559fb3af74f709d
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8755707Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8756776Z ##[group]Determining the checkout info
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8758027Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8762865Z [command]/usr/bin/git sparse-checkout disable
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8815922Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8851935Z ##[group]Checking out the ref
+readout	UNKNOWN STEP	2026-07-22T10:00:03.8856368Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+readout	UNKNOWN STEP	2026-07-22T10:00:03.9794116Z Switched to a new branch 'main'
+readout	UNKNOWN STEP	2026-07-22T10:00:03.9799791Z branch 'main' set up to track 'origin/main'.
+readout	UNKNOWN STEP	2026-07-22T10:00:03.9839865Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:03.9888432Z [command]/usr/bin/git log -1 --format=%H
+readout	UNKNOWN STEP	2026-07-22T10:00:03.9918083Z a7ca223da9c636bfdd59cec0a559fb3af74f709d
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0248705Z ##[group]Run actions/setup-python@v6
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0249531Z with:
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0250017Z   python-version: 3.12
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0250620Z   check-latest: false
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0259794Z   token: ***
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0260335Z   update-environment: true
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0261003Z   allow-prereleases: false
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0261665Z   freethreaded: false
+readout	UNKNOWN STEP	2026-07-22T10:00:04.0262235Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1573455Z ##[group]Installed versions
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1661992Z Successfully set up CPython (3.12.13)
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1663562Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1870960Z ##[group]Run set -euo pipefail
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1872289Z ^[[36;1mset -euo pipefail^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1873670Z ^[[36;1mif [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1875983Z ^[[36;1m  echo "API_URL / RECOMPUTE_TOKEN secrets not set — cannot call the API." >&2^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1878157Z ^[[36;1m  exit 1^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1970416Z ^[[36;1mfi^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1971644Z ^[[36;1mecho "== shadow-record (production vs odds-anchored twin, paired matches) =="^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1973466Z ^[[36;1mSHADOW=$(curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1974733Z ^[[36;1m  "${API_URL}/api/internal/shadow-record")^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1975619Z ^[[36;1mecho "$SHADOW" | jq .^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1976275Z ^[[36;1mecho^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1978347Z ^[[36;1mecho "== availability-record (availability twin vs published forecast) =="^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1981393Z ^[[36;1mAVAIL=$(curl -sfS -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" \^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1983396Z ^[[36;1m  "${API_URL}/api/internal/availability-record")^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1984794Z ^[[36;1mecho "$AVAIL" | jq .^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1985765Z ^[[36;1m^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1987165Z ^[[36;1m# Promotion gate (RUNBOOK-WC26-ENDGAME.md): >=30 scored shadow pairs^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1991076Z ^[[36;1m# AND the odds-anchored twin ahead of production on avg log loss.^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1993022Z ^[[36;1mN=$(echo "$SHADOW" | jq -r '.shadow.n')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1994855Z ^[[36;1mPROD_LL=$(echo "$SHADOW" | jq -r '.production.avg_log_loss')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1996654Z ^[[36;1mSHAD_LL=$(echo "$SHADOW" | jq -r '.shadow.avg_log_loss')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1997698Z ^[[36;1mSTATUS="GATE NOT MET"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1998595Z ^[[36;1mDELTA="n/a"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.1999398Z ^[[36;1mif [ "$PROD_LL" != "null" ] && [ "$SHAD_LL" != "null" ]; then^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2001057Z ^[[36;1m  DELTA=$(jq -n --argjson p "$PROD_LL" --argjson s "$SHAD_LL" '($p - $s) * 10000 | round / 10000')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2003085Z ^[[36;1m  if [ "$N" -ge 30 ] && [ "$(jq -n --argjson p "$PROD_LL" --argjson s "$SHAD_LL" '$s < $p')" = "true" ]; then^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2004523Z ^[[36;1m    STATUS="GATE MET"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2005183Z ^[[36;1m  fi^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2006013Z ^[[36;1mfi^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2006473Z ^[[36;1m{^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2007041Z ^[[36;1m  echo "## Odds-blend promotion gate"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2007968Z ^[[36;1m  echo^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2008921Z ^[[36;1m  echo "**${STATUS}** — n=${N}/30, Δ avg log-loss (production − shadow) = ${DELTA}"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2010153Z ^[[36;1m  echo^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2011227Z ^[[36;1m  echo "Gate: ≥30 scored shadow pairs AND the twin ahead on avg log loss (Δ > 0)."^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2012727Z ^[[36;1m  echo "When met, promotion stays MANUAL:"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2014752Z ^[[36;1m  echo '`PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --w-odds 0.35 --use-odds --ship` via PR (stop gate).'^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2017200Z ^[[36;1m} >> "$GITHUB_STEP_SUMMARY"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2018303Z ^[[36;1mecho "${STATUS} — n=${N}/30, delta=${DELTA}"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2019643Z ^[[36;1m^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2021139Z ^[[36;1m# Availability promotion gate (RUNBOOK-WC26-ENDGAME.md): machine-checked^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2023866Z ^[[36;1m# via pipeline.availability_gate.availability_gate (tested Python, not^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2026242Z ^[[36;1m# jq; stdlib-only module — no backend install needed to import it) —^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2027614Z ^[[36;1m# n >= 20 scored pairs AND diff_ci95 upper bound < 0.^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2029238Z ^[[36;1mecho "$AVAIL" > /tmp/availability_record.json^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2030374Z ^[[36;1mcat > /tmp/availability_gate.py <<'PYEOF'^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2031260Z ^[[36;1mimport json^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2032143Z ^[[36;1mfrom pipeline.availability_gate import availability_gate^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2033827Z ^[[36;1mrec = json.load(open('/tmp/availability_record.json'))^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2034981Z ^[[36;1mprint(json.dumps(availability_gate(rec)))^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2035850Z ^[[36;1mPYEOF^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2036668Z ^[[36;1mAVAIL_GATE=$(PYTHONPATH=. python /tmp/availability_gate.py)^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2037770Z ^[[36;1mecho "$AVAIL_GATE" | jq .^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2039178Z ^[[36;1mAVAIL_MET=$(echo "$AVAIL_GATE" | jq -r '.met')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2040668Z ^[[36;1mAVAIL_N=$(echo "$AVAIL_GATE" | jq -r '.n')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2042289Z ^[[36;1mAVAIL_MIN_N=$(echo "$AVAIL_GATE" | jq -r '.min_n')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2044041Z ^[[36;1mAVAIL_DELTA=$(echo "$AVAIL_GATE" | jq -r '.delta_log_loss')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2045319Z ^[[36;1mAVAIL_REASON=$(echo "$AVAIL_GATE" | jq -r '.reason')^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2046342Z ^[[36;1mAVAIL_STATUS="GATE NOT MET"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2047338Z ^[[36;1mif [ "$AVAIL_MET" = "true" ]; then^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2048458Z ^[[36;1m  AVAIL_STATUS="GATE MET"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2049219Z ^[[36;1mfi^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2049747Z ^[[36;1m{^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2050330Z ^[[36;1m  echo "## Availability promotion gate"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2051170Z ^[[36;1m  echo^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2053239Z ^[[36;1m  echo "**${AVAIL_STATUS}** — n=${AVAIL_N}/${AVAIL_MIN_N}, Δ log-loss (availability − production) = ${AVAIL_DELTA}"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2056072Z ^[[36;1m  echo^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2058359Z ^[[36;1m  echo "Gate: n >= ${AVAIL_MIN_N} scored pairs AND diff_ci95 upper bound < 0. Reason: ${AVAIL_REASON}."^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2060786Z ^[[36;1m  if [ "$AVAIL_MET" = "true" ]; then^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2061774Z ^[[36;1m    echo^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2062497Z ^[[36;1m    echo "Promotion stays MANUAL:"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2064971Z ^[[36;1m    echo '`PYTHONPATH=backend:. .venv/bin/python -m pipeline.promote_blend --use-availability --ship` via PR (stop gate).'^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2067473Z ^[[36;1m  fi^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2068414Z ^[[36;1m} >> "$GITHUB_STEP_SUMMARY"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2070568Z ^[[36;1mecho "${AVAIL_STATUS} — n=${AVAIL_N}/${AVAIL_MIN_N}, delta=${AVAIL_DELTA}, reason=${AVAIL_REASON}"^[[0m
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2172392Z shell: /usr/bin/bash -e {0}
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2173072Z env:
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2173754Z   pythonLocation: /opt/hostedtoolcache/Python/3.12.13/x64
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2175315Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib/pkgconfig
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2176619Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2177781Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2179177Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.12.13/x64
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2180359Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.12.13/x64/lib
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2181662Z   API_URL: ***
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2182478Z   RECOMPUTE_TOKEN: ***
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2183063Z ##[endgroup]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.2313117Z == shadow-record (production vs odds-anchored twin, paired matches) ==
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4144438Z {
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4145360Z   "production": {
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4146320Z     "n": 22,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4147297Z     "exact_hits": 1,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4148862Z     "winner_acc": 0.8182,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4149701Z     "avg_brier": 0.4033,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4150469Z     "avg_log_loss": 0.7201,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4151305Z     "model_versions": [
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4152072Z       "poisson-elo-v0.2",
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4152932Z       "poisson-elo-v0.5"
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4153738Z     ]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4154438Z   },
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4155107Z   "shadow": {
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4155825Z     "n": 22,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4156625Z     "exact_hits": 1,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4157437Z     "winner_acc": 0.8182,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4158629Z     "avg_brier": 0.4026,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4159745Z     "avg_log_loss": 0.7189,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4161136Z     "model_versions": [
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4162652Z       "poisson-elo-v0.3-shadow"
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4163842Z     ]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4165196Z   },
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4166247Z   "production_full_record": {
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4167442Z     "n": 104,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4168711Z     "exact_hits": 10,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4169846Z     "winner_acc": 0.6635,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4170993Z     "avg_brier": 0.5013,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4172153Z     "avg_log_loss": 0.8584,
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4173333Z     "model_versions": [
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4174481Z       "poisson-elo-v0.1",
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4175653Z       "poisson-elo-v0.2",
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4176821Z       "poisson-elo-v0.5"
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4178156Z     ]
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4179164Z   }
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4180151Z }
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4180672Z 
+readout	UNKNOWN STEP	2026-07-22T10:00:04.4181455Z == availability-record (availability twin vs published forecast) ==
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5351639Z {
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5352103Z   "n_matches": 7,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5352416Z   "production": {
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5352728Z     "log_loss": 0.7605876688138142,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5353151Z     "brier": 0.42746198857142864,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5353489Z     "accuracy": 0.8571428571428571,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5353864Z     "n": 7
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5354344Z   },
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5354755Z   "availability": {
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5355211Z     "log_loss": 0.7194527699648504,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5355668Z     "brier": 0.3984671628571429,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5356197Z     "accuracy": 0.8571428571428571,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5356675Z     "n": 7
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5357039Z   },
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5357505Z   "diff_log_loss": -0.04113489884896383,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5358167Z   "diff_ci95": [
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5358599Z     -0.09925679413888115,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5359017Z     0.0044662771877486285
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5359451Z   ],
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5359880Z   "availability_win_rate": 0.7142857142857143,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5360462Z   "verdict": "no_credible_difference"
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5360942Z }
+readout	UNKNOWN STEP	2026-07-22T10:00:05.5494261Z GATE NOT MET — n=22/30, delta=0.0012
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6023894Z {
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6024380Z   "met": false,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6024715Z   "n": 7,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6024964Z   "min_n": 20,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6025216Z   "delta_log_loss": -0.04113489884896383,
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6025760Z   "reason": "n below min_n (7 < 20)"
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6026188Z }
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6204536Z GATE NOT MET — n=7/20, delta=-0.04113489884896383, reason=n below min_n (7 < 20)
+readout	UNKNOWN STEP	2026-07-22T10:00:05.6331391Z Post job cleanup.
+readout	UNKNOWN STEP	2026-07-22T10:00:05.7763972Z Post job cleanup.
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8625477Z [command]/usr/bin/git version
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8666254Z git version 2.54.0
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8735674Z Temporarily overriding HOME='/home/runner/work/_temp/a5abb4fc-35b5-47ed-bfe1-4ab0d5e789c5' before making global git config changes
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8737043Z Adding repository directory to the temporary git global config as a safe directory
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8740556Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/FinalWhistle/FinalWhistle
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8775748Z Removing SSH command configuration
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8782974Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+readout	UNKNOWN STEP	2026-07-22T10:00:05.8820759Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9085394Z Removing HTTP extra header
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9092192Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9129442Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9432614Z Removing includeIf entries pointing to credentials config files
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9444986Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9489288Z includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9497008Z includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git/worktrees/*.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9501410Z includeif.gitdir:/github/workspace/.git.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9502081Z includeif.gitdir:/github/workspace/.git/worktrees/*.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9504230Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9536505Z /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9569672Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git.path /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9603615Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git/worktrees/*.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9639933Z /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9663766Z [command]/usr/bin/git config --local --unset includeif.gitdir:/home/runner/work/FinalWhistle/FinalWhistle/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9719485Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9743746Z /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9753010Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9801684Z [command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9840119Z /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9850796Z [command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config
+readout	UNKNOWN STEP	2026-07-22T10:00:05.9895148Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+readout	UNKNOWN STEP	2026-07-22T10:00:06.0154012Z Removing credentials config '/home/runner/work/_temp/git-credentials-200b6102-b563-4ec4-b63e-7da44fe59448.config'
+readout	UNKNOWN STEP	2026-07-22T10:00:06.0295555Z Cleaning up orphan processes
