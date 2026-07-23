@@ -6,7 +6,9 @@ from app.db import Base
 from app.models import Match, Prediction, Team, Tournament
 from ml.evaluation.availability_benchmark import benchmark_availability
 from pipeline.generate_predictions import AVAILABILITY_MODEL_VERSION
-from pipeline.run_availability_benchmark import _verdict, availability_record
+from pipeline.run_availability_benchmark import (
+    _verdict, availability_gate, availability_record,
+)
 
 _EMPTY = {"n_matches": 0, "verdict": "insufficient", "production": None,
           "availability": None, "diff_log_loss": None, "diff_ci95": None,
@@ -78,3 +80,63 @@ def test_verdict_covers_all_three_branches():
     assert _verdict((-0.05, -0.01)) == "availability_beats_published"  # CI hi < 0
     assert _verdict((0.01, 0.05)) == "published_beats_availability"    # CI lo > 0
     assert _verdict((-0.02, 0.03)) == "no_credible_difference"          # straddles 0
+
+
+# --- availability_gate --------------------------------------------------------
+
+def test_gate_met_with_enough_matches_and_winning_ci():
+    rec = {"n_matches": 25, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
+    gate = availability_gate(rec)
+    assert gate["met"] is True
+    assert gate["n"] == 25 and gate["min_n"] == 20
+    assert gate["delta_log_loss"] == -0.04
+    assert "met" in gate["reason"]
+
+
+def test_gate_not_met_below_min_n():
+    rec = {"n_matches": 10, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
+    gate = availability_gate(rec)
+    assert gate["met"] is False
+    assert "min_n" in gate["reason"]
+
+
+def test_gate_not_met_ci_straddles_zero():
+    rec = {"n_matches": 30, "diff_log_loss": -0.01, "diff_ci95": [-0.05, 0.02]}
+    gate = availability_gate(rec)
+    assert gate["met"] is False
+    assert gate["reason"] == "CI straddles zero"
+
+
+def test_gate_handles_insufficient_record_shape():
+    rec = {"n_matches": 0, "verdict": "insufficient", "production": None,
+           "availability": None, "diff_log_loss": None, "diff_ci95": None,
+           "availability_win_rate": None}
+    gate = availability_gate(rec)  # must not raise
+    assert gate["met"] is False
+    assert gate["n"] == 0
+    assert gate["reason"] == "insufficient record"
+
+
+def test_gate_respects_min_n_override():
+    rec = {"n_matches": 10, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
+    assert availability_gate(rec, min_n=5)["met"] is True
+    assert availability_gate(rec, min_n=20)["met"] is False
+
+
+def test_gate_met_at_exactly_min_n():
+    rec = {"n_matches": 20, "diff_log_loss": -0.04, "diff_ci95": [-0.08, -0.01]}
+    assert availability_gate(rec)["met"] is True  # n == min_n, not just >
+
+
+def test_gate_not_met_ci_upper_bound_exactly_zero():
+    rec = {"n_matches": 25, "diff_log_loss": -0.02, "diff_ci95": [-0.05, 0.0]}
+    gate = availability_gate(rec)
+    assert gate["met"] is False  # hi < 0 required; hi == 0 doesn't count
+    assert gate["reason"] == "CI straddles zero"
+
+
+def test_gate_not_met_ci_wrong_length():
+    rec = {"n_matches": 25, "diff_log_loss": -0.02, "diff_ci95": [-0.05]}
+    gate = availability_gate(rec)  # must not raise
+    assert gate["met"] is False
+    assert gate["reason"] == "insufficient record"

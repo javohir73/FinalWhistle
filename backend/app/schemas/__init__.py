@@ -344,6 +344,11 @@ class BridgeNotifyIn(BaseModel):
     source: str = "wc26_final_bridge"
 
 
+# ---- Anonymous device-level activity ping (D7/D14 retention cohorts) ----
+class ActivityPingIn(BaseModel):
+    device_id: str
+
+
 # ---- Accounts / brackets / leaderboard ----
 class GroupPickIn(BaseModel):
     match_id: int

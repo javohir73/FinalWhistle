@@ -1,0 +1,28 @@
+# Hourly phased closing-line odds capture (pipeline/ingest/odds.py
+# snapshot_phased_odds). Migrations are refresh.yml's job; this workflow
+# assumes the schema is already at head.
+name: odds-snapshots
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+      - name: Snapshot phased odds
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          API_FOOTBALL_API_KEY: ${{ secrets.API_FOOTBALL_API_KEY }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.snapshot_odds

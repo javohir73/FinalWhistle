@@ -191,6 +191,57 @@ def test_residual_log_adj_is_capped_and_ramped():
     assert abs(one) < abs(full)
 
 
+# --- Model-promotion gate (pipeline/evaluate_candidate.py) -------------------
+
+def test_run_candidate_gate_identical_params_zero_deltas():
+    """candidate == baseline must score identically on every match, so every
+    paired delta (and its CI, since the paired difference is identically
+    zero) collapses to exactly 0."""
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.experiment_model_eval import run_candidate_gate
+
+    res = run_candidate_gate(_rows(), DEFAULT_PARAMS, DEFAULT_PARAMS, since_year=2004, n_boot=50)
+    assert res["matches"] > 0 and res["editions"] > 0
+    for key in ("log_loss", "rps", "brier", "exact_nll", "top5"):
+        delta = res["deltas"][key]
+        assert delta["d"] == 0.0
+        assert delta["ci"] == (0.0, 0.0)
+    assert res["deltas"]["ece"]["d"] == 0.0
+    assert res["deltas"]["draw_ece"]["d"] == 0.0
+    assert res["close_match"]["d_top1"] == 0.0
+    assert res["close_match"]["cand_draw_ll"] == res["close_match"]["base_draw_ll"]
+
+
+def test_run_candidate_gate_reports_full_metric_suite():
+    from dataclasses import replace
+    from ml.models.params import DEFAULT_PARAMS
+    from pipeline.experiment_model_eval import run_candidate_gate
+
+    candidate = replace(DEFAULT_PARAMS, version="candidate", rho=-0.1)
+    res = run_candidate_gate(_rows(), candidate, DEFAULT_PARAMS, since_year=2004, n_boot=50)
+
+    for key in ("candidate_version", "baseline_version", "since_year", "n_boot",
+                "editions", "matches", "summary", "deltas", "close_match"):
+        assert key in res, f"missing {key}"
+    assert res["candidate_version"] == "candidate"
+    assert res["baseline_version"] == DEFAULT_PARAMS.version
+
+    for who in ("candidate", "baseline"):
+        m = res["summary"][who]
+        for key in ("log_loss", "rps", "brier", "exact_nll", "top1", "top3", "top5", "ece", "per_class"):
+            assert key in m, f"summary[{who}] missing {key}"
+        assert set(m["per_class"]) == {"home", "draw", "away"}
+
+    for key in ("log_loss", "rps", "brier", "exact_nll", "top5"):
+        delta = res["deltas"][key]
+        assert "d" in delta and "ci" in delta and len(delta["ci"]) == 2
+    assert "d" in res["deltas"]["ece"]
+    assert "d" in res["deltas"]["draw_ece"]
+
+    for key in ("n", "d_top1", "cand_draw_ll", "base_draw_ll"):
+        assert key in res["close_match"], f"close_match missing {key}"
+
+
 def test_residual_form_gate_runs_and_reports_a_verdict():
     from pipeline.experiment_model_eval import run_residual_form_gate
 
