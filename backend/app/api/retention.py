@@ -102,7 +102,12 @@ def retention(db: Session = Depends(get_db)):
         for n in _RETENTION_OFFSET_DAYS:
             target = d + timedelta(days=n)
             key = f"d{n}"
-            if size == 0 or target > today:
+            # >= (not >): this is a public honesty surface, so a checkpoint
+            # only shows a number once its UTC day has FULLY elapsed — a
+            # same-day count would climb as more pings land and read as
+            # final when it isn't (matches the page's "hasn't happened yet"
+            # copy for the em dash).
+            if size == 0 or target >= today:
                 row[key] = None
             else:
                 retained = sum(1 for dev in cohort_devices if target in activity_days.get(dev, ()))
