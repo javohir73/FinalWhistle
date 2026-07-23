@@ -73,7 +73,22 @@ REST_MODEL_VERSION = "poisson-elo-v0.5+rest"
 
 
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
-    """Signed host bonus: + if home is host, - if away is host (boosts away)."""
+    """Signed home-advantage Elo bonus for the match's home side.
+
+    Two modes, selected by the match's tournament (league pivot D4,
+    docs/LEAGUE-PIVOT-PLAN.md): the WC26 default "host_bonus" applies the
+    bonus only when a host nation is playing (+ if home is host, - if away
+    is host, boosting the away side instead — unchanged, byte-identical to
+    the original single-mode behavior). A tournament switched to "home" (a
+    club league — every match has a real home side) applies its bonus to
+    team_home unconditionally, using the tournament's own tuned magnitude
+    (home_advantage_value) when set, else falling back to `home_advantage`.
+    """
+    tournament = match.tournament
+    mode = tournament.home_advantage_mode if tournament is not None else "host_bonus"
+    if mode == "home":
+        value = tournament.home_advantage_value
+        return home_advantage if value is None else value
     if match.host_team_id is None:
         return 0.0
     return home_advantage if match.host_team_id == home.id else -home_advantage
