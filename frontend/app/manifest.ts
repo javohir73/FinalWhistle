@@ -1,13 +1,14 @@
 import type { MetadataRoute } from "next";
 import { APP_NAME } from "@/lib/constants";
+import { getTournament } from "@/lib/tournament";
 
-export default function manifest(): MetadataRoute.Manifest {
+export default async function manifest(): Promise<MetadataRoute.Manifest> {
+  const tournament = await getTournament();
   return {
     id: "/",
-    name: `${APP_NAME} — World Cup 2026 Predictions`,
+    name: `${APP_NAME} — ${tournament.name} Predictions`,
     short_name: APP_NAME,
-    description:
-      "Explainable predictions for the FIFA World Cup 2026 from FinalWhistle's in-house ML model — win probabilities, scorelines, group & knockout odds. For analytics and entertainment only.",
+    description: `Explainable predictions for the ${tournament.name} from FinalWhistle's in-house ML model — win probabilities, scorelines, group & knockout odds. For analytics and entertainment only.`,
     start_url: "/",
     scope: "/",
     display: "standalone",
