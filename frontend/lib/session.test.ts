@@ -1,7 +1,7 @@
 /** STEP 1 auth hardening: friendlyAuthError never leaks the raw origin-guard
  *  text and maps cold-start/offline/timeout to clear copy; request() aborts a
  *  hung request (Render cold start) instead of spinning forever. */
-import { friendlyAuthError, ApiError, login } from "./session";
+import { friendlyAuthError, ApiError, login, getOrCreateDeviceId, pingDailyActivity } from "./session";
 
 describe("friendlyAuthError", () => {
   it("never surfaces the raw origin-guard text to users", () => {
@@ -65,5 +65,72 @@ describe("request() timeout (cold-start safety net)", () => {
     const assertion = expect(p).rejects.toMatchObject({ code: "request_timeout", status: 408 });
     await jest.advanceTimersByTimeAsync(30_000);
     await assertion;
+  });
+});
+
+describe("getOrCreateDeviceId", () => {
+  beforeEach(() => localStorage.clear());
+
+  it("mints a UUID once and reuses the same id on later calls", () => {
+    const first = getOrCreateDeviceId();
+    const second = getOrCreateDeviceId();
+    expect(first).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    expect(second).toBe(first);
+    expect(localStorage.getItem("fw_device_id")).toBe(first);
+  });
+});
+
+describe("pingDailyActivity", () => {
+  const realFetch = global.fetch;
+  const todayUtc = () => new Date().toISOString().slice(0, 10);
+
+  beforeEach(() => localStorage.clear());
+  afterEach(() => {
+    global.fetch = realFetch;
+    jest.resetAllMocks();
+  });
+
+  it("fires the ping when the marker is stale/absent and sets it only on success", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ ok: true }),
+    }) as unknown as typeof fetch;
+
+    await pingDailyActivity();
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const [url, init] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe("/backend-api/api/activity/ping");
+    expect(JSON.parse(init.body as string)).toMatchObject({ device_id: expect.any(String) });
+    expect(localStorage.getItem("fw_last_ping")).toBe(todayUtc());
+  });
+
+  it("skips the ping entirely when the marker already matches today", async () => {
+    localStorage.setItem("fw_last_ping", todayUtc());
+    global.fetch = jest.fn() as unknown as typeof fetch;
+
+    await pingDailyActivity();
+
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not set the marker, and does not throw, when the ping fails", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: { code: "http_500", message: "boom" } }),
+    }) as unknown as typeof fetch;
+
+    await expect(pingDailyActivity()).resolves.toBeUndefined();
+    expect(localStorage.getItem("fw_last_ping")).toBeNull();
+  });
+
+  it("is silent (never throws, no retry within the call) on a network failure", async () => {
+    global.fetch = jest.fn().mockRejectedValue(new TypeError("Failed to fetch")) as unknown as typeof fetch;
+
+    await expect(pingDailyActivity()).resolves.toBeUndefined();
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem("fw_last_ping")).toBeNull();
   });
 });
