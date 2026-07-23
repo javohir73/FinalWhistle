@@ -63,6 +63,14 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           PYTHONPATH: backend:.
         run: python -m pipeline.sports.nrl_predict --generate --grade
+      - name: Grade user tips (Beat-the-AI loop)
+        # Additive layer on top of the model's own grading above -- a failure
+        # here must not block projections/team-lists/Origin below.
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PYTHONPATH: backend:.
+        run: python -m pipeline.sports.nrl_user_tips --grade
       - name: Compute finals projections (Monte Carlo)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
