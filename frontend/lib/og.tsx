@@ -6,6 +6,11 @@ import type { ReactNode } from "react";
 export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
+/** Shared OG footer tagline, parameterized on the active tournament's name
+ *  (see lib/tournament.ts) rather than a hardcoded "FIFA World Cup 2026". */
+export const ogFooter = (tournamentName: string) =>
+  `Explainable ${tournamentName} predictions · for analytics & entertainment`;
+
 export const C = {
   bg: "#08120d",
   bg2: "#0c1a12",
@@ -26,8 +31,18 @@ const MARK_DATA_URI =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 172 156"><path d="M46 0h80l46 78-46 78H46L0 78 46 0Z" fill="none" stroke="${C.win}" stroke-width="9" stroke-linejoin="round"/><g transform="translate(36 44)"><path fill="${C.win}" d="M40 70c-20.4 0-37-15.4-37-34.4C3 16.6 19.6 1.2 40 1.2c13.5 0 25.3 6.8 31.7 17h37.7c8.1 0 14.6 6.3 14.6 14.1v23.9H91.5V40.1H76.4C74 57 58.6 70 40 70Z"/><path fill="${C.bg}" d="M87.8 29h24.6c2.3 0 4.2 1.8 4.2 4v12.6H87.8V29Z"/><circle cx="39.6" cy="35.6" r="10.2" fill="${C.bg}"/><path fill="${C.win}" d="M111.5 19h27.8c8 0 14.5 6.3 14.5 14.1v13.2h-29.9v-14c0-7.3-5.4-13.3-12.4-13.3Z"/></g></svg>`,
   );
 
-/** Branded frame: wordmark header, centered content, footer tagline. */
-export function Shell({ eyebrow, children }: { eyebrow?: string; children: ReactNode }) {
+/** Branded frame: wordmark header, centered content, footer tagline.
+ *  `footer` is caller-supplied (rather than a hardcoded WC26 string) so every
+ *  OG image can carry the active tournament's name — see lib/tournament.ts. */
+export function Shell({
+  eyebrow,
+  footer,
+  children,
+}: {
+  eyebrow?: string;
+  footer: string;
+  children: ReactNode;
+}) {
   return (
     <div
       style={{
@@ -59,7 +74,7 @@ export function Shell({ eyebrow, children }: { eyebrow?: string; children: React
       </div>
 
       <div style={{ display: "flex", fontSize: 22, color: C.muted }}>
-        Explainable FIFA World Cup 2026 predictions · for analytics &amp; entertainment
+        {footer}
       </div>
     </div>
   );

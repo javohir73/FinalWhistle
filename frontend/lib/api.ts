@@ -1,6 +1,7 @@
 /** Typed client for the FastAPI backend.
  *  Base URL comes from NEXT_PUBLIC_API_URL so dev/prod point at the right host. */
 import type {
+  ActiveTournament,
   Goalscorers,
   Group,
   IntelResponse,
@@ -145,6 +146,14 @@ export const getModelRecordServer = () =>
   getServer<ModelRecord>("/api/model/record", 300);
 export const getMarketRecordServer = () =>
   getServer<MarketBenchmark>("/api/model/market-record", 300);
+
+/** The tournament currently live on the site (league pivot, see lib/types.ts
+ *  ActiveTournament). Resolves to null on a 404 — the endpoint ships with a
+ *  parallel backend workstream — so callers should go through
+ *  lib/tournament.ts's getTournament() for the WC26 fallback rather than
+ *  calling this directly. */
+export const getActiveTournamentServer = () =>
+  getServer<ActiveTournament>("/api/tournaments/active", 300);
 
 /** Server-side NRL fetchers (ISR). Reuse `getServer` above (same 404->null,
  *  ISR-revalidate behavior as the football fetchers) rather than adding a

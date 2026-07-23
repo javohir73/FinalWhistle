@@ -232,6 +232,19 @@ export interface Group {
   standings: StandingRow[];
 }
 
+/** The tournament currently live on the site (league pivot, C8/D1/D6 — see
+ *  docs/LEAGUE-PIVOT-PLAN.md). `format: "league"` means a single Group holds
+ *  every team (D1); `has_brackets: false` hides the bracket/my-bracket
+ *  surfaces (D6). Every caller falls back to WC26 (knockout, has brackets)
+ *  if `/api/tournaments/active` 404s or errors — see lib/tournament.ts. */
+export interface ActiveTournament {
+  id: number;
+  name: string;
+  year: number;
+  format: "league" | "knockout";
+  has_brackets: boolean;
+}
+
 export interface TournamentOdds {
   team_id: number;
   team: string;

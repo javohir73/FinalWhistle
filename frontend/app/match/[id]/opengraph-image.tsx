@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
-import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, C } from "@/lib/og";
+import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, ogFooter, C } from "@/lib/og";
 import { getMatchServer } from "@/lib/api";
+import { getTournament } from "@/lib/tournament";
 import { flagUrl } from "@/lib/flags";
 
 export const size = OG_SIZE;
@@ -11,13 +12,16 @@ const pc = (n: number) => `${Math.round(n * 100)}%`;
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const p = await getMatchServer(id).catch(() => null);
+  const [p, tournament] = await Promise.all([
+    getMatchServer(id).catch(() => null),
+    getTournament(),
+  ]);
 
   if (!p) {
     return new ImageResponse(
       (
-        <Shell eyebrow="Match prediction">
-          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>World Cup 2026 match</div>
+        <Shell eyebrow="Match prediction" footer={ogFooter(tournament.name)}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>{tournament.name} match</div>
         </Shell>
       ),
       { ...size },
@@ -37,7 +41,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
   return new ImageResponse(
     (
-      <Shell eyebrow="Match prediction">
+      <Shell eyebrow="Match prediction" footer={ogFooter(tournament.name)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <Team name={home} prob={home_win} />

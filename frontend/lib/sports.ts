@@ -6,6 +6,9 @@ export interface SportNavLink {
   href: string;
   label: string;
   activePrefixes: string[];
+  /** Hidden when the active tournament has no knockout bracket (C6 — see
+   *  components/TournamentProvider.tsx). Only football's Bracket tab sets this. */
+  requiresBrackets?: boolean;
 }
 
 export const SPORTS: Record<
@@ -20,7 +23,7 @@ export const SPORTS: Record<
       { href: "/", label: "Home", activePrefixes: ["/team"] },
       { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
       { href: "/groups", label: "Groups", activePrefixes: [] },
-      { href: "/brackets", label: "Bracket", activePrefixes: [] },
+      { href: "/brackets", label: "Bracket", activePrefixes: [], requiresBrackets: true },
       {
         href: "/leaderboard",
         label: "You",

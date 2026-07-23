@@ -3,24 +3,44 @@
 import { getGroups, getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { GroupCard } from "@/components/GroupCard";
+import { GroupTable } from "@/components/GroupTable";
 import { ErrorState, Empty } from "@/components/States";
-import type { Group } from "@/lib/types";
+import type { ActiveTournament, Group } from "@/lib/types";
 
-export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
+export function GroupsClient({
+  initialGroups,
+  tournament,
+}: {
+  initialGroups?: Group[];
+  tournament: ActiveTournament;
+}) {
   const state = useFetch(getGroups, [], 30_000, initialGroups);
   // Match feed drives the per-group LIVE badge. Polled alongside groups; if it
   // fails or is still loading, matches stays empty and no badge shows.
   const matchesState = useFetch(getUpcomingMatches, [], 30_000);
   const matches = matchesState.status === "success" ? matchesState.data : undefined;
 
+  // D1: a league is one Tournament + a single Group holding every team — show
+  // it as one full-width table instead of the WC26 multi-group card grid.
+  const leagueMode =
+    tournament.format === "league" && state.status === "success" && state.data.length === 1;
+
   return (
     <div>
       <header className="fade-up mb-8">
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          Group <span className="text-lime-deep">tables</span>
+          {leagueMode ? (
+            tournament.name
+          ) : (
+            <>
+              Group <span className="text-lime-deep">tables</span>
+            </>
+          )}
         </h1>
         <p className="mt-2 max-w-xl text-muted">
-          Live standings with each team&apos;s chance of finishing top two.
+          {leagueMode
+            ? "Live standings, updated as results come in."
+            : "Live standings with each team's chance of finishing top two."}
         </p>
       </header>
 
@@ -40,6 +60,10 @@ export function GroupsClient({ initialGroups }: { initialGroups?: Group[] }) {
       {state.status === "success" &&
         (state.data.length === 0 ? (
           <Empty />
+        ) : leagueMode ? (
+          <div className="glass rounded-2xl p-5 sm:p-6">
+            <GroupTable standings={state.data[0].standings} mode="league" />
+          </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
             {state.data.map((g, i) => (

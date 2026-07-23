@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
-import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, C } from "@/lib/og";
+import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, ogFooter, C } from "@/lib/og";
 import { getGroupServer } from "@/lib/api";
+import { getTournament } from "@/lib/tournament";
 import { flagUrl } from "@/lib/flags";
 
 export const size = OG_SIZE;
@@ -9,13 +10,16 @@ export const alt = "Group projection — FinalWhistle";
 
 export default async function Image({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const g = await getGroupServer(id).catch(() => null);
+  const [g, tournament] = await Promise.all([
+    getGroupServer(id).catch(() => null),
+    getTournament(),
+  ]);
 
   if (!g) {
     return new ImageResponse(
       (
-        <Shell eyebrow="Group projection">
-          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>World Cup 2026 group</div>
+        <Shell eyebrow="Group projection" footer={ogFooter(tournament.name)}>
+          <div style={{ display: "flex", fontSize: 64, fontWeight: 800 }}>{tournament.name} group</div>
         </Shell>
       ),
       { ...size },
@@ -24,7 +28,7 @@ export default async function Image({ params }: { params: Promise<{ id: string }
 
   return new ImageResponse(
     (
-      <Shell eyebrow="Group standings">
+      <Shell eyebrow="Group standings" footer={ogFooter(tournament.name)}>
         <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
           <div style={{ display: "flex", fontSize: 60, fontWeight: 800, letterSpacing: -1 }}>{g.name}</div>
           <div style={{ display: "flex", flexDirection: "column", width: "100%" }}>
