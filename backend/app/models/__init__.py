@@ -39,6 +39,17 @@ class Tournament(Base):
     host_countries: Mapped[str] = mapped_column(String(200), default="")
     start_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     end_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # League pivot D4: "host_bonus" (default — WC26's existing host-nation Elo
+    # bonus, byte-identical) or "home" (a club league's real home advantage,
+    # applied to team_home in every match regardless of host_team_id). See
+    # pipeline/generate_predictions.py's _host_adv.
+    home_advantage_mode: Mapped[str] = mapped_column(
+        String(20), default="host_bonus", server_default="host_bonus"
+    )
+    # Tuned per-tournament home-advantage magnitude for the "home" mode (fit on
+    # a holdout by log loss — pipeline/compute_club_elo.py). NULL means "use
+    # the global engine params.home_adv"; irrelevant under "host_bonus".
+    home_advantage_value: Mapped[float | None] = mapped_column(Float)
 
     groups: Mapped[list[Group]] = relationship(back_populates="tournament")
     matches: Mapped[list[Match]] = relationship(back_populates="tournament")

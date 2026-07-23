@@ -525,12 +525,15 @@ from datetime import datetime, timezone
 from app.models import LineupPlayer, MatchLineup, Player
 from ml.models.params import DEFAULT_PARAMS
 from pipeline.generate_predictions import (
-    AVAILABILITY_MODEL_VERSION, write_availability_prediction,
+    AVAILABILITY_MODEL_VERSION,
+    availability_model_version_for,
+    write_availability_prediction,
 )
 
 
 def _avail_payload(match_id):
-    return {"match_id": match_id, "lambda_home": 2.0, "lambda_away": 1.0, "rho": -0.1,
+    return {"match_id": match_id, "model_version": "poisson-elo-v0.1",
+            "lambda_home": 2.0, "lambda_away": 1.0, "rho": -0.1,
             "probabilities": {"home_win": 0.55, "draw": 0.27, "away_win": 0.18},
             "predicted_score": {"home": 2, "away": 1, "probability": 0.12},
             "confidence": "Medium", "reasons": ["a", "b", "c"], "top_features": []}
@@ -591,6 +594,34 @@ def test_availability_twin_blocked_after_kickoff(db_session):
     m.status = "in_play"; db_session.commit()
     write_availability_prediction(db_session, m, _avail_payload(m.id), {}, DEFAULT_PARAMS)
     db_session.commit()
+    assert (db_session.query(Prediction)
+            .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
+
+
+# --- league pivot ledger scoping (same leak as the shadow fix, PR #171) ------
+
+def test_availability_model_version_for_wc26_keeps_the_frozen_tag():
+    assert availability_model_version_for("poisson-elo-v0.1") == AVAILABILITY_MODEL_VERSION
+    assert availability_model_version_for("poisson-elo-v0.5") == AVAILABILITY_MODEL_VERSION
+
+
+def test_availability_model_version_for_club_is_derived():
+    assert (availability_model_version_for("poisson-elo-club-v0.1")
+            == "poisson-elo-club-v0.1+avail")
+
+
+def test_club_production_gets_its_own_availability_tag(db_session):
+    """A club-family payload's twin must carry the derived "+avail" tag, never
+    the frozen WC26 constant — otherwise the club row pools into the WC26-only
+    availability benchmark the moment the match finishes."""
+    m, h, a = _scheduled_match_with_squads(db_session)
+    _add_lineup(db_session, m.id, "home", [h.id * 100 + i for i in range(11)])
+    _add_lineup(db_session, m.id, "away", [a.id] + [a.id * 100 + i for i in range(10)])
+    payload = {**_avail_payload(m.id), "model_version": "poisson-elo-club-v0.1"}
+    write_availability_prediction(db_session, m, payload, {}, DEFAULT_PARAMS)
+    db_session.commit()
+    twin = db_session.query(Prediction).filter_by(match_id=m.id, is_shadow=True).one()
+    assert twin.model_version == "poisson-elo-club-v0.1+avail"
     assert (db_session.query(Prediction)
             .filter_by(match_id=m.id, model_version=AVAILABILITY_MODEL_VERSION).count() == 0)
 

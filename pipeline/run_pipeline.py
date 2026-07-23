@@ -21,6 +21,39 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 
+def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
+    """League pivot D5/D7 (docs/LEAGUE-PIVOT-PLAN.md): the EPL 2026-27 path,
+    taken instead of the WC26 steps below when settings.pipeline_target ==
+    "league". Structure upsert -> sync recent finished results into history
+    (from the same fetch_fixtures payload the structure step already pulled)
+    -> club Elo update -> predictions tagged the club model version ->
+    learning-loop scoring. No WC-only step (wc26 structure, KO venues, bracket
+    sim) is ever called here — they simply aren't part of this branch, which
+    is what "skip cleanly" means for a league run.
+    """
+    from app.models import Tournament
+    from pipeline.compute_club_elo import compute_and_store_club_elo
+    from pipeline.generate_predictions import generate_predictions
+    from pipeline.ingest.club_results import sync_finished_matches_to_history
+    from pipeline.ingest.league_structure import load_league_structure
+    from pipeline.learning_loop import run_learning_loop
+
+    league_summary = step("league_structure", lambda: load_league_structure(db))
+    tournament = db.get(Tournament, league_summary["tournament_id"])
+
+    step("league_results_sync", lambda: sync_finished_matches_to_history(db, tournament))
+    step("club_elo", lambda: compute_and_store_club_elo(db))
+    step(
+        "predictions",
+        lambda: generate_predictions(
+            db, model_version="poisson-elo-club-v0.1",
+            n_sims=n_sims, tournament_id=tournament.id,
+        ),
+    )
+    step("learning_loop", lambda: run_learning_loop(db, "poisson-elo-club-v0.1"))
+    log.info("league pipeline complete")
+
+
 def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
     """Execute the full refresh. Pass results_df to skip the network download
     (used by tests). Returns a summary of every step."""
@@ -50,6 +83,14 @@ def run_pipeline(db: Session, results_df=None, n_sims: int = 5000) -> dict:
         log.info("step done: %s -> %s", name, result)
         summary[name] = result
         return result
+
+    # League pivot D7: config stays single-competition. When pointed at a
+    # league this branch replaces the entire WC26 sequence below (never a
+    # partial mix of the two) — the WC path underneath is untouched code,
+    # so it stays byte-identical whenever pipeline_target is left at "wc26".
+    if settings.pipeline_target == "league":
+        _run_league_pipeline(db, step, n_sims)
+        return summary
 
     step("structure", lambda: load_structure(db))
     # KO venues are static (keyed by match_no) — load_structure fills group-stage

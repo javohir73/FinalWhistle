@@ -176,6 +176,12 @@ def market_record(db) -> dict:
         if p is None:
             skipped_no_pred += 1
             continue
+        # Ledger separation (league pivot): this record is WC26/international
+        # only (the "WC26 live" label below is not just cosmetic) — skip a
+        # match whose frozen production prediction belongs to a different
+        # ledger, e.g. the EPL "poisson-elo-club-v..." family.
+        if not p.model_version.startswith("poisson-elo-v"):
+            continue
 
         sh = m.score_home_90 if m.score_home_90 is not None else m.score_home
         sa = m.score_away_90 if m.score_away_90 is not None else m.score_away

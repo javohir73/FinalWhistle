@@ -86,6 +86,13 @@ def model_record(db: Session = Depends(get_db)):
         # The audited public record is the PRODUCTION model's alone — shadow
         # evaluations live behind /api/internal/shadow-record (FR-4.5/4.6).
         .filter(PredictionResult.is_shadow.is_(False))
+        # Ledger separation (league pivot): this record is the international/
+        # WC26 track record. Every version this project has ever shipped for
+        # that ledger is "poisson-elo-v<...>" (see ml/models/params.py); the
+        # EPL ledger is a disjoint prefix, "poisson-elo-club-v<...>" (see
+        # pipeline/run_pipeline.py's league branch), so the two never mix
+        # here even though both write into the same predictions table.
+        .filter(Prediction.model_version.like("poisson-elo-v%"))
         .order_by(PredictionResult.evaluated_at.asc())
         .all()
     )

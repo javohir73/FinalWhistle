@@ -72,8 +72,75 @@ BANS_MODEL_VERSION = "poisson-elo-v0.5+bans"
 REST_MODEL_VERSION = "poisson-elo-v0.5+rest"
 
 
+def shadow_model_version_for(production_version: str) -> str:
+    """The odds-shadow twin's tag, scoped to its OWN production model's
+    ledger (league pivot: Opus review of PR #171, item 1).
+
+    The WC26/international family ("poisson-elo-v...") keeps the historical
+    frozen SHADOW_MODEL_VERSION exactly — that tag never bumped as WC26
+    production moved v0.1 -> v0.5 (see pipeline/shadow_predictions_test.py's
+    MV="poisson-elo-v0.1" fixture, still tagged "...v0.3-shadow"), and this
+    preserves that byte-identically so the promotion gate's existing paired
+    sample never moves. Any OTHER production family (starting with the EPL
+    "poisson-elo-club-v0.1", but general for whatever comes after it) gets
+    its own "<version>-shadow" tag instead of colliding with WC26's — without
+    this, a club match's null twin would get pooled into
+    /api/internal/shadow-record's WC26 paired comparison the moment an EPL
+    match finishes, since both are_shadow=True rows would carry the exact
+    same fixed string.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return SHADOW_MODEL_VERSION
+    return f"{production_version}-shadow"
+
+
+def availability_model_version_for(production_version: str) -> str:
+    """The availability twin's tag, scoped to its OWN production model's
+    ledger — the same leak shadow_model_version_for closes (league pivot:
+    Opus review of PR #171, item 1), for the same reason: the twin of a club
+    production row must never pool into the WC26-only availability benchmark
+    (pipeline/run_availability_benchmark.py, /api/internal/availability-record).
+
+    The WC26/international family ("poisson-elo-v...") keeps the historical
+    frozen AVAILABILITY_MODEL_VERSION exactly, so the existing WC26 paired
+    sample never moves; any other production family (starting with the EPL
+    "poisson-elo-club-v0.1") gets its own "<version>+avail" tag.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return AVAILABILITY_MODEL_VERSION
+    return f"{production_version}+avail"
+
+
+def offsets_model_version_for(production_version: str) -> str:
+    """The xG-offsets twin's tag, scoped to its OWN production model's
+    ledger. Mirrors availability_model_version_for exactly (same leak, same
+    fix): the WC26/international family keeps the frozen OFFSETS_MODEL_VERSION,
+    any other production family gets its own "<version>+xg" tag, so a club
+    twin never pools into the WC26-only offsets benchmark
+    (pipeline/run_offsets_benchmark.py, /api/internal/offsets-record).
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return OFFSETS_MODEL_VERSION
+    return f"{production_version}+xg"
+
+
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
-    """Signed host bonus: + if home is host, - if away is host (boosts away)."""
+    """Signed home-advantage Elo bonus for the match's home side.
+
+    Two modes, selected by the match's tournament (league pivot D4,
+    docs/LEAGUE-PIVOT-PLAN.md): the WC26 default "host_bonus" applies the
+    bonus only when a host nation is playing (+ if home is host, - if away
+    is host, boosting the away side instead — unchanged, byte-identical to
+    the original single-mode behavior). A tournament switched to "home" (a
+    club league — every match has a real home side) applies its bonus to
+    team_home unconditionally, using the tournament's own tuned magnitude
+    (home_advantage_value) when set, else falling back to `home_advantage`.
+    """
+    tournament = match.tournament
+    mode = tournament.home_advantage_mode if tournament is not None else "host_bonus"
+    if mode == "home":
+        value = tournament.home_advantage_value
+        return home_advantage if value is None else value
     if match.host_team_id is None:
         return 0.0
     return home_advantage if match.host_team_id == home.id else -home_advantage
@@ -598,7 +665,8 @@ def write_shadow_prediction(
                 "lambda_home": round(pred.lambda_home, 4),
                 "lambda_away": round(pred.lambda_away, 4),
             }
-    _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+    shadow_version = shadow_model_version_for(payload["model_version"])
+    _write_prediction(db, match, shadow, shadow_version, is_shadow=True)
 
 
 def write_availability_prediction(
@@ -610,7 +678,10 @@ def write_availability_prediction(
     offset scales the production lambdas (lambda *= exp(offset)); the grid/triple/
     headline are recomputed through the same calibrated pipeline
     (predict_from_lambdas). No XI on either side -> no row (partial coverage is
-    expected). Never served — is_shadow=True, tagged AVAILABILITY_MODEL_VERSION."""
+    expected). Never served — is_shadow=True, tagged with its production model's
+    own availability ledger (availability_model_version_for: the frozen
+    AVAILABILITY_MODEL_VERSION for the WC26 family, a derived "+avail" tag for
+    any other family)."""
     adj = availability_for_match(db, match)
     if adj is None:
         return
@@ -638,7 +709,8 @@ def write_availability_prediction(
         "lambda_home": round(pred.lambda_home, 4),
         "lambda_away": round(pred.lambda_away, 4),
     }
-    _write_prediction(db, match, twin, AVAILABILITY_MODEL_VERSION, is_shadow=True)
+    avail_version = availability_model_version_for(payload["model_version"])
+    _write_prediction(db, match, twin, avail_version, is_shadow=True)
 
 
 def write_offsets_prediction(
@@ -657,7 +729,9 @@ def write_offsets_prediction(
     (ml/models/poisson.py:66-69): lambda_home *= exp(atk_home + def_away),
     lambda_away *= exp(atk_away + def_home). The grid/triple/headline are
     recomputed through the same calibrated pipeline (predict_from_lambdas).
-    Never served — is_shadow=True, tagged OFFSETS_MODEL_VERSION."""
+    Never served — is_shadow=True, tagged with its production model's own
+    offsets ledger (offsets_model_version_for: the frozen OFFSETS_MODEL_VERSION
+    for the WC26 family, a derived "+xg" tag for any other family)."""
     store = load_team_offsets("ml/models/team_offsets_xg.json")
     home = db.get(Team, match.team_home_id)
     away = db.get(Team, match.team_away_id)
@@ -688,7 +762,8 @@ def write_offsets_prediction(
         "lambda_home": round(pred.lambda_home, 4),
         "lambda_away": round(pred.lambda_away, 4),
     }
-    _write_prediction(db, match, twin, OFFSETS_MODEL_VERSION, is_shadow=True)
+    offsets_version = offsets_model_version_for(payload["model_version"])
+    _write_prediction(db, match, twin, offsets_version, is_shadow=True)
 
 
 def _rest_days_for_match(db: Session, match: Match) -> tuple[float, float] | None:
@@ -856,10 +931,21 @@ def _simulate_standings(
 
 def _simulate_tournament(
     db: Session, n_sims: int, strengths: dict[int, float] | None = None,
-    params: ModelParams | None = None,
+    params: ModelParams | None = None, tournament_id: int | None = None,
 ) -> int:
     """Run the full group→knockout Monte-Carlo and persist per-team round/title
-    probabilities. Returns the number of teams with odds written."""
+    probabilities. Returns the number of teams with odds written.
+
+    ``tournament_id`` scopes the group/knockout scan to one tournament (league
+    pivot D5/D6): without it every Group row in the DB is considered, which is
+    the original WC26-only behavior (byte-identical — the existing call site
+    in generate_predictions() never passes it) but would otherwise merge a
+    league's single group into the international bracket count once EPL data
+    shares the DB with the archived WC26 rows. A league's one group makes
+    ``len(groups) < 12`` below true regardless, so bracket sim still skips
+    cleanly, but scoping avoids polluting `groups`/`fixtures` with a
+    non-tournament group in the meantime.
+    """
     params = params or load_params()
     groups: dict[str, list[int]] = {}
     fixtures: dict[str, list[KnockoutFixture]] = {}
@@ -867,7 +953,10 @@ def _simulate_tournament(
     strengths = strengths or {}
     all_members: list[Team] = []
 
-    for group in db.query(Group).all():
+    groups_q = db.query(Group)
+    if tournament_id is not None:
+        groups_q = groups_q.filter_by(tournament_id=tournament_id)
+    for group in groups_q.all():
         letter = group.name.split()[-1]  # "Group A" -> "A"
         members = [gt.team for gt in group.group_teams]
         all_members.extend(members)
@@ -935,6 +1024,7 @@ def generate_predictions(
     model_version: str | None = None,
     n_sims: int = 5000,
     tournament_sims: int = 2000,
+    tournament_id: int | None = None,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -944,6 +1034,12 @@ def generate_predictions(
     model_params.json if present, else the v0.1 constants. The served model
     version follows the loaded params (so v0.2 predictions are tagged v0.2)
     unless an explicit ``model_version`` is passed.
+
+    ``tournament_id`` (league pivot D5) restricts the match/group scan to one
+    tournament. The WC26 call site (pipeline/run_pipeline.py) never passes it,
+    so its behavior is unchanged; pipeline/run_pipeline.py's league branch
+    passes the EPL tournament's id so a shared DB never mixes the two
+    tournaments' matches/groups into one prediction/simulation pass.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -970,15 +1066,14 @@ def generate_predictions(
     # knockout ties. The official bracket links each tie to its match-detail page,
     # which needs a prediction, so KO matches must be predicted once their teams are
     # known (build_payload skips a teamless placeholder defensively anyway).
-    matches = (
-        db.query(Match)
-        .filter(
-            Match.status == "scheduled",
-            Match.team_home_id.isnot(None),
-            Match.team_away_id.isnot(None),
-        )
-        .all()
+    matches_q = db.query(Match).filter(
+        Match.status == "scheduled",
+        Match.team_home_id.isnot(None),
+        Match.team_away_id.isnot(None),
     )
+    if tournament_id is not None:
+        matches_q = matches_q.filter(Match.tournament_id == tournament_id)
+    matches = matches_q.all()
     predicted = 0
     for match in matches:
         payload = build_payload(db, match, active_model_version,
@@ -995,11 +1090,16 @@ def generate_predictions(
         write_rest_prediction(db, match, payload, strengths, params)
         predicted += 1
 
-    groups = db.query(Group).all()
+    groups_q = db.query(Group)
+    if tournament_id is not None:
+        groups_q = groups_q.filter_by(tournament_id=tournament_id)
+    groups = groups_q.all()
     for group in groups:
         _simulate_standings(db, group, active_model_version, n_sims, strengths=strengths, params=params)
 
-    teams_simulated = _simulate_tournament(db, tournament_sims, strengths=strengths, params=params)
+    teams_simulated = _simulate_tournament(
+        db, tournament_sims, strengths=strengths, params=params, tournament_id=tournament_id
+    )
 
     db.commit()
     return {

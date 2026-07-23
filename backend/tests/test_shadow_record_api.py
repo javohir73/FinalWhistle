@@ -157,5 +157,73 @@ def test_shadow_record_is_honest_when_empty(monkeypatch):
                                       "model_versions": []}
         assert body["shadow"]["n"] == 0
         assert body["production_full_record"]["n"] == 0
+        assert body["club"]["shadow"]["n"] == 0
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _seed_club_pair(db, *, brier=0.3, log_loss=0.6):
+    """One EPL paired match (production + its OWN club shadow twin, tagged
+    "poisson-elo-club-v0.1-shadow" — never SHADOW_MODEL_VERSION)."""
+    epl = Tournament(name="Premier League 2026-27", year=2026, home_advantage_mode="home")
+    home = Team(name="Arsenal")
+    away = Team(name="Chelsea")
+    db.add_all([epl, home, away])
+    db.flush()
+    m = Match(tournament_id=epl.id, stage="group", status="finished",
+             team_home_id=home.id, team_away_id=away.id, score_home=2, score_away=1)
+    db.add(m)
+    db.flush()
+
+    def result(*, shadow, brier_val):
+        p = Prediction(
+            match_id=m.id,
+            model_version="poisson-elo-club-v0.1-shadow" if shadow else "poisson-elo-club-v0.1",
+            prob_home_win=0.6, prob_draw=0.25, prob_away_win=0.15,
+            predicted_score_home=2, predicted_score_away=0, is_shadow=shadow,
+        )
+        db.add(p)
+        db.flush()
+        db.add(PredictionResult(
+            match_id=m.id, prediction_id=p.id, model_version=p.model_version,
+            actual_score_home=2, actual_score_away=1, outcome="home",
+            winner_correct=True, exact_score_correct=False,
+            prob_assigned=0.6, brier=brier_val, log_loss=log_loss, goal_error=1,
+            is_shadow=shadow,
+        ))
+
+    result(shadow=False, brier_val=brier)
+    result(shadow=True, brier_val=brier - 0.1)
+    db.commit()
+    return m
+
+
+def test_shadow_record_separates_club_ledger_from_wc26(monkeypatch):
+    """League pivot regression (Opus review of PR #171, item 1): an EPL
+    paired match must surface under "club", and must NOT be pooled into the
+    top-level WC26 columns — the promotion gate's paired sample must not
+    move just because an EPL match finished."""
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        _seed_results(db)  # 1 WC26 paired match + 1 unpaired WC26 match
+        _seed_club_pair(db)  # 1 EPL paired match, own shadow tag
+        body = client.get("/api/internal/shadow-record",
+                          headers={"X-Recompute-Token": "secret"}).json()
+
+        # Top-level (WC26) columns are UNCHANGED from the WC26-only scenario —
+        # the EPL pair never enters them.
+        assert body["production"]["n"] == 1
+        assert body["shadow"]["n"] == 1
+        assert body["shadow"]["model_versions"] == [SHADOW_MV]
+        assert body["production_full_record"]["n"] == 2  # the two WC26 rows only
+
+        # The club ledger holds exactly the EPL pair, tagged its own version.
+        club = body["club"]
+        assert club["production"]["n"] == 1
+        assert club["shadow"]["n"] == 1
+        assert club["shadow"]["model_versions"] == ["poisson-elo-club-v0.1-shadow"]
+        assert club["production_full_record"]["n"] == 1
     finally:
         app.dependency_overrides.clear()

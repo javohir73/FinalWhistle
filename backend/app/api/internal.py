@@ -230,9 +230,19 @@ def shadow_record(
     Matches evaluated before Phase 4 deployed have no shadow twin; letting
     them into the comparison would skew it by sample composition alone (e.g.
     an easy pre-deploy group-stage stretch the shadow never predicted). The
-    unrestricted record ships separately as "production_full_record"."""
+    unrestricted record ships separately as "production_full_record".
+
+    League pivot (Opus review of PR #171, item 1): the top-level keys above
+    are scoped to the WC26/international ledger exactly as before — shadow
+    rows must carry the frozen SHADOW_MODEL_VERSION, production rows must be
+    in the "poisson-elo-v..." family — so the existing promotion gate's
+    paired sample can never move once an EPL match starts writing its own
+    "poisson-elo-club-v0.1"-shadow twin. That ledger is reported separately
+    under "club", same shape, never pooled into the columns above.
+    """
     _require_token(x_recompute_token)
     from app.models import PredictionResult
+    from pipeline.generate_predictions import SHADOW_MODEL_VERSION
 
     def aggregate(rows: list) -> dict:
         n = len(rows)
@@ -253,17 +263,59 @@ def shadow_record(
         }
 
     shadow_rows = (
-        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(True)).all()
+        db.query(PredictionResult)
+        .filter(
+            PredictionResult.is_shadow.is_(True),
+            PredictionResult.model_version == SHADOW_MODEL_VERSION,
+        )
+        .all()
     )
     production_rows = (
-        db.query(PredictionResult).filter(PredictionResult.is_shadow.is_(False)).all()
+        db.query(PredictionResult)
+        .filter(
+            PredictionResult.is_shadow.is_(False),
+            PredictionResult.model_version.like("poisson-elo-v%"),
+        )
+        .all()
     )
     shadow_match_ids = {r.match_id for r in shadow_rows}
     paired_production = [r for r in production_rows if r.match_id in shadow_match_ids]
+
+    # The club (EPL) ledger — everything NOT in the WC26 family above. Only
+    # one other family exists in prediction_results.is_shadow=True today (the
+    # other model twins — availability/offsets/bans/rest — are compute-on-read
+    # over Prediction rows and never persist a PredictionResult; see their own
+    # /api/internal/*-record endpoints), so this is exact, not a heuristic.
+    club_shadow_rows = (
+        db.query(PredictionResult)
+        .filter(
+            PredictionResult.is_shadow.is_(True),
+            PredictionResult.model_version != SHADOW_MODEL_VERSION,
+        )
+        .all()
+    )
+    club_production_rows = (
+        db.query(PredictionResult)
+        .filter(
+            PredictionResult.is_shadow.is_(False),
+            ~PredictionResult.model_version.like("poisson-elo-v%"),
+        )
+        .all()
+    )
+    club_shadow_match_ids = {r.match_id for r in club_shadow_rows}
+    club_paired_production = [
+        r for r in club_production_rows if r.match_id in club_shadow_match_ids
+    ]
+
     return {
         "production": aggregate(paired_production),
         "shadow": aggregate(shadow_rows),
         "production_full_record": aggregate(production_rows),
+        "club": {
+            "production": aggregate(club_paired_production),
+            "shadow": aggregate(club_shadow_rows),
+            "production_full_record": aggregate(club_production_rows),
+        },
     }
 
 
@@ -276,7 +328,12 @@ def availability_record_endpoint(
     availability signal's ONLY evidence path (it is live-only; no backtest gate).
     Token-guarded and internal: the input to the MANUAL promotion decision
     (FR-4.8), nothing here auto-promotes. Compute-on-read over frozen Prediction
-    rows — no persistence, no prediction_results row (that stays odds-only)."""
+    rows — no persistence, no prediction_results row (that stays odds-only).
+
+    League pivot (same ledger scoping as /shadow-record): the top-level keys
+    stay the WC26/international pairing exactly as before; club-family pairs
+    (each matched to its own "+avail" twin tag via
+    availability_model_version_for) report separately under "club"."""
     _require_token(x_recompute_token)
     # Lazy import (call-time) mirrors this module's other pipeline imports and
     # avoids the app->pipeline cycle at load.
@@ -295,7 +352,12 @@ def offsets_record_endpoint(
     (docs/superpowers/plans/2026-07-04-statsbomb-xg-team-offsets.md).
     Token-guarded and internal: the input to the MANUAL promotion decision,
     nothing here auto-promotes. Compute-on-read over frozen Prediction rows —
-    no persistence, no prediction_results row (that stays odds-only)."""
+    no persistence, no prediction_results row (that stays odds-only).
+
+    League pivot (same ledger scoping as /shadow-record): the top-level keys
+    stay the WC26/international pairing exactly as before; club-family pairs
+    (each matched to its own "+xg" twin tag via offsets_model_version_for)
+    report separately under "club"."""
     _require_token(x_recompute_token)
     # Lazy import (call-time) mirrors this module's other pipeline imports and
     # avoids the app->pipeline cycle at load.

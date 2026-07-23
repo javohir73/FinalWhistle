@@ -9,9 +9,10 @@ from app.main import app
 from app.models import Match, Prediction, Team, Tournament
 from pipeline.generate_predictions import OFFSETS_MODEL_VERSION
 
-_EMPTY = {"n_matches": 0, "verdict": "insufficient", "production": None,
-          "offsets": None, "diff_log_loss": None, "diff_ci95": None,
-          "offsets_win_rate": None}
+_EMPTY_LEDGER = {"n_matches": 0, "verdict": "insufficient", "production": None,
+                 "offsets": None, "diff_log_loss": None, "diff_ci95": None,
+                 "offsets_win_rate": None}
+_EMPTY = {**_EMPTY_LEDGER, "club": _EMPTY_LEDGER}
 
 
 def _client():
@@ -89,5 +90,47 @@ def test_is_honest_when_empty(monkeypatch):
         body = client.get("/api/internal/offsets-record",
                           headers={"X-Recompute-Token": "secret"}).json()
         assert body == _EMPTY
+    finally:
+        app.dependency_overrides.clear()
+
+
+def _seed_club_pair(db):
+    """One EPL paired match: production tagged "poisson-elo-club-v0.1", its
+    twin tagged the derived "poisson-elo-club-v0.1+xg" — never the frozen
+    WC26 constant."""
+    epl = Tournament(name="Premier League 2026-27", year=2026)
+    home, away = Team(name="Arsenal"), Team(name="Chelsea")
+    db.add_all([epl, home, away]); db.flush()
+    m = Match(tournament_id=epl.id, stage="group", status="finished",
+              team_home_id=home.id, team_away_id=away.id, score_home=3, score_away=1)
+    db.add(m); db.flush()
+    for mv, probs, sh in (("poisson-elo-club-v0.1", (0.50, 0.30, 0.20), False),
+                          ("poisson-elo-club-v0.1+xg", (0.62, 0.24, 0.14), True)):
+        db.add(Prediction(match_id=m.id, model_version=mv,
+                          prob_home_win=probs[0], prob_draw=probs[1], prob_away_win=probs[2],
+                          predicted_score_home=2, predicted_score_away=0, is_shadow=sh))
+    db.commit()
+
+
+def test_separates_club_ledger_from_wc26(monkeypatch):
+    """League pivot regression (same leak as the shadow-ledger fix, PR #171):
+    an EPL paired match must surface under "club" and must NOT be pooled into
+    the top-level WC26 columns."""
+    monkeypatch.setattr(settings, "recompute_token", "secret")
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        _seed_pair(db)
+        _seed_club_pair(db)
+        body = client.get("/api/internal/offsets-record",
+                          headers={"X-Recompute-Token": "secret"}).json()
+
+        # Top-level (WC26) columns are UNCHANGED from the WC26-only scenario.
+        assert body["n_matches"] == 1
+        assert body["verdict"] == "offsets_beats_published"
+
+        # The club ledger holds exactly the EPL pair.
+        assert body["club"]["n_matches"] == 1
+        assert body["club"]["verdict"] == "offsets_beats_published"
     finally:
         app.dependency_overrides.clear()

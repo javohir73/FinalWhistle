@@ -64,6 +64,18 @@ _ALIASES: dict[str, str] = {
     "bosnia and herzegovina": "Bosnia and Herzegovina",
     "bosnia-herzegovina": "Bosnia and Herzegovina",
     "bosnia & herzegovina": "Bosnia and Herzegovina",  # api-sports' spelling
+
+    # --- Club football (league pivot, docs/LEAGUE-PIVOT-PLAN.md D2/D3) ---
+    # football-data.co.uk's EPL (E0) spellings that differ from the canonical
+    # names in pipeline/data/epl2627_teams.json. Names not listed here already
+    # match (e.g. "Arsenal", "Brighton", "Newcastle") or belong to a team not
+    # currently in the league (auto-created unchanged by load_historical /
+    # club_results — no alias needed until it collides with a canonical name).
+    "man united": "Manchester United",
+    "man utd": "Manchester United",
+    "man city": "Manchester City",
+    "nott'm forest": "Nottingham Forest",
+    "nottm forest": "Nottingham Forest",
 }
 
 

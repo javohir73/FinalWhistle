@@ -30,8 +30,24 @@ class InMemoryCache:
             return None
         return value
 
-    def set(self, key: str, value: Any) -> None:
-        self._store[key] = (time.time() + self._ttl, value)
+    def set(self, key: str, value: Any, ttl_seconds: float | None = None) -> None:
+        """Store ``value`` under ``key``. ``ttl_seconds`` overrides the
+        instance default for this one entry (league pivot: a key whose
+        staleness must stay bounded even though the writer that changes it
+        runs in a SEPARATE process — see tournaments.py's "tournaments:active"
+        — can ask for a short TTL without shrinking every other entry's)."""
+        ttl = self._ttl if ttl_seconds is None else ttl_seconds
+        self._store[key] = (time.time() + ttl, value)
+
+    def invalidate(self, key: str) -> None:
+        """Drop one entry early. Only effective within the SAME process that
+        holds this cache instance — the pipeline CLI (refresh.yml) and the web
+        process are separate processes with separate instances, so a pipeline-
+        side call is a no-op against what's actually serving traffic; the TTL
+        passed to `set` is what bounds staleness across that boundary. Still
+        useful for any in-process caller (e.g. a future internal endpoint) and
+        for tests."""
+        self._store.pop(key, None)
 
     def clear(self) -> None:
         self._store.clear()
