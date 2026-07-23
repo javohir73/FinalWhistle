@@ -72,6 +72,28 @@ BANS_MODEL_VERSION = "poisson-elo-v0.5+bans"
 REST_MODEL_VERSION = "poisson-elo-v0.5+rest"
 
 
+def shadow_model_version_for(production_version: str) -> str:
+    """The odds-shadow twin's tag, scoped to its OWN production model's
+    ledger (league pivot: Opus review of PR #171, item 1).
+
+    The WC26/international family ("poisson-elo-v...") keeps the historical
+    frozen SHADOW_MODEL_VERSION exactly — that tag never bumped as WC26
+    production moved v0.1 -> v0.5 (see pipeline/shadow_predictions_test.py's
+    MV="poisson-elo-v0.1" fixture, still tagged "...v0.3-shadow"), and this
+    preserves that byte-identically so the promotion gate's existing paired
+    sample never moves. Any OTHER production family (starting with the EPL
+    "poisson-elo-club-v0.1", but general for whatever comes after it) gets
+    its own "<version>-shadow" tag instead of colliding with WC26's — without
+    this, a club match's null twin would get pooled into
+    /api/internal/shadow-record's WC26 paired comparison the moment an EPL
+    match finishes, since both are_shadow=True rows would carry the exact
+    same fixed string.
+    """
+    if production_version.startswith("poisson-elo-v"):
+        return SHADOW_MODEL_VERSION
+    return f"{production_version}-shadow"
+
+
 def _host_adv(match: Match, home: Team, home_advantage: float = HOME_ADVANTAGE) -> float:
     """Signed home-advantage Elo bonus for the match's home side.
 
@@ -613,7 +635,8 @@ def write_shadow_prediction(
                 "lambda_home": round(pred.lambda_home, 4),
                 "lambda_away": round(pred.lambda_away, 4),
             }
-    _write_prediction(db, match, shadow, SHADOW_MODEL_VERSION, is_shadow=True)
+    shadow_version = shadow_model_version_for(payload["model_version"])
+    _write_prediction(db, match, shadow, shadow_version, is_shadow=True)
 
 
 def write_availability_prediction(

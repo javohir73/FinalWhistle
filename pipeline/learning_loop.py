@@ -49,7 +49,7 @@ from ml.models.params import ModelParams, load_params
 from ml.models.poisson import expected_goals_from_elo
 from ml.ratings.elo import HOME_ADVANTAGE, MatchInput, replay_with_prematch
 from ml.ratings.tournament import TournamentMatch, replay_tournament
-from pipeline.generate_predictions import SHADOW_MODEL_VERSION
+from pipeline.generate_predictions import SHADOW_MODEL_VERSION, shadow_model_version_for
 
 #: How many pre-tournament matches feed the seed ledger per team (model v2
 #: C1) -- matches the brief's N=10 and the existing _recent_appearances/
@@ -87,7 +87,10 @@ def _finished_matches(db: Session) -> list[Match]:
     )
 
 
-def _frozen_prediction(db: Session, match: Match, *, shadow: bool = False) -> Prediction | None:
+def _frozen_prediction(
+    db: Session, match: Match, *, shadow: bool = False,
+    shadow_version: str | None = None,
+) -> Prediction | None:
     """The pre-kickoff snapshot: latest prediction created while scheduled.
 
     Production and shadow rows are frozen SEPARATELY (FR-4.5): the audited
@@ -95,20 +98,23 @@ def _frozen_prediction(db: Session, match: Match, *, shadow: bool = False) -> Pr
     must never pick up a production row.
 
     Since the availability signal, TWO is_shadow=True rows exist per match —
-    the odds-anchored shadow (SHADOW_MODEL_VERSION) and the announced-XI
-    availability twin (AVAILABILITY_MODEL_VERSION) — sharing a created_at
-    (both server_default=func.now() in the same generate_predictions loop
-    iteration) with the availability twin written second and thus carrying the
-    higher id. Filtering to SHADOW_MODEL_VERSION when shadow=True keeps the
+    the odds-anchored shadow and the announced-XI availability twin
+    (AVAILABILITY_MODEL_VERSION) — sharing a created_at (both
+    server_default=func.now() in the same generate_predictions loop
+    iteration) with the availability twin written second and thus carrying
+    the higher id. Filtering to ``shadow_version`` when shadow=True keeps the
     shadow record resolving to the odds twin regardless of the availability
-    twin's presence or write order.
+    twin's presence or write order. ``shadow_version`` defaults to
+    SHADOW_MODEL_VERSION (the historical WC26 tag) when not given, so a
+    direct shadow=True call site that doesn't know the match's production
+    ledger keeps its old behavior.
     """
     q = db.query(Prediction).filter(
         Prediction.match_id == match.id,
         Prediction.is_shadow.is_(shadow),
     )
     if shadow:
-        q = q.filter(Prediction.model_version == SHADOW_MODEL_VERSION)
+        q = q.filter(Prediction.model_version == (shadow_version or SHADOW_MODEL_VERSION))
     if match.kickoff_utc is not None:
         q = q.filter(Prediction.created_at <= match.kickoff_utc)
     return q.order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()
@@ -179,6 +185,14 @@ def evaluate_finished_shadow_predictions(db: Session) -> int:
     rows (FR-4.6) — the data behind /api/internal/shadow-record. Matches with
     no shadow twin (pre-Phase-4) are skipped silently: no twin, no comparison.
     Append-only and idempotent, exactly like the production path.
+
+    Each match's shadow twin is looked up by ITS OWN production model's
+    shadow tag (shadow_model_version_for), never a fixed constant — league
+    pivot fix (Opus review of PR #171, item 1): without this, an EPL match's
+    club null twin and a WC26 match's odds-anchored twin would both resolve
+    to the same SHADOW_MODEL_VERSION string and get pooled into one paired
+    comparison at /api/internal/shadow-record, even though they shadow two
+    different production models.
     """
     evaluated_ids = {
         r.match_id
@@ -190,7 +204,11 @@ def evaluate_finished_shadow_predictions(db: Session) -> int:
     for m in _finished_matches(db):
         if m.id in evaluated_ids:
             continue
-        pred = _frozen_prediction(db, m, shadow=True)
+        prod = _frozen_prediction(db, m, shadow=False)
+        if prod is None:
+            continue
+        shadow_version = shadow_model_version_for(prod.model_version)
+        pred = _frozen_prediction(db, m, shadow=True, shadow_version=shadow_version)
         if pred is None:
             continue
         db.add(_result_row(m, pred, pred.model_version, shadow=True))

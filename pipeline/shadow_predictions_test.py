@@ -14,13 +14,16 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from app.models import Match, Odds, Prediction, PredictionResult, Team
+from app.models import Match, Odds, Prediction, PredictionResult, Team, Tournament
 from ml.models.params import DEFAULT_PARAMS
 from pipeline.generate_predictions import (
     AVAILABILITY_MODEL_VERSION,
     SHADOW_MODEL_VERSION,
     generate_predictions,
+    shadow_model_version_for,
 )
+from pipeline.ingest import league_structure as ls_mod
+from pipeline.ingest.league_structure import load_league_structure
 from pipeline.ingest.wc26_structure import load_structure
 from pipeline.learning_loop import (
     _frozen_prediction,
@@ -288,3 +291,65 @@ def test_shadow_scoring_skips_matches_without_shadow_rows(db_session):
 
     assert evaluate_finished_shadow_predictions(db_session) == 0
     assert db_session.query(PredictionResult).filter_by(is_shadow=True).count() == 0
+
+
+# --- league pivot ledger scoping (Opus review of PR #171, item 1) -----------
+
+def test_shadow_model_version_for_wc26_keeps_the_frozen_tag():
+    assert shadow_model_version_for("poisson-elo-v0.1") == SHADOW_MODEL_VERSION
+    assert shadow_model_version_for("poisson-elo-v0.5") == SHADOW_MODEL_VERSION
+
+
+def test_shadow_model_version_for_club_is_derived():
+    assert shadow_model_version_for("poisson-elo-club-v0.1") == "poisson-elo-club-v0.1-shadow"
+
+
+def test_end_to_end_club_and_wc26_shadow_scoring_never_cross(db_session, monkeypatch):
+    """Full generate_predictions -> finish -> evaluate_finished_shadow_predictions
+    flow for BOTH a WC26 match and an EPL match in the SAME db: each match's
+    shadow twin must be tagged and scored under its OWN production model's
+    ledger, never the other's."""
+    _seed(db_session)  # WC26, production tagged MV = "poisson-elo-v0.1"
+    wc_match = _first_group_match(db_session)
+    _finish(db_session, wc_match, 2, 0)
+
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [
+        {
+            "fixture": {"id": 1, "date": "2026-08-21T19:00:00+00:00", "status": {"short": "NS"}},
+            "teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}},
+            "goals": {"home": None, "away": None},
+        }
+    ])
+    load_league_structure(db_session, api_key="x")
+    for t in db_session.query(Team).order_by(Team.id).all():
+        if t.elo_rating is None:
+            t.elo_rating = 1500.0
+    db_session.commit()
+    epl_tournament = db_session.query(Tournament).filter_by(
+        name="Premier League 2026-27"
+    ).one()
+    generate_predictions(
+        db_session, model_version="poisson-elo-club-v0.1",
+        n_sims=50, tournament_sims=50, tournament_id=epl_tournament.id,
+    )
+    epl_match = db_session.query(Match).filter_by(provider_fixture_id=1).one()
+    _finish(db_session, epl_match, 3, 1)
+
+    new = evaluate_finished_shadow_predictions(db_session)
+    assert new == 2
+
+    wc_shadow = db_session.query(PredictionResult).filter_by(
+        match_id=wc_match.id, is_shadow=True
+    ).one()
+    epl_shadow = db_session.query(PredictionResult).filter_by(
+        match_id=epl_match.id, is_shadow=True
+    ).one()
+    assert wc_shadow.model_version == SHADOW_MODEL_VERSION
+    assert epl_shadow.model_version == "poisson-elo-club-v0.1-shadow"
+    assert epl_shadow.model_version != wc_shadow.model_version
+
+    # And the frozen-prediction lookup itself never cross-resolves either.
+    assert _frozen_prediction(db_session, epl_match, shadow=True,
+                              shadow_version="poisson-elo-club-v0.1-shadow") is not None
+    assert _frozen_prediction(db_session, epl_match, shadow=True,
+                              shadow_version=SHADOW_MODEL_VERSION) is None
