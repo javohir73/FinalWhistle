@@ -50,3 +50,10 @@ it("hides the Bracket link when the active tournament has no bracket", () => {
   expect(screen.getByRole("link", { name: "Matches" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
 });
+
+it("swaps the NRL fifth link for Tips -> /nrl/tips (leaderboard alias dropped from nav, not the route)", () => {
+  mockPath = "/nrl";
+  renderNav();
+  expect(screen.getByRole("link", { name: "Tips" })).toHaveAttribute("href", "/nrl/tips");
+  expect(screen.queryByRole("link", { name: "You" })).not.toBeInTheDocument();
+});

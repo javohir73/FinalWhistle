@@ -31,6 +31,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M4 21c0-4 4-6 8-6s8 2 8 6" strokeLinecap="round" />
     </>
   ),
+  Tips: (
+    <>
+      <path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1Z" strokeLinejoin="round" />
+      <rect x="5" y="5" width="14" height="16" rx="2" />
+      <path d="M9 12.5l2 2 4-4.5" strokeLinecap="round" strokeLinejoin="round" />
+    </>
+  ),
 };
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {

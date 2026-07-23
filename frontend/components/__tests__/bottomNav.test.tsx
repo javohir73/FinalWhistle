@@ -58,12 +58,19 @@ it.each([
   ["/nrl/matches", "Matches"],
   ["/nrl/ladder", "Ladder"],
   ["/nrl/record", "Record"],
-  ["/nrl/leaderboard", "You"],
+  ["/nrl/tips", "Tips"],
 ])("marks exactly one NRL tab active on %s", (path, label) => {
   renderAt(path);
   // Regression: "/nrl" used to prefix-match every /nrl/* sub-page, so Home
   // stayed lit alongside the true tab — exactly one tab must be active.
   expect(current()).toEqual([label]);
+});
+
+it("swaps the NRL fifth tab for Tips -> /nrl/tips (leaderboard alias dropped from the tab bar, not the route)", () => {
+  renderAt("/nrl");
+  expect(screen.getByRole("link", { name: /Tips/ })).toHaveAttribute("href", "/nrl/tips");
+  expect(screen.queryByRole("link", { name: "You" })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("link")).toHaveLength(5);
 });
 
 it("uses the deep lime for the active tab on the light canvas", () => {

@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getNrlMatchesServer } from "@/lib/api";
+import { getNrlMatchesServer, getNrlTipsheetServer } from "@/lib/api";
 import { SportMatchCard } from "@/components/SportMatchCard";
+import { TipsheetBlock } from "@/components/nrl/TipsheetBlock";
 import { APP_NAME } from "@/lib/constants";
 
 export const revalidate = 300;
@@ -11,6 +12,11 @@ function parseRound(n: string): number | null {
   return /^\d+$/.test(n) ? Number(n) : null;
 }
 
+/** Title/description carry the tipsheet's honest-record SEO angle (design
+ *  doc: NRL Round Tips, Slice 1) rather than the site's usual "X — APP_NAME"
+ *  shape -- the fetch here is the same getNrlMatchesServer() call the page
+ *  body makes below, which Next dedupes per request, so this costs nothing
+ *  extra at request time. */
 export async function generateMetadata({
   params,
 }: {
@@ -19,8 +25,13 @@ export async function generateMetadata({
   const { n } = await params;
   const round = parseRound(n);
   if (round == null) return { title: `NRL round — ${APP_NAME}` };
+  const fixtures = await getNrlMatchesServer().catch(() => null);
+  const title = fixtures
+    ? `NRL Round ${round} tips (${fixtures.season}) — AI predictions with a public record`
+    : `NRL Round ${round} tips — AI predictions with a public record`;
   return {
-    title: `NRL round ${round} — ${APP_NAME}`,
+    title,
+    description: `The model's pick for every NRL Round ${round} fixture — win probability, expected margin, and a season record graded after full time, misses published too.`,
     alternates: { canonical: `/nrl/round/${round}` },
   };
 }
@@ -48,6 +59,10 @@ export default async function NrlRoundPage({
   const prevRound = idx > 0 ? roundNumbers[idx - 1] : null;
   const nextRound = idx >= 0 && idx < roundNumbers.length - 1 ? roundNumbers[idx + 1] : null;
 
+  // The tipsheet is additive -- a hiccup here must not take down the fixture
+  // list above (same rationale as the match detail page's Wave 2/3 sections).
+  const tipsheet = await getNrlTipsheetServer(fixtures.season, round).catch(() => null);
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
@@ -70,17 +85,23 @@ export default async function NrlRoundPage({
           <span />
         )}
       </div>
-      <div className="mt-6 grid gap-4 sm:grid-cols-2">
-        {current.matches.map((m) => (
-          <SportMatchCard
-            key={m.match_no}
-            match={m}
-            eyebrow={`Round ${round}`}
-            season={fixtures.season}
-            round={round}
-          />
-        ))}
-      </div>
+      {tipsheet ? (
+        <div className="mt-6">
+          <TipsheetBlock tipsheet={tipsheet} />
+        </div>
+      ) : (
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          {current.matches.map((m) => (
+            <SportMatchCard
+              key={m.match_no}
+              match={m}
+              eyebrow={`Round ${round}`}
+              season={fixtures.season}
+              round={round}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
