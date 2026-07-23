@@ -20,7 +20,7 @@ from datetime import datetime, timezone
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.models import HistoricalMatch, Team
+from app.models import HistoricalMatch, Match, Team, Tournament
 from pipeline.team_mapping import normalize_team_name
 
 BASE_URL = "https://www.football-data.co.uk/mmz4281/{season}/E0.csv"
@@ -149,3 +149,52 @@ def load_club_results(db: Session, df: pd.DataFrame, limit: int | None = None) -
         "matches_inserted": inserted,
         "skipped_dupes": skipped,
     }
+
+
+def sync_finished_matches_to_history(db: Session, tournament: Tournament) -> dict:
+    """Mirror this tournament's finished Match rows into historical_matches
+    (competition=CLUB_COMPETITION), idempotently.
+
+    In-season, results only exist as Match rows (from
+    pipeline.ingest.league_structure's fixture upsert) — the football-data.co.uk
+    season CSV isn't published until the season ends. This keeps
+    pipeline/compute_club_elo.py's replay current every pipeline run without
+    waiting for next season's CSV dump. Idempotent on the same (date, home,
+    away) key load_club_results uses, so re-running never duplicates.
+    """
+    existing: set[tuple] = {
+        (m.date.date().isoformat(), m.team_a_id, m.team_b_id)
+        for m in db.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).all()
+    }
+    finished = (
+        db.query(Match)
+        .filter(
+            Match.tournament_id == tournament.id,
+            Match.status == "finished",
+            Match.score_home.isnot(None),
+            Match.score_away.isnot(None),
+            Match.kickoff_utc.isnot(None),
+        )
+        .all()
+    )
+    inserted = 0
+    for m in finished:
+        date_str = m.kickoff_utc.date().isoformat()
+        key = (date_str, m.team_home_id, m.team_away_id)
+        if key in existing:
+            continue
+        db.add(
+            HistoricalMatch(
+                date=m.kickoff_utc,
+                team_a_id=m.team_home_id,
+                team_b_id=m.team_away_id,
+                score_a=m.score_home,
+                score_b=m.score_away,
+                competition=CLUB_COMPETITION,
+                is_neutral=False,
+            )
+        )
+        existing.add(key)
+        inserted += 1
+    db.commit()
+    return {"matches_inserted": inserted}

@@ -3,12 +3,15 @@ import pandas as pd
 import pytest
 
 from app.models import HistoricalMatch, Team
+from pipeline.ingest import league_structure as ls_mod
 from pipeline.ingest.club_results import (
     CLUB_COMPETITION,
     clean_club_results_df,
     load_club_results,
+    sync_finished_matches_to_history,
 )
 from pipeline.ingest.historical_results import load_historical
+from pipeline.ingest.league_structure import load_league_structure
 
 
 def _sample() -> pd.DataFrame:
@@ -78,3 +81,36 @@ def test_club_and_international_ingest_never_collide(db_session):
     assert len(club_rows) == 3
     assert len(intl_rows) == 1
     assert intl_rows[0].competition == "FIFA World Cup"
+
+
+def test_sync_finished_matches_mirrors_in_season_results(db_session, monkeypatch):
+    """In-season results (only ever Match rows, no CSV yet) sync into
+    historical_matches idempotently, tagged CLUB_COMPETITION."""
+    from app.models import Tournament
+
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [
+        {
+            "fixture": {"id": 1, "date": "2026-08-21T19:00:00+00:00", "status": {"short": "FT"}},
+            "teams": {"home": {"name": "Arsenal"}, "away": {"name": "Chelsea"}},
+            "goals": {"home": 2, "away": 1},
+        },
+        {
+            "fixture": {"id": 2, "date": "2026-08-22T14:00:00+00:00", "status": {"short": "NS"}},
+            "teams": {"home": {"name": "Liverpool"}, "away": {"name": "Everton"}},
+            "goals": {"home": None, "away": None},
+        },
+    ])
+    load_league_structure(db_session, api_key="x")
+    tournament = db_session.query(Tournament).filter_by(name="Premier League 2026-27").one()
+
+    summary = sync_finished_matches_to_history(db_session, tournament)
+    assert summary["matches_inserted"] == 1  # only the finished fixture
+
+    row = db_session.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).one()
+    assert row.score_a == 2 and row.score_b == 1
+    assert row.is_neutral is False
+
+    # Idempotent: re-running (e.g. next pipeline tick) inserts nothing new.
+    second = sync_finished_matches_to_history(db_session, tournament)
+    assert second["matches_inserted"] == 0
+    assert db_session.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).count() == 1

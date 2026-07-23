@@ -42,6 +42,15 @@ class Settings(BaseSettings):
     # free tier → estimated minute) or "api_football" (real live minute).
     live_provider: str = "football_data"
 
+    # League pivot (docs/LEAGUE-PIVOT-PLAN.md D7): which competition
+    # pipeline.run_pipeline.run_pipeline targets. "wc26" (default — every
+    # existing step, byte-identical) or "league" (Premier League 2026-27:
+    # league_structure + club Elo + club-model predictions/learning-loop;
+    # WC-only steps like KO venues/bracket sim are skipped). Flipping this in
+    # prod is the WS-C cutover (stop-gated) — config stays single-competition,
+    # not a toggle for running both at once.
+    pipeline_target: str = "wc26"
+
     # In-play events refetch cadence (seconds). Cards can arrive without a goal,
     # so live fixtures refetch /fixtures/events when the last fetch is older
     # than this. ~20 calls per live match hour on the default; the goal-count
