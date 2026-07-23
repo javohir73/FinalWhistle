@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models import HistoricalMatch, Team
+from app.models import HistoricalMatch, Team, Tournament
 from ml.evaluation.backtest import compute_metrics, model_probs
 from ml.ratings.elo import MatchInput, replay_with_prematch, run_elo
 from pipeline.ingest.club_results import (
@@ -36,6 +36,7 @@ from pipeline.ingest.club_results import (
     clean_club_results_df,
     download_club_results_df,
 )
+from pipeline.ingest.league_structure import TOURNAMENT_NAME
 
 CLUB_HOME_ADVANTAGE = 60.0
 
@@ -59,6 +60,15 @@ def compute_and_store_club_elo(
     writes an international team's rating (pipeline/compute_elo.py's own
     query symmetrically excludes CLUB_COMPETITION, so the two never clobber
     each other regardless of run order; see pipeline/compute_club_elo_test.py).
+
+    Also persists ``home_advantage`` onto the EPL Tournament row's
+    home_advantage_value (Opus review of PR #171, item 3): _host_adv
+    (pipeline/generate_predictions.py) already prefers that column over the
+    international engine's params.home_adv fallback whenever it's set, but
+    league_structure.py's loader leaves it NULL at creation — without writing
+    it here, EPL would silently start tracking whatever params.home_adv is
+    tuned to internationally if that value is ever retuned, instead of its
+    own fitted 60.0 (or whatever ``home_advantage`` this call used).
     """
     rows = _club_matches(db)
     matches = [
@@ -77,6 +87,11 @@ def compute_and_store_club_elo(
         if team is not None:
             team.elo_rating = round(rating, 1)
             updated += 1
+
+    tournament = db.query(Tournament).filter_by(name=TOURNAMENT_NAME).one_or_none()
+    if tournament is not None:
+        tournament.home_advantage_value = home_advantage
+
     db.commit()
 
     return {

@@ -2,10 +2,12 @@
 (league pivot D3)."""
 import pandas as pd
 
-from app.models import HistoricalMatch, Team
+from app.models import HistoricalMatch, Team, Tournament
 from pipeline.compute_club_elo import compute_and_store_club_elo, fit_home_advantage
 from pipeline.compute_elo import compute_and_store_elo
+from pipeline.generate_predictions import _host_adv
 from pipeline.ingest.club_results import CLUB_COMPETITION, load_club_results
+from pipeline.ingest.league_structure import TOURNAMENT_NAME
 
 
 def _seed_club_matches(db):
@@ -74,6 +76,38 @@ def test_international_recompute_never_touches_club_ratings(db_session):
     compute_and_store_club_elo(db_session)
     db_session.refresh(argentina)
     assert argentina.elo_rating == intl_rating_after_intl_run
+
+
+def test_persists_fitted_home_advantage_onto_the_tournament_row(db_session):
+    """Opus review of PR #171, item 3: without this, EPL's Tournament row
+    keeps home_advantage_value NULL forever, so _host_adv silently falls back
+    to the international engine's params.home_adv instead of the club-tuned
+    magnitude."""
+    from pipeline.ingest.league_structure import load_league_structure
+
+    _seed_club_matches(db_session)
+    load_league_structure(db_session, api_key="x")  # creates the Tournament row
+    tournament = db_session.query(Tournament).filter_by(name=TOURNAMENT_NAME).one()
+    assert tournament.home_advantage_value is None  # nothing fitted yet
+
+    summary = compute_and_store_club_elo(db_session, home_advantage=60.0)
+    db_session.refresh(tournament)
+    assert tournament.home_advantage_value == 60.0
+    assert summary["home_advantage"] == 60.0
+
+    # And _host_adv now prefers it over an unrelated engine default, end to end.
+    from app.models import Match
+
+    match = Match(
+        tournament_id=tournament.id, stage="group", status="scheduled",
+        team_home_id=db_session.query(Team).filter_by(name="Arsenal").one().id,
+        team_away_id=db_session.query(Team).filter_by(name="Chelsea").one().id,
+        is_neutral=False,
+    )
+    db_session.add(match)
+    db_session.commit()
+    home = db_session.get(Team, match.team_home_id)
+    assert _host_adv(match, home, home_advantage=999.0) == 60.0
 
 
 def test_fit_home_advantage_picks_the_lowest_holdout_log_loss():
