@@ -1,0 +1,24 @@
+{
+  "teams": [
+    {"name": "Arsenal", "code": "ARS", "api_football_id": 42},
+    {"name": "Aston Villa", "code": "AST", "api_football_id": 66},
+    {"name": "Bournemouth", "code": "BOU", "api_football_id": 35},
+    {"name": "Brentford", "code": "BRE", "api_football_id": 55},
+    {"name": "Brighton", "code": "BRI", "api_football_id": 51},
+    {"name": "Chelsea", "code": "CHE", "api_football_id": 49},
+    {"name": "Coventry", "code": "COV", "api_football_id": 1346},
+    {"name": "Crystal Palace", "code": "CRY", "api_football_id": 52},
+    {"name": "Everton", "code": "EVE", "api_football_id": 45},
+    {"name": "Fulham", "code": "FUL", "api_football_id": 36},
+    {"name": "Hull City", "code": "HUL", "api_football_id": 64},
+    {"name": "Ipswich", "code": "IPS", "api_football_id": 57},
+    {"name": "Leeds", "code": "LEE", "api_football_id": 63},
+    {"name": "Liverpool", "code": "LIV", "api_football_id": 40},
+    {"name": "Manchester City", "code": "MCI", "api_football_id": 50},
+    {"name": "Manchester United", "code": "MUN", "api_football_id": 33},
+    {"name": "Newcastle", "code": "NEW", "api_football_id": 34},
+    {"name": "Nottingham Forest", "code": "NOT", "api_football_id": 65},
+    {"name": "Sunderland", "code": "SUN", "api_football_id": 746},
+    {"name": "Tottenham", "code": "TOT", "api_football_id": 47}
+  ]
+}
