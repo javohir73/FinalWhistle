@@ -37,7 +37,7 @@ class SourceConfig:
 
 
 def _load_polymarket(tag_slug: str) -> list[dict]:
-    return polymarket.parse_events(polymarket.fetch_events(tag_slug))
+    return polymarket.parse_events(polymarket.fetch_events(tag_slug), tag_slug)
 
 
 def _load_kalshi_leg(series_ticker: str, kind: str) -> list[dict]:

@@ -2,13 +2,13 @@
 import json
 from pathlib import Path
 
-from pipeline.ingest.polymarket import parse_events
+from pipeline.ingest.polymarket import WC_TAG_SLUG, parse_events
 
 FIXTURE = Path(__file__).parent / "testdata" / "polymarket_events.json"
 
 
 def _rows():
-    return parse_events(json.loads(FIXTURE.read_text()))
+    return parse_events(json.loads(FIXTURE.read_text()), WC_TAG_SLUG)
 
 
 def test_match_event_maps_three_outcomes():
@@ -33,6 +33,27 @@ def test_title_event_one_win_row_per_active_team():
 
 def test_closed_or_inactive_markets_are_dropped():
     assert not [r for r in _rows() if r["team_name"] == "Mexico"]
+
+
+def test_ancillary_winner_events_are_not_title_events():
+    """Only the championship event may produce title rows. The fifa-world-cup
+    tag also carries group-winner, qualifying-group and award events whose
+    titles all contain 'winner' and whose questions all read 'Will <team>
+    win ...' — the Fair Play Award event put Netherlands at 87.9% into
+    title_winner the day after Spain won the final (incident 2026-07-20)."""
+    titles = [r for r in _rows() if r["kind"] == "title"]
+    assert {r["group"] for r in titles} == {"2026-fifa-world-cup-winner"}
+    assert not [r for r in titles if r["team_name"] == "Netherlands"]
+    assert not [r for r in titles if "group" in r["external_id"]]
+
+
+def test_unknown_tag_yields_no_title_rows():
+    """A tag with no vetted title pattern must skip title events entirely
+    (wrong mapping is worse than no mapping) while match events still parse."""
+    events = json.loads(FIXTURE.read_text())
+    rows = parse_events(events, "some-future-tag")
+    assert not [r for r in rows if r["kind"] == "title"]
+    assert [r for r in rows if r["kind"] == "match"]
 
 
 def test_aliased_team_name_maps_against_raw_question_text():
