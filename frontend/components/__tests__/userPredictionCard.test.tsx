@@ -33,14 +33,29 @@ it("calls onPick and shows the AI comparison when a side is chosen", () => {
   rerender(
     <UserPredictionCard match={match()} country="Brazil" pick="home" onPick={onPick} tz="UTC" />,
   );
-  expect(screen.getByText("You agree with the ML model")).toBeInTheDocument();
+
+  // Active pick button: lime fill, dark text; py-[11px] is the ≥44px tap-target proxy.
+  const brazilBtn = screen.getByRole("button", { name: "Brazil" });
+  expect(brazilBtn).toHaveClass("bg-win", "text-background", "py-[11px]");
+  // Inactive buttons: surface fill + border treatment.
+  const drawBtn = screen.getByRole("button", { name: "Draw" });
+  expect(drawBtn).toHaveClass("border-border", "text-muted", "py-[11px]");
+  expect(drawBtn.className).toContain("[background:hsl(var(--surface-2))]");
+
+  // Agreement line reads the agree copy in lime (model also leans home).
+  const agree = screen.getByText("You agree with the ML model");
+  expect(agree).toBeInTheDocument();
+  expect(agree).toHaveClass("text-lime-deep", "font-semibold");
 });
 
-it("flags an upset when the user backs the long shot", () => {
+it("flags an upset in amber when the user backs the long shot", () => {
   render(
     <UserPredictionCard match={match()} country="Brazil" pick="away" onPick={jest.fn()} tz="UTC" />,
   );
-  expect(screen.getByText("You’re calling an upset")).toBeInTheDocument();
+  const upset = screen.getByText("You’re calling an upset");
+  expect(upset).toBeInTheDocument();
+  // Amber agreement line renders at ≥12px bold to clear the small-amber floor.
+  expect(upset).toHaveClass("text-xs", "font-bold", "text-amber-ink");
 });
 
 it("shows ‘Exact score predicted’ badge when the predicted score matches the final score", () => {
