@@ -58,12 +58,16 @@ beforeEach(() => {
 });
 afterEach(() => jest.resetAllMocks());
 
-it("renders the round heading and its fixtures", async () => {
+it("renders the round heading and its fixtures on the shared spine", async () => {
   mockMatches.mockResolvedValue(fixtures);
   render(await NrlRoundPage({ params: params() }));
 
   expect(screen.getByRole("heading", { name: "Round 19" })).toBeInTheDocument();
-  expect(screen.getByText("Wests Tigers")).toBeInTheDocument();
+  // The compact MatchCard collapses both sides onto one name line.
+  expect(screen.getByText(/Wests Tigers/)).toBeInTheDocument();
+  // ...and the fixture links to its (season, round, match_no) detail page.
+  const links = screen.getAllByRole("link").map((a) => a.getAttribute("href"));
+  expect(links).toContain("/nrl/match/2026/19/3");
 });
 
 it("links to the previous and next rounds", async () => {

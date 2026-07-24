@@ -65,7 +65,7 @@ export function MatchCard({
       : null;
 
   // NRL callers can override the football detail link (or drop it with `null`,
-  // reproducing SportMatchCard's plain-card fallback when the round is unknown).
+  // reproducing the plain-card fallback used when an NRL round is still unknown).
   const target = href === undefined ? `/match/${match.match_id}` : href;
   const shell = `glass group block rounded-[14px] ${variant === "compact" ? "p-3" : "p-4"} ${
     live ? "ring-1 ring-loss/40" : ""
@@ -182,7 +182,7 @@ export function MatchCard({
       );
 
   // A non-null target is the linked card; `null` drops the anchor entirely (a
-  // plain glass card minus the hover affordance), mirroring SportMatchCard's
+  // plain glass card minus the hover affordance) — the NRL fixture-card
   // fallback when the round is still TBC.
   if (target === null) {
     return <div className={shell}>{content}</div>;

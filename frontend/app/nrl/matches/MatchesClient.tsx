@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { getNrlMatches } from "@/lib/api";
 import { finishedRounds, liveNow, upcomingRounds } from "@/lib/nrlLive";
 import type { NrlMatchesResponse } from "@/lib/types";
-import { SportMatchCard } from "@/components/SportMatchCard";
+import { MatchCard } from "@/components/MatchCard";
+import { TimelineSpine } from "@/components/TimelineSpine";
+import { nrlExpectedMargin, nrlMatchHref, nrlMatchToSummary } from "@/lib/nrlAdapters";
 import { cn } from "@/lib/utils";
 
 type Filter = "Upcoming" | "Live" | "Finished";
@@ -50,6 +52,21 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
     [fixtures, filter, now],
   );
 
+  // Per-card detail href + expected margin for every fixture in the visible
+  // groups, keyed by match_id (= NrlMatch.id). Match ids are unique across
+  // rounds, so one flat map feeds every day of the spine.
+  const { cardHref, cardMargin } = useMemo(() => {
+    const href: Record<number, string | null> = {};
+    const margin: Record<number, number | null> = {};
+    for (const g of groups) {
+      for (const m of g.matches) {
+        href[m.id] = nrlMatchHref(fixtures.season, g.round, m.match_no);
+        margin[m.id] = nrlExpectedMargin(m);
+      }
+    }
+    return { cardHref: href, cardMargin: margin };
+  }, [groups, fixtures.season]);
+
   const showStrip = filter !== "Finished" && live.length > 0;
   const empty =
     (filter === "Live" && live.length === 0) ||
@@ -85,6 +102,11 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
         ))}
       </div>
 
+      {/* Live strip: keep the custom pulse eyebrow, but render each in-window
+       *  match through the shared compact MatchCard (club badges, margin chip,
+       *  detail link). Same idiom as the football MatchesClient live strip — a
+       *  plain grid pinned above the spine, not itself a spine day. Liveness
+       *  detection (nrlLive.liveNow) is unchanged. */}
       {showStrip ? (
         <section>
           <div className="mb-3.5 flex items-center gap-2">
@@ -93,29 +115,39 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
               Live now
             </h2>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2">
             {live.map(({ round, match }) => (
-              <SportMatchCard key={`${round}-${match.match_no}`} match={match}
-                eyebrow={`Round ${round ?? "TBC"} · LIVE`} season={fixtures.season} round={round} />
+              <MatchCard
+                key={`${round}-${match.match_no}`}
+                match={nrlMatchToSummary(match)}
+                tz="Australia/Sydney"
+                variant="compact"
+                badge="club"
+                href={nrlMatchHref(fixtures.season, round, match.match_no)}
+                margin={nrlExpectedMargin(match)}
+              />
             ))}
           </div>
         </section>
       ) : null}
 
-      {filter !== "Live" &&
-        groups.map((g) => (
-          <section key={String(g.round)} className="mt-8">
-            <h2 className="font-display text-sm font-semibold uppercase tracking-wider text-muted">
-              Round {g.round ?? "TBC"}
-            </h2>
-            <div className="mt-3 grid gap-4 sm:grid-cols-2">
-              {g.matches.map((m) => (
-                <SportMatchCard key={m.match_no} match={m}
-                  eyebrow={`Round ${g.round ?? "TBC"}`} season={fixtures.season} round={g.round} />
-              ))}
-            </div>
-          </section>
-        ))}
+      {/* Round sections fall down the shared Floodlight spine — one day group
+       *  per round (heading arbitrary, so the round structure is preserved). */}
+      {filter !== "Live" && groups.length > 0 ? (
+        <div className="mt-8">
+          <TimelineSpine
+            days={groups.map((g) => ({
+              key: `round-${g.round ?? "tbc"}`,
+              heading: `Round ${g.round ?? "TBC"}`,
+              matches: g.matches.map(nrlMatchToSummary),
+            }))}
+            tz="Australia/Sydney"
+            badge="club"
+            cardHref={cardHref}
+            cardMargin={cardMargin}
+          />
+        </div>
+      ) : null}
 
       {empty ? <p className="mt-8 text-sm text-muted">{EMPTY[filter]}</p> : null}
     </div>
