@@ -112,7 +112,9 @@ def _tip_streaks(items: list[tuple[UserTip, SportMatch]]) -> tuple[int, int]:
     id -- the same chronological convention app.api.sports._ledger_record
     uses for the model's own best_streak. current_streak is the run still
     standing at the most recently kicked-off graded tip; best_streak is the
-    longest run anywhere in the history."""
+    longest run anywhere in the history. Season-scoping is the CALLER's job
+    (tips_summary pre-filters `items` to the current season) -- this function
+    just runs the streak over whatever it's handed."""
     ordered = sorted(items, key=lambda tm: (tm[1].kickoff_utc is None, tm[1].kickoff_utc, tm[1].id))
     best = streak = 0
     for t, _ in ordered:
@@ -357,8 +359,10 @@ def tips_summary(device_id: str, db: Session = Depends(get_db)):
     """Season-long you-vs-AI record: per graded round, the device's points vs
     the model's -- the model's side scored under the identical draw rule
     (_scores_point), so the two numbers are directly comparable. Also
-    surfaces personal streak/best-round stats (Slice 2.5) -- null-safe
-    zeroes/None when nothing is graded yet, same shape as zero_totals."""
+    surfaces personal streak/best-round stats (Slice 2.5), scoped to the
+    CURRENT season only (unlike `rounds`/`totals`, which span every season
+    the device has ever played) -- null-safe zeroes/None when nothing is
+    graded yet, same shape as zero_totals."""
     if not _DEVICE_ID_RE.match(device_id):
         raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
                                                      "message": "device_id must be a UUID v4."})
@@ -378,7 +382,17 @@ def tips_summary(device_id: str, db: Session = Depends(get_db)):
     if not rows:
         return {"handle": player.handle, "rounds": [], "totals": zero_totals, **zero_streaks, "disclaimer": _DISCLAIMER}
 
-    current_streak, best_streak = _tip_streaks(rows)
+    # Streaks and best_round are personal SEASON-scoped stats (design doc,
+    # Slice 2.5) -- unlike `rounds`/`totals` below, which stay season-long
+    # across the device's whole graded history. Without this filter a win in
+    # the last graded match of one season and a win in the first graded match
+    # of the next would join into one streak across the off-season, and
+    # best_round could point at a round from a season the player isn't even
+    # looking at. Scoped to the latest season with any NRL match loaded, the
+    # same "current season" convention _current_round/my_tips already use.
+    current_season = _latest_season(db)
+    season_rows = [tm for tm in rows if tm[1].season == current_season]
+    current_streak, best_streak = _tip_streaks(season_rows)
 
     by_round: dict[tuple[int, int], list[tuple[UserTip, SportMatch]]] = {}
     for t, m in rows:
@@ -415,11 +429,20 @@ def tips_summary(device_id: str, db: Session = Depends(get_db)):
         total_your += your_points
         total_model += model_points
 
-    # Max your_points wins; ties broken toward the later (season, round) --
-    # rounds_out is already ascending on that tuple, so including it as the
-    # tiebreak in the max() key naturally picks the latest tied round.
-    best = max(rounds_out, key=lambda r: (r["your_points"], r["season"], r["round"]))
-    best_round = {"round": best["round"], "points": best["your_points"]}
+    # Same season scope as the streaks above -- a round from a season the
+    # player isn't currently playing in must not surface as "best round".
+    # Max your_points wins; ties broken toward the later round -- season_rounds
+    # is already ascending on (season, round) (rounds_out's own sort), so
+    # including round in the max() key naturally picks the latest tied round
+    # within the (single) season left after filtering. Zero points -- every
+    # graded round scored nothing -- isn't a "best round" worth bragging
+    # about, so that's null too, same as the streak chips suppress at zero.
+    season_rounds = [r for r in rounds_out if r["season"] == current_season]
+    best_round = None
+    if season_rounds:
+        best = max(season_rounds, key=lambda r: (r["your_points"], r["round"]))
+        if best["your_points"] > 0:
+            best_round = {"round": best["round"], "points": best["your_points"]}
 
     return {
         "handle": player.handle,
@@ -561,7 +584,14 @@ def tips_share(season: int, round: int, handle: str, db: Session = Depends(get_d
     every case, so probing the handle namespace (handles collide by design,
     see _generate_handle, and the combinatorial space is small) can't
     distinguish "unknown handle" from "hasn't played this round" from
-    "round not graded yet"."""
+    "round not graded yet".
+
+    round_complete tells the page whether player_of/model_of are the WHOLE
+    round or just what's graded so far: grading runs per finished match
+    (pipeline.sports.nrl_user_tips), not per whole round, and an NRL round
+    spans Thu-Sun, so a round can sit partially graded for days. Without this
+    flag the card would frame a 1/1 scored off the Thursday opener as "beat
+    the AI this round" while seven fixtures are still unplayed."""
     candidates = db.query(TipPlayer).filter(TipPlayer.handle == handle).order_by(TipPlayer.id.asc()).all()
     player_ids = [p.id for p in candidates]
     rows = []
@@ -621,6 +651,19 @@ def tips_share(season: int, round: int, handle: str, db: Session = Depends(get_d
         if featured_tip is not None else None
     )
 
+    # Whole-round completeness, independent of what THIS player tipped --
+    # every match in (season, round) must be finished. Same belt-and-braces
+    # "status OR both scores present" check submit_tip's already_played uses.
+    round_matches = (
+        db.query(SportMatch)
+        .filter(SportMatch.sport == "nrl", SportMatch.season == season, SportMatch.round == round)
+        .all()
+    )
+    round_complete = bool(round_matches) and all(
+        m.status == "finished" or (m.score_home is not None and m.score_away is not None)
+        for m in round_matches
+    )
+
     return {
         "handle_display": handle_display,
         "season": season,
@@ -629,6 +672,7 @@ def tips_share(season: int, round: int, handle: str, db: Session = Depends(get_d
         "player_of": len(items),
         "model_points": model_points,
         "model_of": len(items),
+        "round_complete": round_complete,
         "margin_note": margin_note,
         "disclaimer": _DISCLAIMER,
     }

@@ -18,6 +18,7 @@ const share: NrlTipsShareResponse = {
   player_of: 8,
   model_points: 6,
   model_of: 8,
+  round_complete: true,
   margin_note: "Featured-match margin tiebreak score: 3",
   disclaimer: "For analytics and entertainment only. Not betting advice.",
 };
@@ -63,6 +64,22 @@ it("omits the margin note when the player never entered a featured-match margin 
   render(await NrlTipsShareCardPage({ params: params() }));
 
   expect(screen.queryByText(/margin tiebreak/)).not.toBeInTheDocument();
+});
+
+it("softens the verdict to 'so far' and flags progress when the round isn't fully graded", async () => {
+  mockShare.mockResolvedValue({ ...share, round_complete: false });
+  render(await NrlTipsShareCardPage({ params: params() }));
+
+  expect(screen.getByText("SwiftHalfback123 is ahead of the AI so far this round")).toBeInTheDocument();
+  expect(screen.getByText(/Round still in progress/)).toBeInTheDocument();
+  expect(screen.queryByText("SwiftHalfback123 beat the AI this round")).not.toBeInTheDocument();
+});
+
+it("does not show the in-progress note once the round is fully graded", async () => {
+  mockShare.mockResolvedValue(share);
+  render(await NrlTipsShareCardPage({ params: params() }));
+
+  expect(screen.queryByText(/Round still in progress/)).not.toBeInTheDocument();
 });
 
 it("calls notFound() when there's no graded result for that handle/round", async () => {

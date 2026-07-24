@@ -767,6 +767,11 @@ export interface NrlTipsShareResponse {
   player_of: number;
   model_points: number;
   model_of: number;
+  /** False while any match in the round hasn't finished yet -- grading runs
+   *  per finished match, not per whole round, so player_of/model_of can be a
+   *  partial round for days. The page must soften its verdict copy ("so far")
+   *  rather than frame an in-progress round as a final result. */
+  round_complete: boolean;
   margin_note: string | null;
   disclaimer: string;
 }

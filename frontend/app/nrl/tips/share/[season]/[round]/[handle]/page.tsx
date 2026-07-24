@@ -4,7 +4,10 @@ import { notFound } from "next/navigation";
 import { getNrlTipsShareServer } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 
-export const revalidate = 3600;
+// Matches getNrlTipsShareServer's fetch revalidate (lib/api.ts) -- kept short
+// so a pre-grading 404 (see that comment) can't pin the route render itself
+// for the full hour a graded result's own longer-lived data would tolerate.
+export const revalidate = 60;
 
 type Params = { season: string; round: string; handle: string };
 
@@ -55,12 +58,21 @@ export default async function NrlTipsShareCardPage({
   const share = await getNrlTipsShareServer(season, round, handle).catch(() => null);
   if (!share) notFound();
 
-  const verdict =
-    share.player_points > share.model_points
+  // Grading runs per finished match, not per whole round (NRL rounds span
+  // Thu-Sun), so round_complete can be false for days while player_of/
+  // model_of are only what's graded so far -- "so far" keeps the verdict
+  // honest about an in-progress round instead of framing it as final.
+  const verdict = share.round_complete
+    ? share.player_points > share.model_points
       ? `${share.handle_display} beat the AI this round`
       : share.player_points < share.model_points
         ? "The AI came out on top this round"
-        : `${share.handle_display} drew with the AI this round`;
+        : `${share.handle_display} drew with the AI this round`
+    : share.player_points > share.model_points
+      ? `${share.handle_display} is ahead of the AI so far this round`
+      : share.player_points < share.model_points
+        ? "The AI is ahead so far this round"
+        : `${share.handle_display} is tied with the AI so far this round`;
 
   return (
     <div className="fade-up mx-auto max-w-md space-y-6 text-center">
@@ -73,6 +85,9 @@ export default async function NrlTipsShareCardPage({
           {share.model_points}/{share.model_of}
         </p>
         <p className="mt-2 text-sm font-semibold text-lime-deep">{verdict}</p>
+        {!share.round_complete && (
+          <p className="mt-1 text-[11px] text-muted">Round still in progress — more matches to come.</p>
+        )}
         {share.margin_note && <p className="mt-3 text-xs text-muted">{share.margin_note}</p>}
       </div>
 

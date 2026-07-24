@@ -504,6 +504,69 @@ def test_summary_best_round_ties_pick_later_round(client):
     assert r.json()["best_round"] == {"round": 3, "points": 1}
 
 
+def test_summary_streaks_do_not_span_seasons(client):
+    """A win in the LAST graded match of one season and a win in the FIRST
+    graded match of the next must not join into one streak across the
+    off-season -- streaks/best_round are season-scoped (design doc, Slice
+    2.5), reset at the season boundary even though both tips are graded and
+    ordering by kickoff alone would otherwise chain them together."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    now = datetime.now(timezone.utc)
+    player = TipPlayer(device_id=DEVICE_A, handle="SeasonSpanner1")
+    db.add(player)
+    db.flush()
+
+    m_last_2026 = _match(db, 2026, 26, 1, storm, eels, now - timedelta(days=200),
+                         status="finished", score_home=20, score_away=10)
+    m_first_2027 = _match(db, 2027, 1, 1, storm, eels, now - timedelta(days=1),
+                          status="finished", score_home=20, score_away=10)
+    db.flush()
+
+    db.add(UserTip(match_id=m_last_2026.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.add(UserTip(match_id=m_first_2027.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    # A cross-season streak of 2 would be the bug this test guards against --
+    # only the current season's (2027) win counts.
+    assert body["current_streak"] == 1
+    assert body["best_streak"] == 1
+    assert body["best_round"] == {"round": 1, "points": 1}
+    # rounds/totals stay season-long (unaffected by the streak/best_round scope).
+    assert body["totals"] == {"your_points": 2, "model_points": 0, "rounds_played": 2}
+
+
+def test_summary_best_round_null_when_every_graded_round_scored_zero(client):
+    """A player who tipped and got every pick wrong must not see a best_round
+    chip bragging about a zero -- StreakChips already suppresses zero streaks,
+    best_round must match that convention."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    now = datetime.now(timezone.utc)
+    player = TipPlayer(device_id=DEVICE_A, handle="Zeroed1")
+    db.add(player)
+    db.flush()
+
+    m1 = _match(db, 2026, 1, 1, storm, eels, now - timedelta(days=2),
+               status="finished", score_home=10, score_away=20)
+    m2 = _match(db, 2026, 2, 1, storm, eels, now - timedelta(days=1),
+               status="finished", score_home=10, score_away=20)
+    db.flush()
+
+    db.add(UserTip(match_id=m1.id, player_id=player.id, pick="home", points=0, graded_at=now))
+    db.add(UserTip(match_id=m2.id, player_id=player.id, pick="home", points=0, graded_at=now))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    assert r.status_code == 200, r.text
+    assert r.json()["best_round"] is None
+
+
 # ---------------------------------------------------------------------------
 # GET /leaderboard -- participation gate + ranking (points desc, margin asc)
 # ---------------------------------------------------------------------------
@@ -679,6 +742,7 @@ def test_share_happy_path(client):
     assert body["player_points"] == 1 and body["player_of"] == 1
     assert body["model_points"] == 1 and body["model_of"] == 1  # p_home=0.6 -> model picks home too
     assert body["margin_note"] == "Featured-match margin tiebreak score: 3"
+    assert body["round_complete"] is True  # the round's only match is finished
     assert "disclaimer" in body
     assert "pick" not in body  # never leaks the raw pick
 
@@ -749,6 +813,46 @@ def test_share_model_points_parity_with_summary(client):
     round_out = next(r for r in summary.json()["rounds"] if r["round"] == 10)
     assert round_out["model_points"] == share.json()["model_points"]
     assert round_out["your_points"] == share.json()["player_points"]
+
+
+def test_share_round_complete_false_while_other_round_matches_are_unplayed(client):
+    """NRL rounds run Thu-Sun and grading is per FINISHED MATCH, not per whole
+    round (pipeline.sports.nrl_user_tips) -- a round can sit partially graded
+    for days. round_complete must be False while any match in the round
+    hasn't finished yet, even though the player's own tip is already graded,
+    so the share page can soften "beat the AI this round" to a provisional
+    framing instead of claiming a final result."""
+    c, TestingSession = client
+    db = TestingSession()
+    m = _seed_graded_round(db, 2026, 11, datetime.now(timezone.utc) - timedelta(days=2))
+    storm2, eels2 = _team(db, "Roosters"), _team(db, "Broncos")
+    _match(db, 2026, 11, 2, storm2, eels2, datetime.now(timezone.utc) + timedelta(days=1))
+    player = TipPlayer(device_id=DEVICE_A, handle="PartialRound1")
+    db.add(player)
+    db.flush()
+    db.add(UserTip(match_id=m.id, player_id=player.id, pick="home", points=1,
+                   graded_at=datetime.now(timezone.utc)))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/share/2026/11/PartialRound1")
+    assert r.status_code == 200, r.text
+    assert r.json()["round_complete"] is False
+
+
+def test_share_round_complete_true_when_every_round_match_finished(client):
+    c, TestingSession = client
+    db = TestingSession()
+    m = _seed_graded_round(db, 2026, 12, datetime.now(timezone.utc) - timedelta(days=1))
+    player = TipPlayer(device_id=DEVICE_A, handle="FullRound1")
+    db.add(player)
+    db.flush()
+    db.add(UserTip(match_id=m.id, player_id=player.id, pick="home", points=1,
+                   graded_at=datetime.now(timezone.utc)))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/share/2026/12/FullRound1")
+    assert r.status_code == 200, r.text
+    assert r.json()["round_complete"] is True
 
 
 # ---------------------------------------------------------------------------

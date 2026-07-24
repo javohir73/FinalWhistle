@@ -58,6 +58,12 @@ export default async function Image({
               {share.model_points}/{share.model_of}
             </div>
           </div>
+          {!share.round_complete && (
+            // Grading is per finished match, not per whole round, so a
+            // partially-graded round must not read as a final result on a
+            // public/social image (see page.tsx's matching "so far" copy).
+            <div style={{ display: "flex", fontSize: 26, color: C.muted }}>Round still in progress</div>
+          )}
           {share.margin_note && (
             <div style={{ display: "flex", fontSize: 26, color: C.muted }}>{share.margin_note}</div>
           )}
