@@ -413,6 +413,98 @@ def test_summary_ungraded_tips_are_not_played_rounds(client):
 
 
 # ---------------------------------------------------------------------------
+# GET /summary -- streaks + best_round (Slice 2.5)
+# ---------------------------------------------------------------------------
+
+def test_summary_streaks_null_safe_no_player(client):
+    c, _ = client
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_B})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["current_streak"] == 0
+    assert body["best_streak"] == 0
+    assert body["best_round"] is None
+
+
+def test_summary_streaks_null_safe_ungraded_only(client):
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 1, 1, storm, eels, datetime.now(timezone.utc) + timedelta(days=1))
+    db.commit()
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    assert r.status_code == 200
+    body = r.json()
+    assert body["current_streak"] == 0
+    assert body["best_streak"] == 0
+    assert body["best_round"] is None
+
+
+def test_summary_streaks_ordered_by_kickoff_not_id(client):
+    """Kickoff order is win, win, loss, win -> current_streak=1, best_streak=2.
+    Rows are inserted in a DIFFERENT order than their kickoff times so a bug
+    that sorted by insertion/id instead of kickoff_utc would get this wrong
+    (id order here is loss, win, win, win -> would wrongly give current=3)."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    now = datetime.now(timezone.utc)
+    player = TipPlayer(device_id=DEVICE_A, handle="Streaker1")
+    db.add(player)
+    db.flush()
+
+    m_loss = _match(db, 2026, 1, 3, storm, eels, now - timedelta(days=2),
+                    status="finished", score_home=10, score_away=20)
+    m_win4 = _match(db, 2026, 1, 4, storm, eels, now - timedelta(days=1),
+                    status="finished", score_home=20, score_away=10)
+    m_win1 = _match(db, 2026, 1, 1, storm, eels, now - timedelta(days=4),
+                    status="finished", score_home=20, score_away=10)
+    m_win2 = _match(db, 2026, 1, 2, storm, eels, now - timedelta(days=3),
+                    status="finished", score_home=20, score_away=10)
+    db.flush()
+
+    db.add(UserTip(match_id=m_loss.id, player_id=player.id, pick="away", points=0, graded_at=now))
+    db.add(UserTip(match_id=m_win4.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.add(UserTip(match_id=m_win1.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.add(UserTip(match_id=m_win2.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["current_streak"] == 1
+    assert body["best_streak"] == 2
+
+
+def test_summary_best_round_ties_pick_later_round(client):
+    """Two rounds tie on points; the LATER (season, round) wins the tie --
+    documented rule, mirrors rounds_out's own (season, round) ascending sort."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    now = datetime.now(timezone.utc)
+    player = TipPlayer(device_id=DEVICE_A, handle="Tiebreaker1")
+    db.add(player)
+    db.flush()
+
+    m1 = _match(db, 2026, 1, 1, storm, eels, now - timedelta(days=2),
+               status="finished", score_home=20, score_away=10)
+    m3 = _match(db, 2026, 3, 1, storm, eels, now - timedelta(days=1),
+               status="finished", score_home=20, score_away=10)
+    db.flush()
+
+    db.add(UserTip(match_id=m1.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.add(UserTip(match_id=m3.id, player_id=player.id, pick="home", points=1, graded_at=now))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    assert r.status_code == 200, r.text
+    assert r.json()["best_round"] == {"round": 3, "points": 1}
+
+
+# ---------------------------------------------------------------------------
 # GET /leaderboard -- participation gate + ranking (points desc, margin asc)
 # ---------------------------------------------------------------------------
 
@@ -471,6 +563,192 @@ def test_leaderboard_unknown_round_404s(client):
     c, _ = client
     r = c.get("/api/nrl/tips/leaderboard", params={"season": 2026, "round": 99})
     assert r.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# GET /leaderboard/season -- season totals, gate at 10, total_margin tiebreak
+# (Slice 2.5)
+# ---------------------------------------------------------------------------
+
+def _seed_season_player(db, match, device_id, handle, points, margin):
+    """One player's graded tip on `match` -- mirrors _seed_leaderboard_round's
+    direct-insert idiom, but returns the player so a second round's tip can be
+    added onto it (season totals span more than one round's featured match)."""
+    p = TipPlayer(device_id=device_id, handle=handle)
+    db.add(p)
+    db.flush()
+    db.add(UserTip(match_id=match.id, player_id=p.id, pick="home",
+                   points=points, round_margin=margin, graded_at=datetime.now(timezone.utc)))
+    return p
+
+
+def test_season_leaderboard_hidden_below_ten_participants(client):
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 5, 1, storm, eels, datetime.now(timezone.utc) - timedelta(days=1),
+              status="finished", score_home=20, score_away=10)
+    db.flush()
+    for i in range(9):
+        _seed_season_player(db, m, f"bbbbbbbb-0000-4000-8000-{i:012d}", f"SPlayer{i}", 1, i)
+    db.commit()
+
+    r = c.get("/api/nrl/tips/leaderboard/season", params={"season": 2026})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["participant_count"] == 9
+    assert body["entries"] == []
+
+
+def test_season_leaderboard_ranking_points_then_total_margin(client):
+    """10 participants across two rounds. Top0/Top1 tie on season points and
+    are ranked by cumulative total_margin (summed across both rounds); a
+    second tier ties on points with one player having a real (if large)
+    margin and the other having none -- the real margin ranks ABOVE the
+    missing one, since a missing total_margin sorts last (like the weekly
+    board's missing round_margin), never a false "0" beating a real attempt."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    round_a = _match(db, 2026, 5, 1, storm, eels, datetime.now(timezone.utc) - timedelta(days=2),
+                     status="finished", score_home=20, score_away=10)
+    round_b = _match(db, 2026, 6, 1, storm, eels, datetime.now(timezone.utc) - timedelta(days=1),
+                     status="finished", score_home=18, score_away=12)
+    db.flush()
+
+    top0 = _seed_season_player(db, round_a, "cccccccc-0000-4000-8000-000000000000", "Top0", 1, 5)
+    db.add(UserTip(match_id=round_b.id, player_id=top0.id, pick="home", points=1, round_margin=2,
+                   graded_at=datetime.now(timezone.utc)))
+    top1 = _seed_season_player(db, round_a, "cccccccc-0000-4000-8000-000000000001", "Top1", 1, 1)
+    db.add(UserTip(match_id=round_b.id, player_id=top1.id, pick="home", points=1, round_margin=10,
+                   graded_at=datetime.now(timezone.utc)))
+    _seed_season_player(db, round_a, "cccccccc-0000-4000-8000-000000000002", "NoMargin", 1, None)
+    _seed_season_player(db, round_a, "cccccccc-0000-4000-8000-000000000003", "WithMargin", 1, 50)
+    for i in range(4, 10):
+        _seed_season_player(db, round_a, f"cccccccc-0000-4000-8000-{i:012d}", f"Zero{i}", 0, None)
+    db.commit()
+
+    r = c.get("/api/nrl/tips/leaderboard/season", params={"season": 2026})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["participant_count"] == 10
+    entries = body["entries"]
+    assert entries[0] == {"handle": "Top0", "points": 2, "total_margin": 7, "rounds_played": 2}
+    assert entries[1] == {"handle": "Top1", "points": 2, "total_margin": 11, "rounds_played": 2}
+    assert entries[2]["handle"] == "WithMargin" and entries[2]["total_margin"] == 50
+    assert entries[3]["handle"] == "NoMargin" and entries[3]["total_margin"] is None
+    assert all("device_id" not in e for e in entries)
+
+
+def test_season_leaderboard_unknown_season_404s(client):
+    c, _ = client
+    r = c.get("/api/nrl/tips/leaderboard/season", params={"season": 2099})
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "season_not_found"
+
+
+# ---------------------------------------------------------------------------
+# GET /share/{season}/{round}/{handle} -- public, handle-addressed (Slice 2.5)
+# ---------------------------------------------------------------------------
+
+def _seed_graded_round(db, season, rnd, kickoff, p_home=0.6):
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, season, rnd, 1, storm, eels, kickoff, status="finished",
+              score_home=20, score_away=10)
+    _prediction(db, m, p_home=p_home)
+    db.flush()
+    return m
+
+
+def test_share_happy_path(client):
+    c, TestingSession = client
+    db = TestingSession()
+    m = _seed_graded_round(db, 2026, 7, datetime.now(timezone.utc) - timedelta(days=1))
+    player = TipPlayer(device_id=DEVICE_A, handle="SharedHandle1")
+    db.add(player)
+    db.flush()
+    db.add(UserTip(match_id=m.id, player_id=player.id, pick="home", points=1, round_margin=3,
+                   graded_at=datetime.now(timezone.utc)))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/share/2026/7/SharedHandle1")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["handle_display"] == "SharedHandle1"
+    assert body["season"] == 2026 and body["round"] == 7
+    assert body["player_points"] == 1 and body["player_of"] == 1
+    assert body["model_points"] == 1 and body["model_of"] == 1  # p_home=0.6 -> model picks home too
+    assert body["margin_note"] == "Featured-match margin tiebreak score: 3"
+    assert "disclaimer" in body
+    assert "pick" not in body  # never leaks the raw pick
+
+
+def test_share_unknown_handle_404s(client):
+    c, _ = client
+    r = c.get("/api/nrl/tips/share/2026/7/NobodyHome999")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "share_not_found"
+
+
+def test_share_ungraded_round_404s(client):
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 8, 1, storm, eels, datetime.now(timezone.utc) - timedelta(days=1),
+              status="finished", score_home=20, score_away=10)
+    player = TipPlayer(device_id=DEVICE_A, handle="Ungraded1")
+    db.add(player)
+    db.flush()
+    # Tip exists but the grading pass hasn't run for this round yet.
+    db.add(UserTip(match_id=m.id, player_id=player.id, pick="home", graded_at=None))
+    db.commit()
+
+    r = c.get("/api/nrl/tips/share/2026/8/Ungraded1")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "share_not_found"
+
+
+def test_share_future_round_tips_never_leak_pre_kickoff_picks(client):
+    """A player with ONLY a future (not-yet-kicked-off, ungraded) tip must get
+    a plain 404 -- never a fabricated card -- and the response body must
+    never contain a pick field regardless."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = _team(db, "Storm"), _team(db, "Eels")
+    m = _match(db, 2026, 9, 1, storm, eels, datetime.now(timezone.utc) + timedelta(days=3))
+    db.commit()
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m.id, "pick": "home"})
+
+    db2 = TestingSession()
+    handle = db2.query(TipPlayer).filter_by(device_id=DEVICE_A).one().handle
+    db2.close()
+
+    r = c.get(f"/api/nrl/tips/share/2026/9/{handle}")
+    assert r.status_code == 404
+    assert r.json()["error"]["code"] == "share_not_found"
+    assert "pick" not in r.text
+
+
+def test_share_model_points_parity_with_summary(client):
+    """The share card's model_points for a round must equal what /summary
+    computes for the same device/round -- same live-scoring path, same tip."""
+    c, TestingSession = client
+    db = TestingSession()
+    m = _seed_graded_round(db, 2026, 10, datetime.now(timezone.utc) - timedelta(days=1), p_home=0.55)
+    player = TipPlayer(device_id=DEVICE_A, handle="ParityCheck1")
+    db.add(player)
+    db.flush()
+    db.add(UserTip(match_id=m.id, player_id=player.id, pick="away", points=0,
+                   graded_at=datetime.now(timezone.utc)))
+    db.commit()
+
+    summary = c.get("/api/nrl/tips/summary", params={"device_id": DEVICE_A})
+    share = c.get("/api/nrl/tips/share/2026/10/ParityCheck1")
+    assert summary.status_code == 200 and share.status_code == 200, (summary.text, share.text)
+
+    round_out = next(r for r in summary.json()["rounds"] if r["round"] == 10)
+    assert round_out["model_points"] == share.json()["model_points"]
+    assert round_out["your_points"] == share.json()["player_points"]
 
 
 # ---------------------------------------------------------------------------
