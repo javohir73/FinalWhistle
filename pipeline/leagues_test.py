@@ -73,3 +73,22 @@ def test_club_competitions_reflects_monkeypatched_registry_additions(monkeypatch
         },
     )
     assert "Extra League" in club_competitions()
+
+
+# ---------------------------------------------------------------------------
+# Activation framing (Opus review, League Score Predictions Phase 2): the
+# module docstring and ACTIVE_LEAGUES/PHASE_2_PENDING_ACTIVATION comments
+# used to call activation "a one-line follow-up" and "a single, obviously-
+# safe, additive edit" -- false, since neither club-name reconciliation nor
+# the historical backfill nor a per-league home-advantage fit is automated.
+# PHASE_2_ACTIVATION_CHECKLIST replaces that framing with the real list; lock
+# in that it exists and actually names the undone prerequisites, not just the
+# quota check the old comments singled out.
+# ---------------------------------------------------------------------------
+
+def test_phase_2_activation_checklist_documents_the_real_prerequisites():
+    checklist = leagues_mod.PHASE_2_ACTIVATION_CHECKLIST
+    assert len(checklist) >= 4
+    joined = " ".join(checklist).lower()
+    for must_mention in ("reconciliation", "backfill", "home-advantage", "quota"):
+        assert must_mention in joined

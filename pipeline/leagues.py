@@ -19,12 +19,15 @@ live-scores/injuries (see league_structure.py's own comment on LEAGUE_ID/
 SEASON), not a per-competition registry.
 
 Phase 1 (design doc): ACTIVE_LEAGUES lists exactly one code, "epl". Phase 2
-(La Liga id 140, Bundesliga id 78) adds their LEAGUES entries below -- purely
-additive, no loop/code changes needed elsewhere -- but activation (appending
-them to ACTIVE_LEAGUES) is its OWN, separate, stop-gated step: the design
-doc's Phasing section gates it on a founder API-Football-quota check (three
-leagues ~= 3x fixture polling), so it does not happen in the same commit that
-registers them. See PHASE_2_PENDING_ACTIVATION below.
+(La Liga id 140, Bundesliga id 78) adds their LEAGUES entries below -- the
+registry entries themselves are purely additive, no loop/code changes needed
+elsewhere -- but activation (appending them to ACTIVE_LEAGUES) is its OWN,
+separate, stop-gated step, and NOT the safe "one-line follow-up" an earlier
+version of this docstring called it (Opus review, League Score Predictions
+Phase 2: predictions serving outward is a danger zone, and that framing hid
+real, undone prerequisites). See PHASE_2_ACTIVATION_CHECKLIST below for what
+actually has to be true first; PHASE_2_PENDING_ACTIVATION for the codes
+themselves.
 """
 from __future__ import annotations
 
@@ -103,19 +106,46 @@ LEAGUES: dict[str, LeagueConfig] = {
     },
 }
 
-# Phase 1 config (design doc): exactly ["epl"]. Activating La Liga/Bundesliga
-# is a one-line follow-up -- append entries from PHASE_2_PENDING_ACTIVATION --
-# but that line is itself a stop-gated decision (design doc Phasing section:
-# gated on a founder API-Football-quota check, since 3 leagues ~= 3x fixture
-# polling), so it is deliberately NOT done in this commit even though both
-# leagues' LEAGUES entries above are ready to run.
+# Phase 1 config (design doc): exactly ["epl"]. Appending a
+# PHASE_2_PENDING_ACTIVATION code here is textually a one-line edit but NOT a
+# safe one on its own. PHASE_2_ACTIVATION_CHECKLIST below is the real
+# prerequisite list -- do every item on it, in order, BEFORE appending a code
+# here (and to frontend/lib/leagueConfig.ts's ACTIVE_LEAGUES too).
 ACTIVE_LEAGUES: list[str] = ["epl"]
 
-# Registered, ready, and NOT active -- the exact list to append to
-# ACTIVE_LEAGUES once the quota check clears. Kept as its own named constant
-# (rather than just "the rest of LEAGUES") so the one-line follow-up reads as
-# a single, obviously-safe, additive edit.
+# Registered, checklist-pending, and NOT active -- the exact list
+# PHASE_2_ACTIVATION_CHECKLIST's steps operate on before either code joins
+# ACTIVE_LEAGUES.
 PHASE_2_PENDING_ACTIVATION: list[str] = ["laliga", "bundesliga"]
+
+# The real activation checklist, in order. Replaces this module's former
+# "one-line follow-up" / "single, obviously-safe, additive edit" framing,
+# which understated what activating a Phase 2 league actually requires
+# (Opus review: the human stop-gate relies on exactly this comment, so an
+# inaccurate one invites shipping uninformed predictions -- see
+# team_mapping.py's SP1/D1 alias section and compute_club_elo.py's
+# unrated_roster_teams() for the reconciliation half of this). None of steps
+# 1-3 are automated yet -- there is no pipeline step or runnable script that
+# calls pipeline.ingest.club_results.load_club_results for La Liga/
+# Bundesliga, so skipping straight to step 4 replays 0 historical rows and
+# leaves every club at the 1500 cold-start default
+# (ml/features/build_features.py's estimate_strength).
+PHASE_2_ACTIVATION_CHECKLIST: tuple[str, ...] = (
+    "1. Club-name reconciliation: add football-data.co.uk <-> API-Football "
+    "spelling aliases for the league's full current roster to "
+    "pipeline/team_mapping.py (today's SP1/D1 set is a starting point, not "
+    "complete), then confirm compute_club_elo.unrated_roster_teams(db, "
+    "tournament_name, group_name) returns [] after step 2.",
+    "2. Historical backfill: run load_club_results(competition=cfg["
+    "\"club_competition\"]) against cfg[\"club_division\"] (SP1/D1) for every "
+    "SEASON_CODE.",
+    "3. Home-advantage fit: run fit_home_advantage() against this league's "
+    "OWN SP1/D1 CSVs (passing its own competition) and pass the winner into "
+    "compute_and_store_club_elo -- EPL's CLUB_HOME_ADVANTAGE (60.0) is not "
+    "assumed to carry over (see that module's docstring).",
+    "4. Founder API-Football-quota check (design doc Phasing section): "
+    "three leagues means ~3x fixture polling.",
+)
 
 
 def club_competitions() -> frozenset[str]:
