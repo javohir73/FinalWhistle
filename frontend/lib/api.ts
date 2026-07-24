@@ -25,6 +25,7 @@ import type {
   NrlStatsProfile,
   NrlTeamProfile,
   NrlTipsheet,
+  NrlTipsShareResponse,
   OriginRecord,
   OriginSeriesResponse,
   Prediction,
@@ -189,6 +190,16 @@ export const getNrlTipsheetServer = (season?: number, round?: number) =>
   );
 export const getNrlMatchDetailServer = (id: number | string) =>
   getServer<NrlMatchDetail>(`/api/nrl/matches/${id}`, 300);
+/** Public share-card data for /nrl/tips/share/[season]/[round]/[handle] and
+ *  its opengraph-image (Slice 2.5) -- season/round/handle come only from the
+ *  route params, never a client-supplied score. A graded result never changes
+ *  once it exists, so a generous revalidate is fine (unlike the rest of this
+ *  file's live-ish 300s default). */
+export const getNrlTipsShareServer = (season: number, round: number, handle: string) =>
+  getServer<NrlTipsShareResponse>(
+    `/api/nrl/tips/share/${season}/${round}/${encodeURIComponent(handle)}`,
+    3600,
+  );
 export const getNrlProjectionsServer = () =>
   getServer<NrlProjectionsResponse>("/api/nrl/projections", 300);
 /** The conditional/what-if variant (design doc: NRL Round Tips, Slice 3), with
