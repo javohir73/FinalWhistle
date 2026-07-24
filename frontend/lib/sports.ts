@@ -289,7 +289,15 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasTips: true,
     enabled: true,
     terms: { fixtures: "Matches", standings: "Ladder" },
-    zones: [{ from: 1, to: 8, label: "Finals", tone: "finals" }],
+    // The NRL top 8 make the finals, but the top 4 get the double chance --
+    // the structural line a single "Finals" band would hide, leaving positions
+    // 4 and 5 pixel-identical (design/Floodlight Prototype.dc.html, the NRL
+    // ladder surface). Top 4 keeps the finals (lime) tone; 5-8 drops to europa
+    // (gold) so the double-chance cutoff reads and the legend shows both bands.
+    zones: [
+      { from: 1, to: 4, label: "Top 4", tone: "finals" },
+      { from: 5, to: 8, label: "Finals (5–8)", tone: "europa" },
+    ],
     // Mirrors SPORTS.nrl.navLinks above unchanged (NRL keeps its own space).
     navLinks: [
       { href: "/nrl", label: "Home", activePrefixes: [] },

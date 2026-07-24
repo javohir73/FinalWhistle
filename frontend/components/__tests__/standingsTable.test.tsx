@@ -146,3 +146,47 @@ describe("NRL ladder shape (club crests, W–L / Diff / Pts / Top-8% columns)", 
     expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
+
+describe("NRL ladder finals split (Top 4 vs Finals 5–8)", () => {
+  // Nine clubs so both finals bands and the miss-out gap are exercised: the
+  // single "Finals" band the ladder used to carry painted 1-8 identically,
+  // hiding the top-4 double-chance line (positions 4 and 5 rendered the same).
+  const ladder: StandingsTableRow[] = Array.from({ length: 9 }, (_, i) => ({
+    team_id: i + 1,
+    team: `Club ${i + 1}`,
+    wins: 16 - i,
+    losses: 4 + i,
+    diff: 200 - i * 30,
+    points: 34 - i * 2,
+    projected_points: 34 - i * 2,
+    projection_pct: 0.9 - i * 0.1,
+  }));
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={ladder}
+        zones={COMPETITIONS.nrl.zones}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts", "top8"]}
+      />,
+    );
+  });
+
+  it("keeps the top-4 cutoff visible: rank 4 stays lime, rank 5 turns gold", () => {
+    expect(rowFor("Club 4")).toHaveClass("border-l-win");
+    expect(rowFor("Club 5")).toHaveClass("border-l-gold");
+  });
+
+  it("stops the finals band at rank 8 (rank 9 misses out entirely)", () => {
+    expect(rowFor("Club 8")).toHaveClass("border-l-gold");
+    expect(rowFor("Club 9")).toHaveClass("border-l-transparent");
+  });
+
+  it("labels both finals bands in the legend", () => {
+    expect(screen.getByText("Top 4")).toBeInTheDocument();
+    expect(screen.getByText("Finals (5–8)")).toBeInTheDocument();
+  });
+});
