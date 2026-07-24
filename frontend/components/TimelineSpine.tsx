@@ -14,13 +14,24 @@ import { cn } from "@/lib/utils";
  *  an absolutely-positioned dot on the spine: rose (`border-loss`) when the match
  *  is live right now, otherwise the hairline color (`border-border`) -- the
  *  prototype's `dotColor` (live `#f6516b` else `#243028`). The dot is static;
- *  the live pulse lives on the card's own status util, so nothing here animates. */
+ *  the live pulse lives on the card's own status util, so nothing here animates.
+ *
+ *  `badge`/`cardHref`/`cardMargin` are additive, serializable pass-throughs onto
+ *  each compact MatchCard so an NRL caller (a server component) can render club
+ *  monograms, per-match detail links, and margin chips without forking the spine.
+ *  The maps are keyed by `match_id`; omitting them keeps today's football path. */
 export function TimelineSpine({
   days,
   tz,
+  badge = "flag",
+  cardHref,
+  cardMargin,
 }: {
   days: Array<{ key: string; heading: string; matches: MatchSummary[] }>;
   tz: string;
+  badge?: "flag" | "club";
+  cardHref?: Record<number, string | null>;
+  cardMargin?: Record<number, number | null>;
 }) {
   return (
     <div className="space-y-6">
@@ -39,7 +50,14 @@ export function TimelineSpine({
                     isLiveNow(m) ? "border-loss" : "border-border",
                   )}
                 />
-                <MatchCard match={m} tz={tz} variant="compact" />
+                <MatchCard
+                  match={m}
+                  tz={tz}
+                  variant="compact"
+                  badge={badge}
+                  href={cardHref?.[m.match_id]}
+                  margin={cardMargin?.[m.match_id]}
+                />
               </div>
             ))}
           </div>

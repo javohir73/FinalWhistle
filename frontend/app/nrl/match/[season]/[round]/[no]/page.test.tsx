@@ -91,6 +91,15 @@ it("server-renders the matchup, the AI's call, margin and disclaimer", async () 
   expect(screen.getByText("Warriors by 5.5")).toBeInTheDocument();
   expect(screen.getByText(/Not betting advice/)).toBeInTheDocument();
   expect(screen.getByText(/model nrl-elo-v0.1/)).toBeInTheDocument();
+
+  // The shared ProbabilityBar carries the three percentages in its aria-label
+  // (a11y floor) — a two-way NRL contest still renders the 3-way bar, draw
+  // segment small.
+  expect(
+    screen.getByRole("img", {
+      name: "Wests Tigers win 31%, draw 2%, Warriors win 67%",
+    }),
+  ).toBeInTheDocument();
 });
 
 it("shows the final score and grades the call once finished", async () => {
@@ -138,7 +147,15 @@ it("shows the two clubs' ladder rows when the ladder is available", async () => 
   expect(screen.getByText("Season so far")).toBeInTheDocument();
   // Only the two clubs in this matchup — not the rest of the ladder.
   expect(screen.queryByText("Storm")).not.toBeInTheDocument();
+  // Rendered via the shared StandingsTable (W–L / Diff / Pts) — the W–L cell
+  // and Pts prove both matchup clubs made it into the season-context table.
+  expect(screen.getByText("12–6")).toBeInTheDocument(); // Warriors
+  expect(screen.getByText("5–12")).toBeInTheDocument(); // Wests Tigers
   expect(screen.getByText("28")).toBeInTheDocument();
+  // The leftmost numeral is the real ladder rank of each club (4th, 14th) — not
+  // the 1/2 array index of this filtered two-row subset.
+  expect(screen.getByText("4")).toBeInTheDocument(); // Warriors sit 4th
+  expect(screen.getByText("14")).toBeInTheDocument(); // Wests Tigers 14th
 });
 
 it("calls notFound() when the match_no isn't in the round", async () => {

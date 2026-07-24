@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNrlMatchesServer, getNrlTipsheetServer } from "@/lib/api";
-import { SportMatchCard } from "@/components/SportMatchCard";
+import { TimelineSpine } from "@/components/TimelineSpine";
 import { TipsheetBlock } from "@/components/nrl/TipsheetBlock";
+import { nrlExpectedMargin, nrlMatchHref, nrlMatchToSummary } from "@/lib/nrlAdapters";
 import { APP_NAME } from "@/lib/constants";
 
 export const revalidate = 300;
@@ -88,6 +89,16 @@ export default async function NrlRoundPage({
   // list above (same rationale as the match detail page's Wave 2/3 sections).
   const tipsheet = await getNrlTipsheetServer(fixtures.season, round).catch(() => null);
 
+  // Per-card detail href + expected margin, keyed by match_id (= NrlMatch.id),
+  // for the fallback spine below. Built unconditionally (cheap) but only read
+  // when the tipsheet is absent.
+  const cardHref: Record<number, string | null> = {};
+  const cardMargin: Record<number, number | null> = {};
+  for (const m of current.matches) {
+    cardHref[m.id] = nrlMatchHref(fixtures.season, round, m.match_no);
+    cardMargin[m.id] = nrlExpectedMargin(m);
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
@@ -115,16 +126,20 @@ export default async function NrlRoundPage({
           <TipsheetBlock tipsheet={tipsheet} />
         </div>
       ) : (
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
-          {current.matches.map((m) => (
-            <SportMatchCard
-              key={m.match_no}
-              match={m}
-              eyebrow={`Round ${round}`}
-              season={fixtures.season}
-              round={round}
-            />
-          ))}
+        <div className="mt-6">
+          <TimelineSpine
+            days={[
+              {
+                key: `round-${round}`,
+                heading: `Round ${round}`,
+                matches: current.matches.map(nrlMatchToSummary),
+              },
+            ]}
+            tz="Australia/Sydney"
+            badge="club"
+            cardHref={cardHref}
+            cardMargin={cardMargin}
+          />
         </div>
       )}
     </div>

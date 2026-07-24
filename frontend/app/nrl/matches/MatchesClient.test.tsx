@@ -26,25 +26,34 @@ const fixtures: NrlMatchesResponse = {
 
 it("defaults to Upcoming with the live strip pinned on top", () => {
   render(<MatchesClient initial={fixtures} />);
-  expect(screen.getByText(/live now/i)).toBeInTheDocument();       // pinned strip label
-  expect(screen.getByText("Panthers")).toBeInTheDocument();        // live match in strip
-  expect(screen.getByText("Raiders")).toBeInTheDocument();         // upcoming below
-  expect(screen.queryByText("Dolphins")).not.toBeInTheDocument();  // finished hidden
+  expect(screen.getByText(/live now/i)).toBeInTheDocument();        // pinned strip label
+  // Compact MatchCards collapse both sides onto one name line, so match a
+  // substring rather than an exact team-name node.
+  expect(screen.getByText(/Panthers/)).toBeInTheDocument();         // live match in strip
+  expect(screen.getByText(/Raiders/)).toBeInTheDocument();          // upcoming below
+  expect(screen.queryByText(/Dolphins/)).not.toBeInTheDocument();   // finished hidden
+  // The spine keeps the round structure as its day heading...
+  expect(screen.getByText("Round 20")).toBeInTheDocument();
+  // ...and each fixture links to its (season, round, match_no) detail page.
+  expect(screen.getByText(/Raiders/).closest("a")).toHaveAttribute(
+    "href",
+    "/nrl/match/2026/20/3",
+  );
 });
 
 it("Finished tab shows results, latest round first, and hides live", () => {
   render(<MatchesClient initial={fixtures} />);
   fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
-  expect(screen.getByText("Dolphins")).toBeInTheDocument();
-  expect(screen.queryByText("Panthers")).not.toBeInTheDocument();
+  expect(screen.getByText(/Dolphins/)).toBeInTheDocument();
+  expect(screen.queryByText(/Panthers/)).not.toBeInTheDocument();
   expect(screen.getByRole("tab", { name: "Finished" })).toHaveAttribute("aria-selected", "true");
 });
 
 it("Live tab shows only in-window matches", () => {
   render(<MatchesClient initial={fixtures} />);
   fireEvent.click(screen.getByRole("tab", { name: "Live" }));
-  expect(screen.getByText("Panthers")).toBeInTheDocument();
-  expect(screen.queryByText("Raiders")).not.toBeInTheDocument();
+  expect(screen.getByText(/Panthers/)).toBeInTheDocument();
+  expect(screen.queryByText(/Raiders/)).not.toBeInTheDocument();
 });
 
 it("shows the per-tab empty state", () => {

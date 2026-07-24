@@ -4,6 +4,7 @@
  *  column, no legend). */
 import { render, screen } from "@testing-library/react";
 import { StandingsTable } from "@/components/StandingsTable";
+import type { StandingsTableRow } from "@/components/StandingsTable";
 import { COMPETITIONS } from "@/lib/sports";
 import type { StandingRow } from "@/lib/types";
 
@@ -86,5 +87,134 @@ describe("group shape (no zones, Top-2 qualification column)", () => {
 
   it("labels the qualification bar instead of leaving a bare percentage", () => {
     expect(screen.getByRole("img", { name: "Top 2 chance 87%" })).toBeInTheDocument();
+  });
+});
+
+describe("NRL ladder shape (club crests, W–L / Diff / Pts / Top-8% columns)", () => {
+  // Rows carry the native NRL ladder metrics. `projected_points` is the field
+  // the shared Pts column reads (NRL points mapped in), kept alongside the
+  // native `points` so the row reads as a real ladder entry.
+  const ladderRows: StandingsTableRow[] = [
+    { team_id: 1, team: "Storm", wins: 16, losses: 4, diff: 212, points: 34, projected_points: 34, projection_pct: 0.97 },
+    { team_id: 2, team: "Panthers", wins: 15, losses: 5, diff: 188, points: 32, projected_points: 32, projection_pct: 0.92 },
+    { team_id: 9, team: "Dolphins", wins: 10, losses: 10, diff: -14, points: 22, projected_points: 22, projection_pct: null },
+  ];
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={ladderRows}
+        zones={COMPETITIONS.nrl.zones}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts", "top8"]}
+      />,
+    );
+  });
+
+  it("swaps in the NRL column headers between the club and the numerals", () => {
+    expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+      "Club",
+      "W–L",
+      "Diff",
+      "Pts",
+      "Top 8%",
+    ]);
+  });
+
+  it("links a club through to its /nrl/team page", () => {
+    expect(screen.getByText("Storm").closest("a")).toHaveAttribute("href", "/nrl/team/1");
+  });
+
+  it("stripes the rank-1 club with the finals (lime) tone", () => {
+    expect(rowFor("Storm")).toHaveClass("border-l-win");
+  });
+
+  it("renders the W–L, Diff and Pts values", () => {
+    expect(screen.getByText("16–4")).toBeInTheDocument();
+    expect(screen.getByText("+212")).toBeInTheDocument();
+    // Pts (34) shares its digits with no other cell on the top row.
+    expect(screen.getByText("34")).toBeInTheDocument();
+  });
+
+  it("prints the top-8 projection as a rounded percentage", () => {
+    expect(screen.getByText("97%")).toBeInTheDocument();
+  });
+
+  it("degrades a missing top-8 projection to an em dash", () => {
+    expect(screen.getByText("—")).toBeInTheDocument();
+  });
+});
+
+describe("NRL ladder finals split (Top 4 vs Finals 5–8)", () => {
+  // Nine clubs so both finals bands and the miss-out gap are exercised: the
+  // single "Finals" band the ladder used to carry painted 1-8 identically,
+  // hiding the top-4 double-chance line (positions 4 and 5 rendered the same).
+  const ladder: StandingsTableRow[] = Array.from({ length: 9 }, (_, i) => ({
+    team_id: i + 1,
+    team: `Club ${i + 1}`,
+    wins: 16 - i,
+    losses: 4 + i,
+    diff: 200 - i * 30,
+    points: 34 - i * 2,
+    projected_points: 34 - i * 2,
+    projection_pct: 0.9 - i * 0.1,
+  }));
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={ladder}
+        zones={COMPETITIONS.nrl.zones}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts", "top8"]}
+      />,
+    );
+  });
+
+  it("keeps the top-4 cutoff visible: rank 4 stays lime, rank 5 turns gold", () => {
+    expect(rowFor("Club 4")).toHaveClass("border-l-win");
+    expect(rowFor("Club 5")).toHaveClass("border-l-gold");
+  });
+
+  it("stops the finals band at rank 8 (rank 9 misses out entirely)", () => {
+    expect(rowFor("Club 8")).toHaveClass("border-l-gold");
+    expect(rowFor("Club 9")).toHaveClass("border-l-transparent");
+  });
+
+  it("labels both finals bands in the legend", () => {
+    expect(screen.getByText("Top 4")).toBeInTheDocument();
+    expect(screen.getByText("Finals (5–8)")).toBeInTheDocument();
+  });
+});
+
+describe("explicit rank (filtered, non-contiguous subset)", () => {
+  // A caller that passes only two clubs of a ladder (match-detail's "Season so
+  // far") carries each row's real rank; the numeral must show that, not the
+  // 1/2 array index.
+  const subset: StandingsTableRow[] = [
+    { team_id: 16, team: "Warriors", rank: 4, wins: 12, losses: 6, diff: 101, points: 28, projected_points: 28 },
+    { team_id: 17, team: "Wests Tigers", rank: 14, wins: 5, losses: 12, diff: -88, points: 15, projected_points: 15 },
+  ];
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={subset}
+        zones={[]}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts"]}
+      />,
+    );
+  });
+
+  it("renders each row's real rank, not the array index", () => {
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("14")).toBeInTheDocument();
   });
 });

@@ -65,13 +65,21 @@ const params = (id = "16") => Promise.resolve({ id });
 beforeEach(() => mockStatsProfile.mockResolvedValue(null));
 afterEach(() => jest.resetAllMocks());
 
-it("server-renders the header with ladder slot, record and streak", async () => {
+it("server-renders the shared TeamHeader with ladder slot, record and streak", async () => {
   mockTeam.mockResolvedValue(profile);
   render(await NrlTeamPage({ params: params() }));
 
-  expect(screen.getAllByText("Warriors").length).toBeGreaterThanOrEqual(1);
+  // Name heading + the ladder/record/pts/Elo join drive the shared header's
+  // meta line; the streak pill is kept as an NRL-specific sibling below it.
+  expect(screen.getByRole("heading", { name: "Warriors" })).toBeInTheDocument();
   expect(screen.getByText(/3rd on the ladder · 10–5–0 · 20 pts · Elo 1573/)).toBeInTheDocument();
   expect(screen.getByText(/3-game winning run/)).toBeInTheDocument();
+
+  // The header owns the single back link into the ladder.
+  expect(screen.getByRole("link", { name: "Ladder" })).toHaveAttribute(
+    "href",
+    "/nrl/ladder",
+  );
 });
 
 it("renders the season snapshot with splits and bookend results", async () => {

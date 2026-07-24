@@ -138,3 +138,43 @@ describe("MatchCard (variant=\"compact\")", () => {
     expect(screen.getByRole("img")).toHaveAttribute("aria-label", expect.stringContaining("82%"));
   });
 });
+
+describe("MatchCard (NRL slots: badge / href / margin)", () => {
+  it("badge=\"club\" renders the ClubBadge monogram and no country flag <img>", () => {
+    const match = makeMatch({ teams: { home: "Broncos", away: "Storm" } });
+    const { container } = render(<MatchCard match={match} badge="club" />);
+
+    // The club monograms stand in for the country crests.
+    expect(screen.getByText("BRI")).toBeInTheDocument();
+    expect(screen.getByText("MEL")).toBeInTheDocument();
+    // No <Flag> image element is rendered in club mode.
+    expect(container.querySelector("img")).toBeNull();
+  });
+
+  it("href overrides the football detail link with the NRL match route", () => {
+    const match = makeMatch();
+    render(<MatchCard match={match} href="/nrl/match/2026/19/3" />);
+
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/nrl/match/2026/19/3");
+  });
+
+  it("href={null} drops the link entirely but still shows the team names", () => {
+    const match = makeMatch();
+    render(<MatchCard match={match} href={null} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.getByText("Argentina")).toBeInTheDocument();
+    expect(screen.getByText("Japan")).toBeInTheDocument();
+  });
+
+  it("renders a signed margin chip on a scheduled compact card", () => {
+    const positive = makeMatch();
+    const { rerender } = render(
+      <MatchCard match={positive} variant="compact" margin={5.5} />,
+    );
+    expect(screen.getByText("margin +5.5")).toBeInTheDocument();
+
+    rerender(<MatchCard match={positive} variant="compact" margin={-5.5} />);
+    expect(screen.getByText("margin -5.5")).toBeInTheDocument();
+  });
+});

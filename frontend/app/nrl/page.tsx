@@ -2,9 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNrlLadderServer, getNrlMatchesServer, getOriginSeriesServer } from "@/lib/api";
-import { LadderTable } from "@/components/LadderTable";
+import { StandingsTable } from "@/components/StandingsTable";
 import { IntelPanel } from "@/components/IntelPanel";
-import { SportMatchCard } from "@/components/SportMatchCard";
+import { FeatureHero } from "@/components/FeatureHero";
+import { TimelineSpine } from "@/components/TimelineSpine";
+import { ladderRowsToStandings, nrlExpectedMargin, nrlMatchHref, nrlMatchToSummary } from "@/lib/nrlAdapters";
+import { COMPETITIONS } from "@/lib/sports";
 
 export const revalidate = 300;
 
@@ -27,12 +30,42 @@ export default async function NrlHomePage() {
     fixtures.rounds.find((r) => r.matches.some((m) => m.status === "scheduled")) ??
     fixtures.rounds[fixtures.rounds.length - 1];
 
+  // The feature: the round's first still-to-play match (else its first match).
+  // It leads as the FeatureHero, so the timeline below excludes it — no dupes.
+  const featured =
+    current?.matches.find((m) => m.status === "scheduled") ?? current?.matches[0] ?? null;
+  const roundMatches = (current?.matches ?? []).filter((m) => m.id !== featured?.id);
+
+  // Per-card maps keyed by match_id (= NrlMatch.id) — the detail href and the
+  // model's expected margin, threaded onto each compact card in the spine.
+  const cardHref: Record<number, string | null> = {};
+  const cardMargin: Record<number, number | null> = {};
+  for (const m of roundMatches) {
+    cardHref[m.id] = nrlMatchHref(fixtures.season, current?.round, m.match_no);
+    cardMargin[m.id] = nrlExpectedMargin(m);
+  }
+
   return (
     <div>
       <h1 className="font-display text-2xl font-extrabold">NRL · Season {fixtures.season}</h1>
       <p className="mt-1 text-sm text-muted">
         Round {current?.round ?? "—"} · model predictions frozen at kickoff
       </p>
+
+      <div className="mt-6">
+        <FeatureHero
+          match={featured ? nrlMatchToSummary(featured) : null}
+          comp="nrl"
+          tz="Australia/Sydney"
+          badge="club"
+          href={
+            featured
+              ? nrlMatchHref(fixtures.season, current?.round, featured.match_no)
+              : undefined
+          }
+          margin={featured ? nrlExpectedMargin(featured) : null}
+        />
+      </div>
 
       <IntelPanel sport="nrl" />
 
@@ -60,17 +93,23 @@ export default async function NrlHomePage() {
       ) : null}
 
       <div className="mt-6 grid gap-4 md:grid-cols-[1fr_320px]">
-        <div className="grid gap-4">
-          {(current?.matches ?? []).map((m) => (
-            <SportMatchCard
-              key={m.match_no}
-              match={m}
-              eyebrow={`Round ${current?.round ?? "—"}`}
-              season={fixtures.season}
-              round={current?.round ?? null}
-            />
-          ))}
-        </div>
+        {roundMatches.length > 0 ? (
+          <TimelineSpine
+            days={[
+              {
+                key: `round-${current?.round ?? "tbc"}`,
+                heading: `Round ${current?.round ?? "TBC"}`,
+                matches: roundMatches.map(nrlMatchToSummary),
+              },
+            ]}
+            tz="Australia/Sydney"
+            badge="club"
+            cardHref={cardHref}
+            cardMargin={cardMargin}
+          />
+        ) : (
+          <p className="text-sm text-muted">No other fixtures this round.</p>
+        )}
         {ladder ? (
           <div className="glass h-fit rounded-2xl p-4">
             <div className="mb-2 flex items-center justify-between">
@@ -81,7 +120,14 @@ export default async function NrlHomePage() {
                 Full ladder →
               </Link>
             </div>
-            <LadderTable rows={ladder.rows} compact />
+            <StandingsTable
+              standings={ladderRowsToStandings(ladder.rows).slice(0, 4)}
+              zones={COMPETITIONS.nrl.zones}
+              badge="club"
+              teamBasePath="/nrl/team"
+              teamHeader="Club"
+              columns={["pts"]}
+            />
           </div>
         ) : null}
       </div>

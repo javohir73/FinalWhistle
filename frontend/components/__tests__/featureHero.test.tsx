@@ -66,4 +66,54 @@ describe("FeatureHero", () => {
     expect(screen.queryByRole("link")).toBeNull();
     expect(screen.queryByText(/%/)).toBeNull();
   });
+
+  it("routes both CTAs through the href override", () => {
+    render(
+      <FeatureHero match={makeMatch()} comp="nrl" tz="UTC" href="/nrl/match/2026/19/3" />,
+    );
+
+    const links = screen.getAllByRole("link");
+    expect(links).toHaveLength(2);
+    links.forEach((link) => expect(link).toHaveAttribute("href", "/nrl/match/2026/19/3"));
+  });
+
+  it("drops both CTA links when href is null -- never falls through to /match/<id>", () => {
+    // An NRL fixture whose round is still TBC (nrlMatchHref -> null): the CTAs
+    // must degrade to non-interactive labels, not the football detail route.
+    render(<FeatureHero match={makeMatch()} comp="nrl" tz="UTC" badge="club" href={null} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    // The labels stay for layout, but there's no link to the wrong sport.
+    expect(screen.getByText("Make your pick")).toBeInTheDocument();
+    expect(screen.getByText("Why 62%?")).toBeInTheDocument();
+  });
+
+  it("prints the expected margin in the caption when there's no predicted score", () => {
+    // Brazil (home) leads on win probability, so it's the favoured side.
+    render(
+      <FeatureHero
+        match={makeMatch({ predicted_score: null })}
+        comp="nrl"
+        tz="UTC"
+        margin={5.5}
+      />,
+    );
+
+    expect(screen.getByText(/AI most likely: Brazil by 5\.5/)).toBeInTheDocument();
+  });
+
+  it("badge=\"club\" swaps the country crests for club monograms", () => {
+    const { container } = render(
+      <FeatureHero
+        match={makeMatch({ teams: { home: "Panthers", away: "Eels" } })}
+        comp="nrl"
+        tz="UTC"
+        badge="club"
+      />,
+    );
+
+    expect(screen.getByText("PEN")).toBeInTheDocument();
+    expect(screen.getByText("PAR")).toBeInTheDocument();
+    expect(container.querySelector("img")).toBeNull();
+  });
 });

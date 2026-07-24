@@ -7,7 +7,9 @@ import {
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
 import { ClubBadge } from "@/components/ClubBadge";
-import { LadderTable } from "@/components/LadderTable";
+import { ProbabilityBar } from "@/components/ProbabilityBar";
+import { StandingsTable } from "@/components/StandingsTable";
+import { ladderRowsToStandings } from "@/lib/nrlAdapters";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
 import { MatchIntelClient } from "./MatchIntelClient";
@@ -135,7 +137,7 @@ export default async function NrlMatchDetailPage({
       <section className="glass rounded-2xl p-6">
         {finished && (
           <p className="mb-4 text-center">
-            <span className="rounded-full bg-surface-2/70 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+            <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
               Full time
             </span>
           </p>
@@ -166,19 +168,16 @@ export default async function NrlMatchDetailPage({
               </p>
             )}
 
-            <div className="mt-4 flex h-2 gap-0.5" aria-hidden="true">
-              <i className="rounded-full bg-win" style={{ width: `${p.p_home * 100}%` }} />
-              <i className="rounded-full bg-draw" style={{ width: `${p.p_draw * 100}%` }} />
-              <i className="rounded-full bg-loss" style={{ width: `${p.p_away * 100}%` }} />
-            </div>
-            <div className="mt-2 flex items-center justify-between text-xs tabular-nums text-muted">
-              <span>
-                {home} <strong className="font-bold text-foreground">{pct(p.p_home)}</strong>
-              </span>
-              <span>Draw {pct(p.p_draw)}</span>
-              <span>
-                {away} <strong className="font-bold text-foreground">{pct(p.p_away)}</strong>
-              </span>
+            {/* Shared W/D/L bar — the role="img" aria-label prints the three
+                percentages (a11y floor). Two-way NRL contests keep the 3-way
+                bar; the draw segment naturally renders small. */}
+            <div className="mt-4">
+              <ProbabilityBar
+                probabilities={{ home_win: p.p_home, draw: p.p_draw, away_win: p.p_away }}
+                homeLabel={home}
+                awayLabel={away}
+                showLabels
+              />
             </div>
 
             {p.expected_margin != null && !finished && (
@@ -220,7 +219,14 @@ export default async function NrlMatchDetailPage({
               Full ladder →
             </Link>
           </div>
-          <LadderTable rows={clubRows} />
+          <StandingsTable
+            standings={ladderRowsToStandings(clubRows)}
+            zones={[]}
+            badge="club"
+            teamBasePath="/nrl/team"
+            teamHeader="Club"
+            columns={["wl", "diff", "pts"]}
+          />
         </section>
       )}
 

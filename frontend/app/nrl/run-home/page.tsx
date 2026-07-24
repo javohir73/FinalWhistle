@@ -6,7 +6,9 @@ import {
   getNrlLadderServer,
   getNrlMatchesServer,
 } from "@/lib/api";
-import { LadderTable } from "@/components/LadderTable";
+import { StandingsTable } from "@/components/StandingsTable";
+import { ladderRowsToStandings } from "@/lib/nrlAdapters";
+import { COMPETITIONS } from "@/lib/sports";
 import { RunHomePredictor } from "@/components/nrl/RunHomePredictor";
 import { ShareButton } from "@/components/ShareButton";
 import { Empty, ErrorState, Loading } from "@/components/States";
@@ -43,6 +45,14 @@ export default async function NrlRunHomePage() {
       ? await getNrlConditionalProjectionsServer(fixtures.season).catch(() => null)
       : null;
 
+  // The baseline (picks_applied=0) finals sim doubles as the ladder's Top-8%
+  // column, keyed by team name like the full-ladder projections. Absent it
+  // (season over, or the sim hiccupped) the ladder drops the column rather
+  // than print a wall of em dashes.
+  const projectionsByTeam = baseline
+    ? Object.fromEntries(baseline.teams.map((t) => [t.team, { top8: t.top8, top4: t.top4 }]))
+    : undefined;
+
   return (
     <div>
       <div className="flex items-center justify-between gap-3">
@@ -55,7 +65,14 @@ export default async function NrlRunHomePage() {
       </p>
 
       <div className="glass mt-6 rounded-2xl p-4">
-        <LadderTable rows={ladder.rows} />
+        <StandingsTable
+          standings={ladderRowsToStandings(ladder.rows, projectionsByTeam)}
+          zones={COMPETITIONS.nrl.zones}
+          badge="club"
+          teamBasePath="/nrl/team"
+          teamHeader="Club"
+          columns={projectionsByTeam ? ["wl", "diff", "pts", "top8"] : ["wl", "diff", "pts"]}
+        />
       </div>
 
       <div className="mt-6">

@@ -88,4 +88,83 @@ describe("TeamHeader", () => {
 
     expect(screen.getByText("Tournament host")).toBeInTheDocument();
   });
+
+  // NRL adoption (Floodlight P3): the additive badge/showFavorite/meta/tiles
+  // seams let the club page render the same banner without a fork.
+  it("renders the NRL club variant: club-badge code, no star, meta override, custom tiles", () => {
+    render(
+      <TeamHeader
+        team={makeTeam({
+          name: "Warriors",
+          country_code: null,
+          confederation: null,
+          fifa_rank: null,
+          elo_rating: 1573,
+          is_host: false,
+        })}
+        comp="nrl"
+        backHref="/nrl/ladder"
+        backLabel="Ladder"
+        badge="club"
+        showFavorite={false}
+        meta="3rd on the ladder · 10–5–0 · 20 pts · Elo 1573"
+        tiles={[
+          { label: "Ladder", value: "3rd" },
+          { label: "Record", value: "10–5–0" },
+          { label: "Points", value: "20" },
+          { label: "Elo", value: "1573" },
+        ]}
+      />,
+    );
+
+    // Name + the ClubBadge monogram (Warriors -> WAR) stand in for the flag.
+    expect(screen.getByRole("heading", { name: "Warriors" })).toBeInTheDocument();
+    expect(screen.getByText("WAR")).toBeInTheDocument();
+
+    // showFavorite={false} drops the star (NRL clubs aren't country favorites).
+    expect(screen.queryByRole("button", { name: /favorites/i })).toBeNull();
+
+    // The meta override prints instead of the football group/rank/Elo join.
+    expect(
+      screen.getByText("3rd on the ladder · 10–5–0 · 20 pts · Elo 1573"),
+    ).toBeInTheDocument();
+
+    // The custom NRL tile row prints instead of the Elo/FIFA-rank pair. The
+    // "Ladder" label collides with the back link's text node, so the tile row
+    // is asserted through its unique labels + values.
+    expect(screen.getByText("Record")).toBeInTheDocument();
+    expect(screen.getByText("Points")).toBeInTheDocument();
+    expect(screen.getByText("3rd")).toBeInTheDocument(); // Ladder tile value
+    expect(screen.getByText("10–5–0")).toBeInTheDocument(); // Record tile value
+    expect(screen.getByText("20")).toBeInTheDocument(); // Points tile value
+    expect(screen.queryByText("FIFA rank")).toBeNull();
+
+    // is_host=false -> no host badge; back link points at the ladder.
+    expect(screen.queryByText("Tournament host")).toBeNull();
+    expect(screen.getByRole("link", { name: "Ladder" })).toHaveAttribute(
+      "href",
+      "/nrl/ladder",
+    );
+  });
+
+  it("prints no meta line when meta is null and no tiles when tiles is empty", () => {
+    render(
+      <TeamHeader
+        team={makeTeam({ name: "Storm", elo_rating: 1900, fifa_rank: null })}
+        comp="nrl"
+        backHref="/nrl/ladder"
+        backLabel="Ladder"
+        badge="club"
+        showFavorite={false}
+        meta={null}
+        tiles={[]}
+      />,
+    );
+
+    // meta={null} suppresses the meta line; tiles={[]} suppresses the tile row.
+    // The football Elo tile must NOT leak through the caller's empty override.
+    expect(screen.getByRole("heading", { name: "Storm" })).toBeInTheDocument();
+    expect(screen.queryByText("Elo")).toBeNull();
+    expect(screen.queryByText("1900")).toBeNull();
+  });
 });
