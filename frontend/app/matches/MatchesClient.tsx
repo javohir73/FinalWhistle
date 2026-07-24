@@ -2,14 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
 import { dayKey, dayHeading, relativeDayLabel, tzCityLabel } from "@/lib/datetime";
 import { isLiveNow } from "@/lib/liveLabel";
 import { MatchCard } from "@/components/MatchCard";
+import { TimelineSpine } from "@/components/TimelineSpine";
 import { LocationPicker } from "@/components/LocationPicker";
 import { Loading, ErrorState, Empty } from "@/components/States";
+import { COMPETITIONS, competitionFromPathname } from "@/lib/sports";
 import type { MatchSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +33,11 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
   // server so the first paint shows real fixtures, not a skeleton.
   const state = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
   const { tz } = useTimezone();
+  // Header vocabulary follows the active competition: 'Fixtures' for wc26 (and
+  // the future European leagues that ride this template), 'Matches' for an
+  // NRL-shaped comp. The wrapper route serves this at /football/wc26/fixtures;
+  // un-namespaced /matches falls back to DEFAULT_COMPETITION (wc26) all the same.
+  const fixturesTerm = COMPETITIONS[competitionFromPathname(usePathname())].terms.fixtures;
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("Upcoming");
 
@@ -115,17 +123,20 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
 
   return (
     <div>
-      <header className="mb-4 flex items-center justify-between gap-3">
-        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
-          All <span className="text-lime-deep">fixtures</span>
-        </h1>
+      <header className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+            All <span className="text-lime-deep">{fixturesTerm}</span>
+          </h1>
+          <p className="mt-1 text-sm text-muted">every match by kickoff</p>
+        </div>
         <div className="relative shrink-0" ref={tzRef}>
           <button
             type="button"
             onClick={() => setTzOpen((v) => !v)}
             aria-haspopup="dialog"
             aria-expanded={tzOpen}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-win/40"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-foreground transition hover:border-win/40"
           >
             <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 text-lime-deep" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11Z" strokeLinejoin="round" />
@@ -229,30 +240,24 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
               </section>
             )}
 
-            {days.map(([key, dayMatches]) => {
-              const iso = dayMatches[0].kickoff_utc;
-              const rel = key === TBC || !iso ? null : relativeDayLabel(iso, tz);
-              const heading =
-                key === TBC || !iso
-                  ? "Date to be confirmed"
-                  : rel
-                    ? `${rel} · ${dayHeading(iso, tz)}`
-                    : dayHeading(iso, tz);
-              return (
-                <section key={key}>
-                  <div className="mb-3.5">
-                    <h2 className="font-display text-[11px] font-bold uppercase tracking-wider text-muted">
-                      {heading}
-                    </h2>
-                  </div>
-                  <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {dayMatches.map((m) => (
-                      <MatchCard key={m.match_id} match={m} tz={tz} />
-                    ))}
-                  </div>
-                </section>
-              );
-            })}
+            {/* Fixtures fall down a kickoff-time spine (Floodlight prototype,
+             *  Recon 3 Screen 2). The heading string is computed exactly as the
+             *  old day grid did -- relative label ("Today ·") where it applies,
+             *  otherwise the absolute day heading, "Date to be confirmed" last. */}
+            <TimelineSpine
+              days={days.map(([key, dayMatches]) => {
+                const iso = dayMatches[0].kickoff_utc;
+                const rel = key === TBC || !iso ? null : relativeDayLabel(iso, tz);
+                const heading =
+                  key === TBC || !iso
+                    ? "Date to be confirmed"
+                    : rel
+                      ? `${rel} · ${dayHeading(iso, tz)}`
+                      : dayHeading(iso, tz);
+                return { key, heading, matches: dayMatches };
+              })}
+              tz={tz}
+            />
           </div>
         ))}
     </div>

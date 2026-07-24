@@ -9,6 +9,13 @@ import type { MatchSummary } from "@/lib/types";
 jest.mock("@/lib/api");
 const mockGet = getUpcomingMatches as jest.MockedFunction<typeof getUpcomingMatches>;
 
+// The header vocabulary now derives from the active competition via usePathname
+// (the wrapper serves this at /football/wc26/fixtures). No router provider is
+// mounted in these unit renders, so pin the pathname to that live URL.
+jest.mock("next/navigation", () => ({
+  usePathname: () => "/football/wc26/fixtures",
+}));
+
 function match(
   id: number,
   home: string,
@@ -39,13 +46,13 @@ it("shows loading then the match cards", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
   expect(screen.getByRole("status")).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 });
 
 it("links to the Beat the AI tips page", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
   expect(screen.getByRole("link", { name: /Beat the AI/i })).toHaveAttribute("href", "/tips");
 });
 
@@ -61,11 +68,11 @@ it("filters matches by team search", async () => {
     match(2, "Spain", "Uruguay", "Group H"),
   ]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "spain" } });
-  expect(screen.queryByText("Scotland")).not.toBeInTheDocument();
-  expect(screen.getByText("Uruguay")).toBeInTheDocument();
+  expect(screen.queryByText(/Scotland/)).not.toBeInTheDocument();
+  expect(screen.getByText(/Uruguay/)).toBeInTheDocument();
 });
 
 it("groups matches by date under a day heading", async () => {
@@ -78,7 +85,7 @@ it("groups matches by date under a day heading", async () => {
     }),
   ]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/South Africa/)).toBeInTheDocument());
   // A day heading derived from the kickoff date should appear (year included).
   expect(screen.getByText(/2026/)).toBeInTheDocument();
 });
@@ -98,14 +105,14 @@ it("pins live (in-play) matches in a 'Live now' section at the top", async () =>
   // The live match is surfaced, and the "Live now" heading precedes the
   // scheduled match in the DOM (pinned to the top, not buried by kickoff order).
   const live = screen.getByText("Live now");
-  const scheduledTeam = screen.getByText("Uruguay");
+  const scheduledTeam = screen.getByText(/Uruguay/);
   expect(live.compareDocumentPosition(scheduledTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
 });
 
 it("opens an inline timezone picker from the location chip instead of navigating", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 
   // The chip no longer jumps to the profile page…
   const toLeaderboard = screen
@@ -128,7 +135,7 @@ it("shows an empty state when a search matches nothing, and recovers on clear", 
     match(2, "Spain", "Uruguay", "Group H"),
   ]);
   render(<MatchesPage />);
-  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 
   // Search for something no team matches → the empty state appears.
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "zzz" } });
@@ -136,8 +143,8 @@ it("shows an empty state when a search matches nothing, and recovers on clear", 
 
   // Clearing the search restores the fixtures.
   fireEvent.change(screen.getByLabelText("Search team"), { target: { value: "" } });
-  expect(screen.getByText("Scotland")).toBeInTheDocument();
-  expect(screen.getByText("Uruguay")).toBeInTheDocument();
+  expect(screen.getByText(/Scotland/)).toBeInTheDocument();
+  expect(screen.getByText(/Uruguay/)).toBeInTheDocument();
 });
 
 // A finished match has been played; a scheduled one has not. Kickoffs are relative
@@ -154,17 +161,17 @@ it("defaults to Upcoming (scheduled only) and shows results under Finished", asy
   ]);
   render(<MatchesPage />);
   // Query away-team names: the home team doubles as the predicted winner.
-  await waitFor(() => expect(screen.getByText("South Africa")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByText(/South Africa/)).toBeInTheDocument());
 
   // Default (Upcoming) shows the scheduled fixture, not the finished result.
   expect(screen.getByRole("tab", { name: "Upcoming" })).toHaveAttribute("aria-selected", "true");
-  expect(screen.getByText("South Africa")).toBeInTheDocument();
-  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
+  expect(screen.getByText(/South Africa/)).toBeInTheDocument();
+  expect(screen.queryByText(/Switzerland/)).not.toBeInTheDocument();
 
   // Switching to Finished keeps the played one and drops the upcoming.
   fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
-  expect(screen.getByText("Switzerland")).toBeInTheDocument();
-  expect(screen.queryByText("South Africa")).not.toBeInTheDocument();
+  expect(screen.getByText(/Switzerland/)).toBeInTheDocument();
+  expect(screen.queryByText(/South Africa/)).not.toBeInTheDocument();
 });
 
 it("narrows to in-play games under the Live filter", async () => {
@@ -183,8 +190,8 @@ it("narrows to in-play games under the Live filter", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Live" }));
   // Only the live match remains; the finished one is filtered out.
   expect(screen.getByText("Live now")).toBeInTheDocument();
-  expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
-  expect(screen.queryByText("Switzerland")).not.toBeInTheDocument();
+  expect(screen.getByText(/Morocco/)).toBeInTheDocument(); // away team of the live match
+  expect(screen.queryByText(/Switzerland/)).not.toBeInTheDocument();
 });
 
 it("pins live on the default view but drops it under the Finished filter", async () => {
@@ -200,11 +207,11 @@ it("pins live on the default view but drops it under the Finished filter", async
   render(<MatchesPage />);
   // Live game is pinned on the default (Upcoming) view so it's never buried.
   await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
-  expect(screen.getByText("Morocco")).toBeInTheDocument(); // away team of the live match
+  expect(screen.getByText(/Morocco/)).toBeInTheDocument(); // away team of the live match
 
   // Under Finished the live pin drops and the full-time result shows instead.
   fireEvent.click(screen.getByRole("tab", { name: "Finished" }));
   expect(screen.queryByText("Live now")).not.toBeInTheDocument();
-  expect(screen.getByText("Switzerland")).toBeInTheDocument();
-  expect(screen.queryByText("Morocco")).not.toBeInTheDocument();
+  expect(screen.getByText(/Switzerland/)).toBeInTheDocument();
+  expect(screen.queryByText(/Morocco/)).not.toBeInTheDocument();
 });
