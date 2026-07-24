@@ -1,4 +1,12 @@
-import { SPORTS, sportFromPathname, switchSportHref } from "@/lib/sports";
+import {
+  SPORTS,
+  sportFromPathname,
+  switchSportHref,
+  COMPETITIONS,
+  competitionFromPathname,
+  isWiredCompetition,
+  competitionsForSport,
+} from "@/lib/sports";
 
 describe("sport config", () => {
   it("detects the active sport from the pathname prefix", () => {
@@ -50,5 +58,53 @@ describe("sport config", () => {
 
   it("recognizes /nrl/leaderboard as NRL context", () => {
     expect(sportFromPathname("/nrl/leaderboard")).toBe("nrl");
+  });
+});
+
+describe("competition registry", () => {
+  it("resolves the active competition from the pathname, longest basePath wins", () => {
+    expect(competitionFromPathname("/football/epl/fixtures")).toBe("epl");
+    expect(competitionFromPathname("/football/wc26")).toBe("wc26");
+    expect(competitionFromPathname("/football/wc26/match/42")).toBe("wc26");
+    expect(competitionFromPathname("/nrl/ladder")).toBe("nrl");
+  });
+
+  it("falls back to the DEFAULT_COMPETITION for un-namespaced/global routes", () => {
+    expect(competitionFromPathname("/")).toBe("wc26");
+    expect(competitionFromPathname("/leaderboard")).toBe("wc26");
+    expect(competitionFromPathname("/tips")).toBe("wc26");
+  });
+
+  it("gates disabled/unknown competitions via isWiredCompetition", () => {
+    expect(isWiredCompetition("wc26")).toBe(true);
+    expect(isWiredCompetition("nrl")).toBe(true);
+    expect(isWiredCompetition("epl")).toBe(false); // P1: not enabled yet
+    expect(isWiredCompetition("bogus")).toBe(false);
+  });
+
+  it("gives wc26 its knockout shape (bracket + groups)", () => {
+    expect(COMPETITIONS.wc26.hasBracket).toBe(true);
+    expect(COMPETITIONS.wc26.hasGroups).toBe(true);
+    expect(COMPETITIONS.epl.format).toBe("league");
+    expect(COMPETITIONS.epl.hasBracket).toBe(false);
+  });
+
+  it("gives each sport its own terminology (Fixtures/Standings vs Matches/Ladder)", () => {
+    expect(COMPETITIONS.nrl.terms).toEqual({ fixtures: "Matches", standings: "Ladder" });
+    expect(COMPETITIONS.epl.terms.fixtures).toBe("Fixtures");
+  });
+
+  it("lists competitions per sport in stable display order", () => {
+    expect(competitionsForSport("football").map((c) => c.id)).toEqual([
+      "epl",
+      "laliga",
+      "bundesliga",
+      "wc26",
+    ]);
+    expect(competitionsForSport("nrl").map((c) => c.id)).toEqual(["nrl"]);
+  });
+
+  it("gives every competition its own accent token", () => {
+    expect(COMPETITIONS.epl.accentVar).toBe("--accent-epl");
   });
 });
