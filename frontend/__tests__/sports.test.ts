@@ -4,6 +4,7 @@ import {
   switchSportHref,
   COMPETITIONS,
   competitionFromPathname,
+  isCompetitionHomeHref,
   isWiredCompetition,
   competitionsForSport,
 } from "@/lib/sports";
@@ -35,25 +36,15 @@ describe("sport config", () => {
     expect(switchSportHref("/nrl/tips", "football")).toBe("/tips");
   });
 
+  // Legacy SPORTS structure kept as a compat export (see lib/sports.ts) -- its
+  // nav-link shape still matches football/NRL, so this label assertion still
+  // holds. The registry equivalents (source of truth for SiteNav/BottomNav as
+  // of Floodlight P1 slice p1-s4) live under "competition registry" below.
   it("gives football and NRL their nav links (Tips only renders once its format guard is met)", () => {
     expect(SPORTS.football.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Groups", "Bracket", "You", "Tips"]);
     expect(SPORTS.nrl.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Ladder", "Record", "Tips"]);
-  });
-
-  it("gives football's Tips link a requiresLeagueFormat guard so it and Bracket never both show", () => {
-    const tipsLink = SPORTS.football.navLinks.find((l) => l.label === "Tips");
-    expect(tipsLink?.href).toBe("/tips");
-    expect(tipsLink?.requiresLeagueFormat).toBe(true);
-    const bracketLink = SPORTS.football.navLinks.find((l) => l.label === "Bracket");
-    expect(bracketLink?.requiresBrackets).toBe(true);
-  });
-
-  it("gives NRL a Tips link to the tipsheet (design doc: NRL Round Tips) instead of the You/leaderboard slot", () => {
-    const tipsLink = SPORTS.nrl.navLinks.find((l) => l.label === "Tips");
-    expect(tipsLink?.href).toBe("/nrl/tips");
-    expect(SPORTS.nrl.navLinks.find((l) => l.label === "You")).toBeUndefined();
   });
 
   it("recognizes /nrl/leaderboard as NRL context", () => {
@@ -106,6 +97,37 @@ describe("competition registry", () => {
 
   it("gives every competition its own accent token", () => {
     expect(COMPETITIONS.epl.accentVar).toBe("--accent-epl");
+  });
+
+  // Floodlight P1 slice p1-s4: SiteNav/BottomNav now derive their links from
+  // COMPETITIONS[competitionFromPathname(...)] instead of SPORTS[sportFromPathname(...)] --
+  // these are the registry equivalents of the old SPORTS.football/SPORTS.nrl
+  // nav-link assertions above.
+  it("gives wc26 and nrl their nav links (Tips only renders once its format guard is met)", () => {
+    expect(COMPETITIONS.wc26.navLinks.map((l) => l.label)).toEqual(
+      ["Home", "Fixtures", "Groups", "Bracket", "You", "Tips"]);
+    expect(COMPETITIONS.nrl.navLinks.map((l) => l.label)).toEqual(
+      ["Home", "Matches", "Ladder", "Record", "Tips"]);
+  });
+
+  it("gives wc26's Tips link a requiresLeagueFormat guard so it and Bracket never both show", () => {
+    const tipsLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Tips");
+    expect(tipsLink?.requiresLeagueFormat).toBe(true);
+    const bracketLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Bracket");
+    expect(bracketLink?.requiresBrackets).toBe(true);
+    expect(bracketLink?.href).toBe("/football/wc26/bracket");
+  });
+
+  it("gives NRL a Tips link to the tipsheet (design doc: NRL Round Tips) instead of the You/leaderboard slot", () => {
+    const tipsLink = COMPETITIONS.nrl.navLinks.find((l) => l.label === "Tips");
+    expect(tipsLink?.href).toBe("/nrl/tips");
+    expect(COMPETITIONS.nrl.navLinks.find((l) => l.label === "You")).toBeUndefined();
+  });
+
+  it("recognizes competition home hrefs for the nav components' exact-match active state", () => {
+    expect(isCompetitionHomeHref("/football/wc26")).toBe(true);
+    expect(isCompetitionHomeHref("/nrl")).toBe(true);
+    expect(isCompetitionHomeHref("/football/wc26/fixtures")).toBe(false);
   });
 });
 

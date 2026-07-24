@@ -301,6 +301,19 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
   },
 };
 
+/** Every competition's home href ("/football/epl", "/football/wc26", "/nrl",
+ *  ...), derived from `basePath` -- mirrors SPORT_HOME_HREFS/isSportHomeHref
+ *  above, but keyed off the competition registry. Home links need exact-match
+ *  active state (see isSportHomeHref's doc comment); SiteNav/BottomNav use
+ *  this version once their gating derives from COMPETITIONS instead of SPORTS
+ *  (Floodlight P1 slice p1-s4). Missed in slice p1-s2 -- added here since this
+ *  is the first slice that needs it. */
+const COMPETITION_HOME_HREFS = new Set(Object.values(COMPETITIONS).map((c) => c.basePath));
+
+export function isCompetitionHomeHref(href: string): boolean {
+  return COMPETITION_HOME_HREFS.has(href);
+}
+
 /** The football default for non-namespaced/global routes ("/", "/leaderboard",
  *  "/tips", "/about", ...) that haven't been moved under a per-competition
  *  basePath yet -- today that's everything, since the route split lands in

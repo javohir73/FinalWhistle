@@ -5,15 +5,16 @@ import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
 import { SportSwitcher } from "@/components/SportSwitcher";
-import { SPORTS, isSportHomeHref, sportFromPathname } from "@/lib/sports";
+import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
 import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
-  // Sport home links ("/", "/nrl") need exact-match semantics — otherwise
-  // they prefix-match every sub-page of that sport (e.g. "/nrl" would stay
-  // lit on "/nrl/matches") and two tabs end up active at once.
-  if (isSportHomeHref(href)) return pathname === href || prefixes.some((p) => hit(pathname, p));
+  // Competition home links ("/football/wc26", "/nrl") need exact-match
+  // semantics — otherwise they prefix-match every sub-page of that
+  // competition (e.g. "/nrl" would stay lit on "/nrl/matches") and two tabs
+  // end up active at once.
+  if (isCompetitionHomeHref(href)) return pathname === href || prefixes.some((p) => hit(pathname, p));
   return hit(pathname, href) || prefixes.some((p) => hit(pathname, p));
 }
 
@@ -33,7 +34,7 @@ export function SiteNav() {
   // C6: the Bracket link only makes sense for tournaments that have one.
   // Tips (league-format only) takes the slot Bracket vacates -- see
   // requiresLeagueFormat's doc comment in lib/sports.ts.
-  const links = SPORTS[sportFromPathname(pathname)].navLinks.filter(
+  const links = COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
     (link) => (!link.requiresBrackets || has_brackets) && (!link.requiresLeagueFormat || !has_brackets),
   );
 

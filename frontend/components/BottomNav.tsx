@@ -2,13 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { SPORTS, isSportHomeHref, sportFromPathname } from "@/lib/sports";
+import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
 import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
 
 const ICONS: Record<string, React.ReactNode> = {
   Home: <path d="M3 11l9-8 9 8M5 10v10h14V10" strokeLinejoin="round" strokeLinecap="round" />,
   Matches: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
+    </>
+  ),
+  // Football's WC26/EPL/LaLiga/Bundesliga fixtures tab (NRL still uses
+  // "Matches" above) -- same calendar glyph, just a different registry label.
+  Fixtures: (
     <>
       <rect x="3" y="5" width="18" height="16" rx="3" />
       <path d="M8 3v4M16 3v4M3 10h18" strokeLinecap="round" />
@@ -24,6 +32,8 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   Bracket: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
   Ladder: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
+  // EPL/LaLiga/Bundesliga's standings tab (P2) -- same rungs glyph as Ladder.
+  Standings: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
   Record: <path d="M4 19l6-7 4 3 6-8" strokeLinejoin="round" strokeLinecap="round" />,
   You: (
     <>
@@ -41,10 +51,11 @@ const ICONS: Record<string, React.ReactNode> = {
 };
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
-  // Sport home links ("/", "/nrl") need exact-match semantics — otherwise
-  // they prefix-match every sub-page of that sport (e.g. "/nrl" would stay
-  // lit on "/nrl/matches") and two tabs end up active at once.
-  if (isSportHomeHref(href)) return pathname === href || prefixes.some((p) => hit(pathname, p));
+  // Competition home links ("/football/wc26", "/nrl") need exact-match
+  // semantics — otherwise they prefix-match every sub-page of that
+  // competition (e.g. "/nrl" would stay lit on "/nrl/matches") and two tabs
+  // end up active at once.
+  if (isCompetitionHomeHref(href)) return pathname === href || prefixes.some((p) => hit(pathname, p));
   return hit(pathname, href) || prefixes.some((p) => hit(pathname, p));
 }
 
@@ -63,7 +74,7 @@ export function BottomNav() {
   // Tips (league-format only) takes the slot Bracket vacates -- see
   // requiresLeagueFormat's doc comment in lib/sports.ts -- so the two never
   // both render and the five-destination cap holds regardless of ship order.
-  const tabs = SPORTS[sportFromPathname(pathname)].navLinks.filter(
+  const tabs = COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
     (tab) => (!tab.requiresBrackets || has_brackets) && (!tab.requiresLeagueFormat || !has_brackets),
   );
 
@@ -81,7 +92,7 @@ export function BottomNav() {
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition",
+                "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
                 active ? "text-lime-deep" : "text-muted hover:text-foreground",
               )}
             >
