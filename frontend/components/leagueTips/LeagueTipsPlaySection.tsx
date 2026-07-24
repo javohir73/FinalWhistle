@@ -25,7 +25,20 @@ import { ACTIVE_LEAGUES } from "@/lib/leagueConfig";
  *  from, unlike NRL) -- the leaderboard only mounts once that's known, so it
  *  never has to guess which matchweek "current" means. Switching leagues
  *  clears it immediately so the leaderboard never flashes the old league's
- *  matchweek while the picker resolves the new one. */
+ *  matchweek while the picker resolves the new one.
+ *
+ *  A league-scoped `key` on the picker/you-vs-ai below forces a full remount
+ *  on switch -- without it, LeagueTipsPicker's internal nav state
+ *  (`requested`, `current`, `boundary`) survives the prop swap, so a switch
+ *  can re-request the PREVIOUS league's matchweek number and, if that 404s,
+ *  fall back to showing the previous league's stale fixtures under the new
+ *  league's label (Opus review: League Score Predictions Phase 2 multi-
+ *  league switcher). The two keys are prefixed per-component (not just
+ *  `league`) -- React reconciles siblings in ONE children array by key
+ *  regardless of element type, so giving the picker and you-vs-ai the exact
+ *  same key string for the same league is itself a duplicate-key collision
+ *  ("Encountered two children with the same key") that corrupts, rather than
+ *  fixes, the remount. */
 export function LeagueTipsPlaySection({ defaultLeague }: { defaultLeague: string }) {
   const [league, setLeague] = useState(defaultLeague);
   const [matchweek, setMatchweek] = useState<number | null>(null);
@@ -43,8 +56,8 @@ export function LeagueTipsPlaySection({ defaultLeague }: { defaultLeague: string
         </div>
       )}
       <ClaimDeviceLeagueTips />
-      <LeagueTipsPicker league={league} onMatchweekChange={setMatchweek} />
-      <LeagueYouVsAi league={league} />
+      <LeagueTipsPicker key={`picker-${league}`} league={league} onMatchweekChange={setMatchweek} />
+      <LeagueYouVsAi key={`you-vs-ai-${league}`} league={league} />
       {matchweek != null && <LeagueTipsLeaderboard league={league} matchweek={matchweek} />}
     </div>
   );
