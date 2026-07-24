@@ -46,7 +46,17 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     league actually resolves (Phase 2) do those three steps gain a "{code}_"
     prefix, so two leagues' summaries never collide under the same key.
     club_elo/learning_loop/score_predictions_grading stay unprefixed
-    regardless of league count -- they were never tournament-scoped.
+    regardless of league count -- they were never tournament-scoped in the
+    step-naming sense (club_elo's REPLAY is now looped per league below --
+    see its own comment -- but the summary still reports under one key).
+
+    Per-league ingest isolation (League Score Predictions Phase 2): once more
+    than one league is configured, one league's structure/results-sync
+    failure is logged and that league is skipped, but the rest still run --
+    a bad API-Football response for one league must not take the others down
+    with it. With exactly one league configured (Phase 1, and every
+    pre-Phase-2 test) this is a no-op: a solo failure still propagates and
+    fails the whole run, exactly as it always has.
     """
     from app.models import Tournament
     from pipeline.compute_club_elo import compute_and_store_club_elo
@@ -74,26 +84,56 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     def _prefix(code: str) -> str:
         return "" if len(configured) == 1 else f"{code}_"
 
+    isolate_failures = len(configured) > 1
     leagues_run: list[tuple[str, Tournament]] = []
     for code, cfg in configured:
-        league_summary = step(
-            f"{_prefix(code)}league_structure",
-            lambda cfg=cfg: load_league_structure(
-                db, teams_file=cfg["teams_file"], tournament_name=cfg["tournament_name"],
-                group_name=cfg["group_name"], league_id=cfg["league_id"], season=cfg["season"],
-            ),
-        )
-        tournament = db.get(Tournament, league_summary["tournament_id"])
-        step(
-            f"{_prefix(code)}league_results_sync",
-            lambda t=tournament: sync_finished_matches_to_history(db, t),
-        )
+        try:
+            league_summary = step(
+                f"{_prefix(code)}league_structure",
+                lambda cfg=cfg: load_league_structure(
+                    db, teams_file=cfg["teams_file"], tournament_name=cfg["tournament_name"],
+                    group_name=cfg["group_name"], league_id=cfg["league_id"], season=cfg["season"],
+                ),
+            )
+            tournament = db.get(Tournament, league_summary["tournament_id"])
+            step(
+                f"{_prefix(code)}league_results_sync",
+                lambda t=tournament, cfg=cfg: sync_finished_matches_to_history(
+                    db, t, competition=cfg["club_competition"],
+                ),
+            )
+        except Exception:  # noqa: BLE001 - isolation boundary, see docstring
+            if not isolate_failures:
+                raise
+            log.exception(
+                "league pipeline: %s ingest FAILED -- skipping this league, "
+                "continuing with the rest", code,
+            )
+            db.rollback()  # discard this league's partial (uncommitted) flush
+            continue
         leagues_run.append((code, tournament))
 
-    # Not tournament-scoped: compute_and_store_club_elo replays every
-    # CLUB_COMPETITION historical row regardless of league, so one call
-    # already covers every league just ingested above.
-    step("club_elo", lambda: compute_and_store_club_elo(db))
+    # Per-league club Elo replay (recon item 3: with >1 league sharing
+    # historical_matches, a single shared-string replay would blend leagues'
+    # rows together and could only ever persist ONE tournament's
+    # home_advantage_value). Iterates every CONFIGURED league (not just
+    # leagues_run) -- club Elo replays historical_matches rows, a data source
+    # independent of this run's live fixture ingest, so it still runs even
+    # for a league whose structure step failed above (compute_and_store_club_elo
+    # tolerates a not-yet-created Tournament row). Summary stays under the
+    # single "club_elo" key regardless of league count; with exactly one
+    # league configured, its value is that league's own flat summary dict,
+    # byte-for-byte the shape every existing test already asserts against.
+    def _club_elo_all_leagues() -> dict:
+        results = {
+            code: compute_and_store_club_elo(
+                db, competition=cfg["club_competition"], tournament_name=cfg["tournament_name"],
+            )
+            for code, cfg in configured
+        }
+        return results[configured[0][0]] if len(configured) == 1 else results
+
+    step("club_elo", _club_elo_all_leagues)
 
     for code, tournament in leagues_run:
         step(

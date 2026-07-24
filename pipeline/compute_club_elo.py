@@ -1,10 +1,13 @@
-"""Seed club Elo ratings via a leak-free chronological replay (league pivot D3).
+"""Seed club Elo ratings via a leak-free chronological replay (league pivot D3;
+per-league as of League Score Predictions Phase 2).
 
 Mirrors pipeline/compute_elo.py's shape (replay historical_matches -> write
-teams.elo_rating) but scoped to CLUB_COMPETITION-tagged rows only, with its
-own tuned home-advantage magnitude — club home advantage is not necessarily
-the same number as international Elo's host bonus, so it gets its own fit
-rather than reusing ml.ratings.elo.HOME_ADVANTAGE by assumption.
+teams.elo_rating) but scoped to one league's club_competition-tagged rows at a
+time, with its own tuned home-advantage magnitude — club home advantage is not
+necessarily the same number as international Elo's host bonus (or another
+league's own club home advantage), so each league gets its own fit rather than
+reusing ml.ratings.elo.HOME_ADVANTAGE, or another league's CLUB_HOME_ADVANTAGE,
+by assumption.
 
 Home-advantage fit (docs/LEAGUE-PIVOT-PLAN.md D4): replay every one of the
 9 seasons before the holdout (2016-17..2024-25) leak-free, then score log
@@ -21,7 +24,12 @@ matches, 380-match 2025-26 holdout):
 
 -> winner: 60.0 (lowest holdout log loss) — coincidentally the same magnitude
 as the international host bonus (ml.ratings.elo.HOME_ADVANTAGE), but arrived
-at independently rather than assumed.
+at independently rather than assumed. CLUB_HOME_ADVANTAGE below is this
+result for EPL specifically (division="E0") -- La Liga/Bundesliga each need
+their OWN fit_home_advantage() run against their own SP1/D1 CSVs (a separate,
+data-integrity-gated follow-up: never assume 60.0 carries over) before
+compute_and_store_club_elo should be called with anything other than its
+default for those leagues.
 """
 from __future__ import annotations
 
@@ -38,39 +46,50 @@ from pipeline.ingest.club_results import (
 )
 from pipeline.ingest.league_structure import TOURNAMENT_NAME
 
+# EPL's fitted value (see the module docstring). The module-level default for
+# compute_and_store_club_elo, so every existing (EPL) caller is unaffected.
 CLUB_HOME_ADVANTAGE = 60.0
 
 
-def _club_matches(db: Session) -> list[HistoricalMatch]:
+def _club_matches(db: Session, competition: str = CLUB_COMPETITION) -> list[HistoricalMatch]:
     return (
         db.query(HistoricalMatch)
-        .filter_by(competition=CLUB_COMPETITION)
+        .filter_by(competition=competition)
         .order_by(HistoricalMatch.date.asc(), HistoricalMatch.id.asc())
         .all()
     )
 
 
 def compute_and_store_club_elo(
-    db: Session, home_advantage: float = CLUB_HOME_ADVANTAGE
+    db: Session,
+    home_advantage: float = CLUB_HOME_ADVANTAGE,
+    *,
+    competition: str = CLUB_COMPETITION,
+    tournament_name: str = TOURNAMENT_NAME,
 ) -> dict:
-    """Leak-free chronological replay of every CLUB_COMPETITION row, writing
-    final ratings onto the club Team rows.
+    """Leak-free chronological replay of every ``competition``-tagged row,
+    writing final ratings onto the club Team rows. Every default is EPL's own
+    (CLUB_COMPETITION/TOURNAMENT_NAME/CLUB_HOME_ADVANTAGE), so a bare
+    compute_and_store_club_elo(db) call is byte-for-byte unchanged; Phase 2
+    leagues pass their own pipeline.leagues.LEAGUES[...] values instead --
+    see pipeline/run_pipeline.py's per-league club_elo step.
 
-    Scoped to CLUB_COMPETITION only via _club_matches' filter — never reads or
-    writes an international team's rating (pipeline/compute_elo.py's own
-    query symmetrically excludes CLUB_COMPETITION, so the two never clobber
-    each other regardless of run order; see pipeline/compute_club_elo_test.py).
+    Scoped to ``competition`` only via _club_matches' filter — never reads or
+    writes another league's (or the international replay's) rating
+    (pipeline/compute_elo.py's own query symmetrically excludes every
+    registered club_competition, so none of them ever clobber each other
+    regardless of run order; see pipeline/compute_club_elo_test.py).
 
-    Also persists ``home_advantage`` onto the EPL Tournament row's
-    home_advantage_value (Opus review of PR #171, item 3): _host_adv
+    Also persists ``home_advantage`` onto the ``tournament_name`` Tournament
+    row's home_advantage_value (Opus review of PR #171, item 3): _host_adv
     (pipeline/generate_predictions.py) already prefers that column over the
     international engine's params.home_adv fallback whenever it's set, but
     league_structure.py's loader leaves it NULL at creation — without writing
-    it here, EPL would silently start tracking whatever params.home_adv is
-    tuned to internationally if that value is ever retuned, instead of its
-    own fitted 60.0 (or whatever ``home_advantage`` this call used).
+    it here, a league would silently start tracking whatever params.home_adv
+    is tuned to internationally if that value is ever retuned, instead of its
+    own fitted magnitude (or whatever ``home_advantage`` this call used).
     """
-    rows = _club_matches(db)
+    rows = _club_matches(db, competition=competition)
     matches = [
         MatchInput(
             home_id=r.team_a_id, away_id=r.team_b_id,
@@ -88,7 +107,7 @@ def compute_and_store_club_elo(
             team.elo_rating = round(rating, 1)
             updated += 1
 
-    tournament = db.query(Tournament).filter_by(name=TOURNAMENT_NAME).one_or_none()
+    tournament = db.query(Tournament).filter_by(name=tournament_name).one_or_none()
     if tournament is not None:
         tournament.home_advantage_value = home_advantage
 
@@ -101,7 +120,9 @@ def compute_and_store_club_elo(
     }
 
 
-def _evaluate_holdout(rows: list[dict], holdout_season: str, home_advantage: float) -> dict:
+def _evaluate_holdout(
+    rows: list[dict], holdout_season: str, home_advantage: float, competition: str = CLUB_COMPETITION
+) -> dict:
     """Replay leak-free across every row (any season), then score the
     Poisson-Elo log loss against holdout_season's rows alone."""
     team_ids: dict[str, int] = {}
@@ -115,7 +136,7 @@ def _evaluate_holdout(rows: list[dict], holdout_season: str, home_advantage: flo
         MatchInput(
             home_id=_id(r["HomeTeam"]), away_id=_id(r["AwayTeam"]),
             score_home=r["FTHG"], score_away=r["FTAG"],
-            competition=CLUB_COMPETITION, is_neutral=False,
+            competition=competition, is_neutral=False,
         )
         for r in rows
     ]
@@ -137,17 +158,25 @@ def _evaluate_holdout(rows: list[dict], holdout_season: str, home_advantage: flo
 def fit_home_advantage(
     df, candidates: tuple[float, ...] = (40.0, 60.0, 80.0),
     holdout_season: str = HOLDOUT_SEASON_CODE,
+    *,
+    competition: str = CLUB_COMPETITION,
 ) -> dict:
     """Try each candidate home-advantage value on a leak-free replay,
     scoring log loss on ``holdout_season`` alone. ``df`` is the cleaned,
     multi-season DataFrame (clean_club_results_df on the concatenated
-    download_club_results_df output), still carrying ``season_code``.
-    Pure (no DB) — the module-level CLUB_HOME_ADVANTAGE constant above is
-    this function's already-run result against the real CSVs; re-run it
-    with ``python -m pipeline.compute_club_elo --fit`` if the holdout
-    season rolls over."""
+    download_club_results_df(division=...) output), still carrying
+    ``season_code``. Pure (no DB) — the module-level CLUB_HOME_ADVANTAGE
+    constant above is this function's already-run result against the real
+    EPL CSVs; re-run it with ``python -m pipeline.compute_club_elo --fit``
+    if the holdout season rolls over, or against a Phase 2 league's own
+    SP1/D1 CSVs (passing its own ``competition``) before trusting a fitted
+    value for that league — 60.0 is EPL's number, not an assumed default for
+    every league."""
     rows = df.sort_values("match_date").to_dict("records")
-    results = {c: _evaluate_holdout(rows, holdout_season, c)["log_loss"] for c in candidates}
+    results = {
+        c: _evaluate_holdout(rows, holdout_season, c, competition=competition)["log_loss"]
+        for c in candidates
+    }
     winner = min(results, key=results.get)
     return {"results": results, "winner": winner}
 
@@ -160,10 +189,18 @@ def main() -> int:
         "--fit", action="store_true",
         help="download the CSVs fresh and re-run the {40,60,80} holdout fit",
     )
+    ap.add_argument(
+        "--division", default="E0",
+        help="football-data.co.uk division code (default E0=EPL; SP1=La Liga, D1=Bundesliga)",
+    )
+    ap.add_argument(
+        "--competition", default=CLUB_COMPETITION,
+        help="historical_matches.competition discriminator for --division (default: EPL's)",
+    )
     args = ap.parse_args()
     if args.fit:
-        df = clean_club_results_df(download_club_results_df())
-        result = fit_home_advantage(df)
+        df = clean_club_results_df(download_club_results_df(division=args.division))
+        result = fit_home_advantage(df, competition=args.competition)
         for cand, ll in result["results"].items():
             print(f"home_adv={cand}: log_loss={ll:.6f}")
         print(f"-> winner: {result['winner']}")

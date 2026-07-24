@@ -172,3 +172,100 @@ def test_matchweek_updates_on_re_ingestion_after_reschedule(db_session, monkeypa
     )
     load_league_structure(db_session, api_key="x")
     assert db_session.query(Match).filter_by(provider_fixture_id=7007).one().matchweek == 6
+
+
+# ---------------------------------------------------------------------------
+# teams_file=None: derive teams from the fixtures payload (League Score
+# Predictions Phase 2 -- La Liga/Bundesliga have no curated teams JSON).
+# ---------------------------------------------------------------------------
+
+def _fixture_with_ids(fid, home_name, home_id, away_name, away_id, *,
+                       status="NS", kickoff="2026-08-21T19:00:00+00:00"):
+    """Like _fixture() above but also carries teams.home/away.id -- the real
+    api-sports v3 payload always includes this (_fixture_fields discards it;
+    a teams_file=None league needs it to derive Team rows without a second
+    /teams HTTP call)."""
+    return {
+        "fixture": {"id": fid, "date": kickoff, "status": {"short": status}},
+        "teams": {
+            "home": {"id": home_id, "name": home_name},
+            "away": {"id": away_id, "name": away_name},
+        },
+        "goals": {"home": None, "away": None},
+    }
+
+
+def test_derives_teams_from_fixtures_payload_when_no_teams_file(db_session, monkeypatch):
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [
+            _fixture_with_ids(9001, "Real Madrid", 541, "Barcelona", 529),
+            _fixture_with_ids(9002, "Barcelona", 529, "Atletico Madrid", 530),
+        ],
+    )
+    summary = load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="La Liga 2026-27", group_name="La Liga",
+        league_id=140, season=2026,
+    )
+
+    # 3 distinct provider ids across the two fixtures -- no hand-curated list.
+    assert summary["teams"] == 3
+    assert summary["fixtures_created"] == 2
+
+    real_madrid = db_session.query(Team).filter_by(name="Real Madrid").one()
+    assert real_madrid.provider_team_id == 541
+    assert real_madrid.country_code is None  # no 3-letter code from a fixtures-only payload
+
+    tournament = db_session.query(Tournament).filter_by(name="La Liga 2026-27").one()
+    group = db_session.query(Group).filter_by(tournament_id=tournament.id).one()
+    assert group.name == "La Liga"
+    assert db_session.query(GroupTeam).filter_by(group_id=group.id).count() == 3
+
+    match = db_session.query(Match).filter_by(provider_fixture_id=9001).one()
+    barcelona = db_session.query(Team).filter_by(name="Barcelona").one()
+    assert match.team_home_id == real_madrid.id
+    assert match.team_away_id == barcelona.id
+
+
+def test_derived_teams_skip_fixtures_missing_team_id_or_name(db_session, monkeypatch):
+    """A malformed team entry (missing id or name) is never guessed -- it's
+    simply not one of the derived teams, same posture as _fixture_fields
+    skipping a whole malformed fixture."""
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {"id": 9101, "date": "2026-08-21T19:00:00+00:00", "status": {"short": "NS"}},
+                "teams": {"home": {"id": None, "name": "Mystery FC"}, "away": {"id": 700, "name": "Girona"}},
+                "goals": {"home": None, "away": None},
+            },
+        ],
+    )
+    summary = load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="La Liga 2026-27", group_name="La Liga",
+        league_id=140, season=2026,
+    )
+    assert summary["teams"] == 1  # only Girona (id=700) is usable
+    assert db_session.query(Team).filter_by(name="Mystery FC").count() == 0
+    # The fixture itself is skipped too -- its home side never resolves to a team.
+    assert summary["fixtures_skipped"] == 1
+
+
+def test_derives_teams_uses_the_same_fetch_fixtures_call_for_teams_and_matches(db_session, monkeypatch):
+    """teams_file=None must not need a second HTTP call: one fetch_fixtures
+    invocation feeds both team derivation and the fixture upsert."""
+    calls = []
+
+    def _fake_fetch(api_key, league, season):
+        calls.append((league, season))
+        return [_fixture_with_ids(9201, "Villarreal", 533, "Sevilla", 536)]
+
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", _fake_fetch)
+    load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="La Liga 2026-27", group_name="La Liga",
+        league_id=140, season=2026,
+    )
+    assert calls == [(140, 2026)]

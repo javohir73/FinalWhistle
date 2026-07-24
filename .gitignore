@@ -32,6 +32,9 @@ data/processed/
 !pipeline/data/*.csv
 # committed sample odds fixture for the offline market-benchmark test:
 !ml/evaluation/fixtures/*.csv
+# committed sample SP1/D1 CSV fixtures for club_results_test.py (League Score
+# Predictions Phase 2 multi-division tests):
+!pipeline/ingest/testdata/*.csv
 # keep the data/raw README tracked (real odds CSVs dropped here stay ignored):
 !data/raw/README.md
 # committed one-time State of Origin history seed (pipeline/sports/origin_seed.py):

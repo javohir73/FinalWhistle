@@ -4,14 +4,17 @@ Replays the full INTERNATIONAL match history oldest-first (Elo is
 path-dependent) and writes each team's final rating. Run after
 historical_results ingestion.
 
-League pivot D3 (docs/LEAGUE-PIVOT-PLAN.md): club Elo is a separate rating
-universe, seeded by pipeline/compute_club_elo.py's own replay of the
-CLUB_COMPETITION-tagged rows with its own tuned home-advantage. This module
-must never touch those rows or clobber their ratings on the next daily run,
-so the query excludes CLUB_COMPETITION explicitly (NULL-safe: a row with no
-competition recorded at all is still an international row and stays
-included). See pipeline/compute_club_elo_test.py's cross-recompute
-regression test.
+League pivot D3 (docs/LEAGUE-PIVOT-PLAN.md), generalized for League Score
+Predictions Phase 2 (multiple club leagues sharing this table): club Elo is a
+separate rating universe per league, seeded by pipeline/compute_club_elo.py's
+own replay of each league's own club_competition-tagged rows with its own
+tuned home-advantage. This module must never touch any of those rows or
+clobber their ratings on the next daily run, so the query excludes EVERY
+registered club_competition explicitly (NULL-safe: a row with no competition
+recorded at all is still an international row and stays included) — not just
+EPL's, so a La Liga/Bundesliga row can't leak into the international replay
+just because it isn't (the single, EPL-only) CLUB_COMPETITION string. See
+pipeline/compute_club_elo_test.py's cross-recompute regression test.
 """
 from __future__ import annotations
 
@@ -20,7 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.models import HistoricalMatch, Team
 from ml.ratings.elo import MatchInput, run_elo
-from pipeline.ingest.club_results import CLUB_COMPETITION
+from pipeline.leagues import club_competitions
 
 
 def compute_and_store_elo(db: Session) -> dict:
@@ -28,7 +31,7 @@ def compute_and_store_elo(db: Session) -> dict:
         db.query(HistoricalMatch)
         .filter(
             or_(
-                HistoricalMatch.competition != CLUB_COMPETITION,
+                HistoricalMatch.competition.notin_(club_competitions()),
                 HistoricalMatch.competition.is_(None),
             )
         )
