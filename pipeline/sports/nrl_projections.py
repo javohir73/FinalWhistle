@@ -75,17 +75,24 @@ def simulate(
     Monte Carlo core is unit-testable without a database.
 
     `forced` (Slice 3, conditional projections): {match_id: "home"|"away"} --
-    a forced fixture skips its win/draw/away roll and uses that outcome in
-    EVERY run instead; everything else (points/diff bookkeeping, the margin
-    sample for the diff tie-break, the tiebreak/aggregation below) is
-    unchanged. Default None (equivalent to {}) preserves the original
-    behavior byte-for-byte -- the nightly `run()` path never passes it.
+    a forced fixture overrides its win/draw/away roll with that outcome in
+    EVERY run instead (the roll is still drawn -- and the margin sample still
+    taken -- so the rng stream isn't shifted for the fixtures after it; see
+    the comments in the run loop below); everything else (points/diff
+    bookkeeping, the margin sample for the diff tie-break, the
+    tiebreak/aggregation below) is unchanged. Default None (equivalent to
+    {}) preserves the original behavior byte-for-byte -- the nightly `run()`
+    path never passes it, so it never exercises this override.
 
     `track_expected` (Slice 3): also returns each team's "expected_points"/
-    "expected_wins" (means across all n_runs) alongside the base three keys.
-    Default False keeps the return shape identical to before this parameter
-    existed, so nrl_projections_test.py's exact-dict-equality assertions
-    keep passing unmodified.
+    "expected_remaining_wins" (means across all n_runs) alongside the base
+    three keys. "expected_remaining_wins" is scoped to wins among `remaining`
+    fixtures only (unlike "expected_points", which starts from the
+    finished-match ladder and so is a full-season figure) -- named
+    accordingly rather than "expected_wins" so a future consumer can't misread
+    it as total season wins. Default False keeps the return shape identical
+    to before this parameter existed, so nrl_projections_test.py's
+    exact-dict-equality assertions keep passing unmodified.
     """
     # Unseeded by design: each production refresh should genuinely resample; tests inject a seeded Random.
     rng = rng or random.Random()
@@ -95,8 +102,20 @@ def simulate(
     wins_total = {t: 0 for t in team_ids}
     if n_runs == 0 or not team_ids:
         if track_expected:
-            return {t: {**c, "expected_points": 0, "expected_wins": 0} for t, c in counts.items()}
+            return {t: {**c, "expected_points": 0, "expected_remaining_wins": 0} for t, c in counts.items()}
         return counts
+
+    # predict() only depends on elos/params, both fixed for the whole call --
+    # identical on every one of the n_runs runs for a given match -- so hoist
+    # it out of the run loop instead of recomputing it n_runs times per
+    # fixture (this is the per-request-latency-sensitive path now that
+    # nrl_intel.py's conditional endpoint calls simulate() synchronously).
+    team_id_set = set(team_ids)
+    predicted = {
+        m.id: predict(elos.get(m.home_team_id, 1500.0), elos.get(m.away_team_id, 1500.0), params)
+        for m in remaining
+        if m.home_team_id in team_id_set and m.away_team_id in team_id_set
+    }
 
     for _ in range(n_runs):
         points = {t: starting.get(t, {}).get("points", 0) for t in team_ids}
@@ -106,31 +125,44 @@ def simulate(
         for m in remaining:
             if m.home_team_id not in points or m.away_team_id not in points:
                 continue
-            elo_home = elos.get(m.home_team_id, 1500.0)
-            elo_away = elos.get(m.away_team_id, 1500.0)
-            out = predict(elo_home, elo_away, params)
+            out = predicted[m.id]
 
+            # Rolled unconditionally -- even for a forced match, whose roll is
+            # then discarded -- so a forced pick never shifts the RNG stream
+            # position for the fixtures after it (common random numbers): the
+            # conditional projections endpoint seeds its baseline (no picks)
+            # and every conditioned request from the SAME seed (see
+            # backend/app/api/nrl_intel.py's `_seed_for`), so keeping every
+            # unpicked match's draw identical between the two isolates the
+            # pick's real causal effect from independent-sample noise.
+            roll = rng.random()
             forced_outcome = forced.get(m.id)
             if forced_outcome is not None:
                 outcome = forced_outcome
+            elif roll < out["p_home"]:
+                outcome = "home"
+            elif roll < out["p_home"] + out["p_draw"]:
+                outcome = "draw"
             else:
-                roll = rng.random()
-                if roll < out["p_home"]:
-                    outcome = "home"
-                elif roll < out["p_home"] + out["p_draw"]:
-                    outcome = "draw"
-                else:
-                    outcome = "away"
+                outcome = "away"
+
+            # Margin sampling for points-differential tie-breaks only -- never
+            # written back as a real score. Drawn unconditionally, even for a
+            # real (unforced) draw where it goes unused: a forced outcome is
+            # never "draw" (no draw option in `_parse_picks`), so if this were
+            # skipped for a draw, an unforced match's per-run rng-call count
+            # would depend on its own outcome, desyncing the stream for every
+            # match after it the moment a baseline run drew a real draw where
+            # a conditioned run forced a result -- undoing the roll-above fix.
+            # Keeping the call count fixed at "one roll + one margin" every
+            # run regardless of outcome is what makes the two stay aligned.
+            margin = max(1.0, abs(rng.gauss(out["expected_margin"], params.margin_sigma)))
 
             if outcome == "draw":
                 points[m.home_team_id] += 1
                 points[m.away_team_id] += 1
                 continue
 
-            # Margin sampling for points-differential tie-breaks only -- never
-            # written back as a real score. Sampled even for a forced outcome
-            # so a forced win still produces a plausible (non-zero) diff.
-            margin = max(1.0, abs(rng.gauss(out["expected_margin"], params.margin_sigma)))
             if outcome == "home":
                 points[m.home_team_id] += 2
                 diff[m.home_team_id] += margin
@@ -158,7 +190,7 @@ def simulate(
     if track_expected:
         for t in team_ids:
             result[t]["expected_points"] = points_total[t] / n_runs
-            result[t]["expected_wins"] = wins_total[t] / n_runs
+            result[t]["expected_remaining_wins"] = wins_total[t] / n_runs
     return result
 
 
@@ -183,6 +215,14 @@ def load_season_state(
     without ever touching NrlProjection. Returns None when the season
     resolves to no nrl data at all (mirrors the original `run()`'s early
     `if not team_ids: return 0`).
+
+    `season_matches` is explicitly ordered: `simulate()` consumes its seeded
+    RNG once per fixture in `remaining` order, so an unordered query would
+    let the DB's incidental row order (which SQL makes no guarantee about,
+    and which can shift on Postgres after e.g. a status UPDATE) change the
+    simulated result under an otherwise-identical seed -- silently breaking
+    the "identical request -> identical body" cache-determinism promise the
+    conditional-projections API relies on.
     """
     if season is None:
         latest = (
@@ -198,6 +238,7 @@ def load_season_state(
     season_matches = (
         db.query(SportMatch)
         .filter(SportMatch.sport == SPORT, SportMatch.season == season)
+        .order_by(SportMatch.round, SportMatch.match_no, SportMatch.id)
         .all()
     )
     team_ids = sorted({

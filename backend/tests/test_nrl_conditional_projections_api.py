@@ -10,9 +10,10 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+import app.api.nrl_intel as nrl_intel_api
 from app.db import Base, get_db
 from app.main import app
-from app.models import SportMatch, SportTeam
+from app.models import EmailActionAttempt, SportMatch, SportTeam
 
 
 @pytest.fixture
@@ -97,6 +98,43 @@ def test_conditional_bad_picks_encoding_422s(seeded):
     assert r.json()["error"]["code"] == "bad_picks_encoding"
 
 
+def test_conditional_bad_picks_encoding_never_touches_rate_limit_or_db(client, monkeypatch):
+    """The `picks` encoding is validated BEFORE the rate-limit check and
+    before load_season_state's DB round-trip -- a malformed `picks` string
+    must 422 for free, not cost a rate-limit SELECT, an EmailActionAttempt
+    row, or a season-state load (defense-in-depth on an unauthenticated,
+    per-request-Monte-Carlo route). No NRL data is seeded at all here, to
+    prove the season load never happens either. Mirrors
+    test_activity_api.py's test_malformed_device_id_never_touches_rate_limit_or_attempts."""
+    c, TestingSession = client
+
+    def _boom(*args, **kwargs):
+        raise AssertionError("rate limit check must not run for malformed picks")
+
+    monkeypatch.setattr(nrl_intel_api, "_email_action_rate_limited", _boom)
+
+    r = c.get("/api/nrl/projections/conditional", params={"season": 2026, "picks": "abc"})
+    assert r.status_code == 422
+    assert r.json()["error"]["code"] == "bad_picks_encoding"
+
+    db = TestingSession()
+    assert db.query(EmailActionAttempt).count() == 0
+    db.close()
+
+
+def test_conditional_rate_limited_per_ip_after_cap(seeded, monkeypatch):
+    """Unauthenticated, per-request Monte Carlo with no other guard -- mirrors
+    app.api.activity's test_rate_limited_per_ip_after_cap. Keyed on IP alone
+    (there's no device_id on this anonymous route)."""
+    c, _, _ = seeded
+    monkeypatch.setattr(nrl_intel_api, "_CONDITIONAL_MAX", 2, raising=False)
+    assert c.get("/api/nrl/projections/conditional", params={"season": 2026}).status_code == 200
+    assert c.get("/api/nrl/projections/conditional", params={"season": 2026}).status_code == 200
+    r = c.get("/api/nrl/projections/conditional", params={"season": 2026})
+    assert r.status_code == 429
+    assert r.json()["error"]["code"] == "too_many_attempts"
+
+
 def test_conditional_unknown_match_id_422s(seeded):
     c, _, _ = seeded
     r = c.get("/api/nrl/projections/conditional", params={"season": 2026, "picks": "999999h"})
@@ -160,6 +198,21 @@ def test_conditional_forced_pick_flips_minor_premiership_to_certain(single_fixtu
     assert storm_forced["minor_premiership"] > storm_baseline["minor_premiership"]
     assert forced["picks_applied"] == 1
     assert forced["n_sims"] == baseline["n_sims"]
+
+
+def test_conditional_same_request_is_deterministic_with_multiple_remaining_fixtures(seeded):
+    """test_conditional_same_request_is_deterministic (below) uses
+    single_fixture_season, which has only ONE remaining match -- fixture
+    order can't matter there. `seeded` has two, so this actually exercises
+    load_season_state's ORDER BY: without it, the cache-determinism promise
+    (identical request -> identical body) would rest on undefined DB row
+    order (see pipeline/sports/nrl_projections_test.py's
+    test_load_season_state_orders_remaining_matches_deterministically)."""
+    c, _, scheduled_id = seeded
+    params = {"season": 2026, "picks": f"{scheduled_id}h"}
+    r1 = c.get("/api/nrl/projections/conditional", params=params)
+    r2 = c.get("/api/nrl/projections/conditional", params=params)
+    assert r1.json() == r2.json()
 
 
 def test_conditional_same_request_is_deterministic(single_fixture_season):

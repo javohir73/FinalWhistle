@@ -54,7 +54,7 @@ const matches: NrlMatchesResponse = {
 
 const baseline: NrlConditionalProjectionsResponse = {
   season: 2026, n_sims: 2000, picks_applied: 0,
-  teams: [{ team: "Storm", top8: 0.9, top4: 0.5, minor_premiership: 0.2, expected_points: 40, expected_wins: 18 }],
+  teams: [{ team: "Storm", top8: 0.9, top4: 0.5, minor_premiership: 0.2, expected_points: 40, expected_remaining_wins: 18 }],
 };
 
 it("renders the ladder and hands only the remaining fixtures to the predictor", async () => {

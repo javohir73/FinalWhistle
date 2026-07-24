@@ -815,7 +815,7 @@ export interface NrlConditionalTeamRow {
   top4: number;
   minor_premiership: number;
   expected_points: number;
-  expected_wins: number;
+  expected_remaining_wins: number;
 }
 export interface NrlConditionalProjectionsResponse {
   season: number;
