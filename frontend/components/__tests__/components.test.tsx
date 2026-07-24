@@ -122,8 +122,12 @@ describe("GroupTable", () => {
 
   it("renders all teams with qualification percentages", () => {
     render(<GroupTable standings={standings} />);
-    expect(screen.getByText("Mexico")).toBeInTheDocument();
     expect(screen.getByText("87%")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(5); // header + 4
+    // The Floodlight table is a flex layout carrying ARIA table roles, so the
+    // four teams surface as rows beneath the header row.
+    expect(screen.getAllByRole("row")).toHaveLength(5);
+    for (const team of ["Mexico", "South Korea", "Czechia", "South Africa"]) {
+      expect(screen.getByText(team)).toBeInTheDocument();
+    }
   });
 });

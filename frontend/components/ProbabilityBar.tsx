@@ -1,12 +1,23 @@
 import type { Probabilities } from "@/lib/types";
 import { pct } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 interface Props {
   probabilities: Probabilities;
   homeLabel?: string;
   awayLabel?: string;
   showLabels?: boolean;
+  /** Bar height: "default" (today's h-3), "hero" (prototype feature bar,
+   *  h-[7px]), "row" (prototype timeline bar, h-[5px]). Visual only -- the
+   *  role="img" + printed-percentage aria-label below is unaffected. */
+  size?: "hero" | "row" | "default";
 }
+
+const SIZE_HEIGHT: Record<NonNullable<Props["size"]>, string> = {
+  hero: "h-[7px]",
+  row: "h-[5px]",
+  default: "h-3",
+};
 
 /** Horizontal W/D/L stacked bar — the signature visual of a prediction. */
 export function ProbabilityBar({
@@ -14,6 +25,7 @@ export function ProbabilityBar({
   homeLabel = "Home",
   awayLabel = "Away",
   showLabels = true,
+  size = "default",
 }: Props) {
   const { home_win, draw, away_win } = probabilities;
   const seg = (w: number) => ({ width: `${Math.max(0, w * 100)}%` });
@@ -21,7 +33,7 @@ export function ProbabilityBar({
   return (
     <div>
       <div
-        className="flex h-3 w-full gap-0.5 overflow-hidden rounded-full"
+        className={cn("flex w-full gap-0.5 overflow-hidden rounded-full", SIZE_HEIGHT[size])}
         role="img"
         aria-label={`${homeLabel} win ${pct(home_win)}, draw ${pct(draw)}, ${awayLabel} win ${pct(away_win)}`}
       >

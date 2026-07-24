@@ -251,6 +251,21 @@ body {
     animation: statusLivePulse 2s ease-in-out infinite;
   }
   .status-live-dot { color: hsl(var(--status-live)); }
+
+  /* Floodlight hero glow — the radial "under the lights" wash behind
+     home/match/team heroes (design/Floodlight Prototype.dc.html). Each is a
+     single radial-gradient (no images), so there's nothing to disable under
+     reduced-motion. Placement varies per hero; pick the variant that matches
+     the prototype panel you're building. */
+  .floodlight-glow {
+    background-image: radial-gradient(120% 80% at 80% -10%, hsl(var(--win) / 0.18), transparent 60%);
+  }
+  .floodlight-glow-top {
+    background-image: radial-gradient(140% 80% at 50% -20%, hsl(var(--win) / 0.16), transparent 65%);
+  }
+  .floodlight-glow-left {
+    background-image: radial-gradient(120% 80% at 20% -10%, hsl(var(--win) / 0.16), transparent 60%);
+  }
 }
 
 /* ============ Motion ============ */

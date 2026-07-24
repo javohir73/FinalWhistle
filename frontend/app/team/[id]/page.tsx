@@ -10,9 +10,9 @@ import {
 import { getTournament } from "@/lib/tournament";
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
+import { COMPETITIONS, DEFAULT_COMPETITION } from "@/lib/sports";
 import { FormStrip } from "@/components/FormStrip";
-import { Flag } from "@/components/Flag";
-import { FavoriteStar } from "@/components/FavoriteStar";
+import { TeamHeader } from "@/components/TeamHeader";
 import { TeamFixtures } from "@/components/TeamFixtures";
 import { TeamLastLineup } from "@/components/TeamLastLineup";
 import { ShareButton } from "@/components/ShareButton";
@@ -80,49 +80,25 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       }
     : null;
 
+  // The legacy page carries no comp param -- it serves WC26 under
+  // /football/wc26 via the P1 wrapper -- so resolve the default competition for
+  // the header's vocabulary (same idiom as the other legacy pages).
+  const comp = DEFAULT_COMPETITION;
+
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link href="/groups" className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground">
-          <span aria-hidden>←</span> Groups
-        </Link>
+      <div className="flex justify-end">
         <ShareButton title={`${team.name} — ${tournament.name} profile`} />
       </div>
 
-      {/* Header — flag tile + name + group/rank/elo subtitle */}
-      <header className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <span className="grid shrink-0 place-items-center rounded-2xl bg-win/10 p-2.5">
-            <Flag team={team.name} size={56} />
-          </span>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-display text-3xl font-extrabold tracking-tight">
-                {team.name}
-              </h1>
-              <FavoriteStar team={team.name} size={22} />
-            </div>
-            <p className="mt-1 text-sm text-muted">
-              {[
-                group_name
-                  ? /^group\b/i.test(group_name)
-                    ? group_name
-                    : `Group ${group_name}`
-                  : null,
-                team.fifa_rank != null ? `FIFA #${team.fifa_rank}` : null,
-                team.elo_rating != null ? `Elo ${Math.round(team.elo_rating)}` : null,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-            {team.is_host && (
-              <span className="mt-1.5 inline-block rounded-full bg-gold/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-ink ring-1 ring-gold/30">
-                Tournament host
-              </span>
-            )}
-          </div>
-        </div>
-      </header>
+      {/* Full-bleed crest banner under the floodlight glow (Floodlight P2). */}
+      <TeamHeader
+        team={team}
+        groupName={group_name}
+        comp={comp}
+        backHref="/groups"
+        backLabel={COMPETITIONS[comp].terms.standings}
+      />
 
       {/* AI outlook — plain-language read + run-deep odds tiles */}
       {teamOdds && (
@@ -211,7 +187,7 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
       {group_id && (
         <Link
           href={`/groups/${group_id}`}
-          className="card-hover flex w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-3 font-display text-sm font-bold text-foreground"
+          className="card-hover flex min-h-[44px] w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-surface px-4 py-3 font-display text-sm font-bold text-foreground"
         >
           View group table <span aria-hidden>→</span>
         </Link>

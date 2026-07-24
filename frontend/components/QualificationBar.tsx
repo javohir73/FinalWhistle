@@ -1,11 +1,17 @@
 import { pct } from "@/lib/format";
 
-/** Per-team qualification probability bar for the group tables. */
+/** Per-team qualification probability bar for the group tables. Exposed as a
+ *  labelled image so a screen reader inside the standings cell announces e.g.
+ *  "Top 2 chance 87%" rather than a bare "87%" with no context. */
 export function QualificationBar({ prob }: { prob: number | null }) {
   const value = prob ?? 0;
   const strong = value >= 0.5;
   return (
-    <div className="flex items-center gap-2 sm:gap-2.5">
+    <div
+      className="flex items-center gap-2 sm:gap-2.5"
+      role="img"
+      aria-label={`Top 2 chance ${pct(prob)}`}
+    >
       <div className="h-1.5 w-10 overflow-hidden rounded-full bg-surface-2 sm:w-24">
         <div
           className="h-full rounded-full transition-[width]"
