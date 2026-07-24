@@ -8,8 +8,9 @@ const writeup = {
   caveat: "A draw after 90 minutes is live at roughly one in 4 (26%).",
 };
 
-test("renders all four labelled sections", () => {
+test("renders the THE MODEL SAYS eyebrow and all four labelled sections", () => {
   render(<MatchWriteup home="England" away="Norway" writeup={writeup} />);
+  expect(screen.getByText("THE MODEL SAYS")).toBeInTheDocument();
   expect(screen.getByText("The case for England")).toBeInTheDocument();
   expect(screen.getByText("The case for Norway")).toBeInTheDocument();
   expect(screen.getByText("The call")).toBeInTheDocument();
@@ -17,9 +18,16 @@ test("renders all four labelled sections", () => {
   expect(screen.getByText(/2–1 the single most likely scoreline/)).toBeInTheDocument();
 });
 
-test("renders nothing without a writeup", () => {
+test("renders nothing when writeup is null", () => {
   const { container } = render(
     <MatchWriteup home="England" away="Norway" writeup={null} />,
+  );
+  expect(container).toBeEmptyDOMElement();
+});
+
+test("renders nothing when writeup is undefined", () => {
+  const { container } = render(
+    <MatchWriteup home="England" away="Norway" writeup={undefined} />,
   );
   expect(container).toBeEmptyDOMElement();
 });

@@ -1,19 +1,17 @@
-/** "Why this prediction" list (explainable AI). */
+/** "Why this prediction" list (explainable AI). Floodlight skin: each reason is
+ *  a two-column sign+text row (prototype §257). `reasons` are plain strings with
+ *  no polarity field, so the sign stays a uniform lime `+` supporting-point
+ *  marker -- we never fabricate an against/negative signal the data doesn't
+ *  carry. Pure server component. */
 export function ReasonsList({ reasons }: { reasons: string[] }) {
-  if (!reasons.length) return null;
   return (
-    <ul className="space-y-2.5">
+    <ul className="flex flex-col gap-[7px]">
       {reasons.map((r, i) => (
-        <li key={i} className="flex gap-3 text-sm leading-relaxed">
-          <span
-            className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-win/15 text-lime-deep"
-            aria-hidden
-          >
-            <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="3">
-              <path d="M5 12.5l4.5 4.5L19 6.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+        <li key={i} className="flex gap-[9px]">
+          <span className="font-bold text-lime-deep" aria-hidden>
+            +
           </span>
-          <span className="text-foreground">{r}</span>
+          <span className="text-[12.5px] leading-[1.5] text-foreground/85">{r}</span>
         </li>
       ))}
     </ul>
