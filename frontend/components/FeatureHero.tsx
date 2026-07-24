@@ -6,6 +6,7 @@ import type { CompetitionId } from "@/lib/sports";
 import { Eyebrow, CompEyebrowChip } from "@/components/Eyebrow";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { Flag } from "@/components/Flag";
+import { ClubBadge } from "@/components/ClubBadge";
 import { formatScore, topOutcome } from "@/lib/format";
 import { isLiveNow } from "@/lib/liveLabel";
 import { kickoffTime } from "@/lib/datetime";
@@ -32,15 +33,27 @@ const CONFIDENCE: Record<
  * for the decorative-scale giant number, so both read from the SAME probabilities
  * and never disagree. `match={null}` renders an honest placeholder -- never a
  * fabricated number.
+ *
+ * The `badge`/`href`/`margin` slots are additive, serializable seams for NRL:
+ * `badge="club"` swaps the country crests for `ClubBadge` monograms, `href`
+ * overrides the football CTA target, and `margin` (when there's no predicted
+ * score) prints the model's expected margin instead of a scoreline in the
+ * caption. All three default to today's football behavior.
  */
 export function FeatureHero({
   match,
   comp,
   tz,
+  badge = "flag",
+  href,
+  margin,
 }: {
   match: MatchSummary | null;
   comp: CompetitionId;
   tz?: string;
+  badge?: "flag" | "club";
+  href?: string;
+  margin?: number | null;
 }) {
   if (!match) {
     return (
@@ -69,7 +82,9 @@ export function FeatureHero({
           ? "Draw"
           : "";
   const conf = confidence ? CONFIDENCE[confidence] : null;
-  const href = `/match/${match.match_id}`;
+  const target = href ?? `/match/${match.match_id}`;
+  // The side the margin favours: leader by win probability, draw ignored.
+  const favoured = (probs?.home_win ?? 0) >= (probs?.away_win ?? 0) ? teams.home : teams.away;
 
   return (
     <section className="glass fade-up relative overflow-hidden rounded-[16px] p-5">
@@ -92,14 +107,22 @@ export function FeatureHero({
         {/* Matchup: home crest 52px, Bricolage names (home / v away), away
             crest 38px at 90% opacity. */}
         <div className="mt-2.5 flex items-center gap-3.5">
-          <Flag team={teams.home} size={52} />
+          {badge === "club" ? (
+            <ClubBadge name={teams.home} size={52} />
+          ) : (
+            <Flag team={teams.home} size={52} />
+          )}
           <div className="min-w-0 flex-1 font-display text-[30px] font-extrabold leading-none tracking-[-0.03em]">
             <span className="block truncate">{teams.home}</span>
             <span className="block truncate">
               <span className="text-[17px] text-muted">v</span> {teams.away}
             </span>
           </div>
-          <Flag team={teams.away} size={38} className="opacity-90" />
+          {badge === "club" ? (
+            <ClubBadge name={teams.away} size={38} />
+          ) : (
+            <Flag team={teams.away} size={38} className="opacity-90" />
+          )}
         </div>
 
         {/* Giant win %: display-hero scale in lime, with a smaller % suffix and
@@ -113,7 +136,9 @@ export function FeatureHero({
             <span className="uppercase tracking-wide">{leaderLabel}</span>
             <br />
             AI most likely:{" "}
-            {formatScore(predicted_score?.home ?? null, predicted_score?.away ?? null)}
+            {margin != null && !predicted_score
+              ? `${favoured} by ${Math.abs(margin).toFixed(1)}`
+              : formatScore(predicted_score?.home ?? null, predicted_score?.away ?? null)}
             {conf && (
               <>
                 {" · "}
@@ -141,13 +166,13 @@ export function FeatureHero({
             secondary; both 44px tap targets. */}
         <div className="mt-4 flex gap-2.5">
           <Link
-            href={href}
+            href={target}
             className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] bg-win font-display text-sm font-semibold text-background transition hover:brightness-[1.06]"
           >
             Make your pick
           </Link>
           <Link
-            href={href}
+            href={target}
             className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] border border-border font-display text-sm font-semibold text-foreground transition hover:border-win hover:text-lime-deep"
           >
             {heroPct != null ? `Why ${heroPct}%?` : "See the prediction"}

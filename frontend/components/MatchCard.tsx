@@ -10,6 +10,7 @@ import { kickoffDate, kickoffTime } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
 import { Flag } from "./Flag";
+import { ClubBadge } from "@/components/ClubBadge";
 import { FavoriteStar } from "./FavoriteStar";
 
 /** The core dashboard card: matchup, predicted winner, W/D/L bar, score.
@@ -23,17 +24,30 @@ import { FavoriteStar } from "./FavoriteStar";
  *  on"/timeline row (design/Floodlight Prototype.dc.html): one line of team
  *  names, a time · venue sub-line, a lead percentage, and a labels-off
  *  probability bar -- no footer, for dense lists (home "also on", the Matches
- *  timeline). Default `"full"` is today's layout, unchanged in substance. */
+ *  timeline). Default `"full"` is today's layout, unchanged in substance.
+ *
+ *  The `badge`/`href`/`margin` slots are additive, serializable seams so NRL
+ *  callers (several of them server components) can render this same card without
+ *  forking a variant: `badge="club"` swaps the country crest for a `ClubBadge`
+ *  monogram, `href` overrides (or, when `null`, drops) the football match link,
+ *  and `margin` prints the ML model's expected margin chip. All three default to
+ *  today's football behavior, so the football surfaces are byte-identical. */
 export function MatchCard({
   match,
   tz,
   showDate = false,
   variant = "full",
+  badge = "flag",
+  href,
+  margin,
 }: {
   match: MatchSummary;
   tz?: string;
   showDate?: boolean;
   variant?: "full" | "compact";
+  badge?: "flag" | "club";
+  href?: string | null;
+  margin?: number | null;
 }) {
   const { teams, probabilities, predicted_score, predicted_winner } = match;
   const live = isLiveNow(match);
@@ -50,17 +64,24 @@ export function MatchCard({
         : kickoffTime(match.kickoff_utc, tz)
       : null;
 
-  return (
-    <Link
-      href={`/match/${match.match_id}`}
-      onClick={() => trackEvent("match_card_click", { match_id: match.match_id })}
-      className={`card-hover glass group block rounded-[14px] ${variant === "compact" ? "p-3" : "p-4"} ${
-        live ? "ring-1 ring-loss/40" : ""
-      }`}
-    >
-      {variant === "compact" ? (
-        <CompactRow match={match} live={live} finished={finished} kickoffPill={kickoffPill} />
-      ) : (
+  // NRL callers can override the football detail link (or drop it with `null`,
+  // reproducing SportMatchCard's plain-card fallback when the round is unknown).
+  const target = href === undefined ? `/match/${match.match_id}` : href;
+  const shell = `glass group block rounded-[14px] ${variant === "compact" ? "p-3" : "p-4"} ${
+    live ? "ring-1 ring-loss/40" : ""
+  }`;
+
+  const content =
+    variant === "compact" ? (
+      <CompactRow
+        match={match}
+        live={live}
+        finished={finished}
+        kickoffPill={kickoffPill}
+        badge={badge}
+        margin={margin}
+      />
+    ) : (
         <>
           <div className="mb-3 flex items-center justify-between gap-2">
             <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
@@ -91,8 +112,8 @@ export function MatchCard({
           </div>
 
           <div className="mb-4 space-y-2.5">
-            <TeamRow name={teams.home} score={hasScore ? match.score_home : null} live={live || finished} />
-            <TeamRow name={teams.away} score={hasScore ? match.score_away : null} live={live || finished} />
+            <TeamRow name={teams.home} score={hasScore ? match.score_home : null} live={live || finished} badge={badge} />
+            <TeamRow name={teams.away} score={hasScore ? match.score_away : null} live={live || finished} badge={badge} />
           </div>
 
           {probabilities ? (
@@ -136,18 +157,50 @@ export function MatchCard({
                 </strong>
               </span>
             )}
-            {predicted_score && (
+            {predicted_score ? (
               <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
                 <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
                   ML model
                 </span>
                 {formatScore(predicted_score.home, predicted_score.away)}
               </span>
+            ) : (
+              // NRL fixtures carry an expected margin, not a scoreline; the chip
+              // stands in for the predicted-score slot on non-finished matches.
+              margin != null &&
+              !finished && (
+                <span className="rounded-lg bg-surface-2 px-2 py-0.5 font-bold tabular-nums text-foreground">
+                  <span className="mr-1 font-semibold text-muted">ML model</span>
+                  margin {margin > 0 ? "+" : ""}
+                  {margin.toFixed(1)}
+                </span>
+              )
             )}
             {finished && <ShootoutNote verdict={verdict} />}
           </div>
         </>
-      )}
+      );
+
+  // A non-null target is the linked card; `null` drops the anchor entirely (a
+  // plain glass card minus the hover affordance), mirroring SportMatchCard's
+  // fallback when the round is still TBC.
+  if (target === null) {
+    return <div className={shell}>{content}</div>;
+  }
+
+  return (
+    <Link
+      href={target}
+      // NRL match ids live in a different namespace, so skip the football click
+      // event whenever a caller supplies its own href.
+      onClick={
+        href === undefined
+          ? () => trackEvent("match_card_click", { match_id: match.match_id })
+          : undefined
+      }
+      className={`card-hover ${shell}`}
+    >
+      {content}
     </Link>
   );
 }
@@ -167,11 +220,15 @@ function CompactRow({
   live,
   finished,
   kickoffPill,
+  badge,
+  margin,
 }: {
   match: MatchSummary;
   live: boolean;
   finished: boolean;
   kickoffPill: string | null;
+  badge: "flag" | "club";
+  margin?: number | null;
 }) {
   const { teams } = match;
   // Once underway, promote the in-play win probabilities into the bar (same
@@ -188,7 +245,11 @@ function CompactRow({
   return (
     <>
       <div className="flex items-center gap-2.5">
-        <Flag team={teams.home} size={22} />
+        {badge === "club" ? (
+          <ClubBadge name={teams.home} size={22} />
+        ) : (
+          <Flag team={teams.home} size={22} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="truncate font-display text-sm font-bold tracking-tight">
             {teams.home} <span className="font-normal text-muted">v</span> {teams.away}
@@ -227,6 +288,16 @@ function CompactRow({
       ) : (
         <p className="mt-2.5 text-[10px] text-muted">Prediction pending…</p>
       )}
+      {margin != null && !finished && (
+        // NRL's expected-margin chip, a new line under the bar for dense rows.
+        <div className="mt-2">
+          <span className="rounded-lg bg-surface-2 px-2 py-0.5 font-bold tabular-nums text-foreground">
+            <span className="mr-1 font-semibold text-muted">ML model</span>
+            margin {margin > 0 ? "+" : ""}
+            {margin.toFixed(1)}
+          </span>
+        </div>
+      )}
       {verdict && (
         <div
           className={`mt-2 flex items-center gap-1.5 text-[10px] font-semibold ${
@@ -250,14 +321,16 @@ function TeamRow({
   name,
   score,
   live,
+  badge,
 }: {
   name: string;
   score?: number | null;
   live?: boolean;
+  badge: "flag" | "club";
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <Flag team={name} size={24} />
+      {badge === "club" ? <ClubBadge name={name} size={24} /> : <Flag team={name} size={24} />}
       <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold tracking-tight">
         {name}
       </span>

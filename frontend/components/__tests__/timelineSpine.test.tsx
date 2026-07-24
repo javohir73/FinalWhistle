@@ -78,3 +78,24 @@ it("marks a live row's spine dot with border-loss and an upcoming row's with bor
   expect(upcomingDot).toHaveClass("border-border");
   expect(upcomingDot).not.toHaveClass("border-loss");
 });
+
+it("forwards badge / cardHref / cardMargin onto the keyed card, defaulting the rest", () => {
+  render(
+    <TimelineSpine
+      days={days}
+      tz="UTC"
+      badge="club"
+      cardHref={{ 2: "/nrl/match/2026/19/2" }}
+      cardMargin={{ 2: 7.5 }}
+    />,
+  );
+
+  // The keyed match (id 2) gets the NRL link and its margin chip.
+  const keyed = screen.getByText(/Spain/).closest("a");
+  expect(keyed).toHaveAttribute("href", "/nrl/match/2026/19/2");
+  expect(screen.getByText("margin +7.5")).toBeInTheDocument();
+
+  // An unkeyed match falls back to the football default link and no chip.
+  const unkeyed = screen.getByText(/Brazil/).closest("a");
+  expect(unkeyed).toHaveAttribute("href", "/match/1");
+});
