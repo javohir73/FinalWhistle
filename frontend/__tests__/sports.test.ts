@@ -6,6 +6,7 @@ import {
   competitionFromPathname,
   isCompetitionHomeHref,
   isWiredCompetition,
+  isWiredFootballCompetition,
   competitionsForSport,
   isCompetitionId,
 } from "@/lib/sports";
@@ -72,6 +73,17 @@ describe("competition registry", () => {
     expect(isWiredCompetition("nrl")).toBe(true);
     expect(isWiredCompetition("epl")).toBe(false); // P1: not enabled yet
     expect(isWiredCompetition("bogus")).toBe(false);
+  });
+
+  // Regression: the /football/[comp]/... route wrappers must reject nrl --
+  // it's a wired competition (isWiredCompetition("nrl") === true above) but
+  // its basePath is /nrl, not /football/nrl, so isWiredCompetition alone let
+  // /football/nrl and its subroutes 200 with WC26 content instead of 404ing.
+  it("scopes isWiredFootballCompetition to the football namespace, rejecting nrl", () => {
+    expect(isWiredFootballCompetition("wc26")).toBe(true);
+    expect(isWiredFootballCompetition("nrl")).toBe(false);
+    expect(isWiredFootballCompetition("epl")).toBe(false); // P1: not enabled yet
+    expect(isWiredFootballCompetition("bogus")).toBe(false);
   });
 
   it("gives wc26 its knockout shape (bracket + groups)", () => {

@@ -350,6 +350,18 @@ export function isWiredCompetition(comp: string): comp is CompetitionId {
   return comp in COMPETITIONS && COMPETITIONS[comp as CompetitionId].enabled;
 }
 
+/** True iff `comp` is a wired competition AND lives in the football
+ *  namespace. isWiredCompetition alone isn't enough for the /football/[comp]/...
+ *  route wrappers: nrl is a wired competition (enabled: true) but its
+ *  basePath is /nrl, not /football/nrl -- so isWiredCompetition("nrl") would
+ *  let the wrappers render WC26/football content at /football/nrl instead of
+ *  404ing, serving crawlable duplicate content under NRL's own space (see
+ *  COMPETITIONS.nrl's comment). Use this in place of isWiredCompetition
+ *  wherever the guard is scoped to /football/<comp>. */
+export function isWiredFootballCompetition(comp: string): comp is CompetitionId {
+  return isWiredCompetition(comp) && COMPETITIONS[comp].sport === "football";
+}
+
 /** Competitions for one sport, in stable display order (insertion order of
  *  COMPETITIONS above) -- reused by the CompetitionOverlay (slice 5) and the
  *  sport toggle to list "which competitions does this sport have". */
