@@ -7,12 +7,15 @@ from pipeline.ingest.wc26_structure import load_structure as load_wc26_structure
 
 
 def _fixture(fid, home, away, *, status="NS", gh=None, ga=None,
-             kickoff="2026-08-21T19:00:00+00:00"):
-    return {
+             kickoff="2026-08-21T19:00:00+00:00", round_=None):
+    fx = {
         "fixture": {"id": fid, "date": kickoff, "status": {"short": status}},
         "teams": {"home": {"name": home}, "away": {"name": away}},
         "goals": {"home": gh, "away": ga},
     }
+    if round_ is not None:
+        fx["league"] = {"round": round_}
+    return fx
 
 
 def test_seeds_teams_group_and_tournament_mode(db_session, monkeypatch):
@@ -120,3 +123,52 @@ def test_skips_fixture_with_unknown_team(db_session, monkeypatch):
     summary = load_league_structure(db_session, api_key="x")
     assert summary["fixtures_skipped"] == 1
     assert db_session.query(Match).filter_by(provider_fixture_id=4004).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# matchweek write-side (League Score Predictions design doc, matches.
+# matchweek migration c8d9e0f1a2b3): parsing API-Football's fixture.league.
+# round into Match.matchweek.
+# ---------------------------------------------------------------------------
+
+def test_stores_matchweek_parsed_from_league_round(db_session, monkeypatch):
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [_fixture(5005, "Arsenal", "Chelsea", round_="Regular Season - 5")],
+    )
+    load_league_structure(db_session, api_key="x")
+    match = db_session.query(Match).filter_by(provider_fixture_id=5005).one()
+    assert match.matchweek == 5
+
+
+def test_matchweek_stays_null_when_round_missing_or_unparseable(db_session, monkeypatch):
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [
+            _fixture(6006, "Arsenal", "Chelsea"),  # no round key at all
+            _fixture(6007, "Man United", "Nott'm Forest", round_="Quarter-finals"),  # no trailing number
+        ],
+    )
+    load_league_structure(db_session, api_key="x")
+    assert db_session.query(Match).filter_by(provider_fixture_id=6006).one().matchweek is None
+    assert db_session.query(Match).filter_by(provider_fixture_id=6007).one().matchweek is None
+
+
+def test_matchweek_updates_on_re_ingestion_after_reschedule(db_session, monkeypatch):
+    """Set unconditionally on every upsert, like kickoff_utc/status/score_* --
+    a fixture moved to a different matchweek (broadcaster reshuffle) must
+    correct on the next ingestion, not just the first time the row is
+    created."""
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [_fixture(7007, "Arsenal", "Chelsea", round_="Regular Season - 5")],
+    )
+    load_league_structure(db_session, api_key="x")
+    assert db_session.query(Match).filter_by(provider_fixture_id=7007).one().matchweek == 5
+
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [_fixture(7007, "Arsenal", "Chelsea", round_="Regular Season - 6")],
+    )
+    load_league_structure(db_session, api_key="x")
+    assert db_session.query(Match).filter_by(provider_fixture_id=7007).one().matchweek == 6

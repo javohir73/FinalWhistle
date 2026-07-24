@@ -22,11 +22,24 @@ describe("sport config", () => {
     expect(switchSportHref("/nrl/leaderboard", "football")).toBe("/leaderboard");
   });
 
-  it("keeps football nav unchanged and gives NRL its five links", () => {
+  it("maps the tips page between sports so context is preserved", () => {
+    expect(switchSportHref("/tips", "nrl")).toBe("/nrl/tips");
+    expect(switchSportHref("/nrl/tips", "football")).toBe("/tips");
+  });
+
+  it("gives football and NRL their nav links (Tips only renders once its format guard is met)", () => {
     expect(SPORTS.football.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Matches", "Groups", "Bracket", "You"]);
+      ["Home", "Matches", "Groups", "Bracket", "You", "Tips"]);
     expect(SPORTS.nrl.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Ladder", "Record", "Tips"]);
+  });
+
+  it("gives football's Tips link a requiresLeagueFormat guard so it and Bracket never both show", () => {
+    const tipsLink = SPORTS.football.navLinks.find((l) => l.label === "Tips");
+    expect(tipsLink?.href).toBe("/tips");
+    expect(tipsLink?.requiresLeagueFormat).toBe(true);
+    const bracketLink = SPORTS.football.navLinks.find((l) => l.label === "Bracket");
+    expect(bracketLink?.requiresBrackets).toBe(true);
   });
 
   it("gives NRL a Tips link to the tipsheet (design doc: NRL Round Tips) instead of the You/leaderboard slot", () => {

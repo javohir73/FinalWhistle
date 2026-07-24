@@ -5,6 +5,7 @@ check that proves the frontend can reach the backend end-to-end. Data/prediction
 routers are added in task 5.0.
 """
 import logging
+import re
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -16,9 +17,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logger = logging.getLogger(__name__)
 
 from app.api import (
-    activity, auth, brackets, bridge, groups, intel, internal, knockout, leaderboard, markets, market_record,
-    match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, nrl_tips, nrl_user_tips,
-    predictions, prob_history, retention, sports, teams, tournaments,
+    activity, auth, brackets, bridge, groups, intel, internal, knockout, leaderboard, league_score_predictions,
+    markets, market_record, match_picks, matches, model_record, movers, nrl_intel, nrl_live, nrl_players, nrl_tips,
+    nrl_user_tips, predictions, prob_history, retention, sports, teams, tournaments,
 )
 from app.config import settings
 from app.cache import cache
@@ -37,6 +38,14 @@ if settings.sentry_dsn:
         send_default_pii=False,
     )
     sentry_sdk.set_tag("model_version", current_model_version())
+
+# Per-caller league score-prediction routes (submit/mine/summary) carry a
+# dynamic {league} path segment, so they can't join the plain
+# `path.startswith(...)` chain below like /api/nrl/tips/* does -- same
+# device-keyed reasoning as that chain's comment (never shared-cache a
+# response keyed on one device's own state). NOT /leaderboard or /share,
+# which stay on the public 60s-cache path (no device_id in either).
+_LEAGUE_TIPS_NO_STORE_RE = re.compile(r"^/api/leagues/[^/]+/tips/(submit|mine|summary)$")
 
 app = FastAPI(title=settings.app_name)
 
@@ -85,6 +94,7 @@ async def cache_control(request: Request, call_next):
         or path.startswith("/api/nrl/tips/claim")
         or path.startswith("/api/nrl/tips/mine")
         or path.startswith("/api/nrl/tips/summary")
+        or _LEAGUE_TIPS_NO_STORE_RE.match(path)
     ):
         response.headers["Cache-Control"] = "no-store"
     elif path.startswith("/api/knockout/bracket") or path == "/api/matches/upcoming" or (
@@ -277,6 +287,7 @@ app.include_router(nrl_players.router)
 app.include_router(nrl_intel.router)
 app.include_router(nrl_tips.router)
 app.include_router(nrl_user_tips.router)
+app.include_router(league_score_predictions.router)
 app.include_router(movers.router)
 app.include_router(intel.router)
 app.include_router(prob_history.router)

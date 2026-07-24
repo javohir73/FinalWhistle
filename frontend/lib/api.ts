@@ -8,6 +8,7 @@ import type {
   KnockoutBracket,
   LadderResponse,
   LeaderboardRow,
+  LeagueTipsShareResponse,
   MarketBenchmark,
   MatchLineups,
   MatchSummary,
@@ -240,6 +241,19 @@ export const getOriginRecordServer = () =>
  *  ~10 minutes, so a short ISR revalidate here just avoids hammering it. */
 export const getRetentionServer = () =>
   getServer<RetentionStats>("/api/retention", 300);
+
+/** Public share-card data for /tips/share/[league]/[matchweek]/[handle] and
+ *  its opengraph-image (design doc: League Score Predictions, 2026-07-24) --
+ *  league/matchweek/handle come only from the route params, never a
+ *  client-supplied score. Same short 60s revalidate as getNrlTipsShareServer,
+ *  for the identical pre-grading-404 reason (a crawler hitting the link
+ *  between full-time and grading must not pin the 404 for the full hour a
+ *  graded result's own longer-lived data would otherwise tolerate). */
+export const getLeagueTipsShareServer = (league: string, matchweek: number, handle: string) =>
+  getServer<LeagueTipsShareResponse>(
+    `/api/leagues/${league}/tips/share/${matchweek}/${encodeURIComponent(handle)}`,
+    60,
+  );
 
 /** Client-side NRL fixtures fetch — backs the /nrl/matches island's 60s
  *  refresh while a game is in its live window. */

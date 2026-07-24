@@ -98,7 +98,7 @@ const LEAGUE: ActiveTournament = {
   has_brackets: false,
 };
 
-it("hides the Bracket tab when the active tournament has no bracket", () => {
+it("hides the Bracket tab and shows Tips instead when the active tournament has no bracket", () => {
   mockPath = "/";
   render(
     <TournamentProvider tournament={LEAGUE}>
@@ -106,10 +106,14 @@ it("hides the Bracket tab when the active tournament has no bracket", () => {
     </TournamentProvider>,
   );
   expect(screen.queryByRole("link", { name: /Bracket/ })).not.toBeInTheDocument();
-  expect(screen.getAllByRole("link")).toHaveLength(4);
+  expect(screen.getByRole("link", { name: /Tips/ })).toHaveAttribute("href", "/tips");
+  // Tips fills the slot Bracket vacates -- still exactly five, never six.
+  expect(screen.getAllByRole("link")).toHaveLength(5);
 });
 
-it("still shows the Bracket tab with no provider (WC26 fallback)", () => {
+it("still shows the Bracket tab (and hides Tips) with no provider (WC26 fallback)", () => {
   renderAt("/");
   expect(screen.getByRole("link", { name: /Bracket/ })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: /Tips/ })).not.toBeInTheDocument();
+  expect(screen.getAllByRole("link")).toHaveLength(5);
 });

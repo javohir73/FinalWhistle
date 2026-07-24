@@ -37,14 +37,16 @@ const renderNav = (tournament?: ActiveTournament) => {
   return render(tournament ? <TournamentProvider tournament={tournament}>{nav}</TournamentProvider> : nav);
 };
 
-it("shows the Bracket link with no provider (WC26 fallback)", () => {
+it("shows the Bracket link (and hides Tips) with no provider (WC26 fallback)", () => {
   renderNav();
   expect(screen.getByRole("link", { name: "Bracket" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
 });
 
-it("hides the Bracket link when the active tournament has no bracket", () => {
+it("hides the Bracket link and shows Tips instead when the active tournament has no bracket", () => {
   renderNav(LEAGUE);
   expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Tips" })).toHaveAttribute("href", "/tips");
   // Every other football link stays.
   expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Matches" })).toBeInTheDocument();

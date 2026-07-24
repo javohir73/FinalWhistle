@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { getUpcomingMatches } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
@@ -160,6 +161,21 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
           className="w-full rounded-xl border border-border bg-surface py-2.5 pl-9 pr-3 text-sm transition placeholder:text-muted/70 hover:border-win/40"
         />
       </div>
+
+      {/* Beat the AI entry point (design doc: League Score Predictions,
+       *  2026-07-24) -- same glass teaser-card idiom as /nrl/tips's "Finals
+       *  race" card and /nrl's "State of Origin" card. */}
+      <Link href="/tips" className="glass mb-6 block rounded-2xl p-4 transition hover:bg-white/5">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Beat the AI
+            </p>
+            <p className="mt-1 font-display text-lg font-extrabold">Predict this week&apos;s scorelines</p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-lime-deep">Play now →</span>
+        </div>
+      </Link>
 
       {/* Segmented control: Upcoming / Live / Finished */}
       <div

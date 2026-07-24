@@ -109,6 +109,26 @@ class Match(Base):
     group_id: Mapped[int | None] = mapped_column(ForeignKey("groups.id"))
     stage: Mapped[str] = mapped_column(String(20))  # group / R32 / R16 / QF / SF / third_place / final
     match_no: Mapped[int | None] = mapped_column(Integer, unique=True, index=True)  # official KO match number (73..104)
+    # League fixtures only (league score predictions design doc): the
+    # matchweek/round number API-Football's fixture payload carries as
+    # `league.round` (e.g. "Regular Season - 5" -> 5). NULL for WC26 rows and
+    # for any league row ingested before this column existed. match_no can't
+    # be repurposed for this -- it's globally UNIQUE (WC26 KO numbering) and
+    # every fixture in a matchweek would collide on it. Populated by league
+    # ingestion (pipeline/ingest/league_structure.py) -- not written here.
+    #
+    # DEFERRED (deploy-window hardening, same hazard as TeamTournamentState.
+    # residual_ledger below): Render auto-deploys this code before refresh.yml
+    # applies migration c8d9e0f1a2b3, so a plain column here would make every
+    # full-entity Match SELECT -- /api/matches/upcoming polled every ~30s,
+    # /api/tournaments/active, /api/knockout/bracket, and more -- 500 with
+    # UndefinedColumn against a prod DB that hasn't been migrated yet.
+    # Deferred means SELECT * never includes this column -- only the league
+    # endpoints' explicit `Match.matchweek == ...` filters (which can't reach
+    # a real row until the Premier League tournament itself is loaded,
+    # post-migration/post-cutover) ever touch it, so the hot WC/live paths
+    # stay safe regardless of migration timing.
+    matchweek: Mapped[int | None] = mapped_column(Integer, index=True, deferred=True)
     team_home_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     team_away_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -919,6 +939,54 @@ class UserTip(Base):
     # featured-match tiebreak value -- only ever set on that match's tip row.
     points: Mapped[int | None] = mapped_column(Integer)
     round_margin: Mapped[int | None] = mapped_column(Integer)
+    graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+# --- League score predictions (League Score Predictions design doc,
+# 2026-07-24): the football-league sibling of the NRL beat-the-AI loop above.
+# Reuses tip_players for identity (same device-first, account-optional
+# convention) instead of a second identity table -- POST /api/nrl/tips/claim
+# already claims these rows too (see its second reassign/dedupe loop). Kept
+# league-generic via tournament_id, matching every other surface in this
+# feature (no EPL-only table/column).
+
+
+class LeagueScorePrediction(Base):
+    """One player's scoreline prediction for one football league match.
+    Upserted freely until the match's kickoff_utc (server clock; see
+    app/api/league_score_predictions.py's submit_prediction) -- keyed by
+    match_id, not matchweek, so a fixture rescheduled into a different
+    matchweek keeps its prediction. `exact` flags a 5-point row for the
+    streak/summary UI without re-deriving it from points.
+
+    No onupdate=func.now() on updated_at -- same NRL slice-2 lesson
+    user_tips.updated_at's docstring explains: submit_prediction sets it
+    explicitly on every pick write, and the (pipeline-owned) grading pass's
+    post-kickoff eligibility filter (updated_at <= kickoff_utc) depends on it
+    tracking ONLY pick changes -- an onupdate would also bump it on the
+    grading pass's own write and on /claim's player_id reassignment, both of
+    which happen after kickoff."""
+
+    __tablename__ = "league_score_predictions"
+    __table_args__ = (
+        UniqueConstraint("match_id", "player_id", name="uq_league_score_prediction_match_player"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tournament_id: Mapped[int] = mapped_column(ForeignKey("tournaments.id"), index=True)
+    match_id: Mapped[int] = mapped_column(ForeignKey("matches.id"), index=True)
+    player_id: Mapped[int] = mapped_column(ForeignKey("tip_players.id"), index=True)
+    predicted_home: Mapped[int] = mapped_column(Integer)  # 0..15, validated at the API layer
+    predicted_away: Mapped[int] = mapped_column(Integer)  # 0..15, validated at the API layer
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Grading columns (nullable until the grading pass runs): 5 points for an
+    # exact score, 2 for the correct result direction (win/draw/loss), 0
+    # otherwise -- NOT cumulative (design doc). Idempotent-by-recompute, same
+    # as user_tips.points -- see pipeline.sports.nrl_user_tips.grade() for the
+    # pattern this table's (pipeline-owned) grading pass ports.
+    points: Mapped[int | None] = mapped_column(Integer)
+    exact: Mapped[bool | None] = mapped_column(Boolean)
     graded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 

@@ -31,8 +31,10 @@ export function SiteNav() {
   // carry the full site chrome.
   if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
   // C6: the Bracket link only makes sense for tournaments that have one.
+  // Tips (league-format only) takes the slot Bracket vacates -- see
+  // requiresLeagueFormat's doc comment in lib/sports.ts.
   const links = SPORTS[sportFromPathname(pathname)].navLinks.filter(
-    (link) => !link.requiresBrackets || has_brackets,
+    (link) => (!link.requiresBrackets || has_brackets) && (!link.requiresLeagueFormat || !has_brackets),
   );
 
   return (

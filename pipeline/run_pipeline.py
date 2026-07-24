@@ -22,35 +22,108 @@ log = logging.getLogger(__name__)
 
 
 def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
-    """League pivot D5/D7 (docs/LEAGUE-PIVOT-PLAN.md): the EPL 2026-27 path,
-    taken instead of the WC26 steps below when settings.pipeline_target ==
-    "league". Structure upsert -> sync recent finished results into history
-    (from the same fetch_fixtures payload the structure step already pulled)
-    -> club Elo update -> predictions tagged the club model version ->
-    learning-loop scoring. No WC-only step (wc26 structure, KO venues, bracket
-    sim) is ever called here — they simply aren't part of this branch, which
-    is what "skip cleanly" means for a league run.
+    """League pivot D5/D7 (docs/LEAGUE-PIVOT-PLAN.md) + League Score
+    Predictions design doc (2026-07-24, "Pipeline" section): the football-
+    league path, taken instead of the WC26 steps below when settings.
+    pipeline_target == "league". Iterates pipeline.leagues.ACTIVE_LEAGUES
+    (Phase 1: exactly ["epl"]) -- per configured league: structure upsert ->
+    sync its finished results into history (from the same fetch_fixtures
+    payload the structure step already pulled). Then, once across every
+    league just ingested (these steps have no tournament filter to begin
+    with -- see compute_club_elo.py's CLUB_COMPETITION-wide replay and
+    learning_loop.py's _finished_matches): club Elo update, per-league
+    predictions tagged the club model version, learning-loop scoring, and
+    the score-prediction grading pass (human tips, not the model's own
+    record -- pipeline/league_score_predictions.py). No WC-only step (wc26
+    structure, KO venues, bracket sim) is ever called here — they simply
+    aren't part of this branch, which is what "skip cleanly" means for a
+    league run.
+
+    Step naming: with exactly one configured league (Phase 1, and every
+    existing test) the per-league step names stay unprefixed -- byte-for-
+    byte the same summary shape ("league_structure"/"league_results_sync"/
+    "predictions") this branch has always produced. Only once more than one
+    league actually resolves (Phase 2) do those three steps gain a "{code}_"
+    prefix, so two leagues' summaries never collide under the same key.
+    club_elo/learning_loop/score_predictions_grading stay unprefixed
+    regardless of league count -- they were never tournament-scoped.
     """
     from app.models import Tournament
     from pipeline.compute_club_elo import compute_and_store_club_elo
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.club_results import sync_finished_matches_to_history
     from pipeline.ingest.league_structure import load_league_structure
+    from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES
     from pipeline.learning_loop import run_learning_loop
 
-    league_summary = step("league_structure", lambda: load_league_structure(db))
-    tournament = db.get(Tournament, league_summary["tournament_id"])
+    configured: list[tuple[str, dict]] = []
+    for code in ACTIVE_LEAGUES:
+        cfg = LEAGUES.get(code)
+        if cfg is None:
+            log.warning(
+                "league pipeline: %r is in ACTIVE_LEAGUES but has no "
+                "pipeline.leagues.LEAGUES registry entry -- skipping", code,
+            )
+            continue
+        configured.append((code, cfg))
 
-    step("league_results_sync", lambda: sync_finished_matches_to_history(db, tournament))
+    if not configured:
+        log.warning("league pipeline: no configured league resolved to a runnable config -- nothing to do")
+        return
+
+    def _prefix(code: str) -> str:
+        return "" if len(configured) == 1 else f"{code}_"
+
+    leagues_run: list[tuple[str, Tournament]] = []
+    for code, cfg in configured:
+        league_summary = step(
+            f"{_prefix(code)}league_structure",
+            lambda cfg=cfg: load_league_structure(
+                db, teams_file=cfg["teams_file"], tournament_name=cfg["tournament_name"],
+                group_name=cfg["group_name"], league_id=cfg["league_id"], season=cfg["season"],
+            ),
+        )
+        tournament = db.get(Tournament, league_summary["tournament_id"])
+        step(
+            f"{_prefix(code)}league_results_sync",
+            lambda t=tournament: sync_finished_matches_to_history(db, t),
+        )
+        leagues_run.append((code, tournament))
+
+    # Not tournament-scoped: compute_and_store_club_elo replays every
+    # CLUB_COMPETITION historical row regardless of league, so one call
+    # already covers every league just ingested above.
     step("club_elo", lambda: compute_and_store_club_elo(db))
-    step(
-        "predictions",
-        lambda: generate_predictions(
-            db, model_version="poisson-elo-club-v0.1",
-            n_sims=n_sims, tournament_id=tournament.id,
-        ),
-    )
+
+    for code, tournament in leagues_run:
+        step(
+            f"{_prefix(code)}predictions",
+            lambda t=tournament: generate_predictions(
+                db, model_version="poisson-elo-club-v0.1",
+                n_sims=n_sims, tournament_id=t.id,
+            ),
+        )
+
+    # Also not tournament-scoped (learning_loop._finished_matches has no
+    # tournament filter) -- one call evaluates every league's finished
+    # matches against the model's own frozen predictions.
     step("learning_loop", lambda: run_learning_loop(db, "poisson-elo-club-v0.1"))
+
+    # New: score-prediction grading pass (League Score Predictions design
+    # doc) -- grades HUMAN picks, a separate table/module from the model's
+    # own learning_loop record above. Best-effort, mirroring the WC26
+    # branch's _prob_snapshots below: a failure here must never block the
+    # model pipeline that already landed and committed above it.
+    def _score_predictions_grading() -> dict:
+        from pipeline.league_score_predictions import grade
+
+        try:
+            return {"graded": grade(db)}
+        except Exception:  # noqa: BLE001 - best-effort, log loudly and continue
+            log.exception("score_predictions_grading FAILED (best-effort, continuing)")
+            return {"graded": 0, "error": True}
+
+    step("score_predictions_grading", _score_predictions_grading)
     log.info("league pipeline complete")
 
 

@@ -361,6 +361,14 @@ class NrlTipClaimIn(BaseModel):
     device_id: str
 
 
+# ---- League score predictions (Beat-the-AI's scoreline, football leagues) ----
+class LeagueScorePredictionSubmitIn(BaseModel):
+    device_id: str
+    match_id: int
+    predicted_home: int  # 0..15, validated in the endpoint
+    predicted_away: int  # 0..15, validated in the endpoint
+
+
 # ---- Accounts / brackets / leaderboard ----
 class GroupPickIn(BaseModel):
     match_id: int
