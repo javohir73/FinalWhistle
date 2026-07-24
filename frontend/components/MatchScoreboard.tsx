@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { getMatchSummary, getProbHistory } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
@@ -40,6 +40,7 @@ export function MatchScoreboard({
   predictedWinner,
   caveat,
   knockout,
+  confidenceRing,
 }: {
   matchId: number;
   /** Tournament / competition name shown in the Scorebug eyebrow. */
@@ -61,6 +62,9 @@ export function MatchScoreboard({
   caveat?: string | null;
   /** Knockout resolution block (v0.5) — who goes through, past the 90th minute. */
   knockout?: KnockoutAdvance | null;
+  /** Conic confidence dial for the headline prediction; when passed it stands in
+   *  the AI's-call card in place of the compact ConfidenceBadge. */
+  confidenceRing?: ReactNode;
 }) {
   const { tz } = useTimezone();
   const finishedAtRender = initialSummary?.status === "finished";
@@ -187,11 +191,13 @@ export function MatchScoreboard({
         {caveat && !(!showsWinner && caveat === "Too close to call") && (
           <p className="mt-1.5 text-sm text-muted">{caveat}</p>
         )}
-        {confidence && (
+        {confidenceRing ? (
+          <div className="mt-4 flex justify-center">{confidenceRing}</div>
+        ) : confidence ? (
           <div className="mt-4 flex justify-center">
             <ConfidenceBadge level={confidence} />
           </div>
-        )}
+        ) : null}
 
         <div className="mt-5">
           {liveProbs && (
