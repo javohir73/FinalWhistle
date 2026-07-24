@@ -7,6 +7,7 @@ import { zoneForRank, zoneToneClasses } from "@/lib/standingsZones";
 import { cn } from "@/lib/utils";
 import { QualificationBar } from "./QualificationBar";
 import { Flag } from "./Flag";
+import { ClubBadge } from "./ClubBadge";
 
 /** Solid swatch color per zone tone, for the legend dots. The rows wear the
  *  faint tints from zoneToneClasses; the legend needs the full-strength hue.
@@ -27,6 +28,130 @@ const ZONE_SWATCH: Record<StandingsZone["tone"], string> = {
  *  the same width so the Pts/GD columns stay aligned between the two. */
 const QUAL_COL = "w-[5.5rem] sm:w-36";
 
+/** The optional numeric columns a caller can slot between the team cell and the
+ *  qualification column. Football uses the GD/Pts default (`columns` omitted);
+ *  the NRL ladder passes W-L / Diff / Pts / Top-8% (design/Floodlight
+ *  Prototype.dc.html, the NRL ladder surface). */
+export type StandingsColumn = "gd" | "pts" | "wl" | "diff" | "played" | "top8";
+
+/** Header label + width for each numeric column. All right-aligned; the widths
+ *  keep the header row and the body cells in the same grid. */
+const NUMERIC_HEADERS: Record<StandingsColumn, { label: string; width: string }> = {
+  gd: { label: "GD", width: "w-10" },
+  pts: { label: "Pts", width: "w-10" },
+  wl: { label: "W–L", width: "w-12" },
+  diff: { label: "Diff", width: "w-10" },
+  played: { label: "P", width: "w-10" },
+  top8: { label: "Top 8%", width: "w-14" },
+};
+
+/** Shared right-aligned value-cell class (matches the existing GD cell). */
+const VALUE_CELL = "text-right text-[13px] tabular-nums text-foreground";
+
+/** Row shape the table accepts: a superset of StandingRow (football) plus the
+ *  NRL ladder metrics, every metric optional so a StandingRow[] stays
+ *  assignable (arrays skip excess-property checks). Football callers pass
+ *  StandingRow[] unchanged; the NRL ladder passes rows carrying
+ *  wins/losses/diff/projected_points/projection_pct. `team_id`/`team` are the
+ *  only required fields -- they drive the row key, link, crest, and name. */
+export interface StandingsTableRow {
+  team_id: number;
+  team: string;
+  projected_points?: number;
+  projected_goals_for?: number;
+  projected_goal_diff?: number;
+  qualification_prob?: number | null;
+  played?: number;
+  wins?: number;
+  draws?: number;
+  losses?: number;
+  points?: number;
+  diff?: number;
+  projection_pct?: number | null;
+}
+
+/** Signed integer the way the GD/Diff columns print it: "+5", "-3", "0"; blank
+ *  when the value is missing so a partial row degrades to an empty cell rather
+ *  than "NaN". Mirrors the football GD cell's existing +N / N formatting. */
+function signed(n: number | undefined): string {
+  if (n == null) return "";
+  return n > 0 ? `+${n}` : `${n}`;
+}
+
+/** One numeric body cell for the generic `columns` path (the NRL ladder and any
+ *  future caller that passes `columns`). The football default path renders its
+ *  GD/Pts cells inline (see StandingsTable) to stay byte-identical. */
+function renderCell(key: StandingsColumn, row: StandingsTableRow) {
+  switch (key) {
+    case "gd":
+      return (
+        <span key={key} role="cell" className={cn("w-10", VALUE_CELL)}>
+          {signed(row.projected_goal_diff)}
+        </span>
+      );
+    case "pts":
+      return (
+        <span key={key} role="cell" className="w-10 text-right font-display text-sm font-bold tabular-nums">
+          {row.projected_points}
+        </span>
+      );
+    case "wl":
+      return (
+        <span key={key} role="cell" className={cn("w-12", VALUE_CELL)}>
+          {row.wins}–{row.losses}
+        </span>
+      );
+    case "diff":
+      return (
+        <span key={key} role="cell" className={cn("w-10", VALUE_CELL)}>
+          {signed(row.diff)}
+        </span>
+      );
+    case "played":
+      return (
+        <span key={key} role="cell" className={cn("w-10", VALUE_CELL)}>
+          {row.played}
+        </span>
+      );
+    case "top8": {
+      // projColor from the prototype, simplified to the closed lime/muted pair:
+      // a live top-8 chance (>=50%) reads lime, everything else (incl. the "—"
+      // placeholder) reads muted. The printed % carries the signal, not colour.
+      const p = row.projection_pct;
+      return (
+        <span
+          key={key}
+          role="cell"
+          className={cn(
+            "w-14 text-right text-[13px] tabular-nums",
+            p != null && p >= 0.5 ? "text-lime-deep" : "text-muted",
+          )}
+        >
+          {p != null ? `${Math.round(p * 100)}%` : "—"}
+        </span>
+      );
+    }
+  }
+}
+
+/** The football GD + Pts body cells, rendered byte-for-byte as the pre-NRL
+ *  component did. The default (no `columns`) path is the football surface, so
+ *  the one documented narrowing to StandingRow is safe -- projected_* are
+ *  required there. */
+function footballNumericCells(row: StandingsTableRow) {
+  const s = row as StandingRow;
+  return (
+    <>
+      <span role="cell" className="w-10 text-right text-[13px] tabular-nums text-foreground">
+        {s.projected_goal_diff > 0 ? `+${s.projected_goal_diff}` : s.projected_goal_diff}
+      </span>
+      <span role="cell" className="w-10 text-right font-display text-sm font-bold tabular-nums">
+        {s.projected_points}
+      </span>
+    </>
+  );
+}
+
 /** Floodlight standings table (design/Floodlight Prototype.dc.html, Recon 3
  *  Screen 4): a flex table with a Hanken micro-label header over rows that each
  *  wear a `border-l-[3px]` zone stripe, a faint zone tint, and a big Bricolage
@@ -34,20 +159,30 @@ const QUAL_COL = "w-[5.5rem] sm:w-36";
  *  bands for league comps; pass `[]` for group/knockout tables that have no
  *  finish lines (WC26), where the Top-2 QualificationBar column carries the
  *  story instead (`showQualification`). Generalises the old GroupTable so both
- *  surfaces share one styling source. The flex layout carries ARIA table roles
- *  (table/rowgroup/row/columnheader/rowheader/cell) so it still reads as a
- *  table to screen readers -- header-to-cell association and table navigation
- *  survive the move off semantic `<table>` markup. */
+ *  surfaces share one styling source; `badge`/`teamBasePath`/`teamHeader`/
+ *  `columns` additionally paint the NRL ladder (club crests, /nrl/team links,
+ *  W-L / Diff / Pts / Top-8% columns) off the same component. The flex layout
+ *  carries ARIA table roles (table/rowgroup/row/columnheader/rowheader/cell) so
+ *  it still reads as a table to screen readers -- header-to-cell association
+ *  and table navigation survive the move off semantic `<table>` markup. */
 export function StandingsTable({
   standings,
   zones,
   highlightTeamId,
   showQualification = false,
+  badge = "flag",
+  teamBasePath = "/team",
+  teamHeader = "Team",
+  columns,
 }: {
-  standings: StandingRow[];
+  standings: StandingsTableRow[];
   zones: StandingsZone[];
   highlightTeamId?: number;
   showQualification?: boolean;
+  badge?: "flag" | "club";
+  teamBasePath?: string;
+  teamHeader?: string;
+  columns?: StandingsColumn[];
 }) {
   return (
     // Auto-width rows would let a long name ("Bosnia and Herzegovina") wrap; the
@@ -60,9 +195,23 @@ export function StandingsTable({
             className="flex items-center border-b border-border border-l-[3px] border-l-transparent py-1.5 pl-1.5 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted"
           >
             <span className="w-7 shrink-0" aria-hidden />
-            <span role="columnheader" className="flex-1">Team</span>
-            <span role="columnheader" className="w-10 text-right">GD</span>
-            <span role="columnheader" className="w-10 text-right">Pts</span>
+            <span role="columnheader" className="flex-1">{teamHeader}</span>
+            {columns ? (
+              columns.map((key) => (
+                <span
+                  key={key}
+                  role="columnheader"
+                  className={cn(NUMERIC_HEADERS[key].width, "text-right")}
+                >
+                  {NUMERIC_HEADERS[key].label}
+                </span>
+              ))
+            ) : (
+              <>
+                <span role="columnheader" className="w-10 text-right">GD</span>
+                <span role="columnheader" className="w-10 text-right">Pts</span>
+              </>
+            )}
             {showQualification && (
               <span role="columnheader" className={cn(QUAL_COL, "text-right")}>Top 2</span>
             )}
@@ -84,11 +233,11 @@ export function StandingsTable({
                   highlighted ? "bg-win/10" : bg,
                 )}
               >
-                {/* rank + flag + name is the tap target (>=44px via py-3) and
+                {/* rank + crest + name is the tap target (>=44px via py-3) and
                     the row header, so AT announces the team alongside each cell */}
                 <div role="rowheader" className="min-w-0 flex-1">
                   <Link
-                    href={`/team/${row.team_id}`}
+                    href={`${teamBasePath}/${row.team_id}`}
                     onClick={(e) => e.stopPropagation()}
                     className="flex min-w-0 items-center gap-2.5 py-3 hover:text-lime-deep"
                   >
@@ -96,7 +245,11 @@ export function StandingsTable({
                       {i + 1}
                     </span>
                     <span className="shrink-0">
-                      <Flag team={row.team} size={22} />
+                      {badge === "club" ? (
+                        <ClubBadge name={row.team} size={22} />
+                      ) : (
+                        <Flag team={row.team} size={22} />
+                      )}
                     </span>
                     <span
                       className={cn(
@@ -108,15 +261,12 @@ export function StandingsTable({
                     </span>
                   </Link>
                 </div>
-                <span role="cell" className="w-10 text-right text-[13px] tabular-nums text-foreground">
-                  {row.projected_goal_diff > 0 ? `+${row.projected_goal_diff}` : row.projected_goal_diff}
-                </span>
-                <span role="cell" className="w-10 text-right font-display text-sm font-bold tabular-nums">
-                  {row.projected_points}
-                </span>
+                {columns
+                  ? columns.map((key) => renderCell(key, row))
+                  : footballNumericCells(row)}
                 {showQualification && (
                   <div role="cell" className={cn(QUAL_COL, "flex justify-end")}>
-                    <QualificationBar prob={row.qualification_prob} />
+                    <QualificationBar prob={row.qualification_prob ?? null} />
                   </div>
                 )}
               </div>

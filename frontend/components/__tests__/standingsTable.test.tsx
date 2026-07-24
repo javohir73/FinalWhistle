@@ -4,6 +4,7 @@
  *  column, no legend). */
 import { render, screen } from "@testing-library/react";
 import { StandingsTable } from "@/components/StandingsTable";
+import type { StandingsTableRow } from "@/components/StandingsTable";
 import { COMPETITIONS } from "@/lib/sports";
 import type { StandingRow } from "@/lib/types";
 
@@ -86,5 +87,62 @@ describe("group shape (no zones, Top-2 qualification column)", () => {
 
   it("labels the qualification bar instead of leaving a bare percentage", () => {
     expect(screen.getByRole("img", { name: "Top 2 chance 87%" })).toBeInTheDocument();
+  });
+});
+
+describe("NRL ladder shape (club crests, W–L / Diff / Pts / Top-8% columns)", () => {
+  // Rows carry the native NRL ladder metrics. `projected_points` is the field
+  // the shared Pts column reads (NRL points mapped in), kept alongside the
+  // native `points` so the row reads as a real ladder entry.
+  const ladderRows: StandingsTableRow[] = [
+    { team_id: 1, team: "Storm", wins: 16, losses: 4, diff: 212, points: 34, projected_points: 34, projection_pct: 0.97 },
+    { team_id: 2, team: "Panthers", wins: 15, losses: 5, diff: 188, points: 32, projected_points: 32, projection_pct: 0.92 },
+    { team_id: 9, team: "Dolphins", wins: 10, losses: 10, diff: -14, points: 22, projected_points: 22, projection_pct: null },
+  ];
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={ladderRows}
+        zones={COMPETITIONS.nrl.zones}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts", "top8"]}
+      />,
+    );
+  });
+
+  it("swaps in the NRL column headers between the club and the numerals", () => {
+    expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+      "Club",
+      "W–L",
+      "Diff",
+      "Pts",
+      "Top 8%",
+    ]);
+  });
+
+  it("links a club through to its /nrl/team page", () => {
+    expect(screen.getByText("Storm").closest("a")).toHaveAttribute("href", "/nrl/team/1");
+  });
+
+  it("stripes the rank-1 club with the finals (lime) tone", () => {
+    expect(rowFor("Storm")).toHaveClass("border-l-win");
+  });
+
+  it("renders the W–L, Diff and Pts values", () => {
+    expect(screen.getByText("16–4")).toBeInTheDocument();
+    expect(screen.getByText("+212")).toBeInTheDocument();
+    // Pts (34) shares its digits with no other cell on the top row.
+    expect(screen.getByText("34")).toBeInTheDocument();
+  });
+
+  it("prints the top-8 projection as a rounded percentage", () => {
+    expect(screen.getByText("97%")).toBeInTheDocument();
+  });
+
+  it("degrades a missing top-8 projection to an em dash", () => {
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 });
