@@ -76,6 +76,35 @@ _ALIASES: dict[str, str] = {
     "man city": "Manchester City",
     "nott'm forest": "Nottingham Forest",
     "nottm forest": "Nottingham Forest",
+
+    # --- La Liga (SP1) / Bundesliga (D1), League Score Predictions Phase 2
+    # (docs/superpowers/specs/2026-07-24-league-score-predictions-design.md)
+    # ---
+    # football-data.co.uk (the historical-backfill/club-Elo-replay source,
+    # pipeline/ingest/club_results.py) and API-Football (the live fixtures/
+    # roster source, pipeline/ingest/league_structure.py's derive-from-
+    # fixtures path) spell a number of Spanish/German clubs differently.
+    # Without an alias here, the two providers' rows for the SAME club land
+    # on two DIFFERENT Team names: the fixtures-derived one (what
+    # generate_predictions actually reads elo_rating off) never gets the
+    # replayed club Elo (what the CSV backfill + compute_and_store_club_elo
+    # write), so it silently keeps the 1500 cold-start default forever
+    # (ml/features/build_features.py's estimate_strength). See
+    # pipeline/compute_club_elo.py's unrated_roster_teams() -- the
+    # reconciliation check this table exists to satisfy.
+    #
+    # THIS IS A STARTING SET, NOT A COMPLETE ROSTER MAPPING. Only the pairs
+    # below have been confirmed. Before La Liga/Bundesliga activation
+    # (pipeline/leagues.py's PHASE_2_ACTIVATION_CHECKLIST), run
+    # unrated_roster_teams() against a real ingest of each league and add
+    # whatever other current-roster clubs are still missing -- never guess a
+    # spelling you haven't seen in an actual provider payload.
+    "ath madrid": "Atletico Madrid",
+    "betis": "Real Betis",
+    "ath bilbao": "Athletic Club",
+    "bayern munich": "Bayern München",
+    "dortmund": "Borussia Dortmund",
+    "leverkusen": "Bayer Leverkusen",
 }
 
 

@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.models import HistoricalMatch, Team, Tournament
+from app.models import Group, GroupTeam, HistoricalMatch, Team, Tournament
 from ml.evaluation.backtest import compute_metrics, model_probs
 from ml.ratings.elo import MatchInput, replay_with_prematch, run_elo
 from pipeline.ingest.club_results import (
@@ -118,6 +118,37 @@ def compute_and_store_club_elo(
         "teams_rated": updated,
         "home_advantage": home_advantage,
     }
+
+
+def unrated_roster_teams(db: Session, tournament_name: str, group_name: str) -> list[str]:
+    """Names of every team on ``group_name``'s roster (within
+    ``tournament_name``) whose elo_rating is STILL None after this league's
+    historical backfill + compute_and_store_club_elo have both run.
+
+    A non-empty result means the fixtures-derived Team row for that club (the
+    one GroupTeam links it to, and the one generate_predictions actually
+    reads elo_rating off) never received the replayed club Elo -- almost
+    always because its football-data.co.uk spelling landed on a DIFFERENT,
+    unlinked Team row for lack of a team_mapping alias (see that module's
+    SP1/D1 section) rather than the same one. This is the reconciliation
+    check pipeline/leagues.py's PHASE_2_ACTIVATION_CHECKLIST calls for --
+    run it for a league's group before trusting its predictions.
+
+    Returns [] if the tournament/group doesn't exist yet (nothing to check).
+    """
+    tournament = db.query(Tournament).filter_by(name=tournament_name).one_or_none()
+    if tournament is None:
+        return []
+    group = db.query(Group).filter_by(tournament_id=tournament.id, name=group_name).one_or_none()
+    if group is None:
+        return []
+    rows = (
+        db.query(Team)
+        .join(GroupTeam, GroupTeam.team_id == Team.id)
+        .filter(GroupTeam.group_id == group.id, Team.elo_rating.is_(None))
+        .all()
+    )
+    return sorted(t.name for t in rows)
 
 
 def _evaluate_holdout(

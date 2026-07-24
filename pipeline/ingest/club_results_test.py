@@ -176,9 +176,15 @@ def test_load_sp1_and_d1_samples_tag_their_own_club_competition(db_session):
     bundesliga_rows = db_session.query(HistoricalMatch).filter_by(competition="Bundesliga").all()
     assert len(laliga_rows) == 3
     assert len(bundesliga_rows) == 3
+    # "Bayern Munich" (football-data.co.uk's D1 spelling) normalizes to
+    # "Bayern München" (team_mapping.py's SP1/D1 alias, API-Football's own
+    # spelling) rather than being locked in unchanged -- that reconciliation
+    # is the whole point of the alias table (Opus review, League Score
+    # Predictions Phase 2): a Team row named "Bayern Munich" would never be
+    # the one a fixtures-derived roster/predictions read.
     assert {t.name for t in db_session.query(Team).all()} == {
         "Real Madrid", "Sevilla", "Barcelona", "Valencia",
-        "Bayern Munich", "Werder Bremen", "Hoffenheim",
+        "Bayern München", "Werder Bremen", "Hoffenheim",
     }
 
 
@@ -238,3 +244,61 @@ def test_sync_finished_matches_scopes_to_the_passed_competition(db_session, monk
     # Never landed under the EPL default -- a stray bug here would silently
     # blend La Liga's history into EPL's club Elo replay.
     assert db_session.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).count() == 0
+
+
+# ---------------------------------------------------------------------------
+# Provider-name reconciliation (Opus review, League Score Predictions Phase
+# 2): API-Football's fixtures payload (what load_league_structure seeds the
+# roster from, teams_file=None) and football-data.co.uk's SP1/D1 CSVs (what
+# THIS module backfills) spell some Spanish/German clubs differently. Without
+# a team_mapping alias, load_club_results would create a SECOND, Elo-less
+# "ghost" Team row for the same real-world club instead of landing on the one
+# generate_predictions actually reads -- the exact "attach a result to the
+# wrong club" failure this ingest exists to prevent.
+# ---------------------------------------------------------------------------
+
+def test_fixtures_and_csv_club_names_reconcile_onto_a_single_team_row(db_session, monkeypatch):
+    """Atletico Madrid: API-Football's fixtures payload spells it out in full
+    (what the roster/predictions use); football-data.co.uk's SP1 convention
+    is "Ath Madrid" (team_mapping.py's SP1 alias). Both must land on ONE Team
+    row, with the CSV's history reaching the SAME row the roster seeded."""
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {"id": 9401, "date": "2026-08-21T19:00:00+00:00", "status": {"short": "NS"}},
+                "teams": {"home": {"id": 530, "name": "Atletico Madrid"}, "away": {"id": 541, "name": "Real Madrid"}},
+                "goals": {"home": None, "away": None},
+            },
+        ],
+    )
+    load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="La Liga 2026-27", group_name="La Liga",
+        league_id=140, season=2026,
+    )
+    assert db_session.query(Team).filter_by(name="Atletico Madrid").count() == 1
+
+    sp1_df = pd.DataFrame(
+        [
+            {"Date": "13/08/16", "HomeTeam": "Ath Madrid", "AwayTeam": "Real Madrid",
+             "FTHG": 2, "FTAG": 1},
+            {"Date": "20/08/16", "HomeTeam": "Real Madrid", "AwayTeam": "Ath Madrid",
+             "FTHG": 0, "FTAG": 0},
+        ]
+    )
+    load_club_results(db_session, sp1_df, competition="La Liga")
+
+    # No ghost "Ath Madrid" row -- the CSV's history landed on the SAME Team
+    # the fixtures payload seeded.
+    assert db_session.query(Team).filter_by(name="Atletico Madrid").count() == 1
+    assert db_session.query(Team).filter_by(name="Ath Madrid").count() == 0
+
+    from pipeline.compute_club_elo import compute_and_store_club_elo, unrated_roster_teams
+
+    compute_and_store_club_elo(db_session, competition="La Liga", tournament_name="La Liga 2026-27")
+    atletico = db_session.query(Team).filter_by(name="Atletico Madrid").one()
+    # The replay's rating landed on the SAME row predictions read -- not a
+    # separate, Elo-less ghost.
+    assert atletico.elo_rating is not None
+    assert unrated_roster_teams(db_session, "La Liga 2026-27", "La Liga") == []

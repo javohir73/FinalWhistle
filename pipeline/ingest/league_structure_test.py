@@ -253,6 +253,39 @@ def test_derived_teams_skip_fixtures_missing_team_id_or_name(db_session, monkeyp
     assert summary["fixtures_skipped"] == 1
 
 
+def test_upsert_team_reconciles_a_provider_rename_by_id_not_name(db_session, monkeypatch):
+    """Opus review finding (League Score Predictions Phase 2): a provider
+    (API-Football) rename must UPDATE the existing row keyed by
+    provider_team_id, not attempt a second INSERT that collides with the
+    unique provider_team_id constraint (backend/app/models/__init__.py) and
+    raises IntegrityError -- see _upsert_team's docstring."""
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [_fixture_with_ids(9301, "Bayern München", 157, "Borussia Dortmund", 165)],
+    )
+    load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="Bundesliga 2026-27", group_name="Bundesliga",
+        league_id=78, season=2026,
+    )
+    assert db_session.query(Team).filter_by(provider_team_id=157).one().name == "Bayern München"
+
+    # The provider relabels id 157's display name on the next ingestion --
+    # this must update the SAME row, not raise or create a duplicate.
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [_fixture_with_ids(9301, "FC Bayern München", 157, "Borussia Dortmund", 165)],
+    )
+    load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="Bundesliga 2026-27", group_name="Bundesliga",
+        league_id=78, season=2026,
+    )
+    renamed = db_session.query(Team).filter_by(provider_team_id=157).one()
+    assert renamed.name == "FC Bayern München"
+    assert db_session.query(Team).filter_by(provider_team_id=157).count() == 1
+
+
 def test_derives_teams_uses_the_same_fetch_fixtures_call_for_teams_and_matches(db_session, monkeypatch):
     """teams_file=None must not need a second HTTP call: one fetch_fixtures
     invocation feeds both team derivation and the fixture upsert."""

@@ -142,8 +142,23 @@ def _get_or_create_tournament(db: Session, tournament_name: str = TOURNAMENT_NAM
 
 
 def _upsert_team(db: Session, name: str, code: str | None, api_football_id: int) -> Team:
+    """Look up by ``provider_team_id`` FIRST, falling back to name only for a
+    team this provider id has never been seen for yet. Team.provider_team_id
+    is unique (backend/app/models/__init__.py) -- a name-only lookup would
+    miss an existing row whenever the provider renames a club's display name
+    (a real, recurring API-Football event; the numeric id stays stable, only
+    the label changes), then try to INSERT a second row with the SAME
+    provider_team_id and raise IntegrityError on flush instead of updating
+    the existing one in place (see league_structure_test.py's rename
+    regression). The name-lookup fallback keeps a hypothetical bare
+    name-only caller (api_football_id already unique-constrained, so this
+    only matters pre-flush) working the same as before."""
     canon = normalize_team_name(name)
-    team = db.query(Team).filter_by(name=canon).one_or_none()
+    team = None
+    if api_football_id is not None:
+        team = db.query(Team).filter_by(provider_team_id=api_football_id).one_or_none()
+    if team is None:
+        team = db.query(Team).filter_by(name=canon).one_or_none()
     if team is None:
         team = Team(
             name=canon, country_code=code, is_host=False,
@@ -152,6 +167,7 @@ def _upsert_team(db: Session, name: str, code: str | None, api_football_id: int)
         db.add(team)
         db.flush()
     else:
+        team.name = canon
         team.country_code = code
         team.provider_team_id = api_football_id
     return team
