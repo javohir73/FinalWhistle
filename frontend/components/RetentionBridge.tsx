@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { notifyBridge } from "@/lib/session";
+import { getLeagueSeasonLeaderboard } from "@/lib/leagueTips";
+import { DEFAULT_LEAGUE } from "@/lib/leagueConfig";
 import type { MatchSummary } from "@/lib/types";
 
 const DISMISS_KEY = "fw_bridge_dismissed_v1";
@@ -37,11 +39,37 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
   const [dismissed, setDismissed] = useState(true);
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<SubmitStatus>("idle");
+  // Whether the league loop actually has data behind it yet -- design doc:
+  // "retention-bridge copy updated to point at /tips WHEN THE LEAGUE GOES
+  // LIVE." The frontend deploys to Vercel at merge, well before the
+  // migration reaches prod via refresh.yml and before the separate,
+  // stop-gated pipeline_target flip that starts ingesting fixtures (CLAUDE.md
+  // sequencing) -- a hardcoded "true" here would claim the loop is live
+  // during that whole window. Defaults to false (fail closed: never assert
+  // "live" without confirmation) and flips true only once the public season
+  // leaderboard resolves instead of 404ing league_not_found/league_inactive.
+  const [leagueLive, setLeagueLive] = useState(false);
 
   useEffect(() => {
     setDismissed(loadDismissed());
     setReady(true);
   }, []);
+
+  const finalFinished = isFinalFinished(matches);
+  useEffect(() => {
+    if (!ready || dismissed || !finalFinished) return;
+    let live = true;
+    getLeagueSeasonLeaderboard(DEFAULT_LEAGUE)
+      .then(() => {
+        if (live) setLeagueLive(true);
+      })
+      .catch(() => {
+        if (live) setLeagueLive(false); // league_not_found / league_inactive / any other error -- not live
+      });
+    return () => {
+      live = false;
+    };
+  }, [ready, dismissed, finalFinished]);
 
   const dismiss = () => {
     try {
@@ -52,7 +80,7 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
     setDismissed(true);
   };
 
-  if (!ready || dismissed || !isFinalFinished(matches)) return null;
+  if (!ready || dismissed || !finalFinished) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -90,53 +118,64 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
           </Link>
 
           <div className="mt-4 border-t border-border pt-4">
-            <p className="text-sm text-muted">
-              Premier League tips are live — predict every fixture&rsquo;s scoreline and beat the AI.
-            </p>
-            <Link
-              href="/tips"
-              className="mt-2 inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-2 text-sm font-bold text-foreground transition hover:border-win/40"
-            >
-              Play Premier League tips
-            </Link>
-            <p className="mt-3 text-sm text-muted">Or get one email when your league kicks off.</p>
-            {/* Persistent container so the live region exists before the content
-             *  swap — a screen reader can miss an announcement from a region
-             *  that's inserted at the same moment as its text. */}
-            <div aria-live="polite">
-              {status === "success" ? (
-                <p className="mt-2 text-sm font-semibold text-lime-deep">
-                  Done — one email, mid-August, no spam.
+            {leagueLive ? (
+              // Confirmed live (the public season leaderboard resolved, not
+              // 404) -- only now is "tips are live" a true claim.
+              <>
+                <p className="text-sm text-muted">
+                  Premier League tips are live — predict every fixture&rsquo;s scoreline and beat the AI.
                 </p>
-              ) : (
-                <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
-                  <label htmlFor="bridge-email" className="sr-only">
-                    Email address
-                  </label>
-                  <input
-                    id="bridge-email"
-                    type="email"
-                    required
-                    autoComplete="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Email address"
-                    className="w-full min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win sm:w-auto"
-                  />
-                  <button
-                    type="submit"
-                    disabled={status === "submitting"}
-                    className="shrink-0 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-border disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {status === "submitting" ? "Please wait…" : "Notify me"}
-                  </button>
-                </form>
-              )}
-            </div>
-            {status === "error" && (
-              <p role="alert" className="mt-2 text-xs font-medium text-loss">
-                Something went wrong — please try again.
-              </p>
+                <Link
+                  href="/tips"
+                  className="mt-2 inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-2 text-sm font-bold text-foreground transition hover:border-win/40"
+                >
+                  Play Premier League tips
+                </Link>
+              </>
+            ) : (
+              // Not live yet (or not confirmed) -- the honest fallback is
+              // the email-capture path this copy already promised.
+              <>
+                <p className="text-sm text-muted">Get one email when your league kicks off.</p>
+                {/* Persistent container so the live region exists before the content
+                 *  swap — a screen reader can miss an announcement from a region
+                 *  that's inserted at the same moment as its text. */}
+                <div aria-live="polite">
+                  {status === "success" ? (
+                    <p className="mt-2 text-sm font-semibold text-lime-deep">
+                      Done — one email, mid-August, no spam.
+                    </p>
+                  ) : (
+                    <form onSubmit={handleSubmit} className="mt-2 flex flex-col gap-2 sm:flex-row">
+                      <label htmlFor="bridge-email" className="sr-only">
+                        Email address
+                      </label>
+                      <input
+                        id="bridge-email"
+                        type="email"
+                        required
+                        autoComplete="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email address"
+                        className="w-full min-w-0 flex-1 rounded-lg border border-border bg-surface px-3 py-2.5 text-sm text-foreground outline-none transition focus:border-win sm:w-auto"
+                      />
+                      <button
+                        type="submit"
+                        disabled={status === "submitting"}
+                        className="shrink-0 rounded-lg border border-border bg-surface-2 px-4 py-2.5 text-sm font-bold text-foreground transition hover:bg-border disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {status === "submitting" ? "Please wait…" : "Notify me"}
+                      </button>
+                    </form>
+                  )}
+                </div>
+                {status === "error" && (
+                  <p role="alert" className="mt-2 text-xs font-medium text-loss">
+                    Something went wrong — please try again.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
