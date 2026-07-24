@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNrlLadderServer, getNrlProjectionsServer } from "@/lib/api";
-import { LadderTable } from "@/components/LadderTable";
+import { StandingsTable } from "@/components/StandingsTable";
+import { ladderRowsToStandings } from "@/lib/nrlAdapters";
+import { COMPETITIONS } from "@/lib/sports";
 
 export const revalidate = 300;
 
@@ -26,7 +28,14 @@ export default async function NrlLadderPage() {
       </h1>
       <p className="mt-1 text-sm text-muted">Top 8 qualify for the finals.</p>
       <div className="glass mt-6 rounded-2xl p-4">
-        <LadderTable rows={ladder.rows} projections={projectionsByTeam} />
+        <StandingsTable
+          standings={ladderRowsToStandings(ladder.rows, projectionsByTeam)}
+          zones={COMPETITIONS.nrl.zones}
+          badge="club"
+          teamBasePath="/nrl/team"
+          teamHeader="Club"
+          columns={["wl", "diff", "pts", "top8"]}
+        />
         <Link href="/nrl/run-home" className="mt-3 inline-block text-xs font-semibold text-lime-deep">
           Predict your run home →
         </Link>

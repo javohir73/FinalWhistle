@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getNrlLadderServer, getNrlMatchesServer, getOriginSeriesServer } from "@/lib/api";
-import { LadderTable } from "@/components/LadderTable";
+import { StandingsTable } from "@/components/StandingsTable";
 import { IntelPanel } from "@/components/IntelPanel";
 import { FeatureHero } from "@/components/FeatureHero";
 import { TimelineSpine } from "@/components/TimelineSpine";
-import { nrlExpectedMargin, nrlMatchHref, nrlMatchToSummary } from "@/lib/nrlAdapters";
+import { ladderRowsToStandings, nrlExpectedMargin, nrlMatchHref, nrlMatchToSummary } from "@/lib/nrlAdapters";
+import { COMPETITIONS } from "@/lib/sports";
 
 export const revalidate = 300;
 
@@ -119,7 +120,14 @@ export default async function NrlHomePage() {
                 Full ladder →
               </Link>
             </div>
-            <LadderTable rows={ladder.rows} compact />
+            <StandingsTable
+              standings={ladderRowsToStandings(ladder.rows).slice(0, 4)}
+              zones={COMPETITIONS.nrl.zones}
+              badge="club"
+              teamBasePath="/nrl/team"
+              teamHeader="Club"
+              columns={["pts"]}
+            />
           </div>
         ) : null}
       </div>

@@ -24,6 +24,15 @@ it("renders the ladder and links through to the run-home predictor (Slice 3)", a
 
   expect(screen.getByRole("heading", { name: /NRL ladder/i })).toBeInTheDocument();
   expect(screen.getByText("Storm")).toBeInTheDocument();
+  // The shared StandingsTable now carries the prototype's NRL ladder header set
+  // (CLUB / W–L / DIFF / PTS / TOP 8%) -- no separate Top 4% column.
+  expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+    "Club",
+    "W–L",
+    "Diff",
+    "Pts",
+    "Top 8%",
+  ]);
   expect(screen.getByRole("link", { name: "Predict your run home →" })).toHaveAttribute(
     "href",
     "/nrl/run-home",

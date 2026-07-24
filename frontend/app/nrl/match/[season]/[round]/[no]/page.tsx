@@ -7,7 +7,8 @@ import {
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
 import { ClubBadge } from "@/components/ClubBadge";
-import { LadderTable } from "@/components/LadderTable";
+import { StandingsTable } from "@/components/StandingsTable";
+import { ladderRowsToStandings } from "@/lib/nrlAdapters";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
 import { MatchIntelClient } from "./MatchIntelClient";
@@ -220,7 +221,14 @@ export default async function NrlMatchDetailPage({
               Full ladder →
             </Link>
           </div>
-          <LadderTable rows={clubRows} />
+          <StandingsTable
+            standings={ladderRowsToStandings(clubRows)}
+            zones={[]}
+            badge="club"
+            teamBasePath="/nrl/team"
+            teamHeader="Club"
+            columns={["wl", "diff", "pts"]}
+          />
         </section>
       )}
 

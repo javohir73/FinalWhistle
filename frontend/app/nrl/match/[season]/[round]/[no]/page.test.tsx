@@ -138,6 +138,10 @@ it("shows the two clubs' ladder rows when the ladder is available", async () => 
   expect(screen.getByText("Season so far")).toBeInTheDocument();
   // Only the two clubs in this matchup — not the rest of the ladder.
   expect(screen.queryByText("Storm")).not.toBeInTheDocument();
+  // Rendered via the shared StandingsTable (W–L / Diff / Pts) — the W–L cell
+  // and Pts prove both matchup clubs made it into the season-context table.
+  expect(screen.getByText("12–6")).toBeInTheDocument(); // Warriors
+  expect(screen.getByText("5–12")).toBeInTheDocument(); // Wests Tigers
   expect(screen.getByText("28")).toBeInTheDocument();
 });
 
