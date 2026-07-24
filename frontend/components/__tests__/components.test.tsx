@@ -122,8 +122,11 @@ describe("GroupTable", () => {
 
   it("renders all teams with qualification percentages", () => {
     render(<GroupTable standings={standings} />);
-    expect(screen.getByText("Mexico")).toBeInTheDocument();
     expect(screen.getByText("87%")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(5); // header + 4
+    // One team link per row (the Floodlight table is a flex layout, not a
+    // <table>, so assert the rendered teams rather than "row" elements).
+    for (const team of ["Mexico", "South Korea", "Czechia", "South Africa"]) {
+      expect(screen.getByText(team)).toBeInTheDocument();
+    }
   });
 });
