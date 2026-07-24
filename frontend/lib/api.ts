@@ -132,8 +132,14 @@ export const getMatchGoalscorersServer = (id: number | string) =>
   getServer<Goalscorers>(`/api/matches/${id}/goalscorers`, 60);
 export const getTeamsServer = () =>
   getServer<Team[]>("/api/teams", 600);
+/** A non-numeric segment (e.g. a hand-typed /team/Argentina) can never resolve
+ *  to a team, and the int-typed backend route answers 422 for it — which
+ *  getServer would surface as a thrown 500. Short-circuit to not-found so the
+ *  page renders a 404 instead. */
 export const getTeamServer = (id: number | string) =>
-  getServer<TeamProfile>(`/api/teams/${id}`, 600);
+  /^\d+$/.test(String(id))
+    ? getServer<TeamProfile>(`/api/teams/${id}`, 600)
+    : Promise.resolve<TeamProfile | null>(null);
 export const getGroupServer = (id: number | string) =>
   getServer<Group>(`/api/groups/${id}`, 300);
 export const getUpcomingMatchesServer = () =>
