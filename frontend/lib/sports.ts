@@ -9,6 +9,13 @@ export interface SportNavLink {
   /** Hidden when the active tournament has no knockout bracket (C6 — see
    *  components/TournamentProvider.tsx). Only football's Bracket tab sets this. */
   requiresBrackets?: boolean;
+  /** Inverse of requiresBrackets -- hidden until the active tournament HAS no
+   *  bracket (league format). Only football's Tips tab sets this: it takes
+   *  the slot Bracket vacates once the season flips from WC26's knockout
+   *  format to a league (design doc: League Score Predictions, 2026-07-24),
+   *  so the five-destination cap (see BottomNav.tsx) is never exceeded
+   *  regardless of ship order between this nav entry and that prod flip. */
+  requiresLeagueFormat?: boolean;
 }
 
 export const SPORTS: Record<
@@ -29,6 +36,10 @@ export const SPORTS: Record<
         label: "You",
         activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
       },
+      // Fills the slot Bracket vacates once the season is league-format (see
+      // requiresLeagueFormat above) -- the five-destination cap is hard, see
+      // BottomNav.tsx. Mirrors NRL's own Tips slot below.
+      { href: "/tips", label: "Tips", activePrefixes: [], requiresLeagueFormat: true },
     ],
   },
   nrl: {
@@ -69,6 +80,7 @@ export function isSportHomeHref(href: string): boolean {
 const EQUIVALENTS: Array<[string, string]> = [
   ["/matches", "/nrl/matches"],
   ["/leaderboard", "/nrl/leaderboard"],
+  ["/tips", "/nrl/tips"],
 ];
 
 export function switchSportHref(pathname: string, target: SportId): string {

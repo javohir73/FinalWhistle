@@ -42,6 +42,13 @@ it("shows loading then the match cards", async () => {
   await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
 });
 
+it("links to the Beat the AI tips page", async () => {
+  mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
+  render(<MatchesPage />);
+  await waitFor(() => expect(screen.getByText("Scotland")).toBeInTheDocument());
+  expect(screen.getByRole("link", { name: /Beat the AI/i })).toHaveAttribute("href", "/tips");
+});
+
 it("shows an error state when the API fails", async () => {
   mockGet.mockRejectedValue(new Error("boom"));
   render(<MatchesPage />);

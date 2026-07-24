@@ -91,8 +91,15 @@ export function RetentionBridge({ matches }: { matches: MatchSummary[] }) {
 
           <div className="mt-4 border-t border-border pt-4">
             <p className="text-sm text-muted">
-              Premier League predictions arrive before kickoff on Aug 21. Get one email when your league kicks off.
+              Premier League tips are live — predict every fixture&rsquo;s scoreline and beat the AI.
             </p>
+            <Link
+              href="/tips"
+              className="mt-2 inline-flex items-center gap-2 rounded-xl border border-border bg-surface-2 px-4 py-2 text-sm font-bold text-foreground transition hover:border-win/40"
+            >
+              Play Premier League tips
+            </Link>
+            <p className="mt-3 text-sm text-muted">Or get one email when your league kicks off.</p>
             {/* Persistent container so the live region exists before the content
              *  swap — a screen reader can miss an announcement from a region
              *  that's inserted at the same moment as its text. */}

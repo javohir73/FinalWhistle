@@ -60,8 +60,11 @@ export function BottomNav() {
   // carry the full site chrome.
   if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
   // C6: the Bracket tab only makes sense for tournaments that have one.
+  // Tips (league-format only) takes the slot Bracket vacates -- see
+  // requiresLeagueFormat's doc comment in lib/sports.ts -- so the two never
+  // both render and the five-destination cap holds regardless of ship order.
   const tabs = SPORTS[sportFromPathname(pathname)].navLinks.filter(
-    (tab) => !tab.requiresBrackets || has_brackets,
+    (tab) => (!tab.requiresBrackets || has_brackets) && (!tab.requiresLeagueFormat || !has_brackets),
   );
 
   return (

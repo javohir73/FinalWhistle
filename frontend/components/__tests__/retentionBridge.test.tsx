@@ -48,6 +48,13 @@ it("is visible once the final is finished", async () => {
   expect(screen.getByRole("link", { name: "See NRL predictions" })).toHaveAttribute("href", "/nrl/matches");
 });
 
+it("points the Premier League CTA at the live tips page", async () => {
+  render(<RetentionBridge matches={[makeMatch()]} />);
+  await screen.findByText("The World Cup is over. The AI is still playing.");
+  expect(screen.getByText(/Premier League tips are live/)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Play Premier League tips" })).toHaveAttribute("href", "/tips");
+});
+
 it("dismiss hides the banner and persists across remounts", async () => {
   const { unmount } = render(<RetentionBridge matches={[makeMatch()]} />);
   await screen.findByText("The World Cup is over. The AI is still playing.");

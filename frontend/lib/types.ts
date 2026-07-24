@@ -1035,3 +1035,116 @@ export interface RetentionStats {
   dau: RetentionDauPoint[];
   cohorts: RetentionCohort[];
 }
+
+/** /api/leagues/{league}/tips/{submit,mine,summary,leaderboard,share} --
+ *  "Beat the AI's scoreline" (design doc: 2026-07-24-league-score-predictions
+ *  -design.md), the football-league port of the NRL tips types above.
+ *  `league` is a short code (Phase 1: "epl"); device_id is not auth -- see
+ *  lib/leagueTips.ts. Scoring is 5pts exact score / 2pts correct result (not
+ *  cumulative), unlike NRL's pick+margin shape, so every field here is a
+ *  scoreline (predicted_home/predicted_away), never a pick/margin pair. */
+export interface LeagueTipSubmitResponse {
+  ok: boolean;
+  handle: string;
+  prediction: {
+    match_id: number;
+    predicted_home: number;
+    predicted_away: number;
+    updated_at: string | null;
+  };
+}
+export interface LeagueTipsMineModel {
+  predicted_home: number | null;
+  predicted_away: number | null;
+  model_version: string;
+}
+export interface LeagueTipsMineYourPrediction {
+  predicted_home: number;
+  predicted_away: number;
+  points: number | null;
+  exact: boolean | null;
+  graded_at: string | null;
+  updated_at: string | null;
+}
+export interface LeagueTipsMineMatch {
+  id: number;
+  home: string | null;
+  away: string | null;
+  kickoff_utc: string | null;
+  status: string;
+  score_home: number | null;
+  score_away: number | null;
+  model: LeagueTipsMineModel | null;
+  your_prediction: LeagueTipsMineYourPrediction | null;
+}
+export interface LeagueTipsMineResponse {
+  league: string;
+  matchweek: number;
+  handle: string | null;
+  matches: LeagueTipsMineMatch[];
+  disclaimer: string;
+}
+export interface LeagueTipsSummaryMatchweek {
+  matchweek: number | null;
+  your_points: number;
+  model_points: number;
+  matches_played: number;
+}
+export interface LeagueTipsBestMatchweek {
+  matchweek: number | null;
+  points: number;
+}
+export interface LeagueTipsSummaryResponse {
+  league: string;
+  handle: string | null;
+  matchweeks: LeagueTipsSummaryMatchweek[];
+  totals: { your_points: number; model_points: number; matchweeks_played: number };
+  current_streak: number;
+  best_streak: number;
+  best_matchweek: LeagueTipsBestMatchweek | null;
+  disclaimer: string;
+}
+export interface LeagueTipsLeaderboardEntry {
+  handle: string;
+  points: number;
+  exact_count: number;
+}
+export interface LeagueTipsLeaderboardResponse {
+  league: string;
+  matchweek: number;
+  participant_count: number;
+  entries: LeagueTipsLeaderboardEntry[];
+}
+/** GET /api/leagues/{league}/tips/leaderboard/season -- same reveal gate as
+ *  the weekly board; population is players with >=1 GRADED prediction
+ *  (unlike the weekly board's submitted-or-not population). */
+export interface LeagueSeasonLeaderboardEntry {
+  handle: string;
+  points: number;
+  exact_count: number;
+  matchweeks_played: number;
+}
+export interface LeagueSeasonLeaderboardResponse {
+  league: string;
+  participant_count: number;
+  entries: LeagueSeasonLeaderboardEntry[];
+}
+/** GET /api/leagues/{league}/tips/share/{matchweek}/{handle} -- public,
+ *  handle-addressed share-card data, graded results only. Every field comes
+ *  straight off graded rows server-side; there is no client-supplied score
+ *  in this contract (mirrors NrlTipsShareResponse). */
+export interface LeagueTipsShareResponse {
+  handle_display: string;
+  league: string;
+  matchweek: number;
+  player_points: number;
+  player_of: number;
+  model_points: number;
+  model_of: number;
+  /** False while any match in the matchweek hasn't finished yet -- grading
+   *  runs per finished match, not per whole matchweek, so player_of/model_of
+   *  can be a partial matchweek for days. The page must soften its verdict
+   *  copy ("so far") rather than frame an in-progress matchweek as final. */
+  matchweek_complete: boolean;
+  disclaimer: string;
+}

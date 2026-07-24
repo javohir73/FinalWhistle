@@ -266,6 +266,22 @@ function HomeDashboard({
         </p>
       )}
 
+      {/* ===== Beat the AI entry point (design doc: League Score Predictions,
+       *  2026-07-24) -- same glass-card teaser idiom as /nrl/tips's "Finals
+       *  race" card and /nrl's "State of Origin" card. ===== */}
+      <Link href="/tips" className="card-hover glass mt-7 block rounded-2xl p-4 transition">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+              Beat the AI
+            </p>
+            <p className="mt-1 font-display text-lg font-extrabold">Predict the Premier League scoreline</p>
+            <p className="mt-1 text-xs text-muted">Score picks, matchweek leaderboards, share your record.</p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-lime-deep">Play now →</span>
+        </div>
+      </Link>
+
       {/* ===== AI record so far (real, verified track record) ===== */}
       {record && record.evaluated_matches > 0 && (
         <p className="mt-8 text-center text-sm text-muted">
