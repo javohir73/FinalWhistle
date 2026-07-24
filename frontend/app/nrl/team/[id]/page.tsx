@@ -9,6 +9,7 @@ import { ChanceChip } from "@/components/ChanceChip";
 import { ClubBadge } from "@/components/ClubBadge";
 import { FormStrip } from "@/components/FormStrip";
 import { ShareButton } from "@/components/ShareButton";
+import { TeamHeader } from "@/components/TeamHeader";
 import { VenueSplits } from "@/components/nrl/VenueSplits";
 import type { NrlTeamFixture, NrlTeamResult } from "@/lib/types";
 
@@ -81,6 +82,17 @@ export default async function NrlTeamPage({
     .filter(Boolean)
     .join(" · ");
 
+  // NRL header tiles stand in for the football Elo/FIFA pair: ladder slot,
+  // W–L–D record, competition points, raw Elo. Missing figures drop out.
+  const nrlTiles = [
+    ladder ? { label: "Ladder", value: ordinal(ladder.rank) } : null,
+    record ? { label: "Record", value: record } : null,
+    ladder ? { label: "Points", value: String(ladder.points) } : null,
+    team.elo_rating != null
+      ? { label: "Elo", value: String(Math.round(team.elo_rating)) }
+      : null,
+  ].filter(Boolean) as { label: string; value: string }[];
+
   const streak = summary?.streak ?? null;
   const form = results.slice(0, 5).map((r) => ({
     opponent: r.opponent ?? "TBC",
@@ -92,43 +104,52 @@ export default async function NrlTeamPage({
 
   return (
     <div className="fade-up mx-auto max-w-3xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/nrl/ladder"
-          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
-        >
-          <span aria-hidden>←</span> Ladder
-        </Link>
+      <div className="flex justify-end">
         <ShareButton title={`${team.name} — NRL ${season} profile`} />
       </div>
 
-      {/* Header — badge tile + name + ladder/record subtitle + streak pill */}
-      <header className="flex items-center gap-4">
-        <span className="grid shrink-0 place-items-center rounded-2xl bg-win/10 p-2.5">
-          <ClubBadge name={team.name} size={56} />
-        </span>
+      {/* Full-bleed crest banner (shared Floodlight TeamHeader). The country
+          crest becomes the ClubBadge monogram, the FavoriteStar drops (NRL
+          clubs aren't in the country-favorites store), the meta line carries
+          the ladder/record/pts/Elo join, and the tiles carry the NRL ratings. */}
+      <TeamHeader
+        team={{
+          id: team.id,
+          name: team.name,
+          country_code: null,
+          confederation: null,
+          fifa_rank: null,
+          elo_rating: team.elo_rating,
+          is_host: false,
+        }}
+        comp="nrl"
+        backHref="/nrl/ladder"
+        backLabel="Ladder"
+        badge="club"
+        showFavorite={false}
+        meta={subtitle}
+        tiles={nrlTiles}
+      />
+
+      {/* Streak pill — NRL-specific (no football analog), kept as a sibling
+          below the shared header. */}
+      {streak && streak.length >= 2 && (
         <div>
-          <h1 className="font-display text-3xl font-extrabold tracking-tight">
-            {team.name}
-          </h1>
-          {subtitle && <p className="mt-1 text-sm text-muted">{subtitle}</p>}
-          {streak && streak.length >= 2 && (
-            <span
-              className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
-                streak.result === "W"
-                  ? "bg-win/15 text-lime-deep"
-                  : streak.result === "L"
-                    ? "bg-loss/15 text-loss"
-                    : "bg-draw/15 text-amber-ink"
-              }`}
-            >
-              {streak.length}-game{" "}
-              {streak.result === "W" ? "winning" : streak.result === "L" ? "losing" : "drawn"}{" "}
-              run
-            </span>
-          )}
+          <span
+            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+              streak.result === "W"
+                ? "bg-win/15 text-lime-deep"
+                : streak.result === "L"
+                  ? "bg-loss/15 text-loss"
+                  : "bg-draw/15 text-amber-ink"
+            }`}
+          >
+            {streak.length}-game{" "}
+            {streak.result === "W" ? "winning" : streak.result === "L" ? "losing" : "drawn"}{" "}
+            run
+          </span>
         </div>
-      </header>
+      )}
 
       {/* Season snapshot — per-game tiles + splits + bookend results */}
       {summary && (

@@ -91,6 +91,15 @@ it("server-renders the matchup, the AI's call, margin and disclaimer", async () 
   expect(screen.getByText("Warriors by 5.5")).toBeInTheDocument();
   expect(screen.getByText(/Not betting advice/)).toBeInTheDocument();
   expect(screen.getByText(/model nrl-elo-v0.1/)).toBeInTheDocument();
+
+  // The shared ProbabilityBar carries the three percentages in its aria-label
+  // (a11y floor) — a two-way NRL contest still renders the 3-way bar, draw
+  // segment small.
+  expect(
+    screen.getByRole("img", {
+      name: "Wests Tigers win 31%, draw 2%, Warriors win 67%",
+    }),
+  ).toBeInTheDocument();
 });
 
 it("shows the final score and grades the call once finished", async () => {

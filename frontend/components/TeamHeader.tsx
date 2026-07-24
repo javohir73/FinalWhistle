@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Team } from "@/lib/types";
 import type { CompetitionId } from "@/lib/sports";
 import { Flag } from "@/components/Flag";
+import { ClubBadge } from "@/components/ClubBadge";
 import { FavoriteStar } from "@/components/FavoriteStar";
 
 /**
@@ -18,6 +19,17 @@ import { FavoriteStar } from "@/components/FavoriteStar";
  * is the ML-outlook card's job (rendered below on the team page), so the header
  * stays distinct from it rather than reprinting the same odds. The glow is one
  * static radial-gradient, so there's nothing to disable under reduced motion.
+ *
+ * The `badge`/`showFavorite`/`meta`/`tiles` slots are additive, serializable
+ * seams so the NRL club page (Floodlight P3) can render this same banner without
+ * forking a variant: `badge="club"` swaps the country crest for a `ClubBadge`
+ * monogram; `showFavorite={false}` drops the FavoriteStar (NRL clubs aren't in
+ * the country-favorites store); `meta` overrides the football group/rank/Elo
+ * join (a string prints instead, `null` prints no meta line); and `tiles`
+ * overrides the football Elo/FIFA tiles (any array prints instead, `[]` prints
+ * no tiles). All four default to today's football behavior, so the football
+ * team page is byte-identical. The host badge stays gated on `team.is_host`,
+ * which NRL Team maps to false, so it never shows there.
  */
 export function TeamHeader({
   team,
@@ -25,18 +37,26 @@ export function TeamHeader({
   comp,
   backHref,
   backLabel,
+  badge = "flag",
+  showFavorite = true,
+  meta,
+  tiles,
 }: {
   team: Team;
   groupName?: string | null;
   comp: CompetitionId;
   backHref: string;
   backLabel: string;
+  badge?: "flag" | "club";
+  showFavorite?: boolean;
+  meta?: string | null;
+  tiles?: { label: string; value: string }[];
 }) {
   // `comp` is part of the header's contract (league pages pass their own) but
   // the wash is comp-neutral lime today; kept so the accent hook lands here later.
   void comp;
 
-  const meta = [
+  const footballMeta = [
     groupName
       ? /^group\b/i.test(groupName)
         ? groupName
@@ -47,15 +67,20 @@ export function TeamHeader({
   ]
     .filter(Boolean)
     .join(" · ");
+  // A caller-supplied meta line wins (a string prints instead, `null` prints
+  // nothing); undefined falls back to the football group/rank/Elo join.
+  const metaLine = meta === undefined ? footballMeta : meta;
 
   // The team's raw ratings. Missing figures are dropped rather than faked, so
-  // the row shrinks honestly.
-  const tiles = [
+  // the row shrinks honestly. A caller-supplied `tiles` array wins outright
+  // (including `[]`, which prints no tiles).
+  const footballTiles = [
     team.elo_rating != null
       ? { label: "Elo", value: String(Math.round(team.elo_rating)) }
       : null,
     team.fifa_rank != null ? { label: "FIFA rank", value: `#${team.fifa_rank}` } : null,
   ].filter(Boolean) as { label: string; value: string }[];
+  const statTiles = tiles === undefined ? footballTiles : tiles;
 
   return (
     <header className="floodlight-glow-left -mx-4 border-b border-border px-4 pb-4 pt-1 sm:-mx-5 sm:px-5">
@@ -69,15 +94,19 @@ export function TeamHeader({
 
       {/* Crest + Bricolage name + favorite star */}
       <div className="mt-1 flex items-center gap-3.5">
-        <Flag team={team.name} size={56} />
+        {badge === "club" ? (
+          <ClubBadge name={team.name} size={56} />
+        ) : (
+          <Flag team={team.name} size={56} />
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h1 className="truncate font-display text-2xl font-extrabold tracking-[-0.02em]">
               {team.name}
             </h1>
-            <FavoriteStar team={team.name} size={20} />
+            {showFavorite && <FavoriteStar team={team.name} size={20} />}
           </div>
-          {meta && <p className="mt-0.5 text-sm text-muted">{meta}</p>}
+          {metaLine && <p className="mt-0.5 text-sm text-muted">{metaLine}</p>}
         </div>
       </div>
 
@@ -89,9 +118,9 @@ export function TeamHeader({
       )}
 
       {/* Stat tiles -- 8.5px labels are labels, not body copy (a11y-exempt) */}
-      {tiles.length > 0 && (
+      {statTiles.length > 0 && (
         <div className="mt-3.5 flex gap-2">
-          {tiles.map((t) => (
+          {statTiles.map((t) => (
             <div
               key={t.label}
               className="flex-1 rounded-[12px] border border-border bg-surface/80 px-2.5 py-2.5"
