@@ -94,10 +94,13 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
           the actual score once a match is live or final). */}
       <MatchScoreboard
         matchId={p.match_id}
+        competitionLabel={tournament.name}
         home={home}
         away={away}
         homeTeamId={p.home_team_id}
         awayTeamId={p.away_team_id}
+        kickoffUtc={p.kickoff_utc}
+        venue={venue || null}
         probabilities={p.probabilities}
         predicted={p.predicted_score}
         initialSummary={summary}

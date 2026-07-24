@@ -1,35 +1,38 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { getMatchSummary, getProbHistory } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
+import { useTimezone } from "@/lib/useTimezone";
+import { kickoffTime } from "@/lib/datetime";
 import { pct, formatScore } from "@/lib/format";
-import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
+import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
 import { KnockoutAdvanceCard } from "@/components/KnockoutAdvanceCard";
 import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent, ProbHistoryPoint } from "@/lib/types";
-import { Flag } from "@/components/Flag";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
-import { FavoriteStar } from "@/components/FavoriteStar";
-import { Sparkline } from "@/components/Sparkline";
+import { Scorebug } from "@/components/Scorebug";
 
-/** Match-page headline, prototype "Match" layout: a bare matchup (flags + names
- *  + "vs") on the canvas, then a distinct "The AI's call" card holding the plain
- *  verdict, the caveat, the confidence pill and the W/D/L bar.
+/** Match-page headline, Floodlight layout: a TV-style broadcast Scorebug (crests,
+ *  score-or-kickoff, status, W/D/L bar) on the canvas, then a distinct "The AI's
+ *  call" card holding the plain verdict, the caveat, the confidence pill and the
+ *  W/D/L bar.
  *
- *  Once a match is live or finished the centre of the matchup shows the ACTUAL
- *  score with a LIVE minute / FULL TIME badge, the bar switches to the in-play
- *  win probability, and the card keeps the model's pre-match call visible. Polls
- *  the summary endpoint every 30s until full time. */
+ *  Once a match is live or finished the Scorebug centre shows the ACTUAL score
+ *  with a LIVE clock / FULL TIME status, the bar switches to the in-play win
+ *  probability, and the card keeps the model's pre-match call visible. Polls the
+ *  summary endpoint every 30s until full time. */
 export function MatchScoreboard({
   matchId,
+  competitionLabel = "Match",
   home,
   away,
   homeTeamId,
   awayTeamId,
+  kickoffUtc,
+  venue,
   probabilities,
   predicted,
   initialSummary,
@@ -39,10 +42,15 @@ export function MatchScoreboard({
   knockout,
 }: {
   matchId: number;
+  /** Tournament / competition name shown in the Scorebug eyebrow. */
+  competitionLabel?: string;
   home: string;
   away: string;
   homeTeamId?: number | null;
   awayTeamId?: number | null;
+  /** Kickoff (UTC ISO) + venue — build the Scorebug's pre-match status line. */
+  kickoffUtc?: string | null;
+  venue?: string | null;
   probabilities: Probabilities;
   predicted: PredictedScore;
   initialSummary?: MatchSummary | null;
@@ -54,6 +62,7 @@ export function MatchScoreboard({
   /** Knockout resolution block (v0.5) — who goes through, past the 90th minute. */
   knockout?: KnockoutAdvance | null;
 }) {
+  const { tz } = useTimezone();
   const finishedAtRender = initialSummary?.status === "finished";
   const state = useFetch<MatchSummary>(
     () => getMatchSummary(matchId),
@@ -63,8 +72,9 @@ export function MatchScoreboard({
   );
   const summary = state.status === "success" ? state.data : initialSummary ?? null;
 
-  // Prediction-history sparklines (Task 6): one-time fetch per match, same
-  // active-flag cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx).
+  // Prediction-history fetch (Task 6): one-time per match, same active-flag
+  // cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx). Retained
+  // for the in-match WinProbTimeline that consumes `history`.
   const [history, setHistory] = useState<ProbHistoryPoint[] | null>(null);
   useEffect(() => {
     let active = true;
@@ -80,10 +90,6 @@ export function MatchScoreboard({
       active = false;
     };
   }, [matchId]);
-  const homeSeries = history?.map((p) => p.p_home) ?? [];
-  const awaySeries = history?.map((p) => p.p_away) ?? [];
-  const homeTrendUp = homeSeries.length >= 2 && homeSeries[homeSeries.length - 1] >= homeSeries[0];
-  const awayTrendUp = awaySeries.length >= 2 && awaySeries[awaySeries.length - 1] >= awaySeries[0];
 
   const live = !!summary && isLiveNow(summary);
   // Treat a match stuck `in_play` past the live window as over, so the detail
@@ -105,50 +111,27 @@ export function MatchScoreboard({
   // level modal scoreline falls back to "Too close to call".
   const showsWinner = !!predictedWinner && predicted.home !== predicted.away;
 
+  // Scorebug pre-match status line: "kickoff · venue", each half guarded so a
+  // missing time or venue collapses gracefully rather than showing a stray dot.
+  const kickoff = kickoffUtc ? kickoffTime(kickoffUtc, tz) : null;
+  const statusLine = kickoff && venue ? `${kickoff} · ${venue}` : kickoff ?? venue ?? null;
+
   return (
     <>
-      {/* ===== Bare matchup ===== */}
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 sm:gap-3">
-        <TeamHead
-          name={home}
-          teamId={homeTeamId}
-          sparkline={<Sparkline values={homeSeries} tone={homeTrendUp ? "up" : "down"} />}
-        />
-        <div className="px-1 text-center sm:px-2">
-          {hasActual ? (
-            <>
-              <div className="font-display text-3xl font-extrabold tabular-nums sm:text-4xl">
-                {formatScore(summary!.score_home, summary!.score_away)}
-              </div>
-              <div className="mt-1 text-[10px] uppercase tracking-wide sm:text-[11px]">
-                {live ? (
-                  <span
-                    className="inline-flex items-center gap-1 font-bold text-loss"
-                    aria-label={`Live, ${liveLabel(summary!)}`}
-                  >
-                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-                    {liveLabel(summary!)}
-                  </span>
-                ) : (
-                  <span className="font-bold text-muted">FT</span>
-                )}
-              </div>
-              {penaltyTally(summary!) && (
-                <div className="mt-0.5 text-[10px] tabular-nums text-muted sm:text-[11px]">
-                  ({penaltyTally(summary!)} pens)
-                </div>
-              )}
-            </>
-          ) : (
-            <span className="font-display text-lg font-bold text-muted sm:text-xl">vs</span>
-          )}
-        </div>
-        <TeamHead
-          name={away}
-          teamId={awayTeamId}
-          sparkline={<Sparkline values={awaySeries} tone={awayTrendUp ? "up" : "down"} />}
-        />
-      </div>
+      {/* ===== Broadcast scorebug ===== */}
+      <Scorebug
+        competitionLabel={competitionLabel}
+        home={home}
+        away={away}
+        homeTeamId={homeTeamId}
+        awayTeamId={awayTeamId}
+        status={live ? "live" : finished ? "ft" : "upcoming"}
+        liveLabel={live ? liveLabel(summary!) : null}
+        statusLine={statusLine}
+        score={hasActual ? formatScore(summary!.score_home, summary!.score_away) : null}
+        predictedScore={predictedScore}
+        probabilities={shownProbs}
+      />
 
       {hasActual &&
         (timelineFor(summary!, "home").length > 0 ||
@@ -253,43 +236,6 @@ export function MatchScoreboard({
         {verdict && <ShootoutNote verdict={verdict} />}
       </section>
     </>
-  );
-}
-
-function TeamHead({
-  name,
-  teamId,
-  sparkline,
-}: {
-  name: string;
-  teamId?: number | null;
-  /** Prediction-history trend (Task 6); Sparkline itself renders nothing
-   *  below two points, so this is safe to pass unconditionally. */
-  sparkline?: ReactNode;
-}) {
-  const inner = (
-    <>
-      <Flag team={name} size={60} />
-      <span className="mt-2.5 font-display text-base font-extrabold leading-tight tracking-tight sm:text-lg">
-        {name}
-      </span>
-    </>
-  );
-  return (
-    <div className="flex min-w-0 flex-col items-center text-center">
-      {teamId ? (
-        <Link
-          href={`/team/${teamId}`}
-          className="flex flex-col items-center rounded-lg transition hover:text-lime-deep"
-        >
-          {inner}
-        </Link>
-      ) : (
-        <div className="flex flex-col items-center">{inner}</div>
-      )}
-      <FavoriteStar team={name} size={18} className="mt-1.5" />
-      {sparkline && <div className="mt-1.5">{sparkline}</div>}
-    </div>
   );
 }
 

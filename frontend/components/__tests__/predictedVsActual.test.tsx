@@ -115,40 +115,42 @@ describe("MatchScoreboard", () => {
       />,
     );
 
-  it("shows a bare 'vs' matchup and the AI's call before kickoff", () => {
+  it("shows the most-likely score and the AI's call before kickoff", () => {
     mockGetMatchSummary.mockResolvedValue(base);
     renderBoard(base);
-    expect(screen.getByText("vs")).toBeInTheDocument(); // no actual score yet
-    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
+    // Scorebug centres the predicted scoreline (upcoming), no promoted actual score.
+    expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument();
+    // "1–0" appears twice now: the Scorebug centrepiece + the AI's-call scoreline.
+    expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("promotes the live score to the matchup with the minute", () => {
+  it("promotes the live score to the scorebug with the minute", () => {
     mockGetMatchSummary.mockResolvedValue(live);
     renderBoard(live);
     expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1); // actual (1–0 at 63')
-    expect(screen.getByText("63'")).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*63'/)).toBeInTheDocument();
     expect(screen.getByText(/Model predicted/)).toBeInTheDocument();
   });
 
   it("shows HT at half-time instead of a ticking minute", () => {
     mockGetMatchSummary.mockResolvedValue(halfTime);
     renderBoard(halfTime);
-    expect(screen.getByText("HT")).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*HT/)).toBeInTheDocument();
     // No minute (a digit + apostrophe); the model's-call eyebrow apostrophe is fine.
     expect(screen.queryByText(/\d+'/)).not.toBeInTheDocument();
   });
 
-  it("shows PENS and the shootout tally during a penalty shootout", () => {
+  it("shows PENS with the 90-minute score during a penalty shootout", () => {
     mockGetMatchSummary.mockResolvedValue(shootout);
     renderBoard(shootout);
-    expect(screen.getByText("PENS")).toBeInTheDocument();
-    expect(screen.getByText(/5–4 pens/)).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*PENS/)).toBeInTheDocument();
+    expect(screen.getAllByText("1–1").length).toBeGreaterThanOrEqual(1); // level after 90/ET
   });
 
   it("at full time shows actual + predicted + verdict together", () => {
     renderBoard(finished);
     expect(screen.getByText("2–0")).toBeInTheDocument(); // actual headline
-    expect(screen.getByText("FT")).toBeInTheDocument();
+    expect(screen.getByText("FULL TIME")).toBeInTheDocument();
     expect(screen.getByText("Mexico 1–0 South Africa")).toBeInTheDocument(); // prediction kept visible
     expect(screen.getByText("Result predicted right")).toBeInTheDocument();
   });
@@ -156,7 +158,7 @@ describe("MatchScoreboard", () => {
   it("falls back to prediction-only when no summary is available", () => {
     mockGetMatchSummary.mockRejectedValue(new Error("offline"));
     renderBoard(null);
-    expect(screen.getByText("vs")).toBeInTheDocument();
-    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
+    expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument(); // upcoming scorebug
+    expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1); // the AI's-call scoreline
   });
 });
