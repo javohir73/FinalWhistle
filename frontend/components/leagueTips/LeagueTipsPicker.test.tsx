@@ -207,6 +207,19 @@ it("shows a season-not-started state when the league has no data loaded yet", as
   expect(await screen.findByText(/hasn't kicked off yet/)).toBeInTheDocument();
 });
 
+it("shows the same season-not-started state for any other league passed in, not just epl", async () => {
+  mockMine.mockRejectedValue(new ApiError(404, "league_inactive", "League 'laliga' has no data loaded yet"));
+  render(<LeagueTipsPicker league="laliga" />);
+  expect(await screen.findByText(/hasn't kicked off yet/)).toBeInTheDocument();
+  expect(mockMine).toHaveBeenCalledWith("laliga", "device-1", undefined);
+});
+
+it("treats league_not_found for an unregistered league the same as league_inactive", async () => {
+  mockMine.mockRejectedValue(new ApiError(404, "league_not_found", "Unknown league 'bundesliga'"));
+  render(<LeagueTipsPicker league="bundesliga" />);
+  expect(await screen.findByText(/hasn't kicked off yet/)).toBeInTheDocument();
+});
+
 it("surfaces a rejected submit honestly and reverts the optimistic prediction", async () => {
   mockMine.mockResolvedValue(mine());
   mockSubmit.mockRejectedValue(new ApiError(422, "match_locked", "Match 501 has kicked off and is locked."));
