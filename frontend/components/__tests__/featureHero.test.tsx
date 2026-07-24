@@ -77,6 +77,17 @@ describe("FeatureHero", () => {
     links.forEach((link) => expect(link).toHaveAttribute("href", "/nrl/match/2026/19/3"));
   });
 
+  it("drops both CTA links when href is null -- never falls through to /match/<id>", () => {
+    // An NRL fixture whose round is still TBC (nrlMatchHref -> null): the CTAs
+    // must degrade to non-interactive labels, not the football detail route.
+    render(<FeatureHero match={makeMatch()} comp="nrl" tz="UTC" badge="club" href={null} />);
+
+    expect(screen.queryByRole("link")).toBeNull();
+    // The labels stay for layout, but there's no link to the wrong sport.
+    expect(screen.getByText("Make your pick")).toBeInTheDocument();
+    expect(screen.getByText("Why 62%?")).toBeInTheDocument();
+  });
+
   it("prints the expected margin in the caption when there's no predicted score", () => {
     // Brazil (home) leads on win probability, so it's the favoured side.
     render(

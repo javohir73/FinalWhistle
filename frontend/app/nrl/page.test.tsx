@@ -89,6 +89,34 @@ it("lists the round's remaining fixtures on the shared spine, feature excluded",
   );
 });
 
+it("does not link the FeatureHero CTAs to the football route when the round is TBC", async () => {
+  // A fixture whose round is still null has no detail page (nrlMatchHref -> null).
+  // The hero must degrade to non-interactive CTAs, never the football /match/<id>
+  // route (NRL and football ids share the small-integer namespace).
+  const tbc: NrlMatchesResponse = {
+    ...fixtures,
+    rounds: [
+      {
+        round: null,
+        matches: [
+          {
+            id: 7, match_no: 1, kickoff_utc: "2026-08-01T06:00:00Z", venue: "Suncorp",
+            home: "Broncos", away: "Storm", home_team_id: 1, away_team_id: 2,
+            score_home: null, score_away: null, status: "scheduled", prediction: pred(0.7, 0.27, 8.5),
+          },
+        ],
+      },
+    ],
+  };
+  mockMatches.mockResolvedValue(tbc);
+  render(await NrlHomePage());
+
+  // The hero still leads with the fixture, but its CTAs don't navigate anywhere.
+  expect(screen.getByText("Broncos")).toBeInTheDocument();
+  expect(screen.getByText("Make your pick")).toBeInTheDocument();
+  expect(screen.getByText("Make your pick").closest("a")).toBeNull();
+});
+
 it("still renders the State of Origin teaser when the series endpoint has data", async () => {
   mockMatches.mockResolvedValue(fixtures);
   mockOrigin.mockResolvedValue(origin);

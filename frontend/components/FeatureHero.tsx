@@ -36,9 +36,9 @@ const CONFIDENCE: Record<
  *
  * The `badge`/`href`/`margin` slots are additive, serializable seams for NRL:
  * `badge="club"` swaps the country crests for `ClubBadge` monograms, `href`
- * overrides the football CTA target, and `margin` (when there's no predicted
- * score) prints the model's expected margin instead of a scoreline in the
- * caption. All three default to today's football behavior.
+ * overrides (or, when `null`, drops) the football CTA target, and `margin`
+ * (when there's no predicted score) prints the model's expected margin instead
+ * of a scoreline in the caption. All three default to today's football behavior.
  */
 export function FeatureHero({
   match,
@@ -52,7 +52,7 @@ export function FeatureHero({
   comp: CompetitionId;
   tz?: string;
   badge?: "flag" | "club";
-  href?: string;
+  href?: string | null;
   margin?: number | null;
 }) {
   if (!match) {
@@ -82,7 +82,11 @@ export function FeatureHero({
           ? "Draw"
           : "";
   const conf = confidence ? CONFIDENCE[confidence] : null;
-  const target = href ?? `/match/${match.match_id}`;
+  // NRL callers can override the football detail link, or drop it with `null`
+  // (a fixture whose round is still TBC has no detail page) — mirrors the shared
+  // MatchCard's guard so the CTAs never fall through to the football /match/<id>
+  // route and mis-navigate to an unrelated match.
+  const target = href === undefined ? `/match/${match.match_id}` : href;
   // The side the margin favours: leader by win probability, draw ignored.
   const favoured = (probs?.home_win ?? 0) >= (probs?.away_win ?? 0) ? teams.home : teams.away;
 
@@ -163,20 +167,42 @@ export function FeatureHero({
         )}
 
         {/* Two equal CTAs, both into the match page. Lime primary, outline
-            secondary; both 44px tap targets. */}
+            secondary; both 44px tap targets. When there's no detail page yet
+            (`target === null`, an NRL round still TBC) they degrade to
+            non-interactive labels rather than mis-navigating to the football
+            /match/<id> route — the hero's analogue of MatchCard's plain card. */}
         <div className="mt-4 flex gap-2.5">
-          <Link
-            href={target}
-            className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] bg-win font-display text-sm font-semibold text-background transition hover:brightness-[1.06]"
-          >
-            Make your pick
-          </Link>
-          <Link
-            href={target}
-            className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] border border-border font-display text-sm font-semibold text-foreground transition hover:border-win hover:text-lime-deep"
-          >
-            {heroPct != null ? `Why ${heroPct}%?` : "See the prediction"}
-          </Link>
+          {target !== null ? (
+            <>
+              <Link
+                href={target}
+                className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] bg-win font-display text-sm font-semibold text-background transition hover:brightness-[1.06]"
+              >
+                Make your pick
+              </Link>
+              <Link
+                href={target}
+                className="flex min-h-[44px] flex-1 items-center justify-center rounded-[12px] border border-border font-display text-sm font-semibold text-foreground transition hover:border-win hover:text-lime-deep"
+              >
+                {heroPct != null ? `Why ${heroPct}%?` : "See the prediction"}
+              </Link>
+            </>
+          ) : (
+            <>
+              <span
+                aria-disabled
+                className="flex min-h-[44px] flex-1 cursor-default items-center justify-center rounded-[12px] bg-win font-display text-sm font-semibold text-background opacity-60"
+              >
+                Make your pick
+              </span>
+              <span
+                aria-disabled
+                className="flex min-h-[44px] flex-1 cursor-default items-center justify-center rounded-[12px] border border-border font-display text-sm font-semibold text-foreground opacity-60"
+              >
+                {heroPct != null ? `Why ${heroPct}%?` : "See the prediction"}
+              </span>
+            </>
+          )}
         </div>
       </div>
     </section>

@@ -60,7 +60,7 @@ export default async function NrlHomePage() {
           badge="club"
           href={
             featured
-              ? nrlMatchHref(fixtures.season, current?.round, featured.match_no) ?? undefined
+              ? nrlMatchHref(fixtures.season, current?.round, featured.match_no)
               : undefined
           }
           margin={featured ? nrlExpectedMargin(featured) : null}
