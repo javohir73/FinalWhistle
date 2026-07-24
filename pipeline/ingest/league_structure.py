@@ -11,11 +11,27 @@ provider every refresh. Produces:
 Idempotent: safe to run repeatedly (upserts by provider fixture id; never
 duplicates, never touches WC26 rows — those are a different tournament_id and
 were seeded without a provider_fixture_id in the first place).
+
+Also writes matches.matchweek (League Score Predictions design doc,
+c8d9e0f1a2b3_add_match_matchweek migration) from the fixture payload's
+`league.round` (e.g. "Regular Season - 5" -> 5, see _parse_matchweek) — the
+matchweek-scoped tipsheet/leaderboards' read side (app/api/
+league_score_predictions.py) query this column; this is that column's only
+writer. Set unconditionally on every upsert, like kickoff_utc/status/score_*,
+so a broadcaster reshuffle that moves a fixture's round corrects it on the
+next ingestion.
+
+Parameterized (tournament_name/group_name/league_id/season) so
+pipeline/leagues.py's registry + pipeline/run_pipeline.py's league branch can
+drive this loader for any configured league, not just EPL — every parameter
+defaults to this module's own EPL constant below, so nothing here changes
+behavior for a bare load_league_structure(db) call.
 """
 from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -61,11 +77,14 @@ def _load_teams_file(teams_file: str) -> list[dict]:
     return json.loads(Path(teams_file).read_text(encoding="utf-8"))["teams"]
 
 
-def _get_or_create_tournament(db: Session) -> Tournament:
-    t = db.query(Tournament).filter_by(name=TOURNAMENT_NAME).one_or_none()
+def _get_or_create_tournament(db: Session, tournament_name: str = TOURNAMENT_NAME) -> Tournament:
+    t = db.query(Tournament).filter_by(name=tournament_name).one_or_none()
     if t is None:
         t = Tournament(
-            name=TOURNAMENT_NAME,
+            name=tournament_name,
+            # Every registered league (pipeline/leagues.py) is a 2026-27
+            # season, same as EPL's -- not worth its own parameter until
+            # Phase 2 actually needs a different value.
             year=TOURNAMENT_YEAR,
             host_countries="",
             # D4: a league has a real home side, not a host-nation bonus.
@@ -92,21 +111,38 @@ def _upsert_team(db: Session, name: str, code: str, api_football_id: int) -> Tea
     return team
 
 
-def _get_or_create_group(db: Session, tournament: Tournament) -> Group:
+def _get_or_create_group(db: Session, tournament: Tournament, group_name: str = GROUP_NAME) -> Group:
     group = db.query(Group).filter_by(
-        tournament_id=tournament.id, name=GROUP_NAME
+        tournament_id=tournament.id, name=group_name
     ).one_or_none()
     if group is None:
-        group = Group(tournament_id=tournament.id, name=GROUP_NAME)
+        group = Group(tournament_id=tournament.id, name=group_name)
         db.add(group)
         db.flush()
     return group
 
 
-def _fixture_fields(fx: dict) -> tuple[int, str, str, datetime, str, int | None, int | None] | None:
+# API-Football's fixture.league.round is free text, e.g. "Regular Season - 5"
+# (knockout-style rounds like "Quarter-finals" carry no trailing number and
+# never occur in a league fixture list anyway) -- pull the trailing integer.
+_ROUND_NUMBER_RE = re.compile(r"(\d+)\s*$")
+
+
+def _parse_matchweek(round_str: str | None) -> int | None:
+    """"Regular Season - 5" -> 5; None for anything that doesn't end in a
+    number, or no round at all (matches.matchweek migration docstring)."""
+    if not round_str:
+        return None
+    m = _ROUND_NUMBER_RE.search(round_str)
+    return int(m.group(1)) if m else None
+
+
+def _fixture_fields(
+    fx: dict,
+) -> tuple[int, str, str, datetime, str, int | None, int | None, int | None] | None:
     """Extract (fixture_id, home_name, away_name, kickoff_utc, status,
-    score_home, score_away) from one raw api-sports /fixtures response item,
-    or None if malformed."""
+    score_home, score_away, matchweek) from one raw api-sports /fixtures
+    response item, or None if malformed."""
     fixture = fx.get("fixture") or {}
     fid = fixture.get("id")
     date = fixture.get("date")
@@ -118,25 +154,42 @@ def _fixture_fields(fx: dict) -> tuple[int, str, str, datetime, str, int | None,
         return None
     kickoff = datetime.fromisoformat(date.replace("Z", "+00:00"))
     goals = fx.get("goals") or {}
+    # Same league.round lookup + fallback as api_football.py's _to_item
+    # (the football-data-v4-shaping layer for the live-scores path).
+    league = fx.get("league") or fixture.get("league") or {}
+    matchweek = _parse_matchweek(league.get("round"))
     return (
         int(fid), home, away, kickoff,
         _STATUS.get(status, "scheduled"),
         goals.get("home"), goals.get("away"),
+        matchweek,
     )
 
 
 def load_league_structure(
-    db: Session, teams_file: str = DEFAULT_TEAMS_FILE, api_key: str | None = None,
+    db: Session,
+    teams_file: str = DEFAULT_TEAMS_FILE,
+    api_key: str | None = None,
+    *,
+    tournament_name: str = TOURNAMENT_NAME,
+    group_name: str = GROUP_NAME,
+    league_id: int = LEAGUE_ID,
+    season: int = SEASON,
 ) -> dict:
-    """Load the EPL 2026-27 structure. Returns a summary dict for logging/tests."""
+    """Load one league's structure (default: EPL 2026-27). The keyword-only
+    tournament_name/group_name/league_id/season let pipeline/run_pipeline.py's
+    league branch drive this for any league in pipeline.leagues.LEAGUES --
+    every default is this module's own EPL constant, so a bare
+    load_league_structure(db) call keeps behaving exactly as it did before
+    this became parameterized. Returns a summary dict for logging/tests."""
     if api_key is None:
         from app.config import settings
 
         api_key = settings.api_football_api_key
 
     teams_data = _load_teams_file(teams_file)
-    tournament = _get_or_create_tournament(db)
-    group = _get_or_create_group(db, tournament)
+    tournament = _get_or_create_tournament(db, tournament_name)
+    group = _get_or_create_group(db, tournament, group_name)
 
     team_by_name: dict[str, Team] = {}
     for t in teams_data:
@@ -148,7 +201,7 @@ def load_league_structure(
         if exists is None:
             db.add(GroupTeam(group_id=group.id, team_id=team.id))
 
-    raw_fixtures = fetch_fixtures(api_key, league=LEAGUE_ID, season=SEASON)
+    raw_fixtures = fetch_fixtures(api_key, league=league_id, season=season)
 
     existing_by_fixture: dict[int, Match] = {
         m.provider_fixture_id: m
@@ -166,7 +219,7 @@ def load_league_structure(
         if parsed is None:
             skipped += 1
             continue
-        fid, home_name, away_name, kickoff, status, score_home, score_away = parsed
+        fid, home_name, away_name, kickoff, status, score_home, score_away, matchweek = parsed
         home = team_by_name.get(normalize_team_name(home_name))
         away = team_by_name.get(normalize_team_name(away_name))
         if home is None or away is None:
@@ -193,6 +246,10 @@ def load_league_structure(
         match.status = status
         match.score_home = score_home
         match.score_away = score_away
+        # Unconditional, same as the fields above -- a fixture correction
+        # (round moved by broadcaster reshuffle) must re-land on every
+        # subsequent ingestion, not just the first time this row is created.
+        match.matchweek = matchweek
 
     db.commit()
 
