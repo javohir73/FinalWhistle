@@ -12,9 +12,11 @@ jest.mock("@/lib/api");
 
 // The returning-user dashboard now mounts the team-search combobox, which uses
 // the App Router. Stub it so these (navigation-agnostic) flow tests don't need a
-// router context.
+// router context. usePathname is read by the dashboard to pick the FeatureHero's
+// competition -- "/" resolves to WC26.
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn() }),
+  usePathname: () => "/",
 }));
 
 // Relative kickoffs so the match-of-the-day assertions don't time-bomb: a fixed
@@ -191,7 +193,7 @@ it("sends a returning user to their Daylight home dashboard", async () => {
   expect(screen.getByRole("combobox")).toBeInTheDocument();
 });
 
-it("features an upcoming fixture as a clickable match-of-the-day card", async () => {
+it("features an upcoming fixture in the FeatureHero, linking into the match page", async () => {
   localStorage.setItem("finalwhistle:selected-country:v1", REVEALED);
 
   const fixture: MatchSummary = {
@@ -212,8 +214,8 @@ it("features an upcoming fixture as a clickable match-of-the-day card", async ()
     <HomeExperience initialTeams={teams} initialGroups={[]} initialMatches={[fixture]} initialOdds={[]} />,
   );
 
-  await waitFor(() => expect(screen.getByText("Match of the day")).toBeInTheDocument());
-  // The card carries the AI scoreline and links into the full match page.
+  // The FeatureHero renders "tonight's feature" with CTAs into the full match page.
+  await waitFor(() => expect(screen.getByText(/Tonight's feature/i)).toBeInTheDocument());
   expect(container.querySelector('a[href="/match/101"]')).not.toBeNull();
 });
 
