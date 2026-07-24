@@ -108,3 +108,25 @@ describe("competition registry", () => {
     expect(COMPETITIONS.epl.accentVar).toBe("--accent-epl");
   });
 });
+
+// Floodlight P1 slice p1-s3: the /football/[comp]/... route wrappers and the
+// next.config.mjs legacy redirects both hard-code "/football/wc26/..." as
+// their destination. These assertions guard that string against drift -- if
+// COMPETITIONS.wc26.basePath ever changes, this fails loudly instead of the
+// redirects quietly 404ing.
+describe("wc26 route wiring (guards the redirect destinations)", () => {
+  it("wires wc26 as an enabled competition at the expected basePath", () => {
+    expect(isWiredCompetition("wc26")).toBe(true);
+    expect(COMPETITIONS.wc26.basePath).toBe("/football/wc26");
+  });
+
+  it.each([
+    "/football/wc26/fixtures",
+    "/football/wc26/match/9",
+    "/football/wc26/groups",
+    "/football/wc26/bracket",
+    "/football/wc26/team/3",
+  ])("resolves %s to the wc26 competition", (pathname) => {
+    expect(competitionFromPathname(pathname)).toBe("wc26");
+  });
+});
