@@ -37,3 +37,21 @@ def test_unknown_name_returned_trimmed_unchanged():
 def test_none_and_empty_are_safe():
     assert normalize_team_name(None) == ""
     assert normalize_team_name("") == ""
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ("Ath Madrid", "Atletico Madrid"),
+        ("Betis", "Real Betis"),
+        ("Ath Bilbao", "Athletic Club"),
+        ("Bayern Munich", "Bayern München"),
+        ("Dortmund", "Borussia Dortmund"),
+        ("Leverkusen", "Bayer Leverkusen"),
+    ],
+)
+def test_sp1_d1_club_aliases_resolve_to_the_api_football_spelling(raw, expected):
+    """La Liga (SP1) / Bundesliga (D1) football-data.co.uk spellings ->
+    API-Football's canonical name -- see team_mapping.py's own section on why
+    this reconciliation matters (League Score Predictions Phase 2)."""
+    assert normalize_team_name(raw) == expected

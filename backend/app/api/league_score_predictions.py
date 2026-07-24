@@ -5,9 +5,10 @@ scoreline predictions against the model, graded once each match finishes.
 
 LEAGUE-GENERIC BY CONSTRUCTION: every route takes a `league` short code
 (path param on the router prefix), resolved to a Tournament row by
-_resolve_league. Phase 1 wires up exactly one code (epl); Phase 2's La Liga
-and Bundesliga are additional _LEAGUE_TOURNAMENT_NAMES entries, not new
-endpoints or new code paths.
+_resolve_league. Phase 1 wired up exactly one code (epl); Phase 2 adds La
+Liga and Bundesliga to _LEAGUE_TOURNAMENT_NAMES (derived from
+pipeline.leagues.LEAGUES, see that dict's own comment) -- not new endpoints
+or new code paths.
 
 Identity is shared with NRL: this file reuses tip_players (TipPlayer),
 duplicating the small device-id/get-or-create idioms locally rather than
@@ -46,6 +47,7 @@ from app.api.auth import _email_action_rate_limited
 from app.db import get_db
 from app.models import EmailActionAttempt, LeagueScorePrediction, Match, Prediction, Team, TipPlayer, Tournament
 from app.security import client_ip, hash_ip, require_same_origin, to_aware_utc
+from pipeline.leagues import LEAGUES as _PIPELINE_LEAGUES
 
 router = APIRouter(prefix="/api/leagues/{league}", tags=["league-score-predictions"])
 
@@ -59,8 +61,9 @@ _DEVICE_ID_RE = re.compile(
     re.IGNORECASE,
 )
 
-# A matchweek is ~10 EPL fixtures and a prediction can be revised freely
-# until kickoff, so the cap is generous (same magnitude as
+# A matchweek is ~9-10 fixtures for any of these leagues (Bundesliga 18
+# teams/9 fixtures, EPL/La Liga 20 teams/10) and a prediction can be revised
+# freely until kickoff, so the cap is generous (same magnitude as
 # nrl_user_tips._SUBMIT_MAX) -- this exists to stop a scripted flood, not to
 # limit normal matchweek-by-matchweek play. Scoped per-league (action string
 # includes the league code) so one league's traffic never eats another's
@@ -80,12 +83,23 @@ _HANDLE_NOUNS = (
     "Captain", "Finisher", "Maestro", "Enforcer",
 )
 
-# Phase 1: EPL only (design doc scope). Phase 2 adds "laliga"/"bundesliga"
-# here -- same {code: name} idiom pipeline/ingest/league_structure.py's
-# TOURNAMENT_NAME constant already uses for tournament identity (Tournament
-# has no `code`/`slug` column; name is the only existing identity key).
+# Every league code -> tournament name this feature (tips/leaderboards/
+# shares) knows how to resolve. Derived from pipeline.leagues.LEAGUES rather
+# than hand-copied here as separate literals (Phase 1 had exactly one entry
+# so the duplication was harmless; Phase 2 adds two more, and hand-copying
+# tournament-name strings across two registries is exactly the kind of typo
+# that would silently desync them -- one league's tips API 404ing
+# league_not_found while its pipeline data loads fine, or vice versa).
+#
+# Deliberately keyed off ALL of LEAGUES, not pipeline.leagues.ACTIVE_LEAGUES:
+# ACTIVE_LEAGUES gates a SEPARATE, quota-gated decision (whether the pipeline
+# actually polls/ingests a league yet); this feature's surface going
+# multi-league only needs a code to resolve to a tournament NAME so
+# _resolve_league can look for that Tournament row -- correctly 404ing
+# league_inactive (not league_not_found) for a registered-but-not-yet-loaded
+# league, same as EPL would before its first pipeline run.
 _LEAGUE_TOURNAMENT_NAMES: dict[str, str] = {
-    "epl": "Premier League 2026-27",
+    code: cfg["tournament_name"] for code, cfg in _PIPELINE_LEAGUES.items()
 }
 
 

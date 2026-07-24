@@ -53,6 +53,16 @@ def _epl(db):
     return t
 
 
+def _tournament(db, name):
+    """Generic version of _epl for Phase 2's other two leagues -- same shape,
+    just a caller-supplied name, since _epl's 30+ existing callers shouldn't
+    need to change."""
+    t = Tournament(name=name, year=2026, home_advantage_mode="home")
+    db.add(t)
+    db.flush()
+    return t
+
+
 def _team(db, name):
     t = Team(name=name)
     db.add(t)
@@ -100,9 +110,16 @@ def test_unknown_league_code_404s(client):
     assert r.json()["error"]["code"] == "league_not_found"
 
 
-def test_known_league_code_with_no_data_loaded_is_inactive_404(client):
+@pytest.mark.parametrize("league", ["epl", "laliga", "bundesliga"])
+def test_registered_league_with_no_data_loaded_is_inactive_404(client, league):
+    """All three Phase 2 codes are registered in _LEAGUE_TOURNAMENT_NAMES
+    (derived from pipeline.leagues.LEAGUES) regardless of whether
+    pipeline.leagues.ACTIVE_LEAGUES has actually ingested them yet -- a
+    registered-but-not-yet-loaded league (no Tournament row in this DB) must
+    404 league_inactive, never league_not_found (that code is reserved for a
+    typo'd/unregistered code, see test_unknown_league_code_404s above)."""
     c, _ = client
-    r = c.get("/api/leagues/epl/tips/leaderboard/season")
+    r = c.get(f"/api/leagues/{league}/tips/leaderboard/season")
     assert r.status_code == 404
     assert r.json()["error"]["code"] == "league_inactive"
 
@@ -748,51 +765,92 @@ def test_share_returns_graded_summary(client):
 # cross-league isolation
 # ---------------------------------------------------------------------------
 
-def test_cross_league_isolation(client, monkeypatch):
-    c, TestingSession = client
-    monkeypatch.setitem(lsp._LEAGUE_TOURNAMENT_NAMES, "laliga", "La Liga 2026-27")
+def _fill_graded_players(db, tournament, match, n, offset):
+    """n more graded (points=0, exact=False) players on `match`, so a
+    leaderboard's >=_LEADERBOARD_MIN_PARTICIPANTS reveal gate can be cleared
+    without the real test subject's own row. Distinct `offset` per league
+    keeps device_id unique across the three leagues seeded in the same test
+    (unlike _seed_leaderboard_players, which is single-tournament and reuses
+    the same device_id family every call). graded_at is always set (unlike
+    _seed_leaderboard_players' points-or-exact-gated version) since the
+    season leaderboard's population filter is graded-only."""
+    now = datetime.now(timezone.utc)
+    for i in range(n):
+        idx = offset + i
+        p = TipPlayer(device_id=f"99999999-9999-4999-8999-{idx:012d}", handle=f"Filler{idx}")
+        db.add(p)
+        db.flush()
+        db.add(LeagueScorePrediction(
+            tournament_id=tournament.id, match_id=match.id, player_id=p.id,
+            predicted_home=1, predicted_away=0, updated_at=now,
+            points=0, exact=False, graded_at=now,
+        ))
 
+
+def test_three_league_isolation_matrix(client):
+    """Phase 2: epl/laliga/bundesliga are simultaneously live, real registry
+    entries (no monkeypatch needed, unlike the Phase-1-era two-league version
+    of this test) -- predictions (summary/mine), both leaderboards (weekly +
+    season), and shares must never bleed across tournaments, even for the
+    SAME device/handle predicting perfectly in all three."""
+    c, TestingSession = client
     db = TestingSession()
     epl = _epl(db)
-    laliga = Tournament(name="La Liga 2026-27", year=2026, home_advantage_mode="home")
-    db.add(laliga)
-    db.flush()
-    ars, che = _team(db, "Arsenal"), _team(db, "Chelsea")
-    rma, bar = _team(db, "Real Madrid"), _team(db, "Barcelona")
+    laliga = _tournament(db, "La Liga 2026-27")
+    bundesliga = _tournament(db, "Bundesliga 2026-27")
     now = datetime.now(timezone.utc)
-    m_epl = _match(db, epl, ars, che, 1, now - timedelta(days=1), status="finished", score_home=1, score_away=0)
-    m_laliga = _match(db, laliga, rma, bar, 1, now - timedelta(days=1), status="finished", score_home=3, score_away=1)
-    db.flush()
 
-    player = TipPlayer(device_id=DEVICE_A, handle="CrossLeagueTester")
+    fixtures = [
+        ("epl", epl, "Arsenal", "Chelsea", 0),
+        ("laliga", laliga, "Real Madrid", "Barcelona", 100),
+        ("bundesliga", bundesliga, "Bayern Munich", "Dortmund", 200),
+    ]
+    leagues = {}
+    for code, tournament, home_name, away_name, offset in fixtures:
+        home, away = _team(db, home_name), _team(db, away_name)
+        m = _match(db, tournament, home, away, 1, now - timedelta(days=1),
+                   status="finished", score_home=2, score_away=1)
+        leagues[code] = {"tournament": tournament, "match": m, "home": home_name}
+
+    # One player, one shared handle, predicts perfectly in EVERY league --
+    # tip_players isn't league-scoped, so a shared identity across leagues is
+    # exactly the case where isolation could accidentally leak.
+    player = TipPlayer(device_id=DEVICE_A, handle="TriLeagueTester")
     db.add(player)
     db.flush()
-    db.add(LeagueScorePrediction(
-        tournament_id=epl.id, match_id=m_epl.id, player_id=player.id,
-        predicted_home=1, predicted_away=0, updated_at=now - timedelta(days=2),
-        points=5, exact=True, graded_at=now,
-    ))
-    db.add(LeagueScorePrediction(
-        tournament_id=laliga.id, match_id=m_laliga.id, player_id=player.id,
-        predicted_home=3, predicted_away=1, updated_at=now - timedelta(days=2),
-        points=5, exact=True, graded_at=now,
-    ))
+    for code, data in leagues.items():
+        db.add(LeagueScorePrediction(
+            tournament_id=data["tournament"].id, match_id=data["match"].id, player_id=player.id,
+            predicted_home=2, predicted_away=1, updated_at=now - timedelta(days=2),
+            points=5, exact=True, graded_at=now,
+        ))
+    # 9 more graded players per league clear both leaderboards' reveal gate
+    # (>=10 total) without inflating another league's count.
+    for code, _, _, _, offset in fixtures:
+        _fill_graded_players(db, leagues[code]["tournament"], leagues[code]["match"], 9, offset)
     db.commit()
 
-    epl_summary = c.get("/api/leagues/epl/tips/summary", params={"device_id": DEVICE_A}).json()
-    laliga_summary = c.get("/api/leagues/laliga/tips/summary", params={"device_id": DEVICE_A}).json()
+    for code, data in leagues.items():
+        summary = c.get(f"/api/leagues/{code}/tips/summary", params={"device_id": DEVICE_A}).json()
+        assert summary["league"] == code
+        assert summary["totals"] == {"your_points": 5, "model_points": 0, "matchweeks_played": 1}
 
-    assert epl_summary["totals"]["matchweeks_played"] == 1
-    assert laliga_summary["totals"]["matchweeks_played"] == 1
-    assert epl_summary["totals"]["your_points"] == 5
-    assert laliga_summary["totals"]["your_points"] == 5
+        mine = c.get(f"/api/leagues/{code}/tips/mine", params={"device_id": DEVICE_A, "matchweek": 1}).json()
+        assert mine["league"] == code
+        assert [row["home"] for row in mine["matches"]] == [data["home"]]
 
-    # The EPL matchweek/leaderboard must never see the La Liga match, and vice
-    # versa -- resolving epl's matchweek 1 never surfaces Real Madrid/Barcelona.
-    epl_mine = c.get("/api/leagues/epl/tips/mine", params={"device_id": DEVICE_A, "matchweek": 1}).json()
-    assert [row["home"] for row in epl_mine["matches"]] == ["Arsenal"]
-    laliga_mine = c.get("/api/leagues/laliga/tips/mine", params={"device_id": DEVICE_A, "matchweek": 1}).json()
-    assert [row["home"] for row in laliga_mine["matches"]] == ["Real Madrid"]
+        weekly = c.get(f"/api/leagues/{code}/tips/leaderboard", params={"matchweek": 1}).json()
+        assert weekly["league"] == code
+        assert weekly["participant_count"] == 10  # this league's 10, never the other leagues' 20 more
+
+        season = c.get(f"/api/leagues/{code}/tips/leaderboard/season").json()
+        assert season["participant_count"] == 10
+
+        share = c.get(f"/api/leagues/{code}/tips/share/1/TriLeagueTester").json()
+        assert share["league"] == code
+        assert share["handle_display"] == "TriLeagueTester"
+        assert share["player_points"] == 5
+        assert share["matchweek_complete"] is True
 
 
 # ---------------------------------------------------------------------------

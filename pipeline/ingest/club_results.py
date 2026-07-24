@@ -1,17 +1,25 @@
-"""Ingest EPL club historical results (league pivot D3).
+"""Ingest club historical results (league pivot D3; multi-division as of
+League Score Predictions Phase 2).
 
-Source: football-data.co.uk mmz4281/{season}/E0.csv (E0 = English Premier
-League), one CSV per season, free and auth-free. Ten seasons (2016-17
-through 2025-26) give the club Elo replay (pipeline/compute_club_elo.py)
-enough history to converge before the 2026-27 season kicks off.
+Source: football-data.co.uk mmz4281/{season}/{division}.csv, one CSV per
+season, free and auth-free -- E0 = English Premier League, SP1 = La Liga,
+D1 = Bundesliga. Ten seasons (2016-17 through 2025-26) give the club Elo
+replay (pipeline/compute_club_elo.py) enough history to converge before a
+league's covered season kicks off. The division code and competition
+discriminator are the only per-league parameters; download/clean/load are
+otherwise division-agnostic.
 
 Mirrors pipeline/ingest/historical_results.py's shape (download -> clean ->
 load) but writes into the SAME historical_matches table with a distinct
-`competition` discriminator (CLUB_COMPETITION = "Premier League"), per D3's
-minimal-migration path: HistoricalMatch already carries a nullable
-`competition` column, so no schema change is needed here. International and
-club ingest must never mix — CLUB_COMPETITION is the one value both this
-module and pipeline/compute_elo.py's scoping filter share.
+`competition` discriminator per league (CLUB_COMPETITION = "Premier League"
+is EPL's, the module default so every existing caller of this file's
+functions is unaffected), per D3's minimal-migration path: HistoricalMatch
+already carries a nullable `competition` column, so no schema change is
+needed here. International and club ingest must never mix, and as of Phase 2
+neither may two leagues' club rows -- every historical_matches row's
+`competition` is one of pipeline.leagues.LEAGUES[...]["club_competition"],
+the set pipeline/compute_elo.py's international-replay scoping filter
+excludes in full (see club_competitions() there).
 """
 from __future__ import annotations
 
@@ -23,9 +31,15 @@ from sqlalchemy.orm import Session
 from app.models import HistoricalMatch, Match, Team, Tournament
 from pipeline.team_mapping import normalize_team_name
 
-BASE_URL = "https://www.football-data.co.uk/mmz4281/{season}/E0.csv"
+BASE_URL = "https://www.football-data.co.uk/mmz4281/{season}/{division}.csv"
 
-# Ten seasons, oldest first: 2016-17 .. 2025-26 (E0 = English Premier League).
+# football-data.co.uk's division code for EPL, the module default so a bare
+# download_club_results_df() call is unaffected by Phase 2's new parameter.
+DEFAULT_DIVISION = "E0"
+
+# Ten seasons, oldest first: 2016-17 .. 2025-26. Same window/format for every
+# division -- football-data.co.uk uses the same {season}/{division}.csv shape
+# and season-code convention across leagues.
 SEASON_CODES = [
     "1617", "1718", "1819", "1920", "2021",
     "2122", "2223", "2324", "2425", "2526",
@@ -34,21 +48,25 @@ SEASON_CODES = [
 # The LAST season, held out for the home-advantage fit (pipeline/compute_club_elo.py).
 HOLDOUT_SEASON_CODE = "2526"
 
-# Discriminator stored on historical_matches.competition for every row this
-# module writes. Never collides with an international tournament name from
-# the martj42 dataset (e.g. "FIFA World Cup", "Friendly") — the ONE value
-# pipeline/compute_elo.py excludes from its international replay, and
-# pipeline/compute_club_elo.py includes exclusively.
+# EPL's discriminator, stored on historical_matches.competition -- the module
+# default for load_club_results/sync_finished_matches_to_history so every
+# existing (EPL) caller is unaffected. Never collides with an international
+# tournament name from the martj42 dataset (e.g. "FIFA World Cup", "Friendly").
+# La Liga/Bundesliga get their own values (pipeline/leagues.py's
+# "club_competition" field, e.g. "La Liga"/"Bundesliga") -- see this module's
+# own docstring on why the exclusion in compute_elo.py must track the full set.
 CLUB_COMPETITION = "Premier League"
 
 EXPECTED_COLUMNS = {"Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"}
 
 
-def download_club_results_df(season_codes: list[str] = SEASON_CODES) -> pd.DataFrame:
-    """Download and concatenate every season's E0 CSV (network)."""
+def download_club_results_df(
+    season_codes: list[str] = SEASON_CODES, division: str = DEFAULT_DIVISION
+) -> pd.DataFrame:
+    """Download and concatenate every season's CSV for one division (network)."""
     frames = []
     for code in season_codes:
-        df = pd.read_csv(BASE_URL.format(season=code))
+        df = pd.read_csv(BASE_URL.format(season=code, division=division))
         df["season_code"] = code
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
@@ -85,12 +103,16 @@ def _team_id_cache(db: Session) -> dict[str, int]:
     return {t.name: t.id for t in db.query(Team).all()}
 
 
-def load_club_results(db: Session, df: pd.DataFrame, limit: int | None = None) -> dict:
+def load_club_results(
+    db: Session, df: pd.DataFrame, limit: int | None = None, *, competition: str = CLUB_COMPETITION
+) -> dict:
     """Load cleaned club results into historical_matches. Idempotent.
 
     Club matches are never at a neutral venue (is_neutral=False — unlike the
     international ingest, which reads a per-row `neutral` column). Every row
-    is tagged competition=CLUB_COMPETITION.
+    is tagged competition=``competition`` (default CLUB_COMPETITION, i.e. EPL
+    -- every existing caller is unaffected; Phase 2 leagues pass their own
+    pipeline.leagues.LEAGUES[...]["club_competition"]).
     """
     df = clean_club_results_df(df)
     if limit is not None:
@@ -109,12 +131,12 @@ def load_club_results(db: Session, df: pd.DataFrame, limit: int | None = None) -
             teams_created += 1
         return cache[name]
 
-    # existing (date, a, b) keys for idempotency — scoped to club rows only,
-    # so a same-day international fixture between two like-named teams (none
-    # exist in practice, but the scoping is the point) can never collide.
+    # existing (date, a, b) keys for idempotency — scoped to THIS competition
+    # only, so a same-day fixture in a different league (or the international
+    # ingest) between like-named teams can never collide.
     existing: set[tuple] = {
         (m.date.date().isoformat(), m.team_a_id, m.team_b_id)
-        for m in db.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).all()
+        for m in db.query(HistoricalMatch).filter_by(competition=competition).all()
     }
     seen_in_file: set[tuple] = set()
 
@@ -136,7 +158,7 @@ def load_club_results(db: Session, df: pd.DataFrame, limit: int | None = None) -
                 team_b_id=b_id,
                 score_a=int(row.FTHG),
                 score_b=int(row.FTAG),
-                competition=CLUB_COMPETITION,
+                competition=competition,
                 is_neutral=False,
             )
         )
@@ -151,9 +173,12 @@ def load_club_results(db: Session, df: pd.DataFrame, limit: int | None = None) -
     }
 
 
-def sync_finished_matches_to_history(db: Session, tournament: Tournament) -> dict:
+def sync_finished_matches_to_history(
+    db: Session, tournament: Tournament, *, competition: str = CLUB_COMPETITION
+) -> dict:
     """Mirror this tournament's finished Match rows into historical_matches
-    (competition=CLUB_COMPETITION), idempotently.
+    (competition=``competition``, default CLUB_COMPETITION i.e. EPL --
+    every existing caller is unaffected), idempotently.
 
     In-season, results only exist as Match rows (from
     pipeline.ingest.league_structure's fixture upsert) — the football-data.co.uk
@@ -164,7 +189,7 @@ def sync_finished_matches_to_history(db: Session, tournament: Tournament) -> dic
     """
     existing: set[tuple] = {
         (m.date.date().isoformat(), m.team_a_id, m.team_b_id)
-        for m in db.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).all()
+        for m in db.query(HistoricalMatch).filter_by(competition=competition).all()
     }
     finished = (
         db.query(Match)
@@ -190,7 +215,7 @@ def sync_finished_matches_to_history(db: Session, tournament: Tournament) -> dic
                 team_b_id=m.team_away_id,
                 score_a=m.score_home,
                 score_b=m.score_away,
-                competition=CLUB_COMPETITION,
+                competition=competition,
                 is_neutral=False,
             )
         )

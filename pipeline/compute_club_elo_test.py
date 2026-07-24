@@ -3,7 +3,7 @@
 import pandas as pd
 
 from app.models import HistoricalMatch, Team, Tournament
-from pipeline.compute_club_elo import compute_and_store_club_elo, fit_home_advantage
+from pipeline.compute_club_elo import compute_and_store_club_elo, fit_home_advantage, unrated_roster_teams
 from pipeline.compute_elo import compute_and_store_elo
 from pipeline.generate_predictions import _host_adv
 from pipeline.ingest.club_results import CLUB_COMPETITION, load_club_results
@@ -131,3 +131,117 @@ def test_fit_home_advantage_picks_the_lowest_holdout_log_loss():
     result = fit_home_advantage(df, candidates=(40.0, 60.0, 80.0), holdout_season="2526")
     assert set(result["results"]) == {40.0, 60.0, 80.0}
     assert result["winner"] == min(result["results"], key=result["results"].get)
+
+
+# ---------------------------------------------------------------------------
+# Per-league generalization (League Score Predictions Phase 2, recon item 3):
+# competition/tournament_name became keyword parameters so >1 league can share
+# historical_matches without their replays or home_advantage_value writes
+# clobbering each other. EPL's bare-call behavior above (test_replays_only_
+# club_rows_and_writes_elo, test_persists_fitted_home_advantage_onto_the_
+# tournament_row) is the "EPL numbers reproduced identically" regression --
+# both already pass unmodified with every default preserved.
+# ---------------------------------------------------------------------------
+
+def test_per_league_replay_and_home_advantage_write_are_isolated(db_session):
+    """A second league (synthetic 'La Liga', sharing historical_matches with
+    EPL) gets its own replay scope and its own Tournament's
+    home_advantage_value -- neither call touches the other's ratings or the
+    other's tournament row, and re-running EPL's replay doesn't move the
+    second league's rating."""
+    from pipeline.ingest.club_results import load_club_results
+
+    _seed_club_matches(db_session)  # EPL rows, default competition
+
+    laliga_df = pd.DataFrame(
+        [
+            {"Date": "13/08/16", "HomeTeam": "Real Madrid", "AwayTeam": "Sevilla",
+             "FTHG": 4, "FTAG": 0},
+            {"Date": "20/08/16", "HomeTeam": "Sevilla", "AwayTeam": "Real Madrid",
+             "FTHG": 1, "FTAG": 3},
+        ]
+    )
+    load_club_results(db_session, laliga_df, competition="La Liga")
+
+    epl_tournament = Tournament(
+        name="Premier League 2026-27", year=2026, host_countries="", home_advantage_mode="home",
+    )
+    laliga_tournament = Tournament(
+        name="La Liga 2026-27", year=2026, host_countries="", home_advantage_mode="home",
+    )
+    db_session.add_all([epl_tournament, laliga_tournament])
+    db_session.commit()
+
+    epl_summary = compute_and_store_club_elo(db_session)  # bare call -- every default unchanged
+    assert epl_summary["matches_replayed"] == 3
+    assert epl_summary["home_advantage"] == 60.0
+
+    laliga_summary = compute_and_store_club_elo(
+        db_session, home_advantage=45.0, competition="La Liga", tournament_name="La Liga 2026-27",
+    )
+    assert laliga_summary["matches_replayed"] == 2
+    assert laliga_summary["home_advantage"] == 45.0
+
+    db_session.refresh(epl_tournament)
+    db_session.refresh(laliga_tournament)
+    assert epl_tournament.home_advantage_value == 60.0
+    assert laliga_tournament.home_advantage_value == 45.0  # not clobbered by the EPL call
+
+    real_madrid = db_session.query(Team).filter_by(name="Real Madrid").one()
+    assert real_madrid.elo_rating is not None
+    real_madrid_rating = real_madrid.elo_rating
+
+    # Re-running EPL's replay (still the bare default call) must not move
+    # La Liga's rating or its tournament's home_advantage_value.
+    compute_and_store_club_elo(db_session)
+    db_session.refresh(real_madrid)
+    db_session.refresh(laliga_tournament)
+    assert real_madrid.elo_rating == real_madrid_rating
+    assert laliga_tournament.home_advantage_value == 45.0
+
+
+# ---------------------------------------------------------------------------
+# unrated_roster_teams (Opus review, League Score Predictions Phase 2): the
+# reconciliation check for a Phase 2 league's roster -- a club whose Team row
+# never received the replayed club Elo (almost always a missing
+# team_mapping alias between API-Football's fixtures spelling and football-
+# data.co.uk's CSV spelling) must surface here before the league is trusted.
+# ---------------------------------------------------------------------------
+
+def test_unrated_roster_teams_flags_a_club_the_backfill_never_reached(db_session, monkeypatch):
+    from pipeline.ingest import league_structure as ls_mod
+    from pipeline.ingest.league_structure import load_league_structure
+
+    monkeypatch.setattr(
+        ls_mod, "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {"id": 9402, "date": "2026-08-21T19:00:00+00:00", "status": {"short": "NS"}},
+                "teams": {
+                    "home": {"id": 530, "name": "Atletico Madrid"},
+                    "away": {"id": 999, "name": "Some Newly Promoted FC"},
+                },
+                "goals": {"home": None, "away": None},
+            },
+        ],
+    )
+    load_league_structure(
+        db_session, teams_file=None, api_key="x",
+        tournament_name="La Liga 2026-27", group_name="La Liga",
+        league_id=140, season=2026,
+    )
+    # Only Atletico Madrid (via its "Ath Madrid" alias) has any backfilled
+    # history -- the newly-promoted club has none at all yet.
+    sp1_df = pd.DataFrame(
+        [{"Date": "13/08/16", "HomeTeam": "Ath Madrid", "AwayTeam": "Sevilla", "FTHG": 2, "FTAG": 1}]
+    )
+    load_club_results(db_session, sp1_df, competition="La Liga")
+
+    compute_and_store_club_elo(db_session, competition="La Liga", tournament_name="La Liga 2026-27")
+
+    assert unrated_roster_teams(db_session, "La Liga 2026-27", "La Liga") == ["Some Newly Promoted FC"]
+
+
+def test_unrated_roster_teams_returns_empty_for_an_unknown_tournament_or_group(db_session):
+    """Nothing to check yet (league_structure hasn't run) -- never raises."""
+    assert unrated_roster_teams(db_session, "Not A Real League 2026-27", "Not A Real Group") == []

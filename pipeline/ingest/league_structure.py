@@ -26,6 +26,15 @@ pipeline/leagues.py's registry + pipeline/run_pipeline.py's league branch can
 drive this loader for any configured league, not just EPL — every parameter
 defaults to this module's own EPL constant below, so nothing here changes
 behavior for a bare load_league_structure(db) call.
+
+League Score Predictions Phase 2 (docs/superpowers/specs/2026-07-24
+-league-score-predictions-design.md): ``teams_file`` is now optional. EPL
+keeps its checked-in JSON (byte-for-byte unchanged code path below); a league
+with no curated JSON (La Liga/Bundesliga: promoted/relegated clubs for a
+season not yet played aren't reliably known ahead of time) instead derives its
+teams straight from the SAME fetch_fixtures payload this loader already pulls
+— see _derive_teams_from_fixtures. Never hand-invent a club list or provider
+id; the fixtures response is the one authoritative source at ingest time.
 """
 from __future__ import annotations
 
@@ -77,6 +86,43 @@ def _load_teams_file(teams_file: str) -> list[dict]:
     return json.loads(Path(teams_file).read_text(encoding="utf-8"))["teams"]
 
 
+def _derive_teams_from_fixtures(raw_fixtures: list[dict]) -> list[dict]:
+    """teams_file=None fallback: derive a teams_file-shaped list straight from
+    a raw api-sports /fixtures response's own teams.home/teams.away objects
+    (id + name — the real payload carries both; see _fixture_fields, which
+    discards id today). One entry per distinct provider team id seen, in
+    first-seen order. ``code`` is always None: the fixtures payload carries no
+    3-letter code (only /teams does), and pulling that would cost a second
+    HTTP call this path is specifically meant to avoid. A fixture missing
+    either side's id or name is skipped rather than guessed."""
+    seen: dict[int, str] = {}
+    for fx in raw_fixtures or []:
+        teams = fx.get("teams") or {}
+        for side in ("home", "away"):
+            team = teams.get(side) or {}
+            tid, name = team.get("id"), team.get("name")
+            if tid is not None and name and tid not in seen:
+                seen[tid] = name
+    return [{"name": name, "code": None, "api_football_id": tid} for tid, name in seen.items()]
+
+
+def _seed_teams(db: Session, group: Group, teams_data: list[dict]) -> dict[str, Team]:
+    """Upsert every team in teams_data (whichever source produced it) and add
+    it to ``group``. Factored out of load_league_structure so both the
+    teams_file and the derive-from-fixtures paths share one upsert loop —
+    same body, same order of operations, as the original inline loop."""
+    team_by_name: dict[str, Team] = {}
+    for t in teams_data:
+        team = _upsert_team(db, t["name"], t.get("code"), t["api_football_id"])
+        team_by_name[team.name] = team
+        exists = db.query(GroupTeam).filter_by(
+            group_id=group.id, team_id=team.id
+        ).one_or_none()
+        if exists is None:
+            db.add(GroupTeam(group_id=group.id, team_id=team.id))
+    return team_by_name
+
+
 def _get_or_create_tournament(db: Session, tournament_name: str = TOURNAMENT_NAME) -> Tournament:
     t = db.query(Tournament).filter_by(name=tournament_name).one_or_none()
     if t is None:
@@ -95,9 +141,24 @@ def _get_or_create_tournament(db: Session, tournament_name: str = TOURNAMENT_NAM
     return t
 
 
-def _upsert_team(db: Session, name: str, code: str, api_football_id: int) -> Team:
+def _upsert_team(db: Session, name: str, code: str | None, api_football_id: int) -> Team:
+    """Look up by ``provider_team_id`` FIRST, falling back to name only for a
+    team this provider id has never been seen for yet. Team.provider_team_id
+    is unique (backend/app/models/__init__.py) -- a name-only lookup would
+    miss an existing row whenever the provider renames a club's display name
+    (a real, recurring API-Football event; the numeric id stays stable, only
+    the label changes), then try to INSERT a second row with the SAME
+    provider_team_id and raise IntegrityError on flush instead of updating
+    the existing one in place (see league_structure_test.py's rename
+    regression). The name-lookup fallback keeps a hypothetical bare
+    name-only caller (api_football_id already unique-constrained, so this
+    only matters pre-flush) working the same as before."""
     canon = normalize_team_name(name)
-    team = db.query(Team).filter_by(name=canon).one_or_none()
+    team = None
+    if api_football_id is not None:
+        team = db.query(Team).filter_by(provider_team_id=api_football_id).one_or_none()
+    if team is None:
+        team = db.query(Team).filter_by(name=canon).one_or_none()
     if team is None:
         team = Team(
             name=canon, country_code=code, is_host=False,
@@ -106,6 +167,7 @@ def _upsert_team(db: Session, name: str, code: str, api_football_id: int) -> Tea
         db.add(team)
         db.flush()
     else:
+        team.name = canon
         team.country_code = code
         team.provider_team_id = api_football_id
     return team
@@ -168,7 +230,7 @@ def _fixture_fields(
 
 def load_league_structure(
     db: Session,
-    teams_file: str = DEFAULT_TEAMS_FILE,
+    teams_file: str | None = DEFAULT_TEAMS_FILE,
     api_key: str | None = None,
     *,
     tournament_name: str = TOURNAMENT_NAME,
@@ -181,27 +243,31 @@ def load_league_structure(
     league branch drive this for any league in pipeline.leagues.LEAGUES --
     every default is this module's own EPL constant, so a bare
     load_league_structure(db) call keeps behaving exactly as it did before
-    this became parameterized. Returns a summary dict for logging/tests."""
+    this became parameterized. teams_file=None (Phase 2: a league with no
+    curated JSON) derives teams from the fixtures payload instead -- see
+    _derive_teams_from_fixtures. Returns a summary dict for logging/tests."""
     if api_key is None:
         from app.config import settings
 
         api_key = settings.api_football_api_key
 
-    teams_data = _load_teams_file(teams_file)
-    tournament = _get_or_create_tournament(db, tournament_name)
-    group = _get_or_create_group(db, tournament, group_name)
-
-    team_by_name: dict[str, Team] = {}
-    for t in teams_data:
-        team = _upsert_team(db, t["name"], t["code"], t["api_football_id"])
-        team_by_name[team.name] = team
-        exists = db.query(GroupTeam).filter_by(
-            group_id=group.id, team_id=team.id
-        ).one_or_none()
-        if exists is None:
-            db.add(GroupTeam(group_id=group.id, team_id=team.id))
-
-    raw_fixtures = fetch_fixtures(api_key, league=league_id, season=season)
+    if teams_file is not None:
+        # Unchanged code path (EPL, and any future league with its own
+        # curated JSON): identical order of operations as before this became
+        # optional -- load the file, then tournament/group, then upsert.
+        teams_data = _load_teams_file(teams_file)
+        tournament = _get_or_create_tournament(db, tournament_name)
+        group = _get_or_create_group(db, tournament, group_name)
+        team_by_name = _seed_teams(db, group, teams_data)
+        raw_fixtures = fetch_fixtures(api_key, league=league_id, season=season)
+    else:
+        # No teams_file: fetch fixtures first so teams can be derived from
+        # the SAME response the fixture upsert below also uses -- one HTTP
+        # call serves both, no second endpoint needed.
+        tournament = _get_or_create_tournament(db, tournament_name)
+        group = _get_or_create_group(db, tournament, group_name)
+        raw_fixtures = fetch_fixtures(api_key, league=league_id, season=season)
+        team_by_name = _seed_teams(db, group, _derive_teams_from_fixtures(raw_fixtures))
 
     existing_by_fixture: dict[int, Match] = {
         m.provider_fixture_id: m

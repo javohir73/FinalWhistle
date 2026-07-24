@@ -228,3 +228,95 @@ def test_league_pipeline_prefixes_step_names_once_two_leagues_are_configured(db_
     epl = db_session.query(Tournament).filter_by(name="Premier League 2026-27").one()
     laliga = db_session.query(Tournament).filter_by(name="La Liga 2026-27").one()
     assert epl.id != laliga.id
+
+
+# ---------------------------------------------------------------------------
+# League Score Predictions Phase 2: the real 3-entry registry (pipeline.
+# leagues.LEAGUES already has epl/laliga/bundesliga -- see pipeline/leagues.py)
+# with ONLY ACTIVE_LEAGUES monkeypatched, so these exercise the actual
+# registered configs rather than a synthetic copy.
+# ---------------------------------------------------------------------------
+
+def _fixture_with_ids(fid, home, home_id, away, away_id, status="NS", gh=None, ga=None):
+    """Like _fixture() above but carries teams.home/away.id -- laliga/
+    bundesliga's real registry entries have teams_file=None, so their teams
+    are derived from the fixtures payload and need a provider id per side."""
+    return {
+        "fixture": {"id": fid, "date": "2026-08-21T19:00:00+00:00", "status": {"short": status}},
+        "teams": {"home": {"id": home_id, "name": home}, "away": {"id": away_id, "name": away}},
+        "goals": {"home": gh, "away": ga},
+    }
+
+
+def _three_league_fetch(api_key, league, season):
+    return {
+        39: [_fixture_with_ids(1, "Arsenal", 42, "Chelsea", 49, status="FT", gh=2, ga=1)],
+        140: [_fixture_with_ids(2, "Real Madrid", 541, "Sevilla", 536, status="FT", gh=3, ga=0)],
+        78: [_fixture_with_ids(3, "Bayern Munich", 157, "Borussia Dortmund", 165, status="FT", gh=1, ga=1)],
+    }[league]
+
+
+def test_league_pipeline_runs_all_three_registered_leagues(db_session, monkeypatch):
+    """Every step's prefix/shared-key behavior generalizes past two leagues
+    to three, and each league's club_elo replay lands on its OWN tournament
+    row (recon item 3) -- not just whichever tournament happened to be
+    queried first."""
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(leagues_mod, "ACTIVE_LEAGUES", ["epl", "laliga", "bundesliga"])
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", _three_league_fetch)
+
+    summary = run_pipeline(db_session, n_sims=50)
+
+    for code in ("epl", "laliga", "bundesliga"):
+        for step_name in ("league_structure", "league_results_sync", "predictions"):
+            assert f"{code}_{step_name}" in summary, f"missing {code}_{step_name}"
+    for flat_key in ("league_structure", "league_results_sync", "predictions"):
+        assert flat_key not in summary
+    for shared_key in ("club_elo", "learning_loop", "score_predictions_grading"):
+        assert shared_key in summary
+
+    tournaments = {t.name: t for t in db_session.query(Tournament).all()}
+    assert set(tournaments) == {"Premier League 2026-27", "La Liga 2026-27", "Bundesliga 2026-27"}
+    # Each league's own fitted (here: default 60.0) home advantage landed on
+    # its OWN row -- three separate writes, not one shared side effect.
+    for t in tournaments.values():
+        assert t.home_advantage_value == 60.0
+
+    assert db_session.query(HistoricalMatch).filter_by(competition="Premier League").count() == 1
+    assert db_session.query(HistoricalMatch).filter_by(competition="La Liga").count() == 1
+    assert db_session.query(HistoricalMatch).filter_by(competition="Bundesliga").count() == 1
+
+
+def test_league_pipeline_one_leagues_ingest_failure_does_not_kill_the_others(db_session, monkeypatch):
+    """A bad API-Football response for exactly one configured league (La
+    Liga) is logged and that league is skipped, but EPL and Bundesliga still
+    run their full per-league step sequence and the shared steps still run."""
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(leagues_mod, "ACTIVE_LEAGUES", ["epl", "laliga", "bundesliga"])
+
+    def _flaky_fetch(api_key, league, season):
+        if league == 140:  # laliga
+            raise RuntimeError("api-football unreachable for La Liga")
+        return _three_league_fetch(api_key, league, season)
+
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", _flaky_fetch)
+
+    summary = run_pipeline(db_session, n_sims=50)
+
+    assert "laliga_league_structure" not in summary
+    assert "laliga_league_results_sync" not in summary
+    assert "laliga_predictions" not in summary
+    for code in ("epl", "bundesliga"):
+        for step_name in ("league_structure", "league_results_sync", "predictions"):
+            assert f"{code}_{step_name}" in summary, f"missing {code}_{step_name}"
+    for shared_key in ("club_elo", "learning_loop", "score_predictions_grading"):
+        assert shared_key in summary
+
+    tournaments = {t.name for t in db_session.query(Tournament).all()}
+    assert tournaments == {"Premier League 2026-27", "Bundesliga 2026-27"}
+    assert db_session.query(Tournament).filter_by(name="La Liga 2026-27").count() == 0
+
+    # The healthy leagues' data landed cleanly despite the sibling failure.
+    assert db_session.query(HistoricalMatch).filter_by(competition="Premier League").count() == 1
+    assert db_session.query(HistoricalMatch).filter_by(competition="Bundesliga").count() == 1
+    assert db_session.query(HistoricalMatch).filter_by(competition="La Liga").count() == 0

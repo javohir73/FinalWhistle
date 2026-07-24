@@ -3,7 +3,7 @@
  *  non-numeric route segment all resolve to notFound() (see the backend's
  *  predictions_share, which 404s identically in every one of those cases). */
 import { render, screen } from "@testing-library/react";
-import LeagueTipsShareCardPage from "./page";
+import LeagueTipsShareCardPage, { generateMetadata } from "./page";
 import { getLeagueTipsShareServer } from "@/lib/api";
 import type { LeagueTipsShareResponse } from "@/lib/types";
 
@@ -80,4 +80,35 @@ it("calls notFound() for a non-numeric matchweek without hitting the API", async
     LeagueTipsShareCardPage({ params: params("epl", "abc") }),
   ).rejects.toThrow();
   expect(mockShare).not.toHaveBeenCalled();
+});
+
+// League display names come from lib/leagueConfig.ts's leagueLabel(), keyed
+// off the `league` route param -- these two cases are the label-correctness
+// check for La Liga/Bundesliga the Phase 2 pack asked for (both leagues are
+// registered in LEAGUE_LABELS ahead of activation, so a share link built for
+// either already renders right).
+it("labels a La Liga share card correctly, in both the eyebrow and the metadata", async () => {
+  mockShare.mockResolvedValue({ ...share, league: "laliga" });
+  render(await LeagueTipsShareCardPage({ params: params("laliga") }));
+  expect(screen.getByText("La Liga Matchweek 7")).toBeInTheDocument();
+
+  const metadata = await generateMetadata({ params: params("laliga") });
+  expect(metadata.title).toContain("La Liga Matchweek 7");
+  expect(metadata.description).toContain("La Liga Matchweek 7");
+});
+
+it("labels a Bundesliga share card correctly, in both the eyebrow and the metadata", async () => {
+  mockShare.mockResolvedValue({ ...share, league: "bundesliga" });
+  render(await LeagueTipsShareCardPage({ params: params("bundesliga") }));
+  expect(screen.getByText("Bundesliga Matchweek 7")).toBeInTheDocument();
+
+  const metadata = await generateMetadata({ params: params("bundesliga") });
+  expect(metadata.title).toContain("Bundesliga Matchweek 7");
+  expect(metadata.description).toContain("Bundesliga Matchweek 7");
+});
+
+it("falls back to an uppercased code for a league not yet in LEAGUE_LABELS", async () => {
+  mockShare.mockResolvedValue({ ...share, league: "seriea" });
+  render(await LeagueTipsShareCardPage({ params: params("seriea") }));
+  expect(screen.getByText("SERIEA Matchweek 7")).toBeInTheDocument();
 });
