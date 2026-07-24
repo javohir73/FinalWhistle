@@ -1,19 +1,25 @@
 """NRL Match Intelligence (Wave 1): per-match detail (prediction, form, h2h,
-factors), finals projections, and NRL probability history. A separate router
+factors), finals projections (the nightly snapshot, plus a Slice 3
+conditional/what-if variant), and NRL probability history. A separate router
 from app.api.sports (same /api/nrl prefix, different paths -- mirrors how
 football splits /api/matches across matches.py and prob_history.py).
 """
 from __future__ import annotations
 
+import random
+import re
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
+from app.api.auth import _email_action_rate_limited
 from app.db import get_db
-from app.models import NrlProjection, ProbabilitySnapshot, SportMatch, SportPrediction, SportTeam
+from app.models import EmailActionAttempt, NrlProjection, ProbabilitySnapshot, SportMatch, SportPrediction, SportTeam
+from app.security import client_ip, hash_ip
 from pipeline.sports.nrl_form import _kickoff_key, form_averages, last_n_results
+from pipeline.sports.nrl_projections import load_season_state, simulate
 
 router = APIRouter(prefix="/api/nrl", tags=["nrl-intel"])
 
@@ -170,6 +176,185 @@ def nrl_projections(db: Session = Depends(get_db)):
             {"team": r.team, "top8": r.top8, "top4": r.top4,
              "minor_premiership": r.minor_premiership}
             for r in rows
+        ],
+    }
+
+
+_PICK_RE = re.compile(r"^(\d+)([ha])$")
+_N_SIMS = 2000  # module constant: the default AND only value -- no client
+                # control over sim count (perf discipline, Render free tier;
+                # nrl_projections.N_RUNS's 5000 is fine nightly because it
+                # isn't latency-sensitive, but a per-request path is).
+
+# Unauthenticated, expensive (a full Monte Carlo per hit) -- keyed on IP
+# alone, since there's no device_id on this read-only route. Tighter than
+# nrl_user_tips.py's submit limiter (120/60min): that endpoint is a cheap
+# upsert, this one burns real CPU per hit, so both the cap and the window
+# are smaller (mirrors app.api.nrl_user_tips._SUBMIT_MAX's naming/comment
+# idiom -- generous enough for a user clicking through picks, not for a
+# scripted loop).
+_CONDITIONAL_MAX = 30
+_CONDITIONAL_WINDOW_MIN = 10
+
+
+def _seed_for(season: int, n_sims: int) -> str:
+    """Stable seed for (season, n_sims) -- deliberately INDEPENDENT of
+    `picks`. Every request for a season shares the same Monte Carlo stream
+    (common random numbers): the baseline (no picks) and every conditioned
+    variant draw the identical rng.random()/rng.gauss() sequence for each
+    fixture in `remaining` order (simulate()'s forced branch still
+    consumes-and-discards its roll -- see there), so a pick's effect on an
+    UNPICKED match's odds is the pick's real cascading effect on the ladder,
+    never noise from being a different independent `_N_SIMS`-run sample.
+    Still safely cacheable -- identical (season, n_sims) always resolves to
+    the identical seed, and `random.Random(str)` seeds deterministically
+    from a SHA-512 digest of the string (cpython's Lib/random.py),
+    independent of PYTHONHASHSEED."""
+    return f"nrl-conditional|{season}|{n_sims}"
+
+
+def _parse_picks_format(picks: str) -> dict[int, str]:
+    """Phase 1 of decoding `picks` -- tokenize + validate the ENCODING only
+    (no DB access), so a malformed `picks` string 422s before
+    load_season_state's DB round-trip (defense-in-depth on an
+    unauthenticated, per-request-Monte-Carlo route). Comma-separated
+    `<match_id><h|a>` tokens (e.g. "123h,456a"), order-insensitive. No draw
+    option: a pick here is "who makes the finals push", i.e. who wins, not
+    whether it draws. Raises HTTPException(422) on any invalid input -- the
+    frontend must mirror this exact encoding."""
+    tokens = [t for t in picks.split(",") if t]
+    forced: dict[int, str] = {}
+    for tok in tokens:
+        match = _PICK_RE.match(tok.strip())
+        if not match:
+            raise HTTPException(status_code=422, detail={
+                "code": "bad_picks_encoding",
+                "message": f"Malformed pick {tok!r} -- expected <match_id><h|a>, e.g. '123h'.",
+            })
+        match_id, outcome = int(match.group(1)), ("home" if match.group(2) == "h" else "away")
+        if match_id in forced:
+            raise HTTPException(status_code=422, detail={
+                "code": "duplicate_pick",
+                "message": f"Match {match_id} picked more than once.",
+            })
+        forced[match_id] = outcome
+    return forced
+
+
+def _check_picks_against_season(
+    db: Session, season: int, remaining: list[SportMatch], forced: dict[int, str],
+) -> dict[int, str]:
+    """Phase 2 -- the checks that need `remaining` (and so run AFTER
+    load_season_state): the too-many-picks cap and per-match existence."""
+    if not forced:
+        return forced
+
+    remaining_ids = {m.id for m in remaining}
+    if len(forced) > len(remaining_ids):
+        raise HTTPException(status_code=422, detail={
+            "code": "too_many_picks",
+            "message": f"At most {len(remaining_ids)} pick(s) allowed for season {season}'s "
+                       f"remaining fixtures ({len(forced)} given).",
+        })
+
+    unpickable = sorted(mid for mid in forced if mid not in remaining_ids)
+    if unpickable:
+        # Distinguish "doesn't exist" from "exists but isn't an unfinished
+        # fixture this season" only for a clearer message -- either way the
+        # whole request is rejected rather than silently dropping the pick.
+        existing = {
+            mid for (mid,) in db.query(SportMatch.id)
+            .filter(SportMatch.sport == SPORT, SportMatch.id.in_(unpickable)).all()
+        }
+        bad_id = unpickable[0]
+        if bad_id not in existing:
+            raise HTTPException(status_code=422, detail={
+                "code": "unknown_match_id", "message": f"No NRL match {bad_id}.",
+            })
+        raise HTTPException(status_code=422, detail={
+            "code": "match_not_remaining",
+            "message": f"Match {bad_id} is not an unfinished fixture in season {season}.",
+        })
+    return forced
+
+
+@router.get("/projections/conditional")
+def nrl_projections_conditional(
+    request: Request, season: int | None = None, picks: str = "", db: Session = Depends(get_db),
+):
+    """CONDITIONAL finals projection (Slice 3, "the finals-race machine"):
+    the caller's `picks` become forced outcomes inside the SAME Monte Carlo
+    `simulate()` the nightly `nrl_projections.run()` uses -- unpicked
+    matches keep sampling from the model's win probabilities. Never writes
+    NrlProjection (that table is the nightly snapshot GET /projections
+    reads) -- this is a read-only, request-scoped variant, so a share-link
+    full of picks can never corrupt the real snapshot.
+
+    `picks` encoding (the frontend must mirror it): comma-separated
+    `<match_id><h|a>` tokens, e.g. "123h,456a" -- `h`/`a` force that match's
+    home/away team to win. Order-insensitive; empty/omitted `picks` runs the
+    unconditioned simulation -- same machinery as the nightly job, just not
+    persisted (numbers won't match the last nightly run bit for bit, since
+    both are independently stochastic, but the distribution is the same).
+
+    `n_sims` is fixed at `_N_SIMS` -- no client control, so there's no
+    request-driven way to inflate simulation cost. The RNG is seeded from
+    (season, n_sims) alone (see `_seed_for`) -- NOT `picks` -- so every
+    request for a season shares one Monte Carlo stream (common random
+    numbers) and this GET stays safely cacheable: identical requests return
+    identical bodies.
+
+    Rate-limited by IP (there's no device_id on this anonymous route) --
+    unlike a cheap upsert, each hit runs a real `_N_SIMS`-run Monte Carlo
+    synchronously, so it needs the same `_email_action_rate_limited` guard
+    app.api.nrl_user_tips.submit_tip uses, or an unauthenticated client
+    looping distinct `picks` values (each a CDN cache miss) can peg the
+    process CPU and starve every other route in it.
+    """
+    forced_tokens = _parse_picks_format(picks)  # cheap 422 before any DB access
+
+    ip_h = hash_ip(client_ip(request))
+    rate_key = ip_h or "unknown"  # no IP resolvable at all -- bucket together rather than skip the limit
+    if _email_action_rate_limited(db, "nrl_conditional_sim", rate_key, ip_h,
+                                   _CONDITIONAL_MAX, _CONDITIONAL_WINDOW_MIN):
+        raise HTTPException(status_code=429, detail={"code": "too_many_attempts",
+                                                     "message": "Too many attempts. Try again later."})
+    db.add(EmailActionAttempt(action="nrl_conditional_sim", email=rate_key, ip_hash=ip_h))
+    db.commit()
+
+    state = load_season_state(db, season)
+    if state is None:
+        detail = (
+            {"code": "season_not_found", "message": f"No NRL matches for season {season}"}
+            if season is not None
+            else {"code": "no_nrl_data", "message": "No NRL matches are loaded yet"}
+        )
+        raise HTTPException(status_code=404, detail=detail)
+    resolved_season, team_ids, teams, starting, remaining, elos, params = state
+
+    forced = _check_picks_against_season(db, resolved_season, remaining, forced_tokens)
+    rng = random.Random(_seed_for(resolved_season, _N_SIMS))
+    probs = simulate(team_ids, starting, remaining, elos, params,
+                     n_runs=_N_SIMS, rng=rng, forced=forced, track_expected=True)
+
+    ordered = sorted(
+        team_ids,
+        key=lambda t: (-probs[t]["top8"], -probs[t]["expected_points"], teams.get(t, "")),
+    )
+    return {
+        "season": resolved_season,
+        "n_sims": _N_SIMS,
+        "picks_applied": len(forced),
+        "teams": [
+            {
+                "team": teams.get(t, "Unknown"),
+                "top8": probs[t]["top8"],
+                "top4": probs[t]["top4"],
+                "minor_premiership": probs[t]["minor_premiership"],
+                "expected_points": probs[t]["expected_points"],
+                "expected_remaining_wins": probs[t]["expected_remaining_wins"],
+            }
+            for t in ordered
         ],
     }
 

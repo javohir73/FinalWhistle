@@ -804,6 +804,26 @@ export interface NrlProjectionsResponse {
   teams: NrlProjectionRow[];
 }
 
+/** GET /api/nrl/projections/conditional (design doc: NRL Round Tips, Slice 3
+ *  "the finals-race machine") -- same Monte Carlo as /api/nrl/projections,
+ *  but the caller's `picks` (see lib/nrlRunHomePicks.ts) force outcomes for
+ *  those fixtures. `n_sims`/`picks_applied` back the honesty-idiom disclosure
+ *  ("from N simulations"); empty/omitted picks runs the unconditioned sim. */
+export interface NrlConditionalTeamRow {
+  team: string;
+  top8: number;
+  top4: number;
+  minor_premiership: number;
+  expected_points: number;
+  expected_remaining_wins: number;
+}
+export interface NrlConditionalProjectionsResponse {
+  season: number;
+  n_sims: number;
+  picks_applied: number;
+  teams: NrlConditionalTeamRow[];
+}
+
 /** GET /api/nrl/matches/{id}/prob-history */
 export interface NrlProbHistoryPoint {
   date: string | null;

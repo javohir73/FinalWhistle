@@ -53,6 +53,10 @@ it("renders the round heading and the tipsheet block", async () => {
   expect(mockTipsheet).toHaveBeenCalledWith();
   // Beat-the-AI section gets the same season/round as the tipsheet above it.
   expect(screen.getByTestId("play-section")).toHaveTextContent("2026-2");
+  // Slice 3 teaser links through to the finals-race predictor.
+  expect(
+    screen.getByRole("link", { name: /Predict your club's run home/i }),
+  ).toHaveAttribute("href", "/nrl/run-home");
 });
 
 it("calls notFound() when no NRL data is loaded yet", async () => {

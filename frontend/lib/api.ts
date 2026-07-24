@@ -13,6 +13,7 @@ import type {
   MatchSummary,
   ModelRecord,
   MoversResponse,
+  NrlConditionalProjectionsResponse,
   NrlLive,
   NrlMatchDetail,
   NrlMatchesResponse,
@@ -190,6 +191,13 @@ export const getNrlMatchDetailServer = (id: number | string) =>
   getServer<NrlMatchDetail>(`/api/nrl/matches/${id}`, 300);
 export const getNrlProjectionsServer = () =>
   getServer<NrlProjectionsResponse>("/api/nrl/projections", 300);
+/** The conditional/what-if variant (design doc: NRL Round Tips, Slice 3), with
+ *  no picks -- the unconditioned baseline used to seed /nrl/run-home's SSR
+ *  shell and to diff against once the client starts forcing picks. The RNG is
+ *  seeded from (season, picks, n_sims) (see backend/app/api/nrl_intel.py), so
+ *  this is deterministic and safe to ISR-cache same as every other fetcher here. */
+export const getNrlConditionalProjectionsServer = (season: number) =>
+  getServer<NrlConditionalProjectionsResponse>(`/api/nrl/projections/conditional?season=${season}`, 300);
 export const getNrlProbHistoryServer = (id: number | string) =>
   getServer<NrlProbHistory>(`/api/nrl/matches/${id}/prob-history`, 300);
 /** Wave 3 live layer: polled every 60s by the match page's Live section
