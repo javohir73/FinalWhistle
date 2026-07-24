@@ -43,7 +43,16 @@ from app.api.nrl_tips import _current_round, _kickoff_locked_prediction, _model_
 from app.api.sports import _latest_season
 from app.auth import get_current_user
 from app.db import get_db
-from app.models import AppUser, EmailActionAttempt, SportMatch, SportPrediction, SportTeam, TipPlayer, UserTip
+from app.models import (
+    AppUser,
+    EmailActionAttempt,
+    LeagueScorePrediction,
+    SportMatch,
+    SportPrediction,
+    SportTeam,
+    TipPlayer,
+    UserTip,
+)
 from app.security import client_ip, hash_ip, require_same_origin, to_aware_utc
 
 router = APIRouter(prefix="/api/nrl", tags=["nrl"])
@@ -696,7 +705,17 @@ def claim_device_tips(
     so it must never be trusted to REASSIGN or MERGE-AND-DELETE a player row
     that's already claimed by a *different* account -- a shared/kiosk device,
     or a device_id read off an access log, would otherwise let anyone steal
-    another account's tip history out from under it."""
+    another account's tip history out from under it.
+
+    tip_players is a shared cross-sport identity row -- league_score_
+    predictions (football's Beat-the-AI's-scoreline loop) FKs to it exactly
+    like user_tips does, so the merge-conflict branch below carries a SECOND
+    reassign/dedupe loop over that table too. Without it, deleting
+    device_player at the end of that branch would either 500 (IntegrityError,
+    no ON DELETE CASCADE) or silently drop the device's league predictions
+    the moment a device has played both sports and hits the two-existing-
+    players merge path -- not folded into `claimed_tips`, whose count is
+    NRL-tips-only and asserted exactly by existing tests."""
     device_id = payload.device_id
     if not _DEVICE_ID_RE.match(device_id):
         raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
@@ -738,6 +757,21 @@ def claim_device_tips(
         else:
             tip.player_id = existing.id
             moved += 1
+
+    # Same reassign/dedupe shape for league_score_predictions -- see the
+    # docstring above. device_player is deleted below; any row of this OTHER
+    # table still pointing at it would otherwise 500 (FK violation) or, if a
+    # cascade existed, vanish silently. Not counted into `moved`/claimed_tips,
+    # whose meaning (NRL tips moved) existing tests assert exactly.
+    existing_pred_match_ids = {
+        mid for (mid,) in db.query(LeagueScorePrediction.match_id).filter_by(player_id=existing.id).all()
+    }
+    for pred in db.query(LeagueScorePrediction).filter_by(player_id=device_player.id).all():
+        if pred.match_id in existing_pred_match_ids:
+            db.delete(pred)
+        else:
+            pred.player_id = existing.id
+
     db.delete(device_player)
     db.commit()
     return {"ok": True, "handle": existing.handle, "claimed_tips": moved}
