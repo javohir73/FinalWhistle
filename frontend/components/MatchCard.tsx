@@ -153,11 +153,15 @@ export function MatchCard({
 }
 
 /** The Floodlight "also on"/timeline row body: one line of team names + a
- *  right-aligned lead %, a time · venue sub-line, and a thin labels-off
- *  probability bar. `lead` is the model's best single number regardless of
- *  which outcome it favors (home, draw, or away) -- the prototype's "still
- *  favoured" read (design/Floodlight Prototype.dc.html: `Math.max(m.ph,m.pd,
- *  m.pa)`), lit lime once it clears 60%. */
+ *  right-aligned lead % (or the scoreline once a match is underway), a
+ *  time · venue sub-line, a thin labels-off probability bar, and — for a
+ *  finished match — the model's verdict. `lead` is the model's best single
+ *  number regardless of which outcome it favors (home, draw, or away) -- the
+ *  prototype's "still favoured" read (design/Floodlight Prototype.dc.html:
+ *  `Math.max(m.ph,m.pd,m.pa)`), lit lime once it clears 60%. Once the match is
+ *  live or over the score leads instead: a stale pre-kickoff % on a result is
+ *  worse than useless, so the big slot shows the actual scoreline and finished
+ *  rows carry the "Called it"/"Upset" verdict, mirroring the full card. */
 function CompactRow({
   match,
   live,
@@ -169,10 +173,16 @@ function CompactRow({
   finished: boolean;
   kickoffPill: string | null;
 }) {
-  const { teams, probabilities } = match;
-  const lead = probabilities
-    ? Math.max(probabilities.home_win, probabilities.draw, probabilities.away_win)
+  const { teams } = match;
+  // Once underway, promote the in-play win probabilities into the bar (same
+  // idiom as FeatureHero) so a live row demoted here never shows stale odds.
+  const probs = (live && match.live_probabilities) || match.probabilities;
+  const lead = probs
+    ? Math.max(probs.home_win, probs.draw, probs.away_win)
     : null;
+  const hasScore = match.score_home != null && match.score_away != null;
+  const showScore = hasScore && (live || finished);
+  const verdict = finished ? predictionVerdict(match) : null;
   const metaLabel = live ? liveLabel(match) : finished ? "Full time" : kickoffPill ?? "Kickoff TBC";
 
   return (
@@ -188,20 +198,26 @@ function CompactRow({
             {match.venue && <span className="text-muted/70"> · {match.venue}</span>}
           </div>
         </div>
-        {lead != null && (
-          <span
-            className={`shrink-0 font-display text-lg font-extrabold tabular-nums ${
-              lead >= 0.6 ? "text-lime-deep" : "text-muted"
-            }`}
-          >
-            {pct(lead)}
+        {showScore ? (
+          <span className="shrink-0 font-display text-lg font-extrabold tabular-nums text-foreground">
+            {formatScore(match.score_home, match.score_away)}
           </span>
+        ) : (
+          lead != null && (
+            <span
+              className={`shrink-0 font-display text-lg font-extrabold tabular-nums ${
+                lead >= 0.6 ? "text-lime-deep" : "text-muted"
+              }`}
+            >
+              {pct(lead)}
+            </span>
+          )
         )}
       </div>
-      {probabilities ? (
+      {probs ? (
         <div className="mt-2.5">
           <ProbabilityBar
-            probabilities={probabilities}
+            probabilities={probs}
             homeLabel={teams.home}
             awayLabel={teams.away}
             size="row"
@@ -210,6 +226,21 @@ function CompactRow({
         </div>
       ) : (
         <p className="mt-2.5 text-[10px] text-muted">Prediction pending…</p>
+      )}
+      {verdict && (
+        <div
+          className={`mt-2 flex items-center gap-1.5 text-[10px] font-semibold ${
+            verdict.kind === "miss" ? "text-loss" : "text-lime-deep"
+          }`}
+        >
+          <span aria-hidden>{verdict.kind === "miss" ? "✕" : "✓"}</span>
+          {verdict.kind === "miss"
+            ? "Upset — we missed it"
+            : verdict.kind === "exact"
+              ? "Exact score!"
+              : "Called it"}
+          <BasisTag verdict={verdict} />
+        </div>
       )}
     </>
   );

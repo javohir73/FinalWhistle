@@ -95,4 +95,46 @@ describe("MatchCard (variant=\"compact\")", () => {
     expect(lead).toHaveClass("text-muted");
     expect(lead).not.toHaveClass("text-lime-deep");
   });
+
+  it("shows the final score and a 'Called it' verdict for a finished match the model got right", () => {
+    const match = makeMatch({
+      status: "finished",
+      score_home: 3,
+      score_away: 1,
+      // Argentina (home) favoured and won; predicted 2–0, so it's a winner, not exact.
+      probabilities: { home_win: 0.65, draw: 0.2, away_win: 0.15 },
+    });
+    render(<MatchCard match={match} variant="compact" />);
+
+    expect(screen.getByText("3–1")).toBeInTheDocument();
+    expect(screen.getByText("Called it")).toBeInTheDocument();
+    // The stale pre-match win % is gone — a result never shows a pre-kickoff %.
+    expect(screen.queryByText("65%")).not.toBeInTheDocument();
+  });
+
+  it("shows the final score and an upset verdict when the favourite lost", () => {
+    const match = makeMatch({ status: "finished", score_home: 0, score_away: 2 });
+    render(<MatchCard match={match} variant="compact" />);
+
+    expect(screen.getByText("0–2")).toBeInTheDocument();
+    expect(screen.getByText(/Upset/)).toHaveClass("text-loss");
+  });
+
+  it("promotes the live win probabilities into the bar and leads with the score", () => {
+    const liveMatch = makeMatch({
+      kickoff_utc: new Date(Date.now() - 20 * 60_000).toISOString(),
+      status: "in_play",
+      score_home: 1,
+      score_away: 0,
+      minute: 55,
+      period: "second_half",
+      probabilities: { home_win: 0.5, draw: 0.3, away_win: 0.2 },
+      live_probabilities: { home_win: 0.82, draw: 0.12, away_win: 0.06 },
+    });
+    render(<MatchCard match={liveMatch} variant="compact" />);
+
+    expect(screen.getByText("1–0")).toBeInTheDocument();
+    // The bar reads the in-play odds (82%), not the stale pre-match 50%.
+    expect(screen.getByRole("img")).toHaveAttribute("aria-label", expect.stringContaining("82%"));
+  });
 });
