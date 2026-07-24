@@ -1,10 +1,8 @@
 import Link from "next/link";
-import type { Team, TournamentOdds } from "@/lib/types";
+import type { Team } from "@/lib/types";
 import type { CompetitionId } from "@/lib/sports";
 import { Flag } from "@/components/Flag";
 import { FavoriteStar } from "@/components/FavoriteStar";
-import { pct } from "@/lib/format";
-import { cn } from "@/lib/utils";
 
 /**
  * TeamHeader (Floodlight P2 slice p2-s6): the full-bleed crest banner atop a
@@ -16,9 +14,10 @@ import { cn } from "@/lib/utils";
  *
  * Content: a back link into the standings, the crest + Bricolage name +
  * FavoriteStar, a group/rank/Elo meta line, the host badge, and a stat-tile
- * row -- the ML-outlook figures from `teamOdds` when we have them, else the raw
- * Elo / FIFA-rank ratings. The glow is one static radial-gradient, so there's
- * nothing to disable under reduced motion.
+ * row of the team's raw Elo / FIFA-rank ratings. The tournament-odds breakdown
+ * is the ML-outlook card's job (rendered below on the team page), so the header
+ * stays distinct from it rather than reprinting the same odds. The glow is one
+ * static radial-gradient, so there's nothing to disable under reduced motion.
  */
 export function TeamHeader({
   team,
@@ -26,14 +25,12 @@ export function TeamHeader({
   comp,
   backHref,
   backLabel,
-  teamOdds,
 }: {
   team: Team;
   groupName?: string | null;
   comp: CompetitionId;
   backHref: string;
   backLabel: string;
-  teamOdds?: TournamentOdds | null;
 }) {
   // `comp` is part of the header's contract (league pages pass their own) but
   // the wash is comp-neutral lime today; kept so the accent hook lands here later.
@@ -51,22 +48,14 @@ export function TeamHeader({
     .filter(Boolean)
     .join(" · ");
 
-  // ML-outlook tiles when tournament odds exist; otherwise the two raw ratings.
-  // Missing figures are dropped rather than faked, so the row shrinks honestly.
-  const tiles = teamOdds
-    ? [
-        { label: "Reach KO", value: pct(teamOdds.make_knockout), accent: true },
-        { label: "Reach final", value: pct(teamOdds.reach_final), accent: true },
-        { label: "Win title", value: pct(teamOdds.win_title), accent: true },
-      ]
-    : ([
-        team.elo_rating != null
-          ? { label: "Elo", value: String(Math.round(team.elo_rating)), accent: false }
-          : null,
-        team.fifa_rank != null
-          ? { label: "FIFA rank", value: `#${team.fifa_rank}`, accent: false }
-          : null,
-      ].filter(Boolean) as { label: string; value: string; accent: boolean }[]);
+  // The team's raw ratings. Missing figures are dropped rather than faked, so
+  // the row shrinks honestly.
+  const tiles = [
+    team.elo_rating != null
+      ? { label: "Elo", value: String(Math.round(team.elo_rating)) }
+      : null,
+    team.fifa_rank != null ? { label: "FIFA rank", value: `#${team.fifa_rank}` } : null,
+  ].filter(Boolean) as { label: string; value: string }[];
 
   return (
     <header className="floodlight-glow-left -mx-4 border-b border-border px-4 pb-4 pt-1 sm:-mx-5 sm:px-5">
@@ -107,12 +96,7 @@ export function TeamHeader({
               key={t.label}
               className="flex-1 rounded-[12px] border border-border bg-surface/80 px-2.5 py-2.5"
             >
-              <p
-                className={cn(
-                  "font-display text-[17px] font-extrabold tabular-nums",
-                  t.accent ? "text-lime-deep" : "text-foreground",
-                )}
-              >
+              <p className="font-display text-[17px] font-extrabold tabular-nums text-foreground">
                 {t.value}
               </p>
               <p className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.06em] text-muted">

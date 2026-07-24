@@ -98,7 +98,6 @@ export default async function TeamPage({ params }: { params: Promise<{ id: strin
         comp={comp}
         backHref="/groups"
         backLabel={COMPETITIONS[comp].terms.standings}
-        teamOdds={teamOdds}
       />
 
       {/* AI outlook — plain-language read + run-deep odds tiles */}

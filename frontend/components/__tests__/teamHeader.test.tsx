@@ -1,11 +1,12 @@
 /** TeamHeader (Floodlight P2 slice p2-s6): the full-bleed crest banner atop a
  *  team page -- a back link into the standings, crest + Bricolage name +
- *  FavoriteStar, a group/rank/Elo meta line, the host badge, and the ML-outlook
- *  stat tiles (Reach KO / Reach final / Win title). */
+ *  FavoriteStar, a group/rank/Elo meta line, the host badge, and the raw
+ *  Elo / FIFA-rank stat tiles. The tournament-odds breakdown is the ML-outlook
+ *  card's job, not the header's, so the header never reprints those odds. */
 import { render, screen } from "@testing-library/react";
 import { TeamHeader } from "@/components/TeamHeader";
 import { COMPETITIONS } from "@/lib/sports";
-import type { Team, TournamentOdds } from "@/lib/types";
+import type { Team } from "@/lib/types";
 
 function makeTeam(overrides: Partial<Team> = {}): Team {
   return {
@@ -20,22 +21,8 @@ function makeTeam(overrides: Partial<Team> = {}): Team {
   };
 }
 
-function makeOdds(overrides: Partial<TournamentOdds> = {}): TournamentOdds {
-  return {
-    team_id: 10,
-    team: "Brazil",
-    make_knockout: 0.9,
-    reach_r16: 0.7,
-    reach_qf: 0.5,
-    reach_sf: 0.3,
-    reach_final: 0.2,
-    win_title: 0.12,
-    ...overrides,
-  };
-}
-
 describe("TeamHeader", () => {
-  it("renders the name, meta line, three ML-outlook tiles, the favorite star, and the standings back link", () => {
+  it("renders the name, meta line, Elo / FIFA-rank tiles, the favorite star, and the standings back link", () => {
     render(
       <TeamHeader
         team={makeTeam()}
@@ -43,7 +30,6 @@ describe("TeamHeader", () => {
         comp="wc26"
         backHref="/groups"
         backLabel={COMPETITIONS.wc26.terms.standings}
-        teamOdds={makeOdds()}
       />,
     );
 
@@ -53,13 +39,14 @@ describe("TeamHeader", () => {
     // Meta line: group · FIFA #rank · Elo.
     expect(screen.getByText("Group C · FIFA #5 · Elo 1985")).toBeInTheDocument();
 
-    // Three stat tiles, each a label + percentage read from the odds.
-    expect(screen.getByText("Reach KO")).toBeInTheDocument();
-    expect(screen.getByText("Reach final")).toBeInTheDocument();
-    expect(screen.getByText("Win title")).toBeInTheDocument();
-    expect(screen.getByText("90%")).toBeInTheDocument();
-    expect(screen.getByText("20%")).toBeInTheDocument();
-    expect(screen.getByText("12%")).toBeInTheDocument();
+    // Raw-rating stat tiles -- distinct from the ML-outlook odds card below, so
+    // no tournament odds are reprinted here.
+    expect(screen.getByText("Elo")).toBeInTheDocument();
+    expect(screen.getByText("1985")).toBeInTheDocument();
+    expect(screen.getByText("FIFA rank")).toBeInTheDocument();
+    expect(screen.getByText("#5")).toBeInTheDocument();
+    expect(screen.queryByText("Reach KO")).toBeNull();
+    expect(screen.queryByText("Win title")).toBeNull();
 
     // FavoriteStar toggle.
     expect(
@@ -71,24 +58,21 @@ describe("TeamHeader", () => {
     expect(back).toHaveAttribute("href", "/groups");
   });
 
-  it("falls back to Elo / FIFA-rank tiles when there are no tournament odds", () => {
+  it("drops a missing rating rather than faking it", () => {
     render(
       <TeamHeader
-        team={makeTeam()}
+        team={makeTeam({ elo_rating: null })}
         groupName="Group C"
         comp="wc26"
         backHref="/groups"
         backLabel={COMPETITIONS.wc26.terms.standings}
-        teamOdds={null}
       />,
     );
 
-    expect(screen.getByText("Elo")).toBeInTheDocument();
-    expect(screen.getByText("1985")).toBeInTheDocument();
+    // Only the FIFA-rank tile survives; the Elo tile drops out honestly.
     expect(screen.getByText("FIFA rank")).toBeInTheDocument();
     expect(screen.getByText("#5")).toBeInTheDocument();
-    // No ML-outlook tiles without odds.
-    expect(screen.queryByText("Reach KO")).toBeNull();
+    expect(screen.queryByText("Elo")).toBeNull();
   });
 
   it("renders the host badge for a tournament host", () => {
@@ -99,7 +83,6 @@ describe("TeamHeader", () => {
         comp="wc26"
         backHref="/groups"
         backLabel={COMPETITIONS.wc26.terms.standings}
-        teamOdds={makeOdds()}
       />,
     );
 
