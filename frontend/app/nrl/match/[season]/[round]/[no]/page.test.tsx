@@ -152,6 +152,10 @@ it("shows the two clubs' ladder rows when the ladder is available", async () => 
   expect(screen.getByText("12–6")).toBeInTheDocument(); // Warriors
   expect(screen.getByText("5–12")).toBeInTheDocument(); // Wests Tigers
   expect(screen.getByText("28")).toBeInTheDocument();
+  // The leftmost numeral is the real ladder rank of each club (4th, 14th) — not
+  // the 1/2 array index of this filtered two-row subset.
+  expect(screen.getByText("4")).toBeInTheDocument(); // Warriors sit 4th
+  expect(screen.getByText("14")).toBeInTheDocument(); // Wests Tigers 14th
 });
 
 it("calls notFound() when the match_no isn't in the round", async () => {

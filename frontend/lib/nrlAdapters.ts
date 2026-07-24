@@ -81,8 +81,9 @@ export function nrlExpectedMargin(m: NrlMatch): number | null {
 /** LadderRow[] -> StandingsTable superset rows. NRL points/diff feed the shared
  *  projected_* columns; the native played/wins/draws/losses/points/diff ride
  *  alongside for the W-L / Diff / Pts columns. projection_pct is the per-team
- *  top-8 finals chance (null when we have no projection). Rows arrive pre-sorted
- *  by rank, so StandingsTable's index+1 === rank drives the finals zone tint. */
+ *  top-8 finals chance (null when we have no projection). rank carries the real
+ *  ladder position so a filtered subset (match-detail's two clubs) shows its
+ *  true rank, not the array index; the full ladder's index+1 already equals it. */
 export function ladderRowsToStandings(
   rows: LadderRow[],
   projectionsByTeam?: Record<string, { top8: number; top4: number }>,
@@ -90,6 +91,7 @@ export function ladderRowsToStandings(
   return rows.map((r) => ({
     team_id: r.team_id,
     team: r.name,
+    rank: r.rank,
     projected_points: r.points,
     projected_goal_diff: r.diff,
     projected_goals_for: 0,

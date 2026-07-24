@@ -92,10 +92,10 @@ describe("nrlExpectedMargin", () => {
 });
 
 describe("ladderRowsToStandings", () => {
-  it("carries wins/losses/diff/points onto the shared row", () => {
-    const [row] = ladderRowsToStandings([ladderRow()]);
+  it("carries rank/wins/losses/diff/points onto the shared row", () => {
+    const [row] = ladderRowsToStandings([ladderRow({ rank: 6 })]);
     expect(row).toMatchObject({
-      team_id: 1, team: "Storm", wins: 16, losses: 4, diff: 212,
+      team_id: 1, team: "Storm", rank: 6, wins: 16, losses: 4, diff: 212,
       points: 34, projected_points: 34, projected_goal_diff: 212,
     });
   });

@@ -57,6 +57,12 @@ const VALUE_CELL = "text-right text-[13px] tabular-nums text-foreground";
 export interface StandingsTableRow {
   team_id: number;
   team: string;
+  // The row's real ladder/table position. Omitted by the full, pre-sorted
+  // tables (football + full NRL ladder) where array index+1 already equals the
+  // rank; carried explicitly when the caller passes a filtered, non-contiguous
+  // subset (match-detail's two clubs) so the numeral and zone reflect the true
+  // position, not the array index.
+  rank?: number;
   projected_points?: number;
   projected_goals_for?: number;
   projected_goal_diff?: number;
@@ -220,7 +226,10 @@ export function StandingsTable({
 
         <div role="rowgroup">
           {standings.map((row, i) => {
-            const zone = zoneForRank(zones, i + 1);
+            // Real rank when the row carries it (a filtered subset), else the
+            // array position — index+1 === rank for the full, pre-sorted tables.
+            const rank = row.rank ?? i + 1;
+            const zone = zoneForRank(zones, rank);
             const { stripe, bg, rankText } = zoneToneClasses(zone?.tone ?? "none");
             const highlighted = row.team_id === highlightTeamId;
             return (
@@ -242,7 +251,7 @@ export function StandingsTable({
                     className="flex min-w-0 items-center gap-2.5 py-3 hover:text-lime-deep"
                   >
                     <span className={cn("text-rank w-7 shrink-0 text-center", rankText || "text-muted")}>
-                      {i + 1}
+                      {rank}
                     </span>
                     <span className="shrink-0">
                       {badge === "club" ? (

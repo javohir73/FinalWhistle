@@ -190,3 +190,31 @@ describe("NRL ladder finals split (Top 4 vs Finals 5–8)", () => {
     expect(screen.getByText("Finals (5–8)")).toBeInTheDocument();
   });
 });
+
+describe("explicit rank (filtered, non-contiguous subset)", () => {
+  // A caller that passes only two clubs of a ladder (match-detail's "Season so
+  // far") carries each row's real rank; the numeral must show that, not the
+  // 1/2 array index.
+  const subset: StandingsTableRow[] = [
+    { team_id: 16, team: "Warriors", rank: 4, wins: 12, losses: 6, diff: 101, points: 28, projected_points: 28 },
+    { team_id: 17, team: "Wests Tigers", rank: 14, wins: 5, losses: 12, diff: -88, points: 15, projected_points: 15 },
+  ];
+
+  beforeEach(() => {
+    render(
+      <StandingsTable
+        standings={subset}
+        zones={[]}
+        badge="club"
+        teamBasePath="/nrl/team"
+        teamHeader="Club"
+        columns={["wl", "diff", "pts"]}
+      />,
+    );
+  });
+
+  it("renders each row's real rank, not the array index", () => {
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByText("14")).toBeInTheDocument();
+  });
+});
