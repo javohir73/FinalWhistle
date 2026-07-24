@@ -22,8 +22,9 @@ const leagueTable: StandingRow[] = Array.from({ length: 20 }, (_, i) => ({
   qualification_prob: null,
 }));
 
-/** The row `<div>` wrapping a team's cells, reached from its name span. */
-const rowFor = (name: string) => screen.getByText(name).closest("div");
+/** The `role="row"` element wrapping a team's cells, reached from its name
+ *  span (a plain `.closest("div")` now lands on the rowheader wrapper). */
+const rowFor = (name: string) => screen.getByText(name).closest('[role="row"]');
 
 describe("league table with zones", () => {
   beforeEach(() => {
@@ -67,5 +68,23 @@ describe("group shape (no zones, Top-2 qualification column)", () => {
   it("renders no zone legend when there are no zones", () => {
     expect(screen.queryByText("Champions League")).not.toBeInTheDocument();
     expect(screen.queryByText("Relegation")).not.toBeInTheDocument();
+  });
+
+  it("exposes ARIA table semantics so headers associate with cells", () => {
+    expect(screen.getByRole("table")).toBeInTheDocument();
+    // header row + one row per team.
+    expect(screen.getAllByRole("row")).toHaveLength(3);
+    expect(screen.getAllByRole("columnheader").map((c) => c.textContent)).toEqual([
+      "Team",
+      "GD",
+      "Pts",
+      "Top 2",
+    ]);
+    // Each team is its row's header, so AT announces it alongside every cell.
+    expect(screen.getAllByRole("rowheader")).toHaveLength(2);
+  });
+
+  it("labels the qualification bar instead of leaving a bare percentage", () => {
+    expect(screen.getByRole("img", { name: "Top 2 chance 87%" })).toBeInTheDocument();
   });
 });

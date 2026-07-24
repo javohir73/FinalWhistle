@@ -34,7 +34,10 @@ const QUAL_COL = "w-[5.5rem] sm:w-36";
  *  bands for league comps; pass `[]` for group/knockout tables that have no
  *  finish lines (WC26), where the Top-2 QualificationBar column carries the
  *  story instead (`showQualification`). Generalises the old GroupTable so both
- *  surfaces share one styling source. */
+ *  surfaces share one styling source. The flex layout carries ARIA table roles
+ *  (table/rowgroup/row/columnheader/rowheader/cell) so it still reads as a
+ *  table to screen readers -- header-to-cell association and table navigation
+ *  survive the move off semantic `<table>` markup. */
 export function StandingsTable({
   standings,
   zones,
@@ -50,62 +53,77 @@ export function StandingsTable({
     // Auto-width rows would let a long name ("Bosnia and Herzegovina") wrap; the
     // scroll guard keeps 390px viewports overflow-free either way.
     <div className="overflow-x-auto">
-      <div className="flex items-center border-b border-border border-l-[3px] border-l-transparent py-1.5 pl-1.5 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted">
-        <span className="w-7 shrink-0" aria-hidden />
-        <span className="flex-1">Team</span>
-        <span className="w-10 text-right">GD</span>
-        <span className="w-10 text-right">Pts</span>
-        {showQualification && <span className={cn(QUAL_COL, "text-right")}>Top 2</span>}
-      </div>
-
-      {standings.map((row, i) => {
-        const zone = zoneForRank(zones, i + 1);
-        const { stripe, bg, rankText } = zoneToneClasses(zone?.tone ?? "none");
-        const highlighted = row.team_id === highlightTeamId;
-        return (
+      <div role="table" aria-label="Standings">
+        <div role="rowgroup">
           <div
-            key={row.team_id}
-            className={cn(
-              "flex items-center border-b border-border border-l-[3px] pl-1.5",
-              stripe || "border-l-transparent",
-              highlighted ? "bg-win/10" : bg,
-            )}
+            role="row"
+            className="flex items-center border-b border-border border-l-[3px] border-l-transparent py-1.5 pl-1.5 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted"
           >
-            {/* rank + flag + name is the tap target (>=44px via py-3) */}
-            <Link
-              href={`/team/${row.team_id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="flex min-w-0 flex-1 items-center gap-2.5 py-3 hover:text-lime-deep"
-            >
-              <span className={cn("text-rank w-7 shrink-0 text-center", rankText || "text-muted")}>
-                {i + 1}
-              </span>
-              <span className="shrink-0">
-                <Flag team={row.team} size={22} />
-              </span>
-              <span
-                className={cn(
-                  "min-w-0 font-display font-bold leading-tight",
-                  highlighted && "text-lime-deep",
-                )}
-              >
-                {row.team}
-              </span>
-            </Link>
-            <span className="w-10 text-right text-[13px] tabular-nums text-foreground">
-              {row.projected_goal_diff > 0 ? `+${row.projected_goal_diff}` : row.projected_goal_diff}
-            </span>
-            <span className="w-10 text-right font-display text-sm font-bold tabular-nums">
-              {row.projected_points}
-            </span>
+            <span className="w-7 shrink-0" aria-hidden />
+            <span role="columnheader" className="flex-1">Team</span>
+            <span role="columnheader" className="w-10 text-right">GD</span>
+            <span role="columnheader" className="w-10 text-right">Pts</span>
             {showQualification && (
-              <div className={cn(QUAL_COL, "flex justify-end")}>
-                <QualificationBar prob={row.qualification_prob} />
-              </div>
+              <span role="columnheader" className={cn(QUAL_COL, "text-right")}>Top 2</span>
             )}
           </div>
-        );
-      })}
+        </div>
+
+        <div role="rowgroup">
+          {standings.map((row, i) => {
+            const zone = zoneForRank(zones, i + 1);
+            const { stripe, bg, rankText } = zoneToneClasses(zone?.tone ?? "none");
+            const highlighted = row.team_id === highlightTeamId;
+            return (
+              <div
+                key={row.team_id}
+                role="row"
+                className={cn(
+                  "flex items-center border-b border-border border-l-[3px] pl-1.5",
+                  stripe || "border-l-transparent",
+                  highlighted ? "bg-win/10" : bg,
+                )}
+              >
+                {/* rank + flag + name is the tap target (>=44px via py-3) and
+                    the row header, so AT announces the team alongside each cell */}
+                <div role="rowheader" className="min-w-0 flex-1">
+                  <Link
+                    href={`/team/${row.team_id}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex min-w-0 items-center gap-2.5 py-3 hover:text-lime-deep"
+                  >
+                    <span className={cn("text-rank w-7 shrink-0 text-center", rankText || "text-muted")}>
+                      {i + 1}
+                    </span>
+                    <span className="shrink-0">
+                      <Flag team={row.team} size={22} />
+                    </span>
+                    <span
+                      className={cn(
+                        "min-w-0 font-display font-bold leading-tight",
+                        highlighted && "text-lime-deep",
+                      )}
+                    >
+                      {row.team}
+                    </span>
+                  </Link>
+                </div>
+                <span role="cell" className="w-10 text-right text-[13px] tabular-nums text-foreground">
+                  {row.projected_goal_diff > 0 ? `+${row.projected_goal_diff}` : row.projected_goal_diff}
+                </span>
+                <span role="cell" className="w-10 text-right font-display text-sm font-bold tabular-nums">
+                  {row.projected_points}
+                </span>
+                {showQualification && (
+                  <div role="cell" className={cn(QUAL_COL, "flex justify-end")}>
+                    <QualificationBar prob={row.qualification_prob} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       {zones.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3">
