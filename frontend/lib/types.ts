@@ -709,10 +709,20 @@ export interface NrlTipsSummaryRound {
   model_points: number;
   matches_played: number;
 }
+/** current_streak/best_streak/best_round are Slice 2.5 additions -- personal,
+ *  season-scoped, computed across every graded tip ordered by kickoff. Zero/
+ *  null (never absent) when nothing is graded yet. */
+export interface NrlTipsBestRound {
+  round: number;
+  points: number;
+}
 export interface NrlTipsSummaryResponse {
   handle: string | null;
   rounds: NrlTipsSummaryRound[];
   totals: { your_points: number; model_points: number; rounds_played: number };
+  current_streak: number;
+  best_streak: number;
+  best_round: NrlTipsBestRound | null;
   disclaimer: string;
 }
 export interface NrlTipsLeaderboardEntry {
@@ -726,10 +736,44 @@ export interface NrlTipsLeaderboardResponse {
   participant_count: number;
   entries: NrlTipsLeaderboardEntry[];
 }
+/** GET /api/nrl/tips/leaderboard/season (Slice 2.5) -- season-long totals,
+ *  same reveal gate as the weekly board but tiebreaking on cumulative
+ *  total_margin (summed round_margin) instead of a single round's. */
+export interface NrlSeasonLeaderboardEntry {
+  handle: string;
+  points: number;
+  total_margin: number | null;
+  rounds_played: number;
+}
+export interface NrlSeasonLeaderboardResponse {
+  season: number;
+  participant_count: number;
+  entries: NrlSeasonLeaderboardEntry[];
+}
 export interface NrlTipClaimResponse {
   ok: boolean;
   handle: string | null;
   claimed_tips: number;
+}
+
+/** GET /api/nrl/tips/share/{season}/{round}/{handle} (Slice 2.5) -- public,
+ *  handle-addressed share-card data. Every field comes straight off graded
+ *  rows server-side; there is no client-supplied score in this contract. */
+export interface NrlTipsShareResponse {
+  handle_display: string;
+  season: number;
+  round: number;
+  player_points: number;
+  player_of: number;
+  model_points: number;
+  model_of: number;
+  /** False while any match in the round hasn't finished yet -- grading runs
+   *  per finished match, not per whole round, so player_of/model_of can be a
+   *  partial round for days. The page must soften its verdict copy ("so far")
+   *  rather than frame an in-progress round as a final result. */
+  round_complete: boolean;
+  margin_note: string | null;
+  disclaimer: string;
 }
 
 /** /api/nrl/matches/{id} -- Wave 1 match intelligence detail. */

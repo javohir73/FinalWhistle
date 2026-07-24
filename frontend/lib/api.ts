@@ -25,6 +25,7 @@ import type {
   NrlStatsProfile,
   NrlTeamProfile,
   NrlTipsheet,
+  NrlTipsShareResponse,
   OriginRecord,
   OriginSeriesResponse,
   Prediction,
@@ -189,6 +190,19 @@ export const getNrlTipsheetServer = (season?: number, round?: number) =>
   );
 export const getNrlMatchDetailServer = (id: number | string) =>
   getServer<NrlMatchDetail>(`/api/nrl/matches/${id}`, 300);
+/** Public share-card data for /nrl/tips/share/[season]/[round]/[handle] and
+ *  its opengraph-image (Slice 2.5) -- season/round/handle come only from the
+ *  route params, never a client-supplied score. A graded result never changes
+ *  once it exists, so a longer revalidate would otherwise be fine (unlike the
+ *  rest of this file's live-ish 300s default) -- but kept short (60s) because
+ *  the not-found->found transition right after grading is NOT idempotent: a
+ *  crawler hitting the share link between full-time and grading would
+ *  otherwise pin the pre-grading 404 in the Data Cache for up to an hour. */
+export const getNrlTipsShareServer = (season: number, round: number, handle: string) =>
+  getServer<NrlTipsShareResponse>(
+    `/api/nrl/tips/share/${season}/${round}/${encodeURIComponent(handle)}`,
+    60,
+  );
 export const getNrlProjectionsServer = () =>
   getServer<NrlProjectionsResponse>("/api/nrl/projections", 300);
 /** The conditional/what-if variant (design doc: NRL Round Tips, Slice 3), with

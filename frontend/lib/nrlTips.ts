@@ -8,6 +8,7 @@
 import { request } from "./session";
 import type {
   NrlMyTipsResponse,
+  NrlSeasonLeaderboardResponse,
   NrlTipClaimResponse,
   NrlTipsLeaderboardResponse,
   NrlTipSubmitResponse,
@@ -42,6 +43,11 @@ export const getNrlTipsSummary = (device_id: string) =>
 
 export const getNrlTipsLeaderboard = (season: number, round: number) =>
   request<NrlTipsLeaderboardResponse>(`/api/nrl/tips/leaderboard?season=${season}&round=${round}`);
+
+/** Season-long leaderboard (Slice 2.5) -- same below-gate reveal rule as the
+ *  weekly board, just totaled across the whole season instead of one round. */
+export const getNrlSeasonLeaderboard = (season: number) =>
+  request<NrlSeasonLeaderboardResponse>(`/api/nrl/tips/leaderboard/season?season=${season}`);
 
 /** Merge-on-signup: idempotent server-side, safe to call on every sign-in. */
 export const claimNrlTips = (device_id: string) =>
