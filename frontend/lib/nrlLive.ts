@@ -24,7 +24,7 @@ const byKickoff = (dir: 1 | -1) => (a: NrlMatch, b: NrlMatch) =>
   dir * (a.kickoff_utc ?? "").localeCompare(b.kickoff_utc ?? "");
 
 /** In-window matches across all rounds, kickoff asc, tagged with their round
- *  (SportMatchCard needs the round for its eyebrow and href). */
+ *  (the shared card needs the round for its eyebrow and href). */
 export function liveNow(
   rounds: NrlRound[],
   now: Date = new Date(),

@@ -66,8 +66,8 @@ it("renders the ladder and hands only the remaining fixtures to the predictor", 
 
   expect(screen.getByRole("heading", { name: "Predict your run home" })).toBeInTheDocument();
   // The baseline ladder renders through the shared StandingsTable (club crest +
-  // /nrl/team link), swapped in for the deleted LadderTable — predictor below is
-  // untouched (stubbed).
+  // /nrl/team link), swapped in for the old parallel ladder table — predictor below
+  // is untouched (stubbed).
   expect(screen.getByText("Storm").closest("a")).toHaveAttribute("href", "/nrl/team/1");
   expect(mockBaseline).toHaveBeenCalledWith(2026);
   // Round 20 has 2 matches total but only 1 is scheduled -- the finished one is excluded.

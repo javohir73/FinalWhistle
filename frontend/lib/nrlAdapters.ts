@@ -22,7 +22,7 @@ function favouredSide(m: NrlMatch): string | null {
 }
 
 /** NrlMatch -> MatchSummary for the shared MatchCard. status collapses to
- *  finished-vs-scheduled (SportMatchCard's only distinction); the live-only,
+ *  finished-vs-scheduled (the shared card's only distinction); the live-only,
  *  football-shaped fields (minute/period/penalties/goal_events) stay empty.
  *  probabilities keep all three outcomes so the W/D/L bar renders the small
  *  draw segment; predicted_score/confidence are null (NrlPrediction has
@@ -60,7 +60,7 @@ export function nrlMatchToSummary(m: NrlMatch): MatchSummary {
 
 /** The match-detail URL, which needs the full (season, round, match_no) triple.
  *  A fixture whose season or round is still TBC has no detail page -> null, so
- *  callers render a plain (unlinked) card. Mirrors SportMatchCard's link guard
+ *  callers render a plain (unlinked) card. Mirrors the shared card's link guard
  *  exactly. */
 export function nrlMatchHref(
   season: number | null | undefined,
