@@ -356,3 +356,10 @@ export function isWiredCompetition(comp: string): comp is CompetitionId {
 export function competitionsForSport(sport: SportId): Competition[] {
   return Object.values(COMPETITIONS).filter((c) => c.sport === sport);
 }
+
+/** True iff `v` is a key of COMPETITIONS -- the validation the CompetitionOverlay's
+ *  localStorage pin (slice p1-s5, lib/competitionPrefs.ts) needs before trusting a
+ *  string read back from storage (could be stale/tampered/from an older build). */
+export function isCompetitionId(v: string): v is CompetitionId {
+  return v in COMPETITIONS;
+}

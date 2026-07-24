@@ -7,6 +7,7 @@ import {
   isCompetitionHomeHref,
   isWiredCompetition,
   competitionsForSport,
+  isCompetitionId,
 } from "@/lib/sports";
 
 describe("sport config", () => {
@@ -128,6 +129,13 @@ describe("competition registry", () => {
     expect(isCompetitionHomeHref("/football/wc26")).toBe(true);
     expect(isCompetitionHomeHref("/nrl")).toBe(true);
     expect(isCompetitionHomeHref("/football/wc26/fixtures")).toBe(false);
+  });
+
+  // Floodlight P1 slice p1-s5: validates a localStorage-read pin (lib/competitionPrefs.ts)
+  // before trusting it as a CompetitionId.
+  it("validates a string against the competition registry via isCompetitionId", () => {
+    expect(isCompetitionId("wc26")).toBe(true);
+    expect(isCompetitionId("nope")).toBe(false);
   });
 });
 

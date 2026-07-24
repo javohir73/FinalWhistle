@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
 import { AuthButton } from "@/components/AuthButton";
-import { SportSwitcher } from "@/components/SportSwitcher";
+import { CompetitionOverlay } from "@/components/CompetitionOverlay";
 import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
 import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,7 @@ export function SiteNav() {
           <Wordmark className="text-lg font-extrabold" />
         </Link>
 
-        <SportSwitcher variant="segment" />
+        <CompetitionOverlay />
 
         <div className="ml-auto mr-2 hidden items-center gap-1 sm:flex">
           {links.map((link) => {
@@ -75,8 +75,6 @@ export function SiteNav() {
 
         <AuthButton />
       </nav>
-
-      <SportSwitcher variant="pills" />
     </header>
   );
 }
