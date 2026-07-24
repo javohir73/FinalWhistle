@@ -116,7 +116,19 @@ class Match(Base):
     # be repurposed for this -- it's globally UNIQUE (WC26 KO numbering) and
     # every fixture in a matchweek would collide on it. Populated by league
     # ingestion (pipeline/ingest/league_structure.py) -- not written here.
-    matchweek: Mapped[int | None] = mapped_column(Integer, index=True)
+    #
+    # DEFERRED (deploy-window hardening, same hazard as TeamTournamentState.
+    # residual_ledger below): Render auto-deploys this code before refresh.yml
+    # applies migration c8d9e0f1a2b3, so a plain column here would make every
+    # full-entity Match SELECT -- /api/matches/upcoming polled every ~30s,
+    # /api/tournaments/active, /api/knockout/bracket, and more -- 500 with
+    # UndefinedColumn against a prod DB that hasn't been migrated yet.
+    # Deferred means SELECT * never includes this column -- only the league
+    # endpoints' explicit `Match.matchweek == ...` filters (which can't reach
+    # a real row until the Premier League tournament itself is loaded,
+    # post-migration/post-cutover) ever touch it, so the hot WC/live paths
+    # stay safe regardless of migration timing.
+    matchweek: Mapped[int | None] = mapped_column(Integer, index=True, deferred=True)
     team_home_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     team_away_id: Mapped[int | None] = mapped_column(ForeignKey("teams.id"))
     kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

@@ -34,6 +34,7 @@ import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import inspect
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -687,6 +688,17 @@ def tips_share(season: int, round: int, handle: str, db: Session = Depends(get_d
     }
 
 
+def _has_table(db: Session, table_name: str) -> bool:
+    """Cheap catalog check (SELECT against the DB's own metadata, never the
+    table itself) so a caller can skip a query against a relation that might
+    not exist yet -- see claim_device_tips's league_score_predictions guard.
+    Deliberately NOT a try/except around the real query: on Postgres, letting
+    a query against a missing relation fail marks the whole transaction
+    aborted, so any later statement in the same request (including the
+    caller's own commit) would be silently discarded rather than raising."""
+    return inspect(db.bind).has_table(table_name)
+
+
 @router.post("/tips/claim", dependencies=[Depends(require_same_origin)])
 def claim_device_tips(
     payload: schemas.NrlTipClaimIn,
@@ -715,7 +727,19 @@ def claim_device_tips(
     no ON DELETE CASCADE) or silently drop the device's league predictions
     the moment a device has played both sports and hits the two-existing-
     players merge path -- not folded into `claimed_tips`, whose count is
-    NRL-tips-only and asserted exactly by existing tests."""
+    NRL-tips-only and asserted exactly by existing tests.
+
+    That second loop is itself guarded by a table-existence check (see
+    _has_table below): league_score_predictions ships in migration
+    b7c8d9e0f1a2, which -- same Render deploy-before-migrate window as
+    matches.matchweek -- reaches prod via a separate refresh.yml dispatch
+    AFTER this code is already live. Without the guard, a real user hitting
+    this already-shipped merge branch during that window would 500
+    (UndefinedTable) on a query, not a missing column, so deferral can't help
+    here; checking existence first (rather than try/except around the query)
+    also avoids leaving the session's Postgres transaction aborted, which
+    would silently roll back the NRL-only merge this function must still
+    complete."""
     device_id = payload.device_id
     if not _DEVICE_ID_RE.match(device_id):
         raise HTTPException(status_code=422, detail={"code": "invalid_device_id",
@@ -762,15 +786,18 @@ def claim_device_tips(
     # docstring above. device_player is deleted below; any row of this OTHER
     # table still pointing at it would otherwise 500 (FK violation) or, if a
     # cascade existed, vanish silently. Not counted into `moved`/claimed_tips,
-    # whose meaning (NRL tips moved) existing tests assert exactly.
-    existing_pred_match_ids = {
-        mid for (mid,) in db.query(LeagueScorePrediction.match_id).filter_by(player_id=existing.id).all()
-    }
-    for pred in db.query(LeagueScorePrediction).filter_by(player_id=device_player.id).all():
-        if pred.match_id in existing_pred_match_ids:
-            db.delete(pred)
-        else:
-            pred.player_id = existing.id
+    # whose meaning (NRL tips moved) existing tests assert exactly. Skipped
+    # entirely (rather than attempted-and-caught) when the table itself
+    # doesn't exist yet -- see _has_table and claim_device_tips's docstring.
+    if _has_table(db, "league_score_predictions"):
+        existing_pred_match_ids = {
+            mid for (mid,) in db.query(LeagueScorePrediction.match_id).filter_by(player_id=existing.id).all()
+        }
+        for pred in db.query(LeagueScorePrediction).filter_by(player_id=device_player.id).all():
+            if pred.match_id in existing_pred_match_ids:
+                db.delete(pred)
+            else:
+                pred.player_id = existing.id
 
     db.delete(device_player)
     db.commit()

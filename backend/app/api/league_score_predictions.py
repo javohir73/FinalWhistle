@@ -39,7 +39,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, aliased
+from sqlalchemy.orm import Session, aliased, undefer
 
 from app import schemas
 from app.api.auth import _email_action_rate_limited
@@ -356,7 +356,14 @@ def my_predictions(league: str, device_id: str, matchweek: int | None = None, db
     match_ids = [m.id for m, _, _ in rows]
     preds = (
         db.query(Prediction)
-        .filter(Prediction.match_id.in_(match_ids))
+        # is_shadow.is_(False): shadow twins (odds/availability/offsets/rest)
+        # share created_at with the production row (same generate_predictions
+        # transaction) but are written AFTER it, so they'd win the
+        # created_at desc, id desc tiebreak in _kickoff_locked_prediction if
+        # not excluded here -- mirrors learning_loop._frozen_prediction and
+        # every other public-facing Prediction read (predictions.py,
+        # prob_history.py, serializers.py).
+        .filter(Prediction.match_id.in_(match_ids), Prediction.is_shadow.is_(False))
         .order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .all()
     )
@@ -438,6 +445,12 @@ def predictions_summary(league: str, device_id: str, db: Session = Depends(get_d
     rows = (
         db.query(LeagueScorePrediction, Match)
         .join(Match, LeagueScorePrediction.match_id == Match.id)
+        # Match.matchweek is deferred (models/__init__.py, mirrors
+        # residual_ledger's deploy-window hardening) so a plain full-entity
+        # load wouldn't include it -- undefer it here since the by_week
+        # grouping below reads m.matchweek on every row and would otherwise
+        # take a lazy-load round trip per distinct match.
+        .options(undefer(Match.matchweek))
         .filter(LeagueScorePrediction.player_id == player.id,
                 LeagueScorePrediction.tournament_id == tournament.id,
                 LeagueScorePrediction.graded_at.isnot(None))
@@ -456,7 +469,14 @@ def predictions_summary(league: str, device_id: str, db: Session = Depends(get_d
     match_ids = [m.id for _, m in rows]
     preds = (
         db.query(Prediction)
-        .filter(Prediction.match_id.in_(match_ids))
+        # is_shadow.is_(False): shadow twins (odds/availability/offsets/rest)
+        # share created_at with the production row (same generate_predictions
+        # transaction) but are written AFTER it, so they'd win the
+        # created_at desc, id desc tiebreak in _kickoff_locked_prediction if
+        # not excluded here -- mirrors learning_loop._frozen_prediction and
+        # every other public-facing Prediction read (predictions.py,
+        # prob_history.py, serializers.py).
+        .filter(Prediction.match_id.in_(match_ids), Prediction.is_shadow.is_(False))
         .order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .all()
     )
@@ -652,7 +672,14 @@ def predictions_share(league: str, matchweek: int, handle: str, db: Session = De
     match_ids = [m.id for _, m in items]
     preds = (
         db.query(Prediction)
-        .filter(Prediction.match_id.in_(match_ids))
+        # is_shadow.is_(False): shadow twins (odds/availability/offsets/rest)
+        # share created_at with the production row (same generate_predictions
+        # transaction) but are written AFTER it, so they'd win the
+        # created_at desc, id desc tiebreak in _kickoff_locked_prediction if
+        # not excluded here -- mirrors learning_loop._frozen_prediction and
+        # every other public-facing Prediction read (predictions.py,
+        # prob_history.py, serializers.py).
+        .filter(Prediction.match_id.in_(match_ids), Prediction.is_shadow.is_(False))
         .order_by(Prediction.created_at.desc(), Prediction.id.desc())
         .all()
     )

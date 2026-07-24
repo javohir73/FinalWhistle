@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -71,12 +71,12 @@ def _match(db, tournament, home, away, matchweek, kickoff, **kw):
     return m
 
 
-def _prediction(db, match, pred_home, pred_away, created_at=None):
+def _prediction(db, match, pred_home, pred_away, created_at=None, is_shadow=False, model_version="poisson-elo-club-v0.1"):
     p = Prediction(
-        match_id=match.id, model_version="poisson-elo-club-v0.1",
+        match_id=match.id, model_version=model_version,
         created_at=created_at or (match.kickoff_utc - timedelta(days=1)),
         prob_home_win=0.5, prob_draw=0.25, prob_away_win=0.25,
-        predicted_score_home=pred_home, predicted_score_away=pred_away, is_shadow=False,
+        predicted_score_home=pred_home, predicted_score_away=pred_away, is_shadow=is_shadow,
     )
     db.add(p)
     db.flush()
@@ -306,6 +306,32 @@ def test_mine_shows_model_scoreline_and_your_prediction(client):
     assert row["your_prediction"]["points"] is None
 
 
+def test_mine_ignores_shadow_prediction_twin(client):
+    """Regression: generate_predictions writes ONE production row
+    (is_shadow=False) plus shadow twins (odds/availability/offsets/rest) per
+    match, all sharing created_at (same pipeline transaction) but the shadow
+    twin lands with a HIGHER id, since it's written after production. Without
+    filtering is_shadow, _kickoff_locked_prediction's created_at desc, id desc
+    tiebreak would pick the shadow twin -- exactly what this proves doesn't
+    happen, on a twin with a DIFFERENT scoreline so a wrong pick is visible."""
+    c, TestingSession = client
+    db = TestingSession()
+    epl = _epl(db)
+    ars, che = _team(db, "Arsenal"), _team(db, "Chelsea")
+    kick = datetime.now(timezone.utc) + timedelta(days=1)
+    m = _match(db, epl, ars, che, 3, kick)
+    same_created_at = kick - timedelta(days=1)
+    _prediction(db, m, 2, 0, created_at=same_created_at, is_shadow=False)
+    _prediction(db, m, 3, 3, created_at=same_created_at, is_shadow=True,
+                model_version="poisson-elo-club-v0.1-shadow")  # written after -- higher id, same created_at
+    db.commit()
+
+    r = c.get("/api/leagues/epl/tips/mine", params={"device_id": DEVICE_A, "matchweek": 3})
+    assert r.status_code == 200, r.text
+    row = r.json()["matches"][0]
+    assert row["model"] == {"predicted_home": 2, "predicted_away": 0, "model_version": "poisson-elo-club-v0.1"}
+
+
 def test_mine_defaults_to_current_matchweek(client):
     c, TestingSession = client
     db = TestingSession()
@@ -496,30 +522,67 @@ def test_leaderboard_below_gate_hides_entries_but_shows_count(client):
 
 
 def test_leaderboard_gate_and_exact_count_tiebreak(client):
+    """Two players tie on total points (10) across multiple matches but
+    differ in exact-hit count: ZebraExactTwo reaches 10 via two exact scores
+    (exact_count=2), AlphaResultFive reaches the SAME 10 via five
+    result-only 2-pointers (exact_count=0). Handles are deliberately
+    alphabetized the OPPOSITE way round from the correct ranking -- if the
+    -exact_count term were dropped (sorting on points+handle alone, e.g.
+    key=lambda e: (-e["points"], e["handle"])), AlphaResultFive would sort
+    first on points+handle alone, so this fails loudly instead of passing
+    by accident the way the single-match, single-tied-pair version of this
+    test used to (both seeded players had equal points AND equal exact_count,
+    so the assertion was satisfied by handle order alone)."""
     c, TestingSession = client
     db = TestingSession()
     epl = _epl(db)
     ars, che = _team(db, "Arsenal"), _team(db, "Chelsea")
-    m = _match(db, epl, ars, che, 1, datetime.now(timezone.utc) - timedelta(days=1),
-               status="finished", score_home=2, score_away=1)
+    now = datetime.now(timezone.utc) - timedelta(days=1)
+    matches = [
+        _match(db, epl, ars, che, 1, now, status="finished", score_home=2, score_away=1)
+        for _ in range(5)
+    ]
     db.flush()
-    # 10 players clears the gate. Players 0 and 1 tie on points (5) but
-    # player 0 has more exact hits -- must rank above player 1. Handle
-    # ordering (Player2 < Player3) breaks a full tie for the rest.
-    points_and_exact = {
-        0: (5, True), 1: (5, True), 2: (2, False), 3: (2, False),
-    }
-    _seed_leaderboard_players(db, epl, m, 10, points_and_exact)
+
+    def _player(i, handle):
+        p = TipPlayer(device_id=f"11111111-1111-4111-8111-11111111{i:04d}", handle=handle)
+        db.add(p)
+        db.flush()
+        return p
+
+    def _pred(player, match, points, exact):
+        db.add(LeagueScorePrediction(
+            tournament_id=epl.id, match_id=match.id, player_id=player.id,
+            predicted_home=1, predicted_away=0, updated_at=now,
+            points=points, exact=exact, graded_at=now,
+        ))
+
+    exact_player = _player(0, "ZebraExactTwo")
+    _pred(exact_player, matches[0], 5, True)
+    _pred(exact_player, matches[1], 5, True)
+
+    result_player = _player(1, "AlphaResultFive")
+    for m in matches:
+        _pred(result_player, m, 2, False)
+
+    # 8 more players clear the >=10 gate with zero points -- they must rank
+    # below both and never touch the comparison above. They're all fully
+    # tied on points+exact, so their relative order still proves the
+    # handle-asc fallback for a genuine full tie.
+    for i in range(2, 10):
+        p = _player(i, f"Filler{i}")
+        _pred(p, matches[0], 0, False)
+
     db.commit()
 
     r = c.get("/api/leagues/epl/tips/leaderboard", params={"matchweek": 1})
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["participant_count"] == 10
-    top_two_handles = [e["handle"] for e in body["entries"][:2]]
-    assert top_two_handles == ["Player0", "Player1"]
-    next_two = [e["handle"] for e in body["entries"][2:4]]
-    assert next_two == ["Player2", "Player3"]  # tie on points+exact -> handle asc
+    top_two = [(e["handle"], e["points"], e["exact_count"]) for e in body["entries"][:2]]
+    assert top_two == [("ZebraExactTwo", 10, 2), ("AlphaResultFive", 10, 0)]
+    next_two_handles = [e["handle"] for e in body["entries"][2:4]]
+    assert next_two_handles == ["Filler2", "Filler3"]  # full tie on points+exact -> handle asc
 
 
 def test_leaderboard_matchweek_not_found_404(client):
@@ -558,6 +621,60 @@ def test_leaderboard_season_only_counts_graded_players(client):
     assert r.status_code == 200, r.text
     assert r.json()["participant_count"] == 0
     assert r.json()["entries"] == []
+
+
+def test_leaderboard_season_gate_and_exact_count_tiebreak(client):
+    """Same tiebreak proof as test_leaderboard_gate_and_exact_count_tiebreak,
+    for /leaderboard/season -- which had NO tiebreak coverage at all before
+    (the design doc's "points desc, then exact-count desc" applies here too,
+    scored across every graded matchweek in the tournament instead of one)."""
+    c, TestingSession = client
+    db = TestingSession()
+    epl = _epl(db)
+    ars, che = _team(db, "Arsenal"), _team(db, "Chelsea")
+    now = datetime.now(timezone.utc) - timedelta(days=1)
+    matches = [
+        _match(db, epl, ars, che, week, now, status="finished", score_home=2, score_away=1)
+        for week in range(1, 6)
+    ]
+    db.flush()
+
+    def _player(i, handle):
+        p = TipPlayer(device_id=f"33333333-3333-4333-8333-33333333{i:04d}", handle=handle)
+        db.add(p)
+        db.flush()
+        return p
+
+    def _pred(player, match, points, exact):
+        db.add(LeagueScorePrediction(
+            tournament_id=epl.id, match_id=match.id, player_id=player.id,
+            predicted_home=1, predicted_away=0, updated_at=now,
+            points=points, exact=exact, graded_at=now,
+        ))
+
+    # Same alphabetized-opposite handle trick as the weekly-board test, so a
+    # dropped -exact_count term (falling back to points+handle) sorts these
+    # the wrong way round and fails.
+    exact_player = _player(0, "ZebraExactTwo")
+    _pred(exact_player, matches[0], 5, True)
+    _pred(exact_player, matches[1], 5, True)
+
+    result_player = _player(1, "AlphaResultFive")
+    for m in matches:
+        _pred(result_player, m, 2, False)
+
+    for i in range(2, 10):
+        p = _player(i, f"Filler{i}")
+        _pred(p, matches[0], 0, False)
+
+    db.commit()
+
+    r = c.get("/api/leagues/epl/tips/leaderboard/season")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["participant_count"] == 10
+    top_two = [(e["handle"], e["points"], e["exact_count"]) for e in body["entries"][:2]]
+    assert top_two == [("ZebraExactTwo", 10, 2), ("AlphaResultFive", 10, 0)]
 
 
 # ---------------------------------------------------------------------------
@@ -762,4 +879,49 @@ def test_claim_merge_conflict_reassigns_league_predictions_without_crashing(clie
     assert preds[m2.id] == (1, 1)  # non-conflicting prediction moved over
     assert db2.query(TipPlayer).filter_by(device_id=DEVICE_B).one_or_none() is None  # merged away
     assert db2.query(UserTip).filter_by(player_id=account_player.id).count() == 1  # NRL tip intact
+    db2.close()
+
+
+def test_claim_merge_conflict_degrades_gracefully_when_league_table_missing(client):
+    """Regression for the deploy-sequencing finding: league_score_predictions
+    ships in its own migration (b7c8d9e0f1a2), applied to prod via a SEPARATE
+    refresh.yml dispatch AFTER this already-live claim code deploys (CLAUDE.md
+    migration sequencing). If a real user hits the two-existing-players merge
+    branch before that dispatch completes, the NRL-only claim must still
+    succeed rather than 500ing on the missing relation -- proves the
+    _has_table guard, not just the happy path where the table exists."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm, eels = SportTeam(sport="nrl", name="Storm"), SportTeam(sport="nrl", name="Eels")
+    db.add_all([storm, eels])
+    db.flush()
+    now = datetime.now(timezone.utc)
+    m1 = SportMatch(sport="nrl", season=2026, round=1, match_no=1,
+                    home_team_id=storm.id, away_team_id=eels.id,
+                    kickoff_utc=now + timedelta(days=1), status="scheduled")
+    m2 = SportMatch(sport="nrl", season=2026, round=1, match_no=2,
+                    home_team_id=storm.id, away_team_id=eels.id,
+                    kickoff_utc=now + timedelta(days=1), status="scheduled")
+    db.add_all([m1, m2])
+    db.commit()
+
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_A, "match_id": m1.id, "pick": "home"})
+    c.post("/api/nrl/tips/submit", json={"device_id": DEVICE_B, "match_id": m2.id, "pick": "away"})
+
+    _register(c, "predatemigration@example.com")
+    c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_A})
+
+    # league_score_predictions doesn't exist yet -- the exact window the
+    # guard is for.
+    db.execute(text("DROP TABLE league_score_predictions"))
+    db.commit()
+
+    r = c.post("/api/nrl/tips/claim", json={"device_id": DEVICE_B})
+    assert r.status_code == 200, r.text
+    assert r.json()["claimed_tips"] == 1  # B's non-conflicting NRL tip moved over
+
+    db2 = TestingSession()
+    account_player = db2.query(TipPlayer).filter_by(device_id=DEVICE_A).one()
+    assert db2.query(TipPlayer).filter_by(device_id=DEVICE_B).one_or_none() is None  # merged away
+    assert db2.query(UserTip).filter_by(player_id=account_player.id).count() == 2  # both tips landed on the account
     db2.close()
