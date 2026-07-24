@@ -49,7 +49,9 @@ it("hides the Bracket link and shows Tips instead when the active tournament has
   expect(screen.getByRole("link", { name: "Tips" })).toHaveAttribute("href", "/tips");
   // Every other football link stays.
   expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Matches" })).toBeInTheDocument();
+  // Floodlight P1 slice p1-s4: nav links now derive from COMPETITIONS.wc26,
+  // whose football terminology renders "Fixtures" (was "Matches").
+  expect(screen.getByRole("link", { name: "Fixtures" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
 });
 

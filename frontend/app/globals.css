@@ -23,6 +23,29 @@
   --lime-deep: 85 73% 59%;    /* on dark, deep-lime text maps to bright lime */
   --amber-ink: 40 79% 61%;    /* amber text = amber fill on dark */
   --pitch: 147 44% 10%;       /* #0e2418  hero/accent panels */
+
+  /* ---- Floodlight (P1) additions ---- */
+  /* Display scale — feature %, scorebug numerals, ladder rank. */
+  --text-display-hero: 46px;  /* mobile; -> 74px desktop below */
+  --text-rank: 22px;          /* ladder/standings numerals */
+  /* Status-state accents (color) — mirror in .theme-daylight. */
+  --status-upcoming: var(--muted);
+  --status-live: var(--loss);   /* rose dot + rose/40 ring, 2s pulse */
+  --status-ft: var(--surface-2);/* finished chip surface */
+  /* Confidence mapping — HIGH=lime MEDIUM=amber LOW=muted. Ring + label
+     always; never color alone. */
+  --confidence-high: var(--win);
+  --confidence-medium: var(--draw);
+  --confidence-low: var(--muted);
+  /* Per-competition accent — used ONLY on the switcher overlay + league
+     eyebrow chips at <=12% opacity. Lime stays the sole action color.
+     HSL channel triplets so `hsl(var(--accent-xxx) / 0.12)` works. */
+  --accent-epl: 283 60% 55%;        /* purple */
+  --accent-laliga: 8 78% 63%;       /* coral */
+  --accent-bundesliga: 0 75% 52%;   /* red */
+  --accent-wc26: 224 64% 56%;       /* indigo (WC26 not specified in plan; neutral non-lime) */
+  --accent-nrl: 174 60% 40%;        /* teal */
+  --comp-accent: var(--accent-wc26);/* default; overlay/eyebrow set per comp */
 }
 
 /* Daylight rollback: apply .theme-daylight on <html> to restore the light theme. */
@@ -32,6 +55,10 @@
   --win: 84 66% 52%; --draw: 41 78% 51%; --loss: 350 84% 62%;
   --gold: 42 62% 48%; --accent: 84 66% 52%;
   --lime-deep: 108 56% 27%; --amber-ink: 43 82% 33%; --pitch: 151 51% 14%;
+}
+
+@media (min-width: 768px) {
+  :root { --text-display-hero: 74px; }
 }
 
 * {
@@ -202,6 +229,28 @@ body {
   .ko-edge .ko-tie::before {
     content: none;
   }
+
+  /* ---- Floodlight (P1) display scale + status chips ---- */
+  .text-display-hero {
+    font-family: var(--font-display);
+    font-size: var(--text-display-hero);
+    line-height: 1.02;
+    letter-spacing: -0.03em;
+  }
+  .text-rank {
+    font-family: var(--font-display);
+    font-size: var(--text-rank);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+  /* Status chips. `.status-live` gets a rose dot + rose/40 ring that pulses
+     2s; the pulse is disabled under reduced-motion (see the existing
+     prefers-reduced-motion block near line 294). */
+  .status-live-ring {
+    box-shadow: 0 0 0 1px hsl(var(--status-live) / 0.4);
+    animation: statusLivePulse 2s ease-in-out infinite;
+  }
+  .status-live-dot { color: hsl(var(--status-live)); }
 }
 
 /* ============ Motion ============ */
@@ -243,6 +292,11 @@ body {
   to { transform: rotate(360deg); }
 }
 .spin-slow { animation: spinSlow 28s linear infinite; }
+
+@keyframes statusLivePulse {
+  0%, 100% { box-shadow: 0 0 0 1px hsl(var(--status-live) / 0.4); }
+  50%      { box-shadow: 0 0 0 3px hsl(var(--status-live) / 0.15); }
+}
 
 /* ===== AI "thinking" orb — Siri/Jarvis style ===== */
 @keyframes spinCW { to { transform: rotate(360deg); } }
@@ -305,7 +359,8 @@ body {
   .ai-spin-ccw,
   .ai-sweep,
   .ai-pulse,
-  .ai-eq {
+  .ai-eq,
+  .status-live-ring {
     animation: none;
   }
   .card-hover {

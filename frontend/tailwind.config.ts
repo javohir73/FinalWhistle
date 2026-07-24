@@ -30,6 +30,12 @@ const config: Config = {
         display: ["var(--font-display)", "system-ui", "sans-serif"],
         sans: ["var(--font-body)", "system-ui", "sans-serif"],
       },
+      fontSize: {
+        // Floodlight (P1): display scale utility access; the .text-display-hero
+        // / .text-rank component classes in globals.css already cover most consumers.
+        "display-hero": "var(--text-display-hero)",
+        rank: "var(--text-rank)",
+      },
       borderRadius: {
         xl: "1rem",
         "2xl": "1.25rem",

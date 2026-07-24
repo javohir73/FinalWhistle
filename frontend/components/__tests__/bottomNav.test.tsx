@@ -1,6 +1,11 @@
-/** Bottom nav (Daylight IA): exactly five first-class tabs — Home, Matches,
+/** Bottom nav (Daylight IA): exactly five first-class tabs — Home, Fixtures,
  *  Groups, Bracket, You — no overflow sheet. Every key route lights its tab,
- *  including detail pages like /match/[id] that don't share the tab's prefix. */
+ *  including detail pages like /football/wc26/match/[id] that don't share the
+ *  tab's prefix. Paths below use the Floodlight P1 /football/wc26/... scheme
+ *  (lib/sports.ts's COMPETITIONS.wc26) since BottomNav now derives its tabs
+ *  from the registry, not the legacy un-namespaced routes those hrefs used to
+ *  point at (still 301-redirected in next.config.mjs, but no longer what the
+ *  nav itself renders). */
 import { render, screen } from "@testing-library/react";
 import { BottomNav } from "@/components/BottomNav";
 import { TournamentProvider } from "@/components/TournamentProvider";
@@ -28,7 +33,7 @@ afterEach(() => {
 
 it("exposes exactly the five Daylight tabs", () => {
   renderAt("/");
-  for (const label of ["Home", "Matches", "Groups", "Bracket", "You"]) {
+  for (const label of ["Home", "Fixtures", "Groups", "Bracket", "You"]) {
     expect(screen.getByRole("link", { name: new RegExp(label) })).toBeInTheDocument();
   }
   expect(screen.getAllByRole("link")).toHaveLength(5);
@@ -37,14 +42,14 @@ it("exposes exactly the five Daylight tabs", () => {
 });
 
 it.each([
-  ["/", "Home"],
-  ["/team/3", "Home"], // team profiles open from the home hub
-  ["/matches", "Matches"],
-  ["/match/12", "Matches"], // singular detail route still lights Matches
-  ["/groups", "Groups"],
-  ["/groups/2", "Groups"], // group detail still lights Groups
-  ["/brackets", "Bracket"],
-  ["/leaderboard", "You"],
+  ["/football/wc26", "Home"],
+  ["/football/wc26/team/3", "Home"], // team profiles open from the home hub
+  ["/football/wc26/fixtures", "Fixtures"],
+  ["/football/wc26/match/12", "Fixtures"], // singular detail route still lights Fixtures
+  ["/football/wc26/groups", "Groups"],
+  ["/football/wc26/groups/2", "Groups"], // group detail still lights Groups
+  ["/football/wc26/bracket", "Bracket"],
+  ["/leaderboard", "You"], // cross-cutting, not namespaced in P1
   ["/about", "You"], // relocated info pages light the You hub
   ["/methodology", "You"],
   ["/record", "You"], // the live track record nests under the You hub
@@ -74,7 +79,7 @@ it("swaps the NRL fifth tab for Tips -> /nrl/tips (leaderboard alias dropped fro
 });
 
 it("uses the deep lime for the active tab on the light canvas", () => {
-  renderAt("/");
+  renderAt("/football/wc26");
   const home = screen.getByRole("link", { name: /Home/ });
   expect(home.className).toContain("text-lime-deep");
 });
