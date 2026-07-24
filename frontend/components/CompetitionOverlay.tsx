@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -27,7 +28,10 @@ const SPORT_SECTIONS: Array<{ sport: SportId; heading: string }> = [
 
 /** Pinned competition sorts first within its own sport section; everything
  *  else keeps COMPETITIONS' stable insertion order. */
-function orderedForSection(sport: SportId, pinned: CompetitionId | null): Competition[] {
+function orderedForSection(
+  sport: SportId,
+  pinned: CompetitionId | null
+): Competition[] {
   const list = competitionsForSport(sport);
   const pinnedIdx = pinned ? list.findIndex((c) => c.id === pinned) : -1;
   if (pinnedIdx <= 0) return list;
@@ -39,7 +43,14 @@ function orderedForSection(sport: SportId, pinned: CompetitionId | null): Compet
 
 function ChevronIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-3.5 w-3.5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      aria-hidden="true"
+    >
       <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
@@ -47,7 +58,14 @@ function ChevronIcon() {
 
 function CloseIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+    <svg
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      aria-hidden="true"
+    >
       <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />
     </svg>
   );
@@ -63,7 +81,10 @@ function StarIcon({ filled }: { filled: boolean }) {
       strokeWidth={1.8}
       aria-hidden="true"
     >
-      <path d="M12 3.5l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.4l-5.4 2.9 1-6.1L3.2 10l6.1-.9L12 3.5Z" strokeLinejoin="round" />
+      <path
+        d="M12 3.5l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17.4l-5.4 2.9 1-6.1L3.2 10l6.1-.9L12 3.5Z"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -129,105 +150,126 @@ export function CompetitionOverlay() {
         <ChevronIcon />
       </button>
 
-      {open && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label="Choose a competition"
-          className="fixed inset-0 z-[60] overflow-y-auto bg-background/95 backdrop-blur-xl"
-          onClick={close}
-        >
-          <div className="mx-auto max-w-3xl px-6 py-16 sm:py-24" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              onClick={close}
-              aria-label="Close"
-              className="fixed right-5 top-5 grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
+      {/* Portaled to <body>: SiteNav's header has backdrop-blur, and any
+          backdrop-filter creates a containing block for fixed descendants --
+          rendered inline, "inset-0" would resolve against the 60px header
+          strip instead of the viewport. Safe to touch document.body here:
+          `open` is only ever true after mount. */}
+      {open &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Choose a competition"
+            className="fixed inset-0 z-[60] overflow-y-auto bg-background/95 backdrop-blur-xl"
+            onClick={close}
+          >
+            <div
+              className="mx-auto max-w-3xl px-6 py-16 sm:py-24"
+              onClick={(e) => e.stopPropagation()}
             >
-              <CloseIcon />
-            </button>
+              <button
+                type="button"
+                onClick={close}
+                aria-label="Close"
+                className="fixed right-5 top-5 grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
+              >
+                <CloseIcon />
+              </button>
 
-            {SPORT_SECTIONS.map(({ sport, heading }) => {
-              const list = orderedForSection(sport, pinned);
-              if (list.length === 0) return null;
-              return (
-                <section key={sport} className="mb-12 last:mb-0">
-                  <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
-                    {heading}
-                  </h2>
-                  <ul>
-                    {list.map((c) => {
-                      const isActive = c.id === active;
-                      const isPinned = pinned === c.id;
-                      const row = (
-                        <>
-                          <span
-                            className={cn(
-                              "font-display text-3xl font-bold tracking-tight sm:text-5xl",
-                              isActive ? "text-lime-deep" : c.enabled ? "text-foreground" : "text-muted",
-                            )}
-                          >
-                            {c.label}
-                          </span>
-                          <span
-                            className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-                            style={{
-                              backgroundColor: `hsl(var(${c.accentVar}) / 0.12)`,
-                              color: `hsl(var(${c.accentVar}))`,
-                            }}
-                          >
-                            {c.shortLabel}
-                          </span>
-                          {!c.enabled && (
-                            <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
-                              Soon
-                            </span>
-                          )}
-                        </>
-                      );
-                      return (
-                        <li
-                          key={c.id}
-                          className="flex items-center gap-3 border-b border-border py-4 last:border-0"
-                        >
-                          {c.enabled ? (
-                            <Link
-                              href={c.basePath}
-                              onClick={close}
-                              aria-current={isActive ? "page" : undefined}
-                              className="flex flex-1 flex-wrap items-center gap-3"
-                            >
-                              {row}
-                            </Link>
-                          ) : (
-                            <div aria-disabled="true" className="flex flex-1 flex-wrap items-center gap-3">
-                              {row}
-                            </div>
-                          )}
-                          {c.enabled && (
-                            <button
-                              type="button"
-                              onClick={() => togglePin(c.id)}
-                              aria-pressed={isPinned}
-                              aria-label={isPinned ? `Unpin ${c.label}` : `Pin ${c.label}`}
+              {SPORT_SECTIONS.map(({ sport, heading }) => {
+                const list = orderedForSection(sport, pinned);
+                if (list.length === 0) return null;
+                return (
+                  <section key={sport} className="mb-12 last:mb-0">
+                    <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                      {heading}
+                    </h2>
+                    <ul>
+                      {list.map((c) => {
+                        const isActive = c.id === active;
+                        const isPinned = pinned === c.id;
+                        const row = (
+                          <>
+                            <span
                               className={cn(
-                                "shrink-0 rounded-full p-2 transition hover:text-foreground",
-                                isPinned ? "text-lime-deep" : "text-muted",
+                                "font-display text-3xl font-bold tracking-tight sm:text-5xl",
+                                isActive
+                                  ? "text-lime-deep"
+                                  : c.enabled
+                                  ? "text-foreground"
+                                  : "text-muted"
                               )}
                             >
-                              <StarIcon filled={isPinned} />
-                            </button>
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                              {c.label}
+                            </span>
+                            <span
+                              className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                              style={{
+                                backgroundColor: `hsl(var(${c.accentVar}) / 0.12)`,
+                                color: `hsl(var(${c.accentVar}))`,
+                              }}
+                            >
+                              {c.shortLabel}
+                            </span>
+                            {!c.enabled && (
+                              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                                Soon
+                              </span>
+                            )}
+                          </>
+                        );
+                        return (
+                          <li
+                            key={c.id}
+                            className="flex items-center gap-3 border-b border-border py-4 last:border-0"
+                          >
+                            {c.enabled ? (
+                              <Link
+                                href={c.basePath}
+                                onClick={close}
+                                aria-current={isActive ? "page" : undefined}
+                                className="flex flex-1 flex-wrap items-center gap-3"
+                              >
+                                {row}
+                              </Link>
+                            ) : (
+                              <div
+                                aria-disabled="true"
+                                className="flex flex-1 flex-wrap items-center gap-3"
+                              >
+                                {row}
+                              </div>
+                            )}
+                            {c.enabled && (
+                              <button
+                                type="button"
+                                onClick={() => togglePin(c.id)}
+                                aria-pressed={isPinned}
+                                aria-label={
+                                  isPinned
+                                    ? `Unpin ${c.label}`
+                                    : `Pin ${c.label}`
+                                }
+                                className={cn(
+                                  "shrink-0 rounded-full p-2 transition hover:text-foreground",
+                                  isPinned ? "text-lime-deep" : "text-muted"
+                                )}
+                              >
+                                <StarIcon filled={isPinned} />
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </section>
+                );
+              })}
+            </div>
+          </div>,
+          document.body
+        )}
     </>
   );
 }
