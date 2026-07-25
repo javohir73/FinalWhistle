@@ -40,6 +40,7 @@ function match(
 
 afterEach(() => {
   jest.resetAllMocks();
+  window.localStorage.clear();
 });
 
 it("shows loading then the match cards", async () => {
@@ -76,6 +77,10 @@ it("filters matches by team search", async () => {
 });
 
 it("groups matches by date under a day heading", async () => {
+  window.localStorage.setItem(
+    "pp:timezone",
+    JSON.stringify({ tz: "Australia/Sydney", confirmed: true }),
+  );
   mockGet.mockResolvedValue([
     match(1, "Mexico", "South Africa", "Group A", {
       kickoff_utc: "2026-06-11T19:00:00+00:00",
