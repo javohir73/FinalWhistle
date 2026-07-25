@@ -109,7 +109,7 @@ export default async function NrlTeamPage({
       </div>
 
       {/* Full-bleed crest banner (shared Floodlight TeamHeader). The country
-          crest becomes the ClubBadge monogram, the FavoriteStar drops (NRL
+          crest becomes the ClubBadge club mark, the FavoriteStar drops (NRL
           clubs aren't in the country-favorites store), the meta line carries
           the ladder/record/pts/Elo join, and the tiles carry the NRL ratings. */}
       <TeamHeader

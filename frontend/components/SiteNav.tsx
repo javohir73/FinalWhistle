@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
+import { NavIcon } from "@/components/NavIcon";
 import { AuthButton } from "@/components/AuthButton";
 import { CompetitionOverlay } from "@/components/CompetitionOverlay";
 import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
@@ -61,12 +62,13 @@ export function SiteNav() {
                 href={link.href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "inline-flex min-h-[40px] items-center rounded-lg px-3 py-2 text-sm transition",
+                  "inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm transition",
                   active
                     ? "bg-win/10 font-semibold text-lime-deep"
                     : "text-muted hover:bg-surface-2 hover:text-foreground",
                 )}
               >
+                <NavIcon name={link.label} active={active} className="h-[17px] w-[17px]" />
                 {link.label}
               </Link>
             );

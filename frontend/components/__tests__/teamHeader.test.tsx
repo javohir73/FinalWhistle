@@ -91,8 +91,8 @@ describe("TeamHeader", () => {
 
   // NRL adoption (Floodlight P3): the additive badge/showFavorite/meta/tiles
   // seams let the club page render the same banner without a fork.
-  it("renders the NRL club variant: club-badge code, no star, meta override, custom tiles", () => {
-    render(
+  it("renders the NRL club variant: crest, no star, meta override, custom tiles", () => {
+    const { container } = render(
       <TeamHeader
         team={makeTeam({
           name: "Warriors",
@@ -117,9 +117,12 @@ describe("TeamHeader", () => {
       />,
     );
 
-    // Name + the ClubBadge monogram (Warriors -> WAR) stand in for the flag.
+    // Name + the self-hosted Warriors crest stand in for a country flag.
     expect(screen.getByRole("heading", { name: "Warriors" })).toBeInTheDocument();
-    expect(screen.getByText("WAR")).toBeInTheDocument();
+    expect(container.querySelector('[data-club-logo="Warriors"] img')).toHaveAttribute(
+      "src",
+      "/clubs/nrl/warriors.svg",
+    );
 
     // showFavorite={false} drops the star (NRL clubs aren't country favorites).
     expect(screen.queryByRole("button", { name: /favorites/i })).toBeNull();

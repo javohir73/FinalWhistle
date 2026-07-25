@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Flag } from "@/components/Flag";
+import { TeamBadge } from "@/components/TeamBadge";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { Eyebrow } from "@/components/Eyebrow";
 import { pct } from "@/lib/format";
@@ -142,11 +142,11 @@ export function Scorebug({
 /** A crest chip, linked to the team page when we have the id (mirrors the match
  *  scoreboard's TeamHead linking). The 44px flag is itself the >=44px tap target. */
 function Crest({ team, teamId }: { team: string; teamId?: number | null }) {
-  const flag = <Flag team={team} size={44} />;
-  if (teamId == null) return flag;
+  const crest = <TeamBadge team={team} size={44} />;
+  if (teamId == null) return crest;
   return (
     <Link href={`/team/${teamId}`} className="inline-flex rounded-full transition hover:opacity-80">
-      {flag}
+      {crest}
     </Link>
   );
 }

@@ -1,5 +1,6 @@
 import { COMPETITIONS, type CompetitionId } from "@/lib/sports";
 import { cn } from "@/lib/utils";
+import { CompetitionLogo } from "@/components/CompetitionLogo";
 
 interface EyebrowProps {
   children: React.ReactNode;
@@ -30,12 +31,13 @@ export function CompEyebrowChip({ comp }: { comp: CompetitionId }) {
   const competition = COMPETITIONS[comp];
   return (
     <span
-      className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+      className="inline-flex min-h-[28px] items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-[11px] font-bold uppercase tracking-wide"
       style={{
         backgroundColor: `hsl(var(${competition.accentVar}) / 0.12)`,
         color: `hsl(var(${competition.accentVar}))`,
       }}
     >
+      <CompetitionLogo competition={comp} size={20} />
       {competition.shortLabel}
     </span>
   );

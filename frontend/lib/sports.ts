@@ -135,6 +135,7 @@ export interface Competition {
   sport: SportId;
   label: string; // 'Premier League', 'World Cup 2026', 'NRL'
   shortLabel: string; // 'EPL', 'LaLiga', 'BUN', 'WC26', 'NRL' (eyebrow chip)
+  logoSrc: string; // self-hosted competition identity used by switchers, filters, and hubs
   basePath: string; // '/football/epl', '/football/wc26', '/nrl'
   accentVar: string; // '--accent-epl' etc. (globals.css, Floodlight P1 tokens)
   format: "league" | "knockout";
@@ -171,6 +172,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     sport: "football",
     label: "Premier League",
     shortLabel: "EPL",
+    logoSrc: "/competitions/epl.png",
     basePath: "/football/epl",
     accentVar: "--accent-epl",
     format: "league",
@@ -196,6 +198,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     sport: "football",
     label: "La Liga",
     shortLabel: "LaLiga",
+    logoSrc: "/competitions/laliga.png",
     basePath: "/football/laliga",
     accentVar: "--accent-laliga",
     format: "league",
@@ -221,6 +224,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     sport: "football",
     label: "Bundesliga",
     shortLabel: "BUN",
+    logoSrc: "/competitions/bundesliga.png",
     basePath: "/football/bundesliga",
     accentVar: "--accent-bundesliga",
     format: "league",
@@ -250,6 +254,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     sport: "football",
     label: "World Cup 2026",
     shortLabel: "WC26",
+    logoSrc: "/competitions/wc26.png",
     basePath: "/football/wc26",
     accentVar: "--accent-wc26",
     format: "knockout",
@@ -289,6 +294,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     sport: "nrl",
     label: "NRL",
     shortLabel: "NRL",
+    logoSrc: "/competitions/nrl.svg",
     basePath: "/nrl",
     accentVar: "--accent-nrl",
     format: "league",
