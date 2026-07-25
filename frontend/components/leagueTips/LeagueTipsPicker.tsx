@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Flag } from "@/components/Flag";
+import { TeamBadge } from "@/components/TeamBadge";
 import { Empty, ErrorState, Loading } from "@/components/States";
 import { getMyLeagueTips, submitLeagueTip } from "@/lib/leagueTips";
 import { formatScore } from "@/lib/format";
@@ -264,7 +264,7 @@ export function LeagueTipsPicker({
           <button
             type="button"
             onClick={() => setRequested(prevWeek)}
-            className="text-sm font-semibold text-lime-deep"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-1 text-sm font-semibold text-lime-deep transition hover:bg-win/10"
           >
             ← Matchweek {prevWeek}
           </button>
@@ -276,7 +276,7 @@ export function LeagueTipsPicker({
           <button
             type="button"
             onClick={() => setRequested(nextWeek)}
-            className="text-sm font-semibold text-lime-deep"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-1 text-sm font-semibold text-lime-deep transition hover:bg-win/10"
           >
             Matchweek {nextWeek} →
           </button>
@@ -385,11 +385,11 @@ function PredictionRow({
       </div>
 
       <div className="mt-2 flex items-center justify-center gap-2 text-sm font-semibold">
-        <Flag team={home} />
+        <TeamBadge team={home} />
         <span>{home}</span>
         <span className="text-muted">vs</span>
         <span>{away}</span>
-        <Flag team={away} />
+        <TeamBadge team={away} />
       </div>
 
       {locked ? (
@@ -469,7 +469,7 @@ function GoalStepper({
           disabled={disabled || n <= MIN_GOALS}
           onClick={() => onDelta(-1)}
           className={cn(
-            "grid h-7 w-7 place-items-center rounded-lg border border-border bg-surface-2/50 text-sm font-bold text-muted transition",
+            "grid h-11 w-11 place-items-center rounded-xl border border-border bg-surface-2/50 text-lg font-bold text-muted transition",
             "hover:border-win/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40",
           )}
         >
@@ -485,7 +485,7 @@ function GoalStepper({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onBlur={onBlur}
-          className="w-10 rounded-lg border border-border bg-surface-2/50 px-1 py-1 text-center font-display text-lg font-bold tabular-nums text-foreground"
+          className="h-11 w-11 rounded-xl border border-border bg-surface-2/50 px-1 text-center font-display text-lg font-bold tabular-nums text-foreground"
         />
         <button
           type="button"
@@ -493,7 +493,7 @@ function GoalStepper({
           disabled={disabled || n >= MAX_GOALS}
           onClick={() => onDelta(1)}
           className={cn(
-            "grid h-7 w-7 place-items-center rounded-lg border border-border bg-surface-2/50 text-sm font-bold text-muted transition",
+            "grid h-11 w-11 place-items-center rounded-xl border border-border bg-surface-2/50 text-lg font-bold text-muted transition",
             "hover:border-win/40 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40",
           )}
         >

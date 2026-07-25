@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Team } from "@/lib/types";
 import type { CompetitionId } from "@/lib/sports";
-import { Flag } from "@/components/Flag";
 import { ClubBadge } from "@/components/ClubBadge";
+import { TeamBadge } from "@/components/TeamBadge";
 import { FavoriteStar } from "@/components/FavoriteStar";
 
 /**
@@ -23,7 +23,7 @@ import { FavoriteStar } from "@/components/FavoriteStar";
  * The `badge`/`showFavorite`/`meta`/`tiles` slots are additive, serializable
  * seams so the NRL club page (Floodlight P3) can render this same banner without
  * forking a variant: `badge="club"` swaps the country crest for a `ClubBadge`
- * monogram; `showFavorite={false}` drops the FavoriteStar (NRL clubs aren't in
+ * club crest; `showFavorite={false}` drops the FavoriteStar (NRL clubs aren't in
  * the country-favorites store); `meta` overrides the football group/rank/Elo
  * join (a string prints instead, `null` prints no meta line); and `tiles`
  * overrides the football Elo/FIFA tiles (any array prints instead, `[]` prints
@@ -97,7 +97,7 @@ export function TeamHeader({
         {badge === "club" ? (
           <ClubBadge name={team.name} size={56} />
         ) : (
-          <Flag team={team.name} size={56} />
+          <TeamBadge team={team.name} size={56} />
         )}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">

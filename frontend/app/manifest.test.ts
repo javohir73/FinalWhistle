@@ -20,11 +20,11 @@ jest.mock("@/lib/tournament", () => ({
 const PUBLIC_DIR = join(__dirname, "..", "public");
 
 describe("PWA manifest", () => {
-  it("uses the Floodlight canvas token (#0d1118) for both chrome colours", async () => {
+  it("uses the prototype's Floodlight green-black canvas for both chrome colours", async () => {
     const m = await manifest();
-    // Matches --background: 218 30% 7% (globals.css) exactly.
-    expect(m.background_color).toBe("#0d1118");
-    expect(m.theme_color).toBe("#0d1118");
+    // Matches design/Floodlight Prototype.dc.html and --background exactly.
+    expect(m.background_color).toBe("#0a1410");
+    expect(m.theme_color).toBe("#0a1410");
   });
 
   it("declares a standalone, portrait, root-scoped installable app", async () => {

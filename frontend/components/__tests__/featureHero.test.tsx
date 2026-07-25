@@ -102,7 +102,7 @@ describe("FeatureHero", () => {
     expect(screen.getByText(/AI most likely: Brazil by 5\.5/)).toBeInTheDocument();
   });
 
-  it("badge=\"club\" swaps the country crests for club monograms", () => {
+  it("badge=\"club\" swaps the country crests for self-hosted club logos", () => {
     const { container } = render(
       <FeatureHero
         match={makeMatch({ teams: { home: "Panthers", away: "Eels" } })}
@@ -112,8 +112,13 @@ describe("FeatureHero", () => {
       />,
     );
 
-    expect(screen.getByText("PEN")).toBeInTheDocument();
-    expect(screen.getByText("PAR")).toBeInTheDocument();
-    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector('[data-club-logo="Panthers"] img')).toHaveAttribute(
+      "src",
+      "/clubs/nrl/panthers.svg",
+    );
+    expect(container.querySelector('[data-club-logo="Eels"] img')).toHaveAttribute(
+      "src",
+      "/clubs/nrl/eels.svg",
+    );
   });
 });

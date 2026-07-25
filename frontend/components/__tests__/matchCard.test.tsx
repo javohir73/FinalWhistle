@@ -140,15 +140,18 @@ describe("MatchCard (variant=\"compact\")", () => {
 });
 
 describe("MatchCard (NRL slots: badge / href / margin)", () => {
-  it("badge=\"club\" renders the ClubBadge monogram and no country flag <img>", () => {
+  it("badge=\"club\" renders self-hosted club crests", () => {
     const match = makeMatch({ teams: { home: "Broncos", away: "Storm" } });
     const { container } = render(<MatchCard match={match} badge="club" />);
 
-    // The club monograms stand in for the country crests.
-    expect(screen.getByText("BRI")).toBeInTheDocument();
-    expect(screen.getByText("MEL")).toBeInTheDocument();
-    // No <Flag> image element is rendered in club mode.
-    expect(container.querySelector("img")).toBeNull();
+    expect(container.querySelector('[data-club-logo="Broncos"] img')).toHaveAttribute(
+      "src",
+      "/clubs/nrl/broncos.svg",
+    );
+    expect(container.querySelector('[data-club-logo="Storm"] img')).toHaveAttribute(
+      "src",
+      "/clubs/nrl/storm.svg",
+    );
   });
 
   it("href overrides the football detail link with the NRL match route", () => {

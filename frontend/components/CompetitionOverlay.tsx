@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CompetitionLogo } from "@/components/CompetitionLogo";
 import {
   COMPETITIONS,
   competitionFromPathname,
@@ -144,8 +145,9 @@ export function CompetitionOverlay() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="ml-4 inline-flex items-center gap-1 rounded-full bg-surface-2 px-3 py-1.5 text-[13px] font-semibold text-foreground transition hover:bg-surface"
+        className="ml-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-surface-2 px-2.5 py-1.5 text-[13px] font-semibold text-foreground transition hover:bg-surface"
       >
+        <CompetitionLogo competition={active} size={24} />
         {COMPETITIONS[active].shortLabel}
         <ChevronIcon />
       </button>
@@ -172,7 +174,7 @@ export function CompetitionOverlay() {
                 type="button"
                 onClick={close}
                 aria-label="Close"
-                className="fixed right-5 top-5 grid h-10 w-10 place-items-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
+                className="fixed right-5 top-5 grid h-11 w-11 place-items-center rounded-full text-muted transition hover:bg-surface-2 hover:text-foreground"
               >
                 <CloseIcon />
               </button>
@@ -191,6 +193,7 @@ export function CompetitionOverlay() {
                         const isPinned = pinned === c.id;
                         const row = (
                           <>
+                            <CompetitionLogo competition={c.id} size={42} />
                             <span
                               className={cn(
                                 "font-display text-3xl font-bold tracking-tight sm:text-5xl",
@@ -252,7 +255,7 @@ export function CompetitionOverlay() {
                                     : `Pin ${c.label}`
                                 }
                                 className={cn(
-                                  "shrink-0 rounded-full p-2 transition hover:text-foreground",
+                                  "grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-surface-2 hover:text-foreground",
                                   isPinned ? "text-lime-deep" : "text-muted"
                                 )}
                               >

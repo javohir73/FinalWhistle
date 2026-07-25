@@ -6,8 +6,8 @@ import type { StandingsZone } from "@/lib/sports";
 import { zoneForRank, zoneToneClasses } from "@/lib/standingsZones";
 import { cn } from "@/lib/utils";
 import { QualificationBar } from "./QualificationBar";
-import { Flag } from "./Flag";
 import { ClubBadge } from "./ClubBadge";
+import { TeamBadge } from "./TeamBadge";
 
 /** Solid swatch color per zone tone, for the legend dots. The rows wear the
  *  faint tints from zoneToneClasses; the legend needs the full-strength hue.
@@ -257,7 +257,7 @@ export function StandingsTable({
                       {badge === "club" ? (
                         <ClubBadge name={row.team} size={22} />
                       ) : (
-                        <Flag team={row.team} size={22} />
+                        <TeamBadge team={row.team} size={22} />
                       )}
                     </span>
                     <span

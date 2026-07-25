@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CompetitionLogo } from "@/components/CompetitionLogo";
 import { Eyebrow } from "@/components/Eyebrow";
 import { pct } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -35,6 +36,7 @@ export function PlayBracketCard({
       href="/football/wc26/bracket"
       className={cn("glass card-hover flex items-center gap-3 rounded-2xl p-4", className)}
     >
+      <CompetitionLogo competition="wc26" size={42} />
       <div className="min-w-0 flex-1">
         <Eyebrow>World Cup 2026</Eyebrow>
         <p className="mt-1 font-display text-lg font-extrabold tracking-tight">

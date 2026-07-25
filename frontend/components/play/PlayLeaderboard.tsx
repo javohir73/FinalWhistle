@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CompetitionLogo } from "@/components/CompetitionLogo";
 import { LeagueTipsLeaderboard } from "@/components/leagueTips/LeagueTipsLeaderboard";
 import { NrlTipsLeaderboard } from "@/components/nrl/NrlTipsLeaderboard";
 import { Loading } from "@/components/States";
@@ -23,7 +24,7 @@ interface PlayLeaderboardProps {
   nrlRound: number | null;
   /** The football leagues with a live tips loop today (lib/leagueConfig's
    *  ACTIVE_LEAGUES). A registered-but-dormant league (LaLiga, Bundesliga)
-   *  renders as a disabled "coming soon" chip and is never fetched. */
+   *  renders as a "coming soon" preview chip and is never fetched. */
   footballLeagues: string[];
   /** The matchweek the Football group's picker resolved, or null until it has.
    *  Mirrors LeagueTipsPlaySection's own guard: the football board only mounts
@@ -78,11 +79,9 @@ export function PlayLeaderboard({
               type="button"
               onClick={() => setSelected(c.id)}
               aria-pressed={isActive}
-              aria-current={isActive ? "true" : undefined}
-              aria-disabled={dormant || undefined}
               aria-label={dormant ? `${c.label} (coming soon)` : undefined}
               className={cn(
-                "flex min-h-[44px] shrink-0 items-center rounded-xl px-3.5 text-[13px] font-semibold transition",
+                "flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-2.5 text-[13px] font-semibold transition",
                 isActive
                   ? "bg-win text-pitch"
                   : dormant
@@ -90,6 +89,7 @@ export function PlayLeaderboard({
                     : "bg-surface-2 text-muted hover:text-foreground",
               )}
             >
+              <CompetitionLogo competition={c.id} size={24} />
               {c.label}
             </button>
           );

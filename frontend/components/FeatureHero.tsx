@@ -5,8 +5,8 @@ import type { MatchSummary } from "@/lib/types";
 import type { CompetitionId } from "@/lib/sports";
 import { Eyebrow, CompEyebrowChip } from "@/components/Eyebrow";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
-import { Flag } from "@/components/Flag";
 import { ClubBadge } from "@/components/ClubBadge";
+import { TeamBadge } from "@/components/TeamBadge";
 import { formatScore, topOutcome } from "@/lib/format";
 import { isLiveNow } from "@/lib/liveLabel";
 import { kickoffTime } from "@/lib/datetime";
@@ -35,7 +35,7 @@ const CONFIDENCE: Record<
  * fabricated number.
  *
  * The `badge`/`href`/`margin` slots are additive, serializable seams for NRL:
- * `badge="club"` swaps the country crests for `ClubBadge` monograms, `href`
+ * `badge="club"` swaps the country crests for `ClubBadge` club marks, `href`
  * overrides (or, when `null`, drops) the football CTA target, and `margin`
  * (when there's no predicted score) prints the model's expected margin instead
  * of a scoreline in the caption. All three default to today's football behavior.
@@ -114,7 +114,7 @@ export function FeatureHero({
           {badge === "club" ? (
             <ClubBadge name={teams.home} size={52} />
           ) : (
-            <Flag team={teams.home} size={52} />
+            <TeamBadge team={teams.home} size={52} />
           )}
           <div className="min-w-0 flex-1 font-display text-[30px] font-extrabold leading-none tracking-[-0.03em]">
             <span className="block truncate">{teams.home}</span>
@@ -125,7 +125,7 @@ export function FeatureHero({
           {badge === "club" ? (
             <ClubBadge name={teams.away} size={38} />
           ) : (
-            <Flag team={teams.away} size={38} className="opacity-90" />
+            <TeamBadge team={teams.away} size={38} className="opacity-90" />
           )}
         </div>
 

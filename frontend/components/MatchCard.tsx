@@ -9,8 +9,8 @@ import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
 import { kickoffDate, kickoffTime } from "@/lib/datetime";
 import { trackEvent } from "@/lib/analytics";
 import { ProbabilityBar } from "./ProbabilityBar";
-import { Flag } from "./Flag";
 import { ClubBadge } from "@/components/ClubBadge";
+import { TeamBadge } from "@/components/TeamBadge";
 import { FavoriteStar } from "./FavoriteStar";
 
 /** The core dashboard card: matchup, predicted winner, W/D/L bar, score.
@@ -29,7 +29,7 @@ import { FavoriteStar } from "./FavoriteStar";
  *  The `badge`/`href`/`margin` slots are additive, serializable seams so NRL
  *  callers (several of them server components) can render this same card without
  *  forking a variant: `badge="club"` swaps the country crest for a `ClubBadge`
- *  monogram, `href` overrides (or, when `null`, drops) the football match link,
+ *  club crest, `href` overrides (or, when `null`, drops) the football match link,
  *  and `margin` prints the ML model's expected margin chip. All three default to
  *  today's football behavior, so the football surfaces are byte-identical. */
 export function MatchCard({
@@ -248,7 +248,7 @@ function CompactRow({
         {badge === "club" ? (
           <ClubBadge name={teams.home} size={22} />
         ) : (
-          <Flag team={teams.home} size={22} />
+          <TeamBadge team={teams.home} size={22} />
         )}
         <div className="min-w-0 flex-1">
           <div className="truncate font-display text-sm font-bold tracking-tight">
@@ -330,7 +330,7 @@ function TeamRow({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      {badge === "club" ? <ClubBadge name={name} size={24} /> : <Flag team={name} size={24} />}
+      {badge === "club" ? <ClubBadge name={name} size={24} /> : <TeamBadge team={name} size={24} />}
       <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold tracking-tight">
         {name}
       </span>

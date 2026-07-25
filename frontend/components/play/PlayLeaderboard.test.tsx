@@ -52,14 +52,13 @@ it("defaults to the EPL board, mounting LeagueTipsLeaderboard on the resolved ma
   expect(mockNrl).not.toHaveBeenCalled();
 });
 
-it("marks the active chip with lime state (aria-current + aria-pressed)", () => {
+it("marks the active chip with lime state and toggle semantics", () => {
   // Matchweek unresolved -> the EPL board stays in its loading state and never
   // fetches, so the chip attributes can be asserted synchronously.
   renderBoard({ footballMatchweek: null });
 
   const epl = screen.getByRole("button", { name: "Premier League" });
   expect(epl).toHaveAttribute("aria-pressed", "true");
-  expect(epl).toHaveAttribute("aria-current", "true");
   expect(epl).toHaveClass("bg-win");
 });
 
@@ -75,12 +74,13 @@ it("switching to the NRL filter mounts NrlTipsLeaderboard seeded from the curren
   expect(screen.queryByText("EplTipster")).not.toBeInTheDocument();
 });
 
-it("renders dormant competitions as disabled chips and never fetches them", async () => {
+it("lets coming-soon chips explain their state without pretending to be disabled", async () => {
   renderBoard();
   await screen.findByText("EplTipster");
 
   const laliga = screen.getByRole("button", { name: /La Liga/i });
-  expect(laliga).toHaveAttribute("aria-disabled", "true");
+  expect(laliga).not.toHaveAttribute("aria-disabled");
+  expect(laliga).toBeEnabled();
 
   fireEvent.click(laliga);
   expect(screen.getByText("La Liga tips are coming soon.")).toBeInTheDocument();
