@@ -66,57 +66,59 @@ function CheckIcon() {
 export function PlatformHome() {
   return (
     <div className="-mt-8">
-      <section className="relative overflow-hidden border-b border-border px-1 pb-12 pt-12 sm:pb-16 sm:pt-16 lg:pb-20 lg:pt-20">
+      <section className="relative left-1/2 w-screen -translate-x-1/2 overflow-hidden border-b border-border pb-12 pt-12 sm:pb-16 sm:pt-16 lg:pb-20 lg:pt-20">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute -right-24 top-0 h-80 w-80 rounded-full bg-win/[0.07] blur-3xl"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_72%_40%,hsl(var(--win)/0.07),transparent_32%)]"
         />
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/3 top-24 h-px w-2/3 bg-gradient-to-r from-transparent via-win/20 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-24 h-px bg-gradient-to-r from-transparent via-win/15 to-transparent"
         />
 
-        <div className="relative max-w-4xl">
-          <div className="mb-6 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-lime-deep">
-            <BrandMark className="h-5 w-auto" />
-            Sports, clearly explained
-          </div>
-          <h1 className="max-w-4xl font-display text-[clamp(2.8rem,8vw,6.5rem)] font-extrabold leading-[0.92] tracking-[-0.055em]">
-            Your matchday,
-            <span className="block text-lime-deep">all in one place.</span>
-          </h1>
-          <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
-            Predictions, fixtures and form across football and rugby league—without
-            the noise.
-          </p>
+        <div className="relative mx-auto max-w-6xl px-4 sm:px-5">
+          <div className="max-w-4xl">
+            <div className="mb-6 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-lime-deep">
+              <BrandMark className="h-5 w-auto" />
+              Sports, clearly explained
+            </div>
+            <h1 className="max-w-4xl font-display text-[clamp(2.8rem,8vw,6.5rem)] font-extrabold leading-[0.92] tracking-[-0.055em]">
+              Your matchday,
+              <span className="block text-lime-deep">all in one place.</span>
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-relaxed text-muted sm:text-lg">
+              Predictions, fixtures and form across football and rugby league—without
+              the noise.
+            </p>
 
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#competitions"
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-win px-5 font-display text-sm font-bold text-background transition hover:brightness-105"
-            >
-              Choose a competition
-              <ArrowIcon />
-            </a>
-            <Link
-              href="/play"
-              className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface/50 px-5 font-display text-sm font-bold transition hover:border-win/40 hover:bg-surface"
-            >
-              Make your picks
-            </Link>
-          </div>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <a
+                href="#competitions"
+                className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-win px-5 font-display text-sm font-bold text-background transition hover:brightness-105"
+              >
+                Choose a competition
+                <ArrowIcon />
+              </a>
+              <Link
+                href="/play"
+                className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-border bg-surface/50 px-5 font-display text-sm font-bold transition hover:border-win/40 hover:bg-surface"
+              >
+                Make your picks
+              </Link>
+            </div>
 
-          <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 border-t border-border/70 pt-5 text-xs font-medium text-muted">
-            {["Match probabilities", "Fixtures & tables", "Model track record"].map(
-              (item) => (
-                <span key={item} className="inline-flex items-center gap-1.5">
-                  <span className="text-lime-deep">
-                    <CheckIcon />
+            <div className="mt-9 flex flex-wrap gap-x-6 gap-y-2 border-t border-border/70 pt-5 text-xs font-medium text-muted">
+              {["Match probabilities", "Fixtures & tables", "Model track record"].map(
+                (item) => (
+                  <span key={item} className="inline-flex items-center gap-1.5">
+                    <span className="text-lime-deep">
+                      <CheckIcon />
+                    </span>
+                    {item}
                   </span>
-                  {item}
-                </span>
-              ),
-            )}
+                ),
+              )}
+            </div>
           </div>
         </div>
       </section>
