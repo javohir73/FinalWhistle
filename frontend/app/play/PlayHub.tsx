@@ -73,14 +73,17 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
             round, you-vs-ai), seeded with the same server-fetched season/round
             /nrl/tips uses. p5-s4 suppresses this section's own weekly
             leaderboard (showLeaderboard=false) -- it's hoisted into the unified
-            board below. When the tipsheet fetch has no data (off-season /
-            upstream down) we never invent a season/round -- the group degrades
-            to an honest empty state. */}
+            board below. p5-s5 opts each play row into the shared ConfidenceRing
+            (showConfidence) beside the model's call -- hub only; /nrl/tips stays
+            unchanged. When the tipsheet fetch has no data (off-season / upstream
+            down) we never invent a season/round -- the group degrades to an
+            honest empty state. */}
         {nrlTipsheet ? (
           <NrlTipsPlaySection
             season={nrlTipsheet.season}
             round={nrlTipsheet.round}
             showLeaderboard={false}
+            showConfidence
           />
         ) : (
           <div className="glass mt-3 rounded-2xl p-4">

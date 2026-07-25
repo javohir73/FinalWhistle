@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { ClubBadge } from "@/components/ClubBadge";
+import { ConfidenceRing } from "@/components/ConfidenceRing";
 import { ErrorState, Loading } from "@/components/States";
 import { kickoffLabel } from "@/components/nrl/TipsheetBlock";
+import { confidenceTier } from "@/lib/confidenceTier";
 import { getMyNrlTips, submitNrlTip } from "@/lib/nrlTips";
 import { ApiError, getOrCreateDeviceId, pingDailyActivity } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -53,8 +55,20 @@ function pickLabel(pick: Pick, match: NrlMyTipsMatch): string {
  *  Nothing here renders server-side with user-specific data -- the ISR page
  *  stays cacheable because every fetch below happens client-side after
  *  mount (deviceId starts null during SSR/hydration, same guard as
- *  ActivityPing/useMatchPicks). */
-export function PlayRound({ season, round }: { season: number; round: number }) {
+ *  ActivityPing/useMatchPicks).
+ *
+ *  `showConfidence` (default false, Floodlight P5 p5-s5) opts each row into the
+ *  shared ConfidenceRing beside the model's call. Only the Play hub passes true;
+ *  /nrl/tips leaves it off, so that route stays byte-for-byte unchanged. */
+export function PlayRound({
+  season,
+  round,
+  showConfidence = false,
+}: {
+  season: number;
+  round: number;
+  showConfidence?: boolean;
+}) {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   useEffect(() => setDeviceId(getOrCreateDeviceId()), []);
 
@@ -178,6 +192,7 @@ export function PlayRound({ season, round }: { season: number; round: number }) 
             key={m.id}
             match={m}
             now={now}
+            showConfidence={showConfidence}
             pending={!!pending[m.id]}
             error={rowError[m.id]}
             marginDraft={marginDraft[m.id]}
@@ -194,6 +209,7 @@ export function PlayRound({ season, round }: { season: number; round: number }) 
 function PlayRow({
   match,
   now,
+  showConfidence,
   pending,
   error,
   marginDraft,
@@ -203,6 +219,7 @@ function PlayRow({
 }: {
   match: NrlMyTipsMatch;
   now: Date;
+  showConfidence: boolean;
   pending: boolean;
   error?: string;
   marginDraft?: string;
@@ -212,6 +229,7 @@ function PlayRow({
 }) {
   const locked = match.kickoff_utc != null && now.getTime() >= new Date(match.kickoff_utc).getTime();
   const tip = match.your_tip;
+  const model = match.model;
 
   return (
     <div className="glass rounded-2xl p-4">
@@ -303,6 +321,26 @@ function PlayRow({
           ) : null}
         </>
       )}
+
+      {/* The model's call, ringed by confidence (Floodlight P5 p5-s5). Play-hub
+          only (showConfidence) and gated on model presence -- a match with no
+          model prediction renders nothing here (honest degrade). The shared
+          ConfidenceRing already prints the %, the tier word and an aria-label
+          carrying both, so it needs no extra a11y scaffolding. */}
+      {showConfidence && model ? (
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Model&apos;s call</p>
+            <p className="truncate text-sm font-semibold">{pickLabel(model.pick, match)}</p>
+          </div>
+          <ConfidenceRing
+            probability={model.pick_confidence}
+            confidence={confidenceTier(model.pick_confidence)}
+            outcomeLabel={pickLabel(model.pick, match)}
+            size={56}
+          />
+        </div>
+      ) : null}
 
       {error ? <p className="mt-2 text-center text-xs font-medium text-loss">{error}</p> : null}
     </div>
