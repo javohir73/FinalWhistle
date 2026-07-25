@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import { APP_NAME } from "@/lib/constants";
-import { renderHomePage } from "./HomePageContent";
+import { PlatformHome } from "@/components/PlatformHome";
 
 export const metadata: Metadata = {
-  title: `World Cup 2026 predictions — ${APP_NAME}`,
-  description: "Fixtures, standings, and explainable predictions for World Cup 2026.",
+  title: `${APP_NAME} — Sports predictions, clearly explained`,
+  description:
+    "Football and NRL predictions, fixtures, standings and model records in one place.",
 };
 
-export default async function HomePage() {
-  return renderHomePage();
+export default function HomePage() {
+  return <PlatformHome />;
 }

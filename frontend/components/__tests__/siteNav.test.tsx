@@ -39,22 +39,42 @@ const renderNav = (tournament?: ActiveTournament) => {
   return render(tournament ? <TournamentProvider tournament={tournament}>{nav}</TournamentProvider> : nav);
 };
 
-it("shows the Play link (never a separate Bracket/Tips) with no provider (WC26 fallback)", () => {
+it("shows platform-level destinations on the general home", () => {
   renderNav();
+  expect(screen.getByRole("link", { name: "Football" })).toHaveAttribute(
+    "href",
+    "/football/epl",
+  );
+  expect(screen.getByRole("link", { name: "NRL" })).toHaveAttribute("href", "/nrl");
   expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/play");
+  expect(screen.queryByRole("button", { name: "WC26" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
 });
 
+it("keeps shared Play navigation platform-level instead of implying WC26", () => {
+  mockPath = "/play";
+  renderNav();
+  expect(screen.getByRole("link", { name: "Football" })).toHaveAttribute(
+    "href",
+    "/football/epl",
+  );
+  expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  expect(screen.queryByRole("button", { name: "WC26" })).not.toBeInTheDocument();
+});
+
 it("keeps the Play link (never Bracket/Tips) when the active tournament has no bracket", () => {
+  mockPath = "/football/epl";
   renderNav(LEAGUE);
   expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/play");
   expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
   // Every other football link stays.
   expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
-  // Floodlight P1 slice p1-s4: nav links now derive from COMPETITIONS.wc26,
-  // whose football terminology renders "Fixtures" (was "Matches").
+  // League navigation keeps its competition-specific terminology.
   expect(screen.getByRole("link", { name: "Fixtures" })).toBeInTheDocument();
   expect(screen.getByRole("link", { name: "Standings" })).toBeInTheDocument();
 });

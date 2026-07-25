@@ -32,9 +32,9 @@ afterEach(() => {
   mockPath = "/";
 });
 
-it("exposes exactly the five Daylight tabs", () => {
+it("exposes exactly five platform destinations on the general home", () => {
   renderAt("/");
-  for (const label of ["Home", "Fixtures", "Play", "Standings", "You"]) {
+  for (const label of ["Home", "Football", "NRL", "Play", "You"]) {
     expect(screen.getByRole("link", { name: new RegExp(label) })).toBeInTheDocument();
   }
   expect(screen.getAllByRole("link")).toHaveLength(5);
@@ -43,6 +43,15 @@ it("exposes exactly the five Daylight tabs", () => {
   expect(screen.queryByRole("link", { name: /^Tips/ })).not.toBeInTheDocument();
   // The old "More" overflow control is gone.
   expect(screen.queryByRole("button", { name: /More/ })).not.toBeInTheDocument();
+});
+
+it("keeps shared routes in the platform navigation", () => {
+  renderAt("/play");
+  expect(screen.getByRole("link", { name: /Football/ })).toHaveAttribute(
+    "href",
+    "/football/epl",
+  );
+  expect(current()).toEqual(["Play"]);
 });
 
 it.each([
@@ -112,7 +121,7 @@ const LEAGUE: ActiveTournament = {
 };
 
 it("keeps the Play tab (never a separate Bracket/Tips) when the tournament has no bracket", () => {
-  mockPath = "/";
+  mockPath = "/football/epl";
   render(
     <TournamentProvider tournament={LEAGUE}>
       <BottomNav />
@@ -125,8 +134,8 @@ it("keeps the Play tab (never a separate Bracket/Tips) when the tournament has n
   expect(screen.getAllByRole("link")).toHaveLength(5);
 });
 
-it("keeps the Play tab with no provider (WC26 fallback, has_brackets true)", () => {
-  renderAt("/");
+it("keeps the Play tab with no provider on a World Cup route", () => {
+  renderAt("/football/wc26");
   expect(screen.getByRole("link", { name: /Play/ })).toHaveAttribute("href", "/play");
   expect(screen.queryByRole("link", { name: /Bracket/ })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: /Tips/ })).not.toBeInTheDocument();

@@ -26,6 +26,22 @@ const ICONS: Record<string, React.ReactNode> = {
   Ladder: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
   Standings: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
   Record: <path d="M4 19l6-7 4 3 6-8" strokeLinejoin="round" strokeLinecap="round" />,
+  Football: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path
+        d="m12 7 3.3 2.4-1.2 3.9H9.9L8.7 9.4 12 7Zm-3.3 2.4L5.5 8m3.2 1.4-2.1 5.1m3.3-1.2-1 4.8m5.2-4.8 1 4.8m.2-8.7L18.5 8m-1.1 6.5 2.1 1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </>
+  ),
+  NRL: (
+    <>
+      <path d="M5 4h14v7c0 4.6-2.8 7.8-7 10-4.2-2.2-7-5.4-7-10V4Z" strokeLinejoin="round" />
+      <path d="M8 9h8M9 13h6" strokeLinecap="round" />
+    </>
+  ),
   You: (
     <>
       <circle cx="12" cy="8" r="4" />
