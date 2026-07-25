@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { getMatchSummary, getProbHistory } from "@/lib/api";
+import { type ReactNode } from "react";
+import { getMatchSummary } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
 import { kickoffTime } from "@/lib/datetime";
@@ -10,7 +10,7 @@ import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
 import { KnockoutAdvanceCard } from "@/components/KnockoutAdvanceCard";
-import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent, ProbHistoryPoint } from "@/lib/types";
+import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, GoalEvent, CardEvent } from "@/lib/types";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { Scorebug } from "@/components/Scorebug";
@@ -75,25 +75,6 @@ export function MatchScoreboard({
     initialSummary ?? undefined,
   );
   const summary = state.status === "success" ? state.data : initialSummary ?? null;
-
-  // Prediction-history fetch (Task 6): one-time per match, same active-flag
-  // cleanup idiom as MoversPanel (frontend/components/MoversPanel.tsx). Retained
-  // for the in-match WinProbTimeline that consumes `history`.
-  const [history, setHistory] = useState<ProbHistoryPoint[] | null>(null);
-  useEffect(() => {
-    let active = true;
-    setHistory(null);
-    getProbHistory(matchId)
-      .then((res) => {
-        if (active) setHistory(res.points);
-      })
-      .catch(() => {
-        if (active) setHistory([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [matchId]);
 
   const live = !!summary && isLiveNow(summary);
   // Treat a match stuck `in_play` past the live window as over, so the detail
