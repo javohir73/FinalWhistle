@@ -33,10 +33,13 @@ function verdict(pick: Outcome, p: { home_win: number; draw: number; away_win: n
   return { label: "You’re backing the bolder choice", tone: "draw" as const };
 }
 
-const TONE: Record<"win" | "draw" | "loss", string> = {
-  win: "border-win/40 bg-win/10 text-lime-deep",
-  draw: "border-draw/40 bg-draw/10 text-amber-ink",
-  loss: "border-loss/40 bg-loss/10 text-loss",
+/** The single agreement line under the pick row (Floodlight "YOUR PICK VS THE
+ *  MODEL"): lime when the user and model agree, amber otherwise. The amber tones
+ *  render at 12px bold to clear the small-amber contrast floor. */
+const AGREE_LINE: Record<"win" | "draw" | "loss", string> = {
+  win: "text-[11px] font-semibold text-lime-deep",
+  draw: "text-xs font-bold text-amber-ink",
+  loss: "text-xs font-bold text-amber-ink",
 };
 
 function Bar({ label, value, highlight }: { label: string; value: number; highlight?: "ai" | "you" | "both" }) {
@@ -179,8 +182,8 @@ export function UserPredictionCard({
         </div>
       )}
 
-      {/* Pick buttons */}
-      <div className="mt-3.5 grid grid-cols-3 gap-2" role="group" aria-label={`Your prediction for ${country} vs ${opponent}`}>
+      {/* Pick buttons — segmented row (Floodlight "YOUR PICK VS THE MODEL") */}
+      <div className="mt-3.5 flex gap-[7px]" role="group" aria-label={`Your prediction for ${country} vs ${opponent}`}>
         {options.map((o) => {
           const active = pick === o.side;
           return (
@@ -190,10 +193,10 @@ export function UserPredictionCard({
               aria-pressed={active}
               onClick={() => onPick(o.side)}
               className={cn(
-                "truncate rounded-lg border px-2 py-2 text-xs font-semibold transition",
+                "flex-1 truncate rounded-[12px] px-2 py-[11px] text-center font-display text-[13px] font-extrabold transition",
                 active
-                  ? "border-win/60 bg-win/15 text-foreground"
-                  : "border-border bg-surface-2/50 text-muted hover:border-win/40 hover:text-foreground",
+                  ? "bg-win text-background"
+                  : "border border-border [background:hsl(var(--surface-2))] text-muted hover:border-win/40 hover:text-foreground",
               )}
             >
               {o.label}
@@ -205,30 +208,27 @@ export function UserPredictionCard({
       {/* Comparison (after a pick) */}
       {pick && p ? (
         <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-            <span className="text-muted">
-              You picked{" "}
-              <span className="font-semibold text-foreground">
-                {pick === "draw" ? "a draw" : labelFor(pick)}
-              </span>
-              {aiPick && (
-                <>
-                  {" · ML model leans "}
-                  <span className="font-semibold text-foreground">
-                    {aiPick === "draw" ? "a draw" : labelFor(aiPick)}
-                  </span>
-                </>
-              )}
+          {/* Agreement line — colour + copy from verdict(): lime on agreement,
+              amber otherwise (sits directly under the pick row, as in the
+              prototype). */}
+          {(() => {
+            const v = verdict(pick, p);
+            return <div className={AGREE_LINE[v.tone]}>{v.label}</div>;
+          })()}
+          <p className="text-xs text-muted">
+            You picked{" "}
+            <span className="font-semibold text-foreground">
+              {pick === "draw" ? "a draw" : labelFor(pick)}
             </span>
-            {(() => {
-              const v = verdict(pick, p);
-              return (
-                <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-semibold", TONE[v.tone])}>
-                  {v.label}
+            {aiPick && (
+              <>
+                {" · ML model leans "}
+                <span className="font-semibold text-foreground">
+                  {aiPick === "draw" ? "a draw" : labelFor(aiPick)}
                 </span>
-              );
-            })()}
-          </div>
+              </>
+            )}
+          </p>
           <div className="space-y-2">
             <Bar
               label={match.teams.home}

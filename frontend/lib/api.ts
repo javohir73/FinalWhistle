@@ -120,6 +120,12 @@ export const getMatchServer = (id: number | string) =>
 /** Short revalidate: this seeds the live scoreboard on the match page. */
 export const getMatchSummaryServer = (id: number | string) =>
   getServer<MatchSummary>(`/api/matches/${id}/summary`, 30);
+/** Pre-match forecast trajectory (dated model snapshots leading up to kickoff)
+ *  for the match page's WinProbTimeline SSR — NOT minute-by-minute in-match win
+ *  probability. Server-rendered twin of the client `getProbHistory` above (same
+ *  300s ISR default as the rest of the match-detail family). */
+export const getProbHistoryServer = (id: number | string) =>
+  getServer<ProbHistory>(`/api/matches/${id}/prob-history`, 300);
 /** Short revalidate so a fixture flips from the placeholder to its real XI soon
  *  after the lineup is announced (~40 min pre-kickoff). Always returns a payload
  *  (possibly `{ available: false }`); never 404s for a valid match. */

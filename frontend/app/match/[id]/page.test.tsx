@@ -1,7 +1,7 @@
 /** Match detail page tests — server component (SSR) output. */
 import { render, screen } from "@testing-library/react";
 import MatchDetailPage from "./page";
-import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getMatchGoalscorersServer, getModelRecordServer, getProbHistory } from "@/lib/api";
+import { getMatchServer, getMatchSummary, getMatchSummaryServer, getMatchLineups, getMatchGoalscorersServer, getModelRecordServer, getProbHistory, getProbHistoryServer } from "@/lib/api";
 import type { Prediction } from "@/lib/types";
 
 jest.mock("@/lib/api");
@@ -12,6 +12,7 @@ const mockLineups = getMatchLineups as jest.MockedFunction<typeof getMatchLineup
 const mockGoalscorers = getMatchGoalscorersServer as jest.MockedFunction<typeof getMatchGoalscorersServer>;
 const mockModelRecord = getModelRecordServer as jest.MockedFunction<typeof getModelRecordServer>;
 const mockProbHistory = getProbHistory as jest.MockedFunction<typeof getProbHistory>;
+const mockProbHistoryServer = getProbHistoryServer as jest.MockedFunction<typeof getProbHistoryServer>;
 
 // Recharts needs a non-zero layout size in jsdom.
 beforeAll(() => {
@@ -53,6 +54,9 @@ beforeEach(() => {
   // The scoreboard's prob-history sparkline fetch — same "no api in jsdom"
   // rejection as the summary poll above; MatchScoreboard's .catch() handles it.
   mockProbHistory.mockRejectedValue(new Error("no api in jsdom"));
+  // The SSR prob-history fetch feeding WinProbTimeline — default to empty points,
+  // i.e. the honest single-bar fallback path (most fixtures until kickoff).
+  mockProbHistoryServer.mockResolvedValue({ match_id: 1, points: [], disclaimer: "" });
   // The Lineups island lazy-fetches client-side; resolve to the clean
   // unavailable placeholder so the SSR-output test renders without a real API.
   mockLineups.mockResolvedValue({
@@ -80,6 +84,50 @@ it("server-renders teams, probabilities, reasons and odds stub", async () => {
   expect(screen.getByText(/higher Elo rating/)).toBeInTheDocument();
   // The AI's call leads with the plain verdict sentence.
   expect(screen.getByText(/to win/)).toBeInTheDocument();
+});
+
+it("draws the forecast timeline SVG when >=2 prob-history points exist", async () => {
+  mockGet.mockResolvedValue(prediction);
+  mockProbHistoryServer.mockResolvedValue({
+    match_id: 1,
+    disclaimer: "",
+    points: [
+      { date: "2026-06-01", p_home: 0.5, p_draw: 0.3, p_away: 0.2 },
+      { date: "2026-06-03", p_home: 0.58, p_draw: 0.26, p_away: 0.16 },
+      { date: "2026-06-05", p_home: 0.62, p_draw: 0.24, p_away: 0.14 },
+    ],
+  });
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+
+  // A real trajectory renders as an svg[role=img] whose text alternative prints
+  // the current % — never colour-alone.
+  const chart = screen.getByRole("img", { name: /Model forecast for Brazil/i });
+  expect(chart.tagName.toLowerCase()).toBe("svg");
+  expect(chart.getAttribute("aria-label")).toMatch(/\d+%/);
+  // The honest fallback copy is gone once there's a real forecast to draw.
+  expect(screen.queryByText(/Forecast movement appears/i)).not.toBeInTheDocument();
+});
+
+it("renders the honest single-bar forecast fallback (no fake chart) with <2 points", async () => {
+  mockGet.mockResolvedValue(prediction);
+  mockProbHistoryServer.mockResolvedValue({ match_id: 1, points: [], disclaimer: "" });
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+
+  expect(screen.getByText(/Forecast movement appears/i)).toBeInTheDocument();
+  // No fabricated trajectory chart when there's nothing to plot.
+  expect(screen.queryByRole("img", { name: /Model forecast for Brazil/i })).not.toBeInTheDocument();
+});
+
+it("surfaces the ConfidenceRing with the headline % and confidence word", async () => {
+  mockGet.mockResolvedValue(prediction);
+  render(await MatchDetailPage({ params: Promise.resolve({ id: "1" }) }));
+
+  // The ring's accessible name carries the leading outcome's % and its tier word.
+  expect(
+    screen.getByRole("img", { name: /Brazil 62%, High confidence/i }),
+  ).toBeInTheDocument();
+  // …and prints the tier word visibly (ring, not the compact badge fallback).
+  expect(screen.getByText("HIGH")).toBeInTheDocument();
 });
 
 it("renders the Goals section when goal_markets is present", async () => {

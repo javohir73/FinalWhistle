@@ -57,7 +57,10 @@ beforeEach(() => {
   mockGetMatchSummary.mockResolvedValue(finished);
   mockGetProbHistory.mockResolvedValue({ match_id: 1, points: [], disclaimer: "" });
 });
-afterEach(() => jest.resetAllMocks());
+afterEach(() => {
+  jest.resetAllMocks();
+  window.localStorage.clear();
+});
 
 describe("MatchCard", () => {
   it("shows a plain-language call before kickoff (no result yet)", () => {
@@ -115,40 +118,71 @@ describe("MatchScoreboard", () => {
       />,
     );
 
-  it("shows a bare 'vs' matchup and the AI's call before kickoff", () => {
+  it("shows the most-likely score and the AI's call before kickoff", () => {
     mockGetMatchSummary.mockResolvedValue(base);
     renderBoard(base);
-    expect(screen.getByText("vs")).toBeInTheDocument(); // no actual score yet
-    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
+    // Scorebug centres the predicted scoreline (upcoming), no promoted actual score.
+    expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument();
+    // "1–0" appears twice now: the Scorebug centrepiece + the AI's-call scoreline.
+    expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("promotes the live score to the matchup with the minute", () => {
+  it("carries the kickoff date and timezone (not just clock time) in the upcoming status line", () => {
+    // A fixture weeks out must say which of the tournament's dates it is, and in
+    // whose zone — a bare "8:00 PM · venue" can't. Pin the zone via storage so
+    // the assertion is deterministic (MatchScoreboard reads tz from useTimezone).
+    window.localStorage.setItem(
+      "pp:timezone",
+      JSON.stringify({ tz: "Europe/London", confirmed: true }),
+    );
+    mockGetMatchSummary.mockResolvedValue(base);
+    render(
+      <MatchScoreboard
+        matchId={1}
+        home="Mexico"
+        away="South Africa"
+        probabilities={base.probabilities!}
+        predicted={base.predicted_score!}
+        initialSummary={base}
+        kickoffUtc="2026-06-20T19:00:00Z"
+        venue="Wembley"
+      />,
+    );
+    // 20:00 London time on Sat 20 Jun 2026 → "Sat 20 Jun · 8:00 PM <tz> · Wembley".
+    // The tz label form (BST vs GMT+1) is ICU-version dependent, so assert only
+    // that a non-empty zone label sits between the clock and the venue.
+    expect(screen.getByText(/20 Jun · 8:00 PM .+ · Wembley/)).toBeInTheDocument();
+  });
+
+  it("promotes the live score to the scorebug with the minute", () => {
     mockGetMatchSummary.mockResolvedValue(live);
     renderBoard(live);
     expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1); // actual (1–0 at 63')
-    expect(screen.getByText("63'")).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*63'/)).toBeInTheDocument();
     expect(screen.getByText(/Model predicted/)).toBeInTheDocument();
   });
 
   it("shows HT at half-time instead of a ticking minute", () => {
     mockGetMatchSummary.mockResolvedValue(halfTime);
     renderBoard(halfTime);
-    expect(screen.getByText("HT")).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*HT/)).toBeInTheDocument();
     // No minute (a digit + apostrophe); the model's-call eyebrow apostrophe is fine.
     expect(screen.queryByText(/\d+'/)).not.toBeInTheDocument();
   });
 
-  it("shows PENS and the shootout tally during a penalty shootout", () => {
+  it("shows PENS, the 90-minute score, and the live shootout tally during a shootout", () => {
     mockGetMatchSummary.mockResolvedValue(shootout);
     renderBoard(shootout);
-    expect(screen.getByText("PENS")).toBeInTheDocument();
+    expect(screen.getByText(/LIVE.*PENS/)).toBeInTheDocument();
+    expect(screen.getAllByText("1–1").length).toBeGreaterThanOrEqual(1); // level after 90/ET
+    // The running spot-kick tally is the one decisive number while pens are live.
     expect(screen.getByText(/5–4 pens/)).toBeInTheDocument();
   });
 
   it("at full time shows actual + predicted + verdict together", () => {
     renderBoard(finished);
     expect(screen.getByText("2–0")).toBeInTheDocument(); // actual headline
-    expect(screen.getByText("FT")).toBeInTheDocument();
+    expect(screen.getByText("FULL TIME")).toBeInTheDocument();
     expect(screen.getByText("Mexico 1–0 South Africa")).toBeInTheDocument(); // prediction kept visible
     expect(screen.getByText("Result predicted right")).toBeInTheDocument();
   });
@@ -156,7 +190,7 @@ describe("MatchScoreboard", () => {
   it("falls back to prediction-only when no summary is available", () => {
     mockGetMatchSummary.mockRejectedValue(new Error("offline"));
     renderBoard(null);
-    expect(screen.getByText("vs")).toBeInTheDocument();
-    expect(screen.getByText("1–0")).toBeInTheDocument(); // the AI's-call scoreline
+    expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument(); // upcoming scorebug
+    expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1); // the AI's-call scoreline
   });
 });

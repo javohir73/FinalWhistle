@@ -6,6 +6,7 @@ import {
   getMatchSummaryServer,
   getMatchGoalscorersServer,
   getModelRecordServer,
+  getProbHistoryServer,
 } from "@/lib/api";
 import { getTournament } from "@/lib/tournament";
 import { APP_NAME } from "@/lib/constants";
@@ -25,6 +26,8 @@ import { GoalMarkets } from "@/components/GoalMarkets";
 import { LikelyScorers } from "@/components/LikelyScorers";
 import { AvailabilityNote } from "@/components/AvailabilityNote";
 import { MatchWriteup } from "@/components/MatchWriteup";
+import { WinProbTimeline } from "@/components/WinProbTimeline";
+import { ConfidenceRing } from "@/components/ConfidenceRing";
 import type { MatchSummary } from "@/lib/types";
 
 export async function generateMetadata({
@@ -66,6 +69,10 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
   // Likely scorers (squad estimate or confirmed XI); null until player data
   // exists for a team. A hiccup here must not take down the page.
   const goalscorers = await getMatchGoalscorersServer(id).catch(() => null);
+  // Pre-match forecast trajectory for the WinProbTimeline. Deterministic server
+  // data feeding a server-rendered SVG (no client fetch, no hydration mismatch);
+  // null/empty degrades to the honest single-bar state below.
+  const history = await getProbHistoryServer(id).catch(() => null);
 
   const { home, away } = p.teams;
   const venue = [p.venue, p.venue_city, p.venue_country].filter(Boolean).join(", ");
@@ -75,6 +82,8 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
   // heading / "Too close to call" sentence.
   const topSide = topOutcome(p.probabilities);
   const predictedWinner = topSide === "home" ? home : topSide === "away" ? away : null;
+  // Headline probability for the ConfidenceRing: the leading W/D/L outcome's chance.
+  const headline = Math.max(p.probabilities.home_win, p.probabilities.draw, p.probabilities.away_win);
 
   return (
     <div className="fade-up mx-auto max-w-2xl space-y-6">
@@ -88,16 +97,18 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         <ShareButton title={`${home} vs ${away} — ${tournament.name} prediction`} />
       </div>
 
-      <LocalKickoff iso={p.kickoff_utc} venue={venue || null} />
-
       {/* Bare matchup + the AI's call card (the scoreboard hydrates and promotes
-          the actual score once a match is live or final). */}
+          the actual score once a match is live or final). Its Scorebug status line
+          now carries kickoff·venue, so no standalone LocalKickoff above it. */}
       <MatchScoreboard
         matchId={p.match_id}
+        competitionLabel={tournament.name}
         home={home}
         away={away}
         homeTeamId={p.home_team_id}
         awayTeamId={p.away_team_id}
+        kickoffUtc={p.kickoff_utc}
+        venue={venue || null}
         probabilities={p.probabilities}
         predicted={p.predicted_score}
         initialSummary={summary}
@@ -105,6 +116,13 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
         predictedWinner={predictedWinner}
         caveat={call?.label ?? null}
         knockout={p.knockout ?? null}
+        confidenceRing={
+          <ConfidenceRing
+            probability={headline}
+            confidence={p.confidence}
+            outcomeLabel={predictedWinner ?? undefined}
+          />
+        }
       />
 
       {/* Tabbed detail: Overview (the AI's reasoning + your pick) and Lineups.
@@ -112,6 +130,18 @@ export default async function MatchDetailPage({ params }: { params: Promise<{ id
       <MatchTabs
         overview={
           <div className="space-y-6">
+            {/* Win-probability trajectory — the model's pre-match forecast as an
+                inline SVG (server-rendered from `history`). With <2 points it
+                self-degrades to the honest single-bar state, never a fake chart. */}
+            <section className="glass rounded-2xl p-6">
+              <WinProbTimeline
+                points={history?.points ?? []}
+                probabilities={p.probabilities}
+                homeLabel={home}
+                awayLabel={away}
+              />
+            </section>
+
             {/* The breakdown — Fable-style narrative writeup (pipeline-generated,
                 deterministic; hidden for pre-feature predictions). */}
             <MatchWriteup home={home} away={away} writeup={p.writeup} />

@@ -33,16 +33,21 @@ const MARK_DATA_URI =
 
 /** Branded frame: wordmark header, centered content, footer tagline.
  *  `footer` is caller-supplied (rather than a hardcoded WC26 string) so every
- *  OG image can carry the active tournament's name — see lib/tournament.ts. */
+ *  OG image can carry the active tournament's name — see lib/tournament.ts.
+ *  `glow` layers the Floodlight top glow (echoes .floodlight-glow-top) over the
+ *  base gradient — opt-in, default off, so existing callers render unchanged. */
 export function Shell({
   eyebrow,
   footer,
+  glow = false,
   children,
 }: {
   eyebrow?: string;
   footer: string;
+  glow?: boolean;
   children: ReactNode;
 }) {
+  const base = `linear-gradient(135deg, ${C.bg}, ${C.bg2})`;
   return (
     <div
       style={{
@@ -50,7 +55,9 @@ export function Shell({
         width: "100%",
         display: "flex",
         flexDirection: "column",
-        background: `linear-gradient(135deg, ${C.bg}, ${C.bg2})`,
+        background: glow
+          ? `radial-gradient(140% 80% at 50% -20%, rgba(158,230,51,.16), transparent 65%), ${base}`
+          : base,
         color: C.fg,
         padding: "64px 72px",
         fontFamily: "sans-serif",
