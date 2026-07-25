@@ -255,7 +255,11 @@ export function StandingsTable({
                     </span>
                     <span className="shrink-0">
                       {badge === "club" ? (
-                        <ClubBadge name={row.team} size={22} />
+                        <ClubBadge
+                          name={row.team}
+                          size={30}
+                          className="rounded-lg border border-border/70 bg-surface-2/70"
+                        />
                       ) : (
                         <TeamBadge team={row.team} size={22} />
                       )}

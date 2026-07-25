@@ -127,6 +127,12 @@ describe("NRL ladder shape (club crests, W–L / Diff / Pts / Top-8% columns)", 
     expect(screen.getByText("Storm").closest("a")).toHaveAttribute("href", "/nrl/team/1");
   });
 
+  it("normalizes club crests inside one consistent standings tile", () => {
+    const crest = document.querySelector('[data-club-logo="Storm"]');
+    expect(crest).toHaveClass("rounded-lg", "border", "bg-surface-2/70");
+    expect(crest).toHaveStyle({ width: "30px", height: "30px" });
+  });
+
   it("stripes the rank-1 club with the finals (lime) tone", () => {
     expect(rowFor("Storm")).toHaveClass("border-l-win");
   });

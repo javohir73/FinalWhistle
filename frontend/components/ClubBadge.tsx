@@ -96,6 +96,10 @@ export function ClubBadge({
   const code = club?.code ?? (name ?? "?").slice(0, 3).toUpperCase();
 
   if (club) {
+    // The source artwork spans everything from square shields to very tall
+    // crests. Give every asset the same explicit square image box so intrinsic
+    // aspect ratios cannot make narrow logos overflow their badge shell.
+    const imageSize = size * 0.86;
     return (
       <span
         aria-hidden="true"
@@ -111,7 +115,8 @@ export function ClubBadge({
           height={size}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-contain p-[3%] drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
+          className="block object-contain drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
+          style={{ width: imageSize, height: imageSize }}
         />
       </span>
     );
