@@ -364,6 +364,21 @@ body {
   html {
     scroll-behavior: auto;
   }
+  /* Belt-and-suspenders: neutralise EVERY animation/transition, not only the
+     named classes below. Catches Tailwind's `animate-pulse` (which ignores
+     prefers-reduced-motion), the `transition-[width]` prob/qualification bars,
+     the MatchTabs/BottomNav `transition`, and the skip-link/hero transitions —
+     none of which are in the explicit list. 0.01ms (not `none`) so components
+     that self-shorten via matchMedia, e.g. AICalculationReveal, still run once
+     and settle instead of being hard-killed mid-state. */
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .fade-up,
   .skeleton::after,
   .float,

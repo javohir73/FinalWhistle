@@ -25,7 +25,9 @@ export function MatchTabs({
         <button
           type="button"
           role="tab"
+          id="tab-overview"
           aria-selected={tab === "overview"}
+          aria-controls="tabpanel-match"
           onClick={() => setTab("overview")}
           className={cn(base, tab === "overview" ? on : off)}
         >
@@ -34,14 +36,22 @@ export function MatchTabs({
         <button
           type="button"
           role="tab"
+          id="tab-lineups"
           aria-selected={tab === "lineups"}
+          aria-controls="tabpanel-match"
           onClick={() => setTab("lineups")}
           className={cn(base, tab === "lineups" ? on : off)}
         >
           Lineups
         </button>
       </div>
-      <div role="tabpanel">{tab === "overview" ? overview : lineups}</div>
+      <div
+        role="tabpanel"
+        id="tabpanel-match"
+        aria-labelledby={tab === "overview" ? "tab-overview" : "tab-lineups"}
+      >
+        {tab === "overview" ? overview : lineups}
+      </div>
     </div>
   );
 }

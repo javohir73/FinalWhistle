@@ -17,3 +17,18 @@ it("shows Overview by default and lazy-mounts Lineups on tab click", () => {
   expect(screen.getByText("lineups-content")).toBeInTheDocument();
   expect(screen.queryByText("overview-content")).not.toBeInTheDocument();
 });
+
+it("wires the tabpanel to the active tab via aria-controls/aria-labelledby", () => {
+  render(<MatchTabs overview={<p>overview-content</p>} lineups={<p>lineups-content</p>} />);
+
+  const panel = screen.getByRole("tabpanel");
+  // Both tabs point at the single panel; the panel names the active tab.
+  expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-controls", "tabpanel-match");
+  expect(screen.getByRole("tab", { name: "Lineups" })).toHaveAttribute("aria-controls", "tabpanel-match");
+  expect(panel).toHaveAttribute("id", "tabpanel-match");
+  expect(panel).toHaveAttribute("aria-labelledby", "tab-overview");
+
+  // The label follows the selection.
+  fireEvent.click(screen.getByRole("tab", { name: "Lineups" }));
+  expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "tab-lineups");
+});
