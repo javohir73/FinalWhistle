@@ -33,20 +33,32 @@ describe("sport config", () => {
     expect(switchSportHref("/nrl/leaderboard", "football")).toBe("/leaderboard");
   });
 
-  it("maps the tips page between sports so context is preserved", () => {
-    expect(switchSportHref("/tips", "nrl")).toBe("/nrl/tips");
-    expect(switchSportHref("/nrl/tips", "football")).toBe("/tips");
+  it("keeps the Play hub as the shared destination when switching sports", () => {
+    // Floodlight P5: the old /tips <-> /nrl/tips equivalence folded into one
+    // /play <-> /play row, so switching sport on the hub stays on the hub.
+    expect(switchSportHref("/play", "nrl")).toBe("/play");
+    expect(switchSportHref("/play", "football")).toBe("/play");
+    // The old tips routes stay live but are no longer sport-equivalents, so
+    // switching sport from them falls back to the target sport's home.
+    expect(switchSportHref("/tips", "nrl")).toBe("/nrl");
   });
 
   // Legacy SPORTS structure kept as a compat export (see lib/sports.ts) -- its
   // nav-link shape still matches football/NRL, so this label assertion still
   // holds. The registry equivalents (source of truth for SiteNav/BottomNav as
   // of Floodlight P1 slice p1-s4) live under "competition registry" below.
-  it("gives football and NRL their nav links (Tips only renders once its format guard is met)", () => {
+  it("gives football and NRL their nav links with the shared Play tab (P5)", () => {
     expect(SPORTS.football.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Matches", "Groups", "Bracket", "You", "Tips"]);
+      ["Home", "Matches", "Groups", "Play", "You"]);
     expect(SPORTS.nrl.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Matches", "Ladder", "Record", "Tips"]);
+      ["Home", "Matches", "Ladder", "Record", "Play"]);
+    // Play subsumes the old mutually-exclusive Bracket/Tips slot -- neither is
+    // a separate nav entry anymore, and each sport stays at five tabs.
+    for (const sport of [SPORTS.football, SPORTS.nrl]) {
+      expect(sport.navLinks).toHaveLength(5);
+      expect(sport.navLinks.find((l) => l.label === "Play")?.href).toBe("/play");
+      expect(sport.navLinks.some((l) => l.label === "Bracket" || l.label === "Tips")).toBe(false);
+    }
   });
 
   it("recognizes /nrl/leaderboard as NRL context", () => {
@@ -116,25 +128,41 @@ describe("competition registry", () => {
   // COMPETITIONS[competitionFromPathname(...)] instead of SPORTS[sportFromPathname(...)] --
   // these are the registry equivalents of the old SPORTS.football/SPORTS.nrl
   // nav-link assertions above.
-  it("gives wc26 and nrl their nav links (Tips only renders once its format guard is met)", () => {
+  it("gives wc26 and nrl their nav links with the shared Play tab (P5)", () => {
     expect(COMPETITIONS.wc26.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Fixtures", "Groups", "Bracket", "You", "Tips"]);
+      ["Home", "Fixtures", "Groups", "Play", "You"]);
     expect(COMPETITIONS.nrl.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Matches", "Ladder", "Record", "Tips"]);
+      ["Home", "Matches", "Ladder", "Record", "Play"]);
   });
 
-  it("gives wc26's Tips link a requiresLeagueFormat guard so it and Bracket never both show", () => {
-    const tipsLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Tips");
-    expect(tipsLink?.requiresLeagueFormat).toBe(true);
-    const bracketLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Bracket");
-    expect(bracketLink?.requiresBrackets).toBe(true);
-    expect(bracketLink?.href).toBe("/football/wc26/bracket");
+  it("folds wc26's Bracket + Tips into one always-on Play tab (P5)", () => {
+    const playLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Play");
+    expect(playLink?.href).toBe("/play");
+    // Play lights up on the routes it subsumes -- both /tips and /brackets stay live.
+    expect(playLink?.activePrefixes).toEqual(["/tips", "/brackets"]);
+    // The separate Bracket/Tips entries (and their format guards) are gone.
+    expect(
+      COMPETITIONS.wc26.navLinks.some((l) => l.label === "Bracket" || l.label === "Tips"),
+    ).toBe(false);
+    expect(
+      COMPETITIONS.wc26.navLinks.some((l) => l.requiresBrackets || l.requiresLeagueFormat),
+    ).toBe(false);
   });
 
-  it("gives NRL a Tips link to the tipsheet (design doc: NRL Round Tips) instead of the You/leaderboard slot", () => {
-    const tipsLink = COMPETITIONS.nrl.navLinks.find((l) => l.label === "Tips");
-    expect(tipsLink?.href).toBe("/nrl/tips");
+  it("gives NRL a Play tab that lights on /nrl/tips, not a You/leaderboard slot", () => {
+    const playLink = COMPETITIONS.nrl.navLinks.find((l) => l.label === "Play");
+    expect(playLink?.href).toBe("/play");
+    expect(playLink?.activePrefixes).toEqual(["/nrl/tips"]);
     expect(COMPETITIONS.nrl.navLinks.find((l) => l.label === "You")).toBeUndefined();
+    expect(COMPETITIONS.nrl.navLinks.find((l) => l.label === "Tips")).toBeUndefined();
+  });
+
+  it("caps every competition at five nav entries, each with a Play tab and no Bracket/Tips", () => {
+    for (const comp of Object.values(COMPETITIONS)) {
+      expect(comp.navLinks.length).toBeLessThanOrEqual(5);
+      expect(comp.navLinks.find((l) => l.label === "Play")?.href).toBe("/play");
+      expect(comp.navLinks.some((l) => l.label === "Bracket" || l.label === "Tips")).toBe(false);
+    }
   });
 
   it("recognizes competition home hrefs for the nav components' exact-match active state", () => {

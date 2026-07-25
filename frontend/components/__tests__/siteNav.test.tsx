@@ -1,5 +1,7 @@
-/** Top bar nav link row — mirrors BottomNav's Bracket-gating behavior for the
- *  league pivot (C6/D6, docs/LEAGUE-PIVOT-PLAN.md). */
+/** Top bar nav link row — mirrors BottomNav. Floodlight P5 folded the old
+ *  Bracket/Tips slot into one always-on Play link, so the link row no longer
+ *  flips with has_brackets (C6/D6, docs/LEAGUE-PIVOT-PLAN.md); Play is present
+ *  in either format. */
 import { render, screen } from "@testing-library/react";
 import { SiteNav } from "@/components/SiteNav";
 import { TournamentProvider } from "@/components/TournamentProvider";
@@ -37,16 +39,18 @@ const renderNav = (tournament?: ActiveTournament) => {
   return render(tournament ? <TournamentProvider tournament={tournament}>{nav}</TournamentProvider> : nav);
 };
 
-it("shows the Bracket link (and hides Tips) with no provider (WC26 fallback)", () => {
+it("shows the Play link (never a separate Bracket/Tips) with no provider (WC26 fallback)", () => {
   renderNav();
-  expect(screen.getByRole("link", { name: "Bracket" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/play");
+  expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
 });
 
-it("hides the Bracket link and shows Tips instead when the active tournament has no bracket", () => {
+it("keeps the Play link (never Bracket/Tips) when the active tournament has no bracket", () => {
   renderNav(LEAGUE);
+  expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/play");
   expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Tips" })).toHaveAttribute("href", "/tips");
+  expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
   // Every other football link stays.
   expect(screen.getByRole("link", { name: "Home" })).toBeInTheDocument();
   // Floodlight P1 slice p1-s4: nav links now derive from COMPETITIONS.wc26,
@@ -55,9 +59,10 @@ it("hides the Bracket link and shows Tips instead when the active tournament has
   expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
 });
 
-it("swaps the NRL fifth link for Tips -> /nrl/tips (leaderboard alias dropped from nav, not the route)", () => {
+it("swaps the NRL fifth link for the shared Play hub -> /play (leaderboard alias dropped from nav, not the route)", () => {
   mockPath = "/nrl";
   renderNav();
-  expect(screen.getByRole("link", { name: "Tips" })).toHaveAttribute("href", "/nrl/tips");
+  expect(screen.getByRole("link", { name: "Play" })).toHaveAttribute("href", "/play");
   expect(screen.queryByRole("link", { name: "You" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Tips" })).not.toBeInTheDocument();
 });

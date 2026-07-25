@@ -48,6 +48,9 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M9 12.5l2 2 4-4.5" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
+  // Floodlight P5 Play hub (subsumes Bracket + Tips) -- a play triangle in the
+  // same 24px outline idiom as the icons above.
+  Play: <path d="M8 5v14l11-7z" strokeLinejoin="round" strokeLinecap="round" />,
 };
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
@@ -63,17 +66,17 @@ const hit = (pathname: string, prefix: string) =>
   pathname === prefix || pathname.startsWith(prefix + "/");
 
 /** Mobile-only sticky bottom tab bar. Exactly five destinations — Home,
- *  Matches, Groups, Bracket and You — each one tap away, no overflow sheet. */
+ *  Matches, Groups, Play and You — each one tap away, no overflow sheet. */
 export function BottomNav() {
   const pathname = usePathname();
   const { has_brackets } = useTournament();
   // /embed/[matchId] is a standalone, partner-iframeable widget — it must not
   // carry the full site chrome.
   if (pathname === "/embed" || pathname.startsWith("/embed/")) return null;
-  // C6: the Bracket tab only makes sense for tournaments that have one.
-  // Tips (league-format only) takes the slot Bracket vacates -- see
-  // requiresLeagueFormat's doc comment in lib/sports.ts -- so the two never
-  // both render and the five-destination cap holds regardless of ship order.
+  // Floodlight P5 folded the old mutually-exclusive Bracket/Tips slot into one
+  // always-on Play tab, so this filter no longer removes anything (no navLink
+  // sets requiresBrackets/requiresLeagueFormat now) -- it's kept intact so the
+  // gating still works if any future tab reintroduces those flags.
   const tabs = COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
     (tab) => (!tab.requiresBrackets || has_brackets) && (!tab.requiresLeagueFormat || !has_brackets),
   );
