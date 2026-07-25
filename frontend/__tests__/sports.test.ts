@@ -138,8 +138,10 @@ describe("competition registry", () => {
   it("folds wc26's Bracket + Tips into one always-on Play tab (P5)", () => {
     const playLink = COMPETITIONS.wc26.navLinks.find((l) => l.label === "Play");
     expect(playLink?.href).toBe("/play");
-    // Play lights up on the routes it subsumes -- both /tips and /brackets stay live.
-    expect(playLink?.activePrefixes).toEqual(["/tips", "/brackets"]);
+    // Play lights up on the routes it subsumes -- /tips and the served bracket
+    // route /football/wc26/bracket (legacy /brackets 301s there, so the user
+    // sits on the namespaced path; that's the prefix that keeps Play lit).
+    expect(playLink?.activePrefixes).toEqual(["/tips", "/football/wc26/bracket"]);
     // The separate Bracket/Tips entries (and their format guards) are gone.
     expect(
       COMPETITIONS.wc26.navLinks.some((l) => l.label === "Bracket" || l.label === "Tips"),

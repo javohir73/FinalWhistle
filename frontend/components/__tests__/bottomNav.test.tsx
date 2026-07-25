@@ -54,7 +54,7 @@ it.each([
   ["/football/wc26/groups/2", "Groups"], // group detail still lights Groups
   ["/play", "Play"], // the hub itself lights Play
   ["/tips", "Play"], // Play subsumes the league-tips route (activePrefix)
-  ["/brackets", "Play"], // ...and the bracket route (activePrefix)
+  ["/football/wc26/bracket", "Play"], // ...and the projected-bracket route the user actually lands on (legacy /brackets 301s here)
   ["/leaderboard", "You"], // cross-cutting, not namespaced in P1
   ["/about", "You"], // relocated info pages light the You hub
   ["/methodology", "You"],

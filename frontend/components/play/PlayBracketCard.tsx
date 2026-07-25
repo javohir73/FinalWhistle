@@ -13,15 +13,16 @@ export interface BracketChampion {
   winTitle: number;
 }
 
-/** The Football group's entry into the shipped /brackets route (Floodlight P5,
+/** The Football group's entry into the shipped bracket route (Floodlight P5,
  *  p5-s2). A full-card Floodlight glass link -- eyebrow, title, lime arrow --
  *  that surfaces the predicted champion + title probability when the server page
  *  resolved the knockout odds, and degrades to a plain link when it didn't
  *  (`champion` null). It deliberately does NOT re-implement the bracket: no
  *  AIBracket/OfficialBracket import, no topology -- the tab links into
- *  /brackets, where the real projection lives. `card-hover` (gated on
- *  prefers-reduced-motion in globals.css) carries the only motion; the arrow is
- *  a static affordance. */
+ *  /football/wc26/bracket, where the real projection lives (the served route --
+ *  legacy /brackets only 301s there, so we link the canonical path directly to
+ *  drop a redirect hop). `card-hover` (gated on prefers-reduced-motion in
+ *  globals.css) carries the only motion; the arrow is a static affordance. */
 export function PlayBracketCard({
   champion,
   className,
@@ -31,7 +32,7 @@ export function PlayBracketCard({
 }) {
   return (
     <Link
-      href="/brackets"
+      href="/football/wc26/bracket"
       className={cn("glass card-hover flex items-center gap-3 rounded-2xl p-4", className)}
     >
       <div className="min-w-0 flex-1">

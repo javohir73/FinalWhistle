@@ -270,8 +270,11 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
       // Floodlight P5: the Play-hub merge lands. One always-on Play tab replaces
       // the old mutually-exclusive Bracket + Tips pair (/football/wc26/bracket and
       // /tips both stay live routes, linked from the hub). Home/Fixtures/Groups/
-      // Play/You keeps the five-destination cap (BottomNav.tsx).
-      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
+      // Play/You keeps the five-destination cap (BottomNav.tsx). The bracket
+      // prefix is the served route /football/wc26/bracket, not legacy /brackets --
+      // the latter 301s here (next.config.mjs), so the user always sits on the
+      // namespaced path and only that prefix keeps Play lit there.
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/football/wc26/bracket"] },
       // Cross-competition, NOT namespaced in P1: /leaderboard stays the
       // global "You" destination (see SPORTS.football above -- same href).
       {

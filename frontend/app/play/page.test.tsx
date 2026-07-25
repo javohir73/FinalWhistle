@@ -162,11 +162,11 @@ it("degrades to the empty state (no crash) when the NRL tipsheet fetch rejects",
   expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();
 });
 
-it("shows the World Cup bracket card linking to /brackets with the predicted champion", async () => {
+it("shows the World Cup bracket card linking to /football/wc26/bracket with the predicted champion", async () => {
   render(await PlayPage());
 
   const bracketLink = screen.getByRole("link", { name: /Projected knockout bracket/i });
-  expect(bracketLink).toHaveAttribute("href", "/brackets");
+  expect(bracketLink).toHaveAttribute("href", "/football/wc26/bracket");
   expect(bracketLink).toHaveTextContent("Brazil");
   expect(bracketLink).toHaveTextContent("18%");
 });
@@ -176,7 +176,7 @@ it("degrades the bracket card to a plain link when the knockout odds are unavail
   render(await PlayPage());
 
   const bracketLink = screen.getByRole("link", { name: /Projected knockout bracket/i });
-  expect(bracketLink).toHaveAttribute("href", "/brackets");
+  expect(bracketLink).toHaveAttribute("href", "/football/wc26/bracket");
   expect(bracketLink).not.toHaveTextContent("Predicted champion");
 });
 
