@@ -6,6 +6,7 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const tournament = await getTournament();
   return {
     id: "/",
+    lang: "en",
     name: `${APP_NAME} — ${tournament.name} Predictions`,
     short_name: APP_NAME,
     description: `Explainable predictions for the ${tournament.name} from FinalWhistle's in-house ML model — win probabilities, scorelines, group & knockout odds. For analytics and entertainment only.`,

@@ -15,7 +15,10 @@ export function MatchTabs({
 }) {
   const [tab, setTab] = useState<"overview" | "lineups">("overview");
 
-  const base = "flex-1 rounded-[11px] px-3 py-2 text-center text-sm font-semibold transition";
+  // min-h-11 (44px) keeps the two touch targets at the a11y floor; flex centres
+  // the label now that height is driven by min-height rather than padding.
+  const base =
+    "flex min-h-11 flex-1 items-center justify-center rounded-[11px] px-3 text-center text-sm font-semibold transition";
   const on = "bg-surface text-foreground shadow-[0_1px_3px_rgba(18,40,25,0.1)]";
   const off = "text-muted hover:text-foreground";
 
@@ -25,7 +28,9 @@ export function MatchTabs({
         <button
           type="button"
           role="tab"
+          id="tab-overview"
           aria-selected={tab === "overview"}
+          aria-controls="tabpanel-match"
           onClick={() => setTab("overview")}
           className={cn(base, tab === "overview" ? on : off)}
         >
@@ -34,14 +39,22 @@ export function MatchTabs({
         <button
           type="button"
           role="tab"
+          id="tab-lineups"
           aria-selected={tab === "lineups"}
+          aria-controls="tabpanel-match"
           onClick={() => setTab("lineups")}
           className={cn(base, tab === "lineups" ? on : off)}
         >
           Lineups
         </button>
       </div>
-      <div role="tabpanel">{tab === "overview" ? overview : lineups}</div>
+      <div
+        role="tabpanel"
+        id="tabpanel-match"
+        aria-labelledby={tab === "overview" ? "tab-overview" : "tab-lineups"}
+      >
+        {tab === "overview" ? overview : lineups}
+      </div>
     </div>
   );
 }
