@@ -4,7 +4,7 @@ import { type ReactNode } from "react";
 import { getMatchSummary } from "@/lib/api";
 import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
-import { kickoffTime } from "@/lib/datetime";
+import { kickoffDate, kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { pct, formatScore } from "@/lib/format";
 import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
@@ -96,9 +96,15 @@ export function MatchScoreboard({
   // level modal scoreline falls back to "Too close to call".
   const showsWinner = !!predictedWinner && predicted.home !== predicted.away;
 
-  // Scorebug pre-match status line: "kickoff · venue", each half guarded so a
-  // missing time or venue collapses gracefully rather than showing a stray dot.
-  const kickoff = kickoffUtc ? kickoffTime(kickoffUtc, tz) : null;
+  // Scorebug pre-match status line: "Sat 20 Jun · 8:00 PM BST · venue". The date
+  // and tz label keep an upcoming fixture unambiguous — which of the tournament's
+  // dates, in whose zone — where a bare clock time can't (a fixture weeks out or
+  // opened via a shared card would read "8:00 PM · venue" with no day). Each
+  // segment is guarded so a missing time or venue collapses gracefully rather
+  // than a stray dot; tzAbbrev can be "" (unresolvable zone), so trim it off.
+  const kickoff = kickoffUtc
+    ? `${kickoffDate(kickoffUtc, tz)} · ${kickoffTime(kickoffUtc, tz)} ${tzAbbrev(kickoffUtc, tz)}`.trim()
+    : null;
   const statusLine = kickoff && venue ? `${kickoff} · ${venue}` : kickoff ?? venue ?? null;
 
   return (

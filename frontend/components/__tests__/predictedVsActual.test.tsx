@@ -57,7 +57,10 @@ beforeEach(() => {
   mockGetMatchSummary.mockResolvedValue(finished);
   mockGetProbHistory.mockResolvedValue({ match_id: 1, points: [], disclaimer: "" });
 });
-afterEach(() => jest.resetAllMocks());
+afterEach(() => {
+  jest.resetAllMocks();
+  window.localStorage.clear();
+});
 
 describe("MatchCard", () => {
   it("shows a plain-language call before kickoff (no result yet)", () => {
@@ -122,6 +125,33 @@ describe("MatchScoreboard", () => {
     expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument();
     // "1–0" appears twice now: the Scorebug centrepiece + the AI's-call scoreline.
     expect(screen.getAllByText("1–0").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("carries the kickoff date and timezone (not just clock time) in the upcoming status line", () => {
+    // A fixture weeks out must say which of the tournament's dates it is, and in
+    // whose zone — a bare "8:00 PM · venue" can't. Pin the zone via storage so
+    // the assertion is deterministic (MatchScoreboard reads tz from useTimezone).
+    window.localStorage.setItem(
+      "pp:timezone",
+      JSON.stringify({ tz: "Europe/London", confirmed: true }),
+    );
+    mockGetMatchSummary.mockResolvedValue(base);
+    render(
+      <MatchScoreboard
+        matchId={1}
+        home="Mexico"
+        away="South Africa"
+        probabilities={base.probabilities!}
+        predicted={base.predicted_score!}
+        initialSummary={base}
+        kickoffUtc="2026-06-20T19:00:00Z"
+        venue="Wembley"
+      />,
+    );
+    // 20:00 London time on Sat 20 Jun 2026 → "Sat 20 Jun · 8:00 PM <tz> · Wembley".
+    // The tz label form (BST vs GMT+1) is ICU-version dependent, so assert only
+    // that a non-empty zone label sits between the clock and the venue.
+    expect(screen.getByText(/20 Jun · 8:00 PM .+ · Wembley/)).toBeInTheDocument();
   });
 
   it("promotes the live score to the scorebug with the minute", () => {
