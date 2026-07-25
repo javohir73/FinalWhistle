@@ -1,14 +1,10 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { isWiredFootballCompetition } from "@/lib/sports";
+import { COMPETITIONS, isWiredFootballCompetition } from "@/lib/sports";
 import LegacyGroupDetailPage, { generateMetadata as legacyGenerateMetadata } from "@/app/groups/[id]/page";
 
-// Floodlight P1 slice p1-s3: wraps app/groups/[id]/page.tsx. WC26-only guard
-// on the body; generateMetadata below runs unguarded (harmless for an
-// invalid comp, per the slice's ruling). isWiredFootballCompetition also
-// 404s non-football competitions (e.g. nrl) reached via /football/<comp> --
-// NRL keeps its own space. The legacy page only reads params.id, so the
-// wider { comp, id } promise passes straight through.
+// The group-detail implementation is a World Cup surface. The hasGroups guard
+// prevents a league URL from ever rendering WC26 data.
 //
 // generateMetadata is NOT re-exported as-is: the legacy function hardcodes
 // alternates.canonical to `/groups/${id}`, a path next.config.mjs now 301s
@@ -31,6 +27,6 @@ export default async function CompGroupDetailPage({
   params: Promise<{ comp: string; id: string }>;
 }) {
   const { comp } = await params;
-  if (!isWiredFootballCompetition(comp)) notFound();
+  if (!isWiredFootballCompetition(comp) || !COMPETITIONS[comp].hasGroups) notFound();
   return <LegacyGroupDetailPage params={params} />;
 }

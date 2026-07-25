@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useTimezone } from "@/lib/useTimezone";
 import { kickoffTime, tzAbbrev } from "@/lib/datetime";
-import { Flag } from "@/components/Flag";
+import { TeamBadge } from "@/components/TeamBadge";
 import { formatScore, pct } from "@/lib/format";
 import type { MatchSummary } from "@/lib/types";
 
@@ -12,9 +12,13 @@ import type { MatchSummary } from "@/lib/types";
 export function TeamFixtures({
   matches,
   teamName,
+  matchBasePath = "/match",
+  badge = "flag",
 }: {
   matches: MatchSummary[];
   teamName: string;
+  matchBasePath?: string;
+  badge?: "flag" | "club";
 }) {
   const { tz } = useTimezone();
 
@@ -49,7 +53,7 @@ export function TeamFixtures({
         return (
           <li key={m.match_id}>
             <Link
-              href={`/match/${m.match_id}`}
+              href={`${matchBasePath}/${m.match_id}`}
               className="flex items-center gap-3 py-3 transition hover:text-lime-deep"
             >
               <span className="w-20 shrink-0 text-xs text-muted">
@@ -67,7 +71,11 @@ export function TeamFixtures({
               <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted">
                 {home ? "vs" : "@"}
               </span>
-              <Flag team={opponent} size={20} />
+              <TeamBadge
+                team={opponent}
+                size={20}
+                className={badge === "club" ? "rounded-none ring-0" : undefined}
+              />
               <span className="min-w-0 flex-1 truncate font-medium">{opponent}</span>
               {finished && m.score_home != null && m.score_away != null ? (
                 <span className="shrink-0 font-display text-sm font-bold tabular-nums">

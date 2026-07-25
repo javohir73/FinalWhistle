@@ -142,15 +142,14 @@ export interface Competition {
   hasBracket: boolean; // wc26 only
   hasGroups: boolean; // wc26 only
   hasTips: boolean; // league comps + wc26's Tips slot + nrl
-  /** Gates the CompetitionOverlay (slice 5) and the route wrappers (slice 3)
-   *  so users never land on a not-yet-built page. Mirrors ACTIVE_LEAGUES in
-   *  lib/leagueConfig.ts -- epl/laliga/bundesliga are registered here (so
-   *  labels/accents/zones are all correct ahead of time, same idiom as
-   *  LEAGUE_LABELS there) but stay disabled until P2 actually ships their
-   *  pages, exactly like ACTIVE_LEAGUES gates the /tips switcher today. */
+  /** Gates the CompetitionOverlay and route wrappers. A competition can be
+   *  navigable here even when its prediction pipeline is not active: those
+   *  routes show a competition-specific empty state and never borrow another
+   *  league's teams. ACTIVE_LEAGUES remains the separate prediction safety
+   *  gate in lib/leagueConfig.ts. */
   enabled: boolean;
   terms: { fixtures: string; standings: string }; // football vs NRL vocabulary
-  zones: StandingsZone[]; // P2 StandingsTable input; [] where N/A (wc26 uses Groups instead)
+  zones: StandingsZone[]; // StandingsTable input; [] where N/A
   navLinks: SportNavLink[]; // per-competition tabs; reuses SportNavLink (slice 4 repoints nav consumers to read these instead of SPORTS[sport].navLinks)
 }
 
@@ -179,7 +178,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasBracket: false,
     hasGroups: false,
     hasTips: true,
-    enabled: false, // P2 flips this on once its pages ship
+    enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
     zones: EUROPEAN_LEAGUE_ZONES,
     navLinks: [
@@ -189,8 +188,13 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "Fixtures",
         activePrefixes: ["/football/epl/fixtures", "/football/epl/match"],
       },
-      { href: "/football/epl/standings", label: "Standings", activePrefixes: ["/football/epl/standings"] },
       { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
+      { href: "/football/epl/standings", label: "Standings", activePrefixes: ["/football/epl/standings"] },
+      {
+        href: "/leaderboard",
+        label: "You",
+        activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
+      },
     ],
   },
   laliga: {
@@ -205,7 +209,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasBracket: false,
     hasGroups: false,
     hasTips: true,
-    enabled: false,
+    enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
     zones: EUROPEAN_LEAGUE_ZONES,
     navLinks: [
@@ -215,8 +219,13 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "Fixtures",
         activePrefixes: ["/football/laliga/fixtures", "/football/laliga/match"],
       },
-      { href: "/football/laliga/standings", label: "Standings", activePrefixes: ["/football/laliga/standings"] },
       { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
+      { href: "/football/laliga/standings", label: "Standings", activePrefixes: ["/football/laliga/standings"] },
+      {
+        href: "/leaderboard",
+        label: "You",
+        activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
+      },
     ],
   },
   bundesliga: {
@@ -231,7 +240,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasBracket: false,
     hasGroups: false,
     hasTips: true,
-    enabled: false,
+    enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
     zones: EUROPEAN_LEAGUE_ZONES,
     navLinks: [
@@ -241,12 +250,17 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "Fixtures",
         activePrefixes: ["/football/bundesliga/fixtures", "/football/bundesliga/match"],
       },
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
       {
         href: "/football/bundesliga/standings",
         label: "Standings",
         activePrefixes: ["/football/bundesliga/standings"],
       },
-      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
+      {
+        href: "/leaderboard",
+        label: "You",
+        activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
+      },
     ],
   },
   wc26: {
@@ -263,7 +277,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasTips: true, // tips still offered, now folded into the Play hub (P5)
     enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
-    zones: [], // knockout format uses Groups, not a standings table
+    zones: [], // World Cup standings use group tables.
     navLinks: [
       { href: "/football/wc26", label: "Home", activePrefixes: ["/football/wc26/team"] },
       {
@@ -271,15 +285,19 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "Fixtures",
         activePrefixes: ["/football/wc26/fixtures", "/football/wc26/match"],
       },
-      { href: "/football/wc26/groups", label: "Groups", activePrefixes: ["/football/wc26/groups"] },
       // Floodlight P5: the Play-hub merge lands. One always-on Play tab replaces
       // the old mutually-exclusive Bracket + Tips pair (/football/wc26/bracket and
-      // /tips both stay live routes, linked from the hub). Home/Fixtures/Groups/
-      // Play/You keeps the five-destination cap (BottomNav.tsx). The bracket
+      // /tips both stay live routes, linked from the hub). Home/Fixtures/Play/
+      // Standings/You keeps the five-destination cap. The bracket
       // prefix is the served route /football/wc26/bracket, not legacy /brackets --
       // the latter 301s here (next.config.mjs), so the user always sits on the
       // namespaced path and only that prefix keeps Play lit there.
       { href: "/play", label: "Play", activePrefixes: ["/tips", "/football/wc26/bracket"] },
+      {
+        href: "/football/wc26/groups",
+        label: "Standings",
+        activePrefixes: ["/football/wc26/groups"],
+      },
       // Cross-competition, NOT namespaced in P1: /leaderboard stays the
       // global "You" destination (see SPORTS.football above -- same href).
       {
@@ -366,10 +384,8 @@ export function competitionFromPathname(pathname: string): CompetitionId {
   return best ?? DEFAULT_COMPETITION;
 }
 
-/** True iff `comp` is both a known CompetitionId and enabled. Used by the P1
- *  slice-3 route wrappers to notFound() disabled/unknown competitions (e.g.
- *  visiting /football/epl before P2 ships it) instead of serving a broken
- *  page. */
+/** True iff `comp` is both a known CompetitionId and enabled. Used by the
+ *  route wrappers to reject unknown or deliberately hidden competitions. */
 export function isWiredCompetition(comp: string): comp is CompetitionId {
   return comp in COMPETITIONS && COMPETITIONS[comp as CompetitionId].enabled;
 }

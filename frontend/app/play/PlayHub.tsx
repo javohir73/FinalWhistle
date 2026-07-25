@@ -7,7 +7,7 @@ import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
 import { PlayLeaderboard } from "@/components/play/PlayLeaderboard";
 import { ACTIVE_LEAGUES, DEFAULT_LEAGUE } from "@/lib/leagueConfig";
-import { SPORTS, type SportId } from "@/lib/sports";
+import { COMPETITIONS, type CompetitionId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
 interface PlayHubProps {
@@ -25,16 +25,12 @@ interface PlayHubProps {
   champion: BracketChampion | null;
 }
 
-/** The Floodlight "Play" hub (design: Floodlight Implementation Plan, P5) --
- *  one predictions surface that merges the WC26 bracket, league score tips and
- *  NRL round tips, grouped by sport. The Football group (p5-s2) composes the
- *  shipped /brackets route (via PlayBracketCard) plus the league tips loop
- *  (LeagueTipsPlaySection, reused whole); the NRL group (p5-s3) composes the
- *  shipped beat-the-AI loop (NrlTipsPlaySection, reused whole), seeded from the
- *  same current-round tipsheet /nrl/tips uses, and degrades to an honest empty
- *  state when that fetch has no data. The existing /tips, /brackets and
- *  /nrl/tips routes stay live and get linked in from here. Floodlight skin only
- *  -- lime is the sole action colour, numerics are tabular. */
+/** One competition-by-competition slate, matching the Floodlight prototype.
+ *
+ * Prediction loops remain connected only where their data pipeline is active.
+ * Registered leagues without loaded prediction data still get a clearly
+ * labelled section, never another league's picker or leaderboard.
+ */
 export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
   // The Football group's picker resolves the current matchweek client-side
   // (there's no public seed for it, unlike NRL). p5-s4 lifts it here so the one
@@ -44,40 +40,38 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
 
   return (
     <div>
-      <p className="font-display text-[11px] uppercase tracking-wider text-muted">Predictions</p>
-      <h1 className="mt-1 font-display text-3xl font-extrabold">Play</h1>
+      <p className="font-display text-[11px] uppercase tracking-wider text-muted">Play</p>
+      <h1 className="mt-1 font-display text-3xl font-extrabold">The slate</h1>
       <p className="mt-1.5 text-[13px] text-muted">
-        Make your picks against the model in one place — grouped by sport, graded on a public record.
+        Make your picks against the model, organized by competition.
       </p>
 
-      <PlayGroup sport="football">
-        {hasBrackets && <PlayBracketCard champion={champion} className="mt-3" />}
-        {/* Reused whole: the exact /tips picker / you-vs-ai, with its
-            league-switch remount keying intact. EPL is the only ACTIVE_LEAGUES
-            entry, so the switcher never mounts and LaLiga/Bundesliga stay
-            dormant -- no fabricated data. p5-s4 suppresses this section's own
-            leaderboard (showLeaderboard=false) and instead learns its resolved
-            matchweek, hoisting the board into the unified one below. */}
-        <div className="mt-7">
-          <div className="mb-3 flex items-center gap-2">
-            <CompetitionLogo competition="epl" size={30} />
-            <div>
-              <p className="font-display text-sm font-bold">Premier League</p>
-              <p className="text-[11px] text-muted">Score predictions</p>
-            </div>
-          </div>
+      <PlayCompetitionSection competition="epl" subtitle="Score predictions">
+        <div className="-mt-5">
           <LeagueTipsPlaySection
             defaultLeague={DEFAULT_LEAGUE}
             showLeaderboard={false}
             onMatchweekResolved={setFootballMatchweek}
           />
         </div>
-        <p className="mt-6 text-[13px] text-muted">More leagues coming soon.</p>
-      </PlayGroup>
+      </PlayCompetitionSection>
 
-      <PlayGroup
-        sport="nrl"
-        seed={nrlTipsheet ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}` : null}
+      <UnavailableCompetition competition="laliga" />
+      <UnavailableCompetition competition="bundesliga" />
+
+      {hasBrackets && (
+        <PlayCompetitionSection competition="wc26" subtitle="Knockout bracket">
+          <PlayBracketCard champion={champion} className="mt-3" />
+        </PlayCompetitionSection>
+      )}
+
+      <PlayCompetitionSection
+        competition="nrl"
+        subtitle={
+          nrlTipsheet
+            ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}`
+            : "Round tips"
+        }
       >
         {/* Reused whole: the exact /nrl/tips beat-the-AI loop (claim, play the
             round, you-vs-ai), seeded with the same server-fetched season/round
@@ -100,7 +94,7 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
             <p className="text-[13px] text-muted">NRL tips aren&apos;t available right now.</p>
           </div>
         )}
-      </PlayGroup>
+      </PlayCompetitionSection>
 
       {/* One board for every competition (p5-s4). It reuses the same shipped
           LeagueTipsLeaderboard / NrlTipsLeaderboard the sections used to render
@@ -118,31 +112,45 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
   );
 }
 
-/** One sport's group: the sport label from the registry as a section heading
- *  (a plain full-bleed divider, not sticky -- the app shell's own sticky top bar
- *  owns top:0) over its body. Both groups pass their composed sections (or an
- *  honest empty state) as `children`. */
-function PlayGroup({
-  sport,
-  seed,
+function PlayCompetitionSection({
+  competition,
+  subtitle,
   children,
 }: {
-  sport: SportId;
-  seed?: string | null;
+  competition: CompetitionId;
+  subtitle: string;
   children?: React.ReactNode;
 }) {
-  const headingId = `play-group-${sport}`;
+  const config = COMPETITIONS[competition];
+  const headingId = `play-competition-${competition}`;
 
   return (
     <section className="mt-8" aria-labelledby={headingId}>
-      <div className="-mx-4 flex items-center justify-between gap-3 border-b border-border px-4 pb-2">
-        <h2 id={headingId} className="font-display text-xl font-extrabold">
-          {SPORTS[sport].label}
-        </h2>
-        {seed != null && <span className="shrink-0 text-xs tabular-nums text-muted">{seed}</span>}
+      <div className="-mx-4 flex items-center gap-3 border-b border-border px-4 pb-3">
+        <CompetitionLogo competition={competition} size={32} />
+        <div>
+          <h2 id={headingId} className="font-display text-xl font-extrabold">
+            {config.label}
+          </h2>
+          <p className="text-[11px] text-muted">{subtitle}</p>
+        </div>
       </div>
 
       {children}
     </section>
+  );
+}
+
+function UnavailableCompetition({
+  competition,
+}: {
+  competition: "laliga" | "bundesliga";
+}) {
+  return (
+    <PlayCompetitionSection competition={competition} subtitle="Score predictions">
+      <p className="glass mt-3 rounded-2xl p-4 text-[13px] text-muted">
+        {COMPETITIONS[competition].label} picks will appear when its season feed is loaded.
+      </p>
+    </PlayCompetitionSection>
   );
 }

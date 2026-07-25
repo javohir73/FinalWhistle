@@ -33,6 +33,7 @@ export function Scorebug({
   penaltyTally,
   predictedScore,
   probabilities,
+  teamBasePath = "/team",
 }: {
   competitionLabel: string;
   home: string;
@@ -56,6 +57,7 @@ export function Scorebug({
   /** Model's most-likely scoreline, shown as the upcoming centrepiece. */
   predictedScore?: string | null;
   probabilities: Probabilities;
+  teamBasePath?: string;
 }) {
   const upcoming = status === "upcoming";
   const { home_win, draw, away_win } = probabilities;
@@ -90,7 +92,7 @@ export function Scorebug({
         {/* Crests + score. Live/FT centre the actual score; upcoming shows the
             model's most-likely scoreline in lime. */}
         <div className="mt-2.5 flex items-center justify-center gap-[18px]">
-          <Crest team={home} teamId={homeTeamId} />
+          <Crest team={home} teamId={homeTeamId} teamBasePath={teamBasePath} />
           <span
             className={cn(
               "font-display font-extrabold tracking-[-0.03em] tabular-nums",
@@ -99,7 +101,7 @@ export function Scorebug({
           >
             {upcoming ? predictedScore : score}
           </span>
-          <Crest team={away} teamId={awayTeamId} />
+          <Crest team={away} teamId={awayTeamId} teamBasePath={teamBasePath} />
         </div>
         {upcoming && (
           <div className="mt-0.5 text-[11px] tracking-[0.1em] text-muted">MOST LIKELY SCORE</div>
@@ -141,11 +143,23 @@ export function Scorebug({
 
 /** A crest chip, linked to the team page when we have the id (mirrors the match
  *  scoreboard's TeamHead linking). The 44px flag is itself the >=44px tap target. */
-function Crest({ team, teamId }: { team: string; teamId?: number | null }) {
+function Crest({
+  team,
+  teamId,
+  teamBasePath,
+}: {
+  team: string;
+  teamId?: number | null;
+  teamBasePath: string;
+}) {
   const crest = <TeamBadge team={team} size={44} />;
   if (teamId == null) return crest;
   return (
-    <Link href={`/team/${teamId}`} className="inline-flex rounded-full transition hover:opacity-80">
+    <Link
+      href={`${teamBasePath}/${teamId}`}
+      aria-label={`View ${team} profile`}
+      className="inline-flex rounded-full transition hover:opacity-80"
+    >
       {crest}
     </Link>
   );

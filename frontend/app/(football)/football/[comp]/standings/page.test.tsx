@@ -1,15 +1,12 @@
-/** The /football/{comp}/standings wrapper is dormant in P2: it renders only for
- *  wired *league-format* football competitions, of which there are none yet
- *  (epl/laliga/bundesliga stay enabled:false). So it must notFound() for a
- *  disabled comp, and — since WC26's standings live at /groups — for WC26 too,
- *  keeping exactly one canonical URL. notFound() throws, so a guarded render
- *  rejects. */
+/** The /football/{comp}/standings wrapper serves every wired league while
+ *  keeping WC26 on its namespaced groups-backed standings URL. */
 import CompStandingsPage, { generateMetadata } from "./page";
 
-it("notFound()s for a disabled league comp (epl is not enabled until its data ships)", async () => {
-  await expect(
-    CompStandingsPage({ params: Promise.resolve({ comp: "epl" }) }),
-  ).rejects.toThrow();
+it("renders a competition-scoped standings surface for EPL", async () => {
+  const element = await CompStandingsPage({
+    params: Promise.resolve({ comp: "epl" }),
+  });
+  expect(element.props.comp).toBe("epl");
 });
 
 it("notFound()s for WC26 — its standings live at /groups, not here", async () => {

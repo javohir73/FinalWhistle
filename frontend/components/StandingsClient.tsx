@@ -26,7 +26,12 @@ export function StandingsClient({
   initialGroups?: Group[];
   tournament: ActiveTournament;
 }) {
-  const state = useFetch(getGroups, [], 30_000, initialGroups);
+  const state = useFetch(
+    () => getGroups(comp),
+    [comp],
+    30_000,
+    initialGroups,
+  );
   const competition = COMPETITIONS[comp];
   const leagueMode =
     tournament.format === "league" && state.status === "success" && state.data.length === 1;
@@ -52,10 +57,15 @@ export function StandingsClient({
       {state.status === "success" &&
         (leagueMode ? (
           <div className="glass rounded-2xl p-5 sm:p-6">
-            <StandingsTable standings={state.data[0].standings} zones={competition.zones} />
+            <StandingsTable
+              standings={state.data[0].standings}
+              zones={competition.zones}
+              badge="club"
+              teamBasePath={`${competition.basePath}/team`}
+            />
           </div>
         ) : (
-          <Empty />
+          <Empty label={`${competition.label} standings are not available yet.`} />
         ))}
     </div>
   );

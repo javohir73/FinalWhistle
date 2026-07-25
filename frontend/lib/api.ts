@@ -36,6 +36,7 @@ import type {
   TeamProfile,
   TournamentOdds,
 } from "./types";
+import type { CompetitionId } from "./sports";
 
 /** Base URL for the backend. Required in production: a missing value used to
  *  silently fall back to localhost, which builds fine but points deployed pages
@@ -76,21 +77,27 @@ async function getJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+function competitionQuery(competition?: CompetitionId): string {
+  return competition ? `?competition=${encodeURIComponent(competition)}` : "";
+}
+
 export const getHealth = () => getJson<HealthResponse>("/api/health");
-export const getUpcomingMatches = () =>
-  getJson<MatchSummary[]>("/api/matches/upcoming");
-export const getTeams = () => getJson<Team[]>("/api/teams");
-export const getTeam = (id: number | string) =>
-  getJson<TeamProfile>(`/api/teams/${id}`);
-export const getGroups = () => getJson<Group[]>("/api/groups");
+export const getUpcomingMatches = (competition?: CompetitionId) =>
+  getJson<MatchSummary[]>(`/api/matches/upcoming${competitionQuery(competition)}`);
+export const getTeams = (competition?: CompetitionId) =>
+  getJson<Team[]>(`/api/teams${competitionQuery(competition)}`);
+export const getTeam = (id: number | string, competition?: CompetitionId) =>
+  getJson<TeamProfile>(`/api/teams/${id}${competitionQuery(competition)}`);
+export const getGroups = (competition?: CompetitionId) =>
+  getJson<Group[]>(`/api/groups${competitionQuery(competition)}`);
 export const getKnockoutOdds = () =>
   getJson<TournamentOdds[]>("/api/knockout/odds");
 export const getOfficialBracket = () =>
   getJson<KnockoutBracket>("/api/knockout/bracket");
 export const getLeaderboard = () =>
   getJson<LeaderboardRow[]>("/api/leaderboard");
-export const getMatchSummary = (id: number | string) =>
-  getJson<MatchSummary>(`/api/matches/${id}/summary`);
+export const getMatchSummary = (id: number | string, competition?: CompetitionId) =>
+  getJson<MatchSummary>(`/api/matches/${id}/summary${competitionQuery(competition)}`);
 /** Display-only official lineups; resolves to `{ available: false }` when none
  *  exist yet (future fixture, no API key, or provider error) — never throws. */
 export const getMatchLineups = (id: number | string) =>
@@ -115,11 +122,14 @@ async function getServer<T>(path: string, revalidate: number): Promise<T | null>
   return (await res.json()) as T;
 }
 
-export const getMatchServer = (id: number | string) =>
-  getServer<Prediction>(`/api/matches/${id}`, 300);
+export const getMatchServer = (id: number | string, competition?: CompetitionId) =>
+  getServer<Prediction>(`/api/matches/${id}${competitionQuery(competition)}`, 300);
 /** Short revalidate: this seeds the live scoreboard on the match page. */
-export const getMatchSummaryServer = (id: number | string) =>
-  getServer<MatchSummary>(`/api/matches/${id}/summary`, 30);
+export const getMatchSummaryServer = (id: number | string, competition?: CompetitionId) =>
+  getServer<MatchSummary>(
+    `/api/matches/${id}/summary${competitionQuery(competition)}`,
+    30,
+  );
 /** Pre-match forecast trajectory (dated model snapshots leading up to kickoff)
  *  for the match page's WinProbTimeline SSR — NOT minute-by-minute in-match win
  *  probability. Server-rendered twin of the client `getProbHistory` above (same
@@ -136,26 +146,32 @@ export const getMatchLineupsServer = (id: number | string) =>
  *  announced (~40 min pre-kickoff). Returns null when no player data exists. */
 export const getMatchGoalscorersServer = (id: number | string) =>
   getServer<Goalscorers>(`/api/matches/${id}/goalscorers`, 60);
-export const getTeamsServer = () =>
-  getServer<Team[]>("/api/teams", 600);
+export const getTeamsServer = (competition?: CompetitionId) =>
+  getServer<Team[]>(`/api/teams${competitionQuery(competition)}`, 600);
 /** A non-numeric segment (e.g. a hand-typed /team/Argentina) can never resolve
  *  to a team, and the int-typed backend route answers 422 for it — which
  *  getServer would surface as a thrown 500. Short-circuit to not-found so the
  *  page renders a 404 instead. */
-export const getTeamServer = (id: number | string) =>
+export const getTeamServer = (id: number | string, competition?: CompetitionId) =>
   /^\d+$/.test(String(id))
-    ? getServer<TeamProfile>(`/api/teams/${id}`, 600)
+    ? getServer<TeamProfile>(
+        `/api/teams/${id}${competitionQuery(competition)}`,
+        600,
+      )
     : Promise.resolve<TeamProfile | null>(null);
-export const getGroupServer = (id: number | string) =>
-  getServer<Group>(`/api/groups/${id}`, 300);
-export const getUpcomingMatchesServer = () =>
-  getServer<MatchSummary[]>("/api/matches/upcoming", 300);
+export const getGroupServer = (id: number | string, competition?: CompetitionId) =>
+  getServer<Group>(`/api/groups/${id}${competitionQuery(competition)}`, 300);
+export const getUpcomingMatchesServer = (competition?: CompetitionId) =>
+  getServer<MatchSummary[]>(
+    `/api/matches/upcoming${competitionQuery(competition)}`,
+    300,
+  );
 export const getKnockoutOddsServer = () =>
   getServer<TournamentOdds[]>("/api/knockout/odds", 600);
 export const getOfficialBracketServer = () =>
   getServer<KnockoutBracket>("/api/knockout/bracket", 30);
-export const getGroupsServer = () =>
-  getServer<Group[]>("/api/groups", 300);
+export const getGroupsServer = (competition?: CompetitionId) =>
+  getServer<Group[]>(`/api/groups${competitionQuery(competition)}`, 300);
 export const getLeaderboardServer = () =>
   getServer<LeaderboardRow[]>("/api/leaderboard", 60);
 export const getModelRecordServer = () =>
@@ -170,6 +186,8 @@ export const getMarketRecordServer = () =>
  *  calling this directly. */
 export const getActiveTournamentServer = () =>
   getServer<ActiveTournament>("/api/tournaments/active", 300);
+export const getCompetitionTournamentServer = (competition: CompetitionId) =>
+  getServer<ActiveTournament>(`/api/tournaments/${competition}`, 300);
 
 /** Server-side NRL fetchers (ISR). Reuse `getServer` above (same 404->null,
  *  ISR-revalidate behavior as the football fetchers) rather than adding a

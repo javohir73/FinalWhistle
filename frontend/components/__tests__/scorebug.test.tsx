@@ -23,10 +23,13 @@ test("upcoming: amber kickoff line, predicted score, and the caption", () => {
       competitionLabel="World Cup 26"
       home="Brazil"
       away="Croatia"
+      homeTeamId={9}
+      awayTeamId={10}
       status="upcoming"
       statusLine="8:00 PM · Estadio Azteca"
       predictedScore="2–1"
       probabilities={probs}
+      teamBasePath="/football/wc26/team"
     />,
   );
   expect(screen.getByText("World Cup 26")).toBeInTheDocument();      // competition eyebrow
@@ -34,6 +37,14 @@ test("upcoming: amber kickoff line, predicted score, and the caption", () => {
   expect(screen.getByText("2–1")).toBeInTheDocument();               // most-likely scoreline
   expect(screen.getByText("MOST LIKELY SCORE")).toBeInTheDocument();
   expect(screen.queryByText("FULL TIME")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "View Brazil profile" })).toHaveAttribute(
+    "href",
+    "/football/wc26/team/9",
+  );
+  expect(screen.getByRole("link", { name: "View Croatia profile" })).toHaveAttribute(
+    "href",
+    "/football/wc26/team/10",
+  );
   expectBarLabelHasPercents();
 });
 

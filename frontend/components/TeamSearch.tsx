@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Flag } from "@/components/Flag";
+import { TeamBadge } from "@/components/TeamBadge";
 import { rankTeams } from "@/lib/teamSearch";
 import type { Team } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,13 @@ const optId = (id: number) => `team-search-opt-${id}`;
 /** Home-dashboard search: type a nation, pick a result, land on its
  *  /team/[id] profile. A keyboard-accessible combobox over the already-loaded
  *  teams list — display-only, no extra fetch. */
-export function TeamSearch({ teams }: { teams: Team[] }) {
+export function TeamSearch({
+  teams,
+  teamBasePath = "/team",
+}: {
+  teams: Team[];
+  teamBasePath?: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -29,7 +35,7 @@ export function TeamSearch({ teams }: { teams: Team[] }) {
 
   const go = (team: Team) => {
     setOpen(false);
-    router.push(`/team/${team.id}`);
+    router.push(`${teamBasePath}/${team.id}`);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -109,7 +115,7 @@ export function TeamSearch({ teams }: { teams: Team[] }) {
                   i === highlight ? "bg-surface-2 text-foreground" : "text-foreground hover:bg-surface-2",
                 )}
               >
-                <Flag team={t.name} size={24} />
+                <TeamBadge team={t.name} size={24} />
                 <span className="min-w-0 flex-1 truncate font-medium">{t.name}</span>
                 {t.is_host && (
                   <span className="shrink-0 rounded-md bg-gold/15 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-ink">

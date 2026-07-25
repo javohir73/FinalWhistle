@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { isWiredFootballCompetition } from "@/lib/sports";
-import LegacyMatchDetailPage, { generateMetadata as legacyGenerateMetadata } from "@/app/match/[id]/page";
+import {
+  generateMatchMetadata,
+  renderMatchDetailPage,
+} from "@/app/match/[id]/MatchPageContent";
 
-// Floodlight P1 slice p1-s3: wraps app/match/[id]/page.tsx. WC26-only for
-// now (see lib/sports.ts's `enabled` flags) -- notFound() guards the body
-// only; generateMetadata below runs unguarded, which is fine (metadata for
-// an invalid comp is harmless, per the slice's ruling). isWiredFootballCompetition
-// also 404s non-football competitions (e.g. nrl) reached via /football/<comp>
-// -- NRL keeps its own space. The legacy page only reads params.id, so the
-// wider { comp, id } promise passes straight through untouched.
+// One scoped match surface for every wired football competition. Both metadata
+// and page data validate that the match belongs to the URL's competition.
 //
 // generateMetadata is NOT re-exported as-is: the legacy function hardcodes
 // alternates.canonical to `/match/${id}`, a path next.config.mjs now 301s
@@ -22,7 +20,9 @@ export async function generateMetadata({
   params: Promise<{ comp: string; id: string }>;
 }): Promise<Metadata> {
   const { comp, id } = await params;
-  const meta = await legacyGenerateMetadata({ params: Promise.resolve({ id }) });
+  const meta = isWiredFootballCompetition(comp)
+    ? await generateMatchMetadata(Promise.resolve({ id }), comp)
+    : await generateMatchMetadata(Promise.resolve({ id }));
   return { ...meta, alternates: { canonical: `/football/${comp}/match/${id}` } };
 }
 
@@ -33,5 +33,5 @@ export default async function CompMatchDetailPage({
 }) {
   const { comp } = await params;
   if (!isWiredFootballCompetition(comp)) notFound();
-  return <LegacyMatchDetailPage params={params} />;
+  return renderMatchDetailPage(params, comp);
 }

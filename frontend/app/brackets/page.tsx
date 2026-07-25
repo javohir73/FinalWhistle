@@ -6,12 +6,12 @@ import {
   getGroupsServer,
   getOfficialBracketServer,
 } from "@/lib/api";
-import { getTournament } from "@/lib/tournament";
+import { getCompetitionTournament } from "@/lib/tournament";
 import { Empty } from "@/components/States";
 import { BracketsClient } from "./BracketsClient";
 
 export async function generateMetadata(): Promise<Metadata> {
-  const tournament = await getTournament();
+  const tournament = await getCompetitionTournament("wc26");
   if (!tournament.has_brackets) {
     return {
       title: `Bracket — ${APP_NAME}`,
@@ -29,14 +29,14 @@ export async function generateMetadata(): Promise<Metadata> {
  *  C6: a tournament with no knockout stage (has_brackets: false) gets a
  *  friendly empty state instead — see docs/LEAGUE-PIVOT-PLAN.md D6. */
 export default async function BracketsPage() {
-  const tournament = await getTournament();
+  const tournament = await getCompetitionTournament("wc26");
   if (!tournament.has_brackets) {
     return (
       <Empty
         label={`${tournament.name} doesn't have a knockout bracket — it's decided on the table.`}
         action={
           <Link
-            href="/matches"
+            href="/football/wc26/fixtures"
             className="rounded-lg bg-win px-4 py-2 text-sm font-bold text-pitch transition hover:brightness-110"
           >
             See fixtures
@@ -48,7 +48,7 @@ export default async function BracketsPage() {
 
   const [initialOdds, initialGroups, initialBracket] = await Promise.all([
     getKnockoutOddsServer().catch(() => null),
-    getGroupsServer().catch(() => null),
+    getGroupsServer("wc26").catch(() => null),
     getOfficialBracketServer().catch(() => null),
   ]);
   return (

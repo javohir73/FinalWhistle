@@ -56,7 +56,7 @@ it("keeps the Play link (never Bracket/Tips) when the active tournament has no b
   // Floodlight P1 slice p1-s4: nav links now derive from COMPETITIONS.wc26,
   // whose football terminology renders "Fixtures" (was "Matches").
   expect(screen.getByRole("link", { name: "Fixtures" })).toBeInTheDocument();
-  expect(screen.getByRole("link", { name: "Groups" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Standings" })).toBeInTheDocument();
 });
 
 it("swaps the NRL fifth link for the shared Play hub -> /play (leaderboard alias dropped from nav, not the route)", () => {

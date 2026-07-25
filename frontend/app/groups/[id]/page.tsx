@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getGroupServer, getUpcomingMatchesServer } from "@/lib/api";
-import { getTournament } from "@/lib/tournament";
+import { getCompetitionTournament } from "@/lib/tournament";
 import { APP_NAME } from "@/lib/constants";
 import { GroupTable } from "@/components/GroupTable";
 import { GroupFixtureList } from "@/components/GroupFixtureList";
@@ -14,7 +14,10 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const [group, tournament] = await Promise.all([getGroupServer(id), getTournament()]);
+  const [group, tournament] = await Promise.all([
+    getGroupServer(id, "wc26"),
+    getCompetitionTournament("wc26"),
+  ]);
   if (!group) return { title: `Group — ${APP_NAME}` };
   const teams = group.standings.map((s) => s.team).join(", ");
   const title = `${group.name} — standings & qualification odds | ${APP_NAME}`;
@@ -29,9 +32,9 @@ export async function generateMetadata({
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const [group, allMatches, tournament] = await Promise.all([
-    getGroupServer(id),
-    getUpcomingMatchesServer(),
-    getTournament(),
+    getGroupServer(id, "wc26"),
+    getUpcomingMatchesServer("wc26"),
+    getCompetitionTournament("wc26"),
   ]);
   if (!group) notFound();
 

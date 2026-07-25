@@ -28,7 +28,7 @@ export function BracketsClient({
   // route's data contract is unchanged, even though the AI-bracket view now
   // reads only the knockout odds.
   const oddsState = useFetch(getKnockoutOdds, [], undefined, initialOdds);
-  useFetch(getGroups, [], undefined, initialGroups);
+  useFetch(() => getGroups("wc26"), [], undefined, initialGroups);
   const bracketState = useFetch(getOfficialBracket, [], 30_000, initialBracket);
 
   const segBase = "flex-1 rounded-[11px] px-3 py-2 text-center text-sm font-semibold transition";

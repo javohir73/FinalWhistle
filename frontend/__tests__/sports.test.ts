@@ -80,10 +80,12 @@ describe("competition registry", () => {
     expect(competitionFromPathname("/tips")).toBe("wc26");
   });
 
-  it("gates disabled/unknown competitions via isWiredCompetition", () => {
+  it("wires every shipped competition and gates unknown ones", () => {
     expect(isWiredCompetition("wc26")).toBe(true);
     expect(isWiredCompetition("nrl")).toBe(true);
-    expect(isWiredCompetition("epl")).toBe(false); // P1: not enabled yet
+    expect(isWiredCompetition("epl")).toBe(true);
+    expect(isWiredCompetition("laliga")).toBe(true);
+    expect(isWiredCompetition("bundesliga")).toBe(true);
     expect(isWiredCompetition("bogus")).toBe(false);
   });
 
@@ -94,7 +96,7 @@ describe("competition registry", () => {
   it("scopes isWiredFootballCompetition to the football namespace, rejecting nrl", () => {
     expect(isWiredFootballCompetition("wc26")).toBe(true);
     expect(isWiredFootballCompetition("nrl")).toBe(false);
-    expect(isWiredFootballCompetition("epl")).toBe(false); // P1: not enabled yet
+    expect(isWiredFootballCompetition("epl")).toBe(true);
     expect(isWiredFootballCompetition("bogus")).toBe(false);
   });
 
@@ -128,9 +130,9 @@ describe("competition registry", () => {
   // COMPETITIONS[competitionFromPathname(...)] instead of SPORTS[sportFromPathname(...)] --
   // these are the registry equivalents of the old SPORTS.football/SPORTS.nrl
   // nav-link assertions above.
-  it("gives wc26 and nrl their nav links with the shared Play tab (P5)", () => {
+  it("gives wc26 and nrl their prototype-aligned nav links", () => {
     expect(COMPETITIONS.wc26.navLinks.map((l) => l.label)).toEqual(
-      ["Home", "Fixtures", "Groups", "Play", "You"]);
+      ["Home", "Fixtures", "Play", "Standings", "You"]);
     expect(COMPETITIONS.nrl.navLinks.map((l) => l.label)).toEqual(
       ["Home", "Matches", "Ladder", "Record", "Play"]);
   });

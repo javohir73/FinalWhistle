@@ -1,4 +1,6 @@
 """API endpoint tests (task 5.9): endpoints, §17 conformance, cache, 404s."""
+from datetime import datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -9,7 +11,7 @@ from app.cache import cache
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
-from app.models import Match, Prediction, Team
+from app.models import Group, GroupTeam, Match, Prediction, Team, Tournament
 from pipeline.generate_predictions import generate_predictions
 from pipeline.ingest.wc26_structure import load_structure
 
@@ -135,6 +137,89 @@ def test_groups(client):
     keys = [(r["projected_points"], r["projected_goal_diff"], r["projected_goals_for"]) for r in rows]
     assert keys == sorted(keys, reverse=True)
     assert client.get("/api/groups/999999").status_code == 404
+
+
+def test_competition_scoping_never_mixes_tournaments(client):
+    """Every public football collection/detail honors the same competition
+    boundary once multiple tournaments coexist."""
+    gen = app.dependency_overrides[get_db]()
+    db = next(gen)
+    tournament = Tournament(
+        name="Premier League 2026-27",
+        year=2026,
+        host_countries="",
+        home_advantage_mode="home",
+    )
+    db.add(tournament)
+    db.flush()
+    group = Group(tournament_id=tournament.id, name="Premier League")
+    db.add(group)
+    db.flush()
+    home = Team(name="Scoped Arsenal", country_code="ARS", is_host=False)
+    away = Team(name="Scoped Chelsea", country_code="CHE", is_host=False)
+    db.add_all([home, away])
+    db.flush()
+    db.add_all(
+        [
+            GroupTeam(group_id=group.id, team_id=home.id),
+            GroupTeam(group_id=group.id, team_id=away.id),
+        ]
+    )
+    league_match = Match(
+        tournament_id=tournament.id,
+        group_id=group.id,
+        stage="group",
+        team_home_id=home.id,
+        team_away_id=away.id,
+        kickoff_utc=datetime(2026, 8, 15, 14, 0, tzinfo=timezone.utc),
+        is_neutral=False,
+        status="scheduled",
+    )
+    db.add(league_match)
+    db.commit()
+    league_match_id = league_match.id
+    home_id = home.id
+    cache.clear()
+    gen.close()
+
+    epl_teams = client.get("/api/teams?competition=epl").json()
+    assert {team["name"] for team in epl_teams} == {
+        "Scoped Arsenal",
+        "Scoped Chelsea",
+    }
+    assert len(client.get("/api/groups?competition=epl").json()) == 1
+    epl_matches = client.get("/api/matches/upcoming?competition=epl").json()
+    assert [match["match_id"] for match in epl_matches] == [league_match_id]
+
+    wc_teams = client.get("/api/teams?competition=wc26").json()
+    assert len(wc_teams) == 48
+    assert all(not team["name"].startswith("Scoped ") for team in wc_teams)
+    assert len(client.get("/api/groups?competition=wc26").json()) == 12
+    assert len(client.get("/api/matches/upcoming?competition=wc26").json()) == 72
+
+    assert client.get(f"/api/teams/{home_id}?competition=wc26").status_code == 404
+    assert (
+        client.get(f"/api/matches/{league_match_id}/summary?competition=wc26").status_code
+        == 404
+    )
+    tournament_payload = client.get("/api/tournaments/epl")
+    assert tournament_payload.status_code == 200
+    assert tournament_payload.json()["name"] == "Premier League 2026-27"
+    assert tournament_payload.json()["format"] == "league"
+
+
+def test_registered_but_unloaded_competition_is_empty_not_mixed(client):
+    assert client.get("/api/teams?competition=laliga").json() == []
+    assert client.get("/api/groups?competition=laliga").json() == []
+    assert client.get("/api/matches/upcoming?competition=laliga").json() == []
+    assert client.get("/api/tournaments/laliga").status_code == 404
+
+
+def test_unknown_competition_is_rejected(client):
+    for endpoint in ("/api/teams", "/api/groups", "/api/matches/upcoming"):
+        response = client.get(f"{endpoint}?competition=not-a-league")
+        assert response.status_code == 404
+        assert response.json()["error"]["code"] == "competition_not_found"
 
 
 def test_group_standings_are_live_not_simulated(client):
