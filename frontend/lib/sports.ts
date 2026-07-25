@@ -6,15 +6,18 @@ export interface SportNavLink {
   href: string;
   label: string;
   activePrefixes: string[];
-  /** Hidden when the active tournament has no knockout bracket (C6 — see
-   *  components/TournamentProvider.tsx). Only football's Bracket tab sets this. */
+  /** Was the gate on football's Bracket tab (hidden when the active tournament
+   *  had no knockout bracket, C6). Floodlight P5 folded the mutually-exclusive
+   *  Bracket + Tips pair into one always-on Play tab (the '/play' entries
+   *  below), so no nav entry sets this anymore -- but BottomNav/SiteNav still
+   *  reference it in their filter, where a link without the flag always passes,
+   *  so the field stays defined and the filter is a harmless no-op. */
   requiresBrackets?: boolean;
-  /** Inverse of requiresBrackets -- hidden until the active tournament HAS no
-   *  bracket (league format). Only football's Tips tab sets this: it takes
-   *  the slot Bracket vacates once the season flips from WC26's knockout
-   *  format to a league (design doc: League Score Predictions, 2026-07-24),
-   *  so the five-destination cap (see BottomNav.tsx) is never exceeded
-   *  regardless of ship order between this nav entry and that prod flip. */
+  /** Was the inverse gate on the Tips tab that took the slot Bracket vacated in
+   *  league format (design doc: League Score Predictions, 2026-07-24). Same
+   *  story as requiresBrackets: Play now subsumes that single mutually-exclusive
+   *  slot, so nothing sets this, but the field stays for the (now no-op)
+   *  BottomNav/SiteNav filter. */
   requiresLeagueFormat?: boolean;
 }
 
@@ -30,16 +33,16 @@ export const SPORTS: Record<
       { href: "/", label: "Home", activePrefixes: ["/team"] },
       { href: "/matches", label: "Matches", activePrefixes: ["/matches", "/match"] },
       { href: "/groups", label: "Groups", activePrefixes: [] },
-      { href: "/brackets", label: "Bracket", activePrefixes: [], requiresBrackets: true },
+      // Floodlight P5: one always-on Play tab subsumes the old mutually-exclusive
+      // Bracket/Tips slot (both /brackets and /tips stay live and are linked from
+      // the hub). Home/Matches/Groups/Play/You keeps the five-destination cap
+      // (BottomNav.tsx). Mirrors NRL's own Play slot below.
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
       {
         href: "/leaderboard",
         label: "You",
         activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
       },
-      // Fills the slot Bracket vacates once the season is league-format (see
-      // requiresLeagueFormat above) -- the five-destination cap is hard, see
-      // BottomNav.tsx. Mirrors NRL's own Tips slot below.
-      { href: "/tips", label: "Tips", activePrefixes: [], requiresLeagueFormat: true },
     ],
   },
   nrl: {
@@ -51,11 +54,11 @@ export const SPORTS: Record<
       { href: "/nrl/matches", label: "Matches", activePrefixes: [] },
       { href: "/nrl/ladder", label: "Ladder", activePrefixes: [] },
       { href: "/nrl/record", label: "Record", activePrefixes: [] },
-      // Tips replaces the aliased-away "You"/leaderboard slot (design doc: NRL
-      // Round Tips) -- the five-destination cap is hard, see BottomNav.tsx.
-      // /nrl/leaderboard stays a live route (alias of /leaderboard); it's just
-      // no longer one tap away from the NRL tab bar.
-      { href: "/nrl/tips", label: "Tips", activePrefixes: [] },
+      // Floodlight P5: the NRL tips slot becomes the shared Play tab (the hub
+      // groups NRL's tips under its own heading). /nrl/tips stays a live route,
+      // linked from the hub; /nrl/leaderboard likewise stays aliased but off the
+      // tab bar. Five-destination cap holds (BottomNav.tsx).
+      { href: "/play", label: "Play", activePrefixes: ["/nrl/tips"] },
     ],
   },
 };
@@ -80,7 +83,10 @@ export function isSportHomeHref(href: string): boolean {
 const EQUIVALENTS: Array<[string, string]> = [
   ["/matches", "/nrl/matches"],
   ["/leaderboard", "/nrl/leaderboard"],
-  ["/tips", "/nrl/tips"],
+  // Floodlight P5: the Play hub is the shared predictions destination in both
+  // sports (the old /tips <-> /nrl/tips row folded into it), so switching sport
+  // on /play stays on /play.
+  ["/play", "/play"],
 ];
 
 export function switchSportHref(pathname: string, target: SportId): string {
@@ -182,7 +188,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         activePrefixes: ["/football/epl/fixtures", "/football/epl/match"],
       },
       { href: "/football/epl/standings", label: "Standings", activePrefixes: ["/football/epl/standings"] },
-      { href: "/tips", label: "Tips", activePrefixes: [] },
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
     ],
   },
   laliga: {
@@ -207,7 +213,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         activePrefixes: ["/football/laliga/fixtures", "/football/laliga/match"],
       },
       { href: "/football/laliga/standings", label: "Standings", activePrefixes: ["/football/laliga/standings"] },
-      { href: "/tips", label: "Tips", activePrefixes: [] },
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
     ],
   },
   bundesliga: {
@@ -236,7 +242,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "Standings",
         activePrefixes: ["/football/bundesliga/standings"],
       },
-      { href: "/tips", label: "Tips", activePrefixes: [] },
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
     ],
   },
   wc26: {
@@ -249,7 +255,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     format: "knockout",
     hasBracket: true,
     hasGroups: true,
-    hasTips: true, // its Tips slot -- see requiresLeagueFormat below
+    hasTips: true, // tips still offered, now folded into the Play hub (P5)
     enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
     zones: [], // knockout format uses Groups, not a standings table
@@ -261,7 +267,14 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         activePrefixes: ["/football/wc26/fixtures", "/football/wc26/match"],
       },
       { href: "/football/wc26/groups", label: "Groups", activePrefixes: ["/football/wc26/groups"] },
-      { href: "/football/wc26/bracket", label: "Bracket", activePrefixes: [], requiresBrackets: true },
+      // Floodlight P5: the Play-hub merge lands. One always-on Play tab replaces
+      // the old mutually-exclusive Bracket + Tips pair (/football/wc26/bracket and
+      // /tips both stay live routes, linked from the hub). Home/Fixtures/Groups/
+      // Play/You keeps the five-destination cap (BottomNav.tsx). The bracket
+      // prefix is the served route /football/wc26/bracket, not legacy /brackets --
+      // the latter 301s here (next.config.mjs), so the user always sits on the
+      // namespaced path and only that prefix keeps Play lit there.
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/football/wc26/bracket"] },
       // Cross-competition, NOT namespaced in P1: /leaderboard stays the
       // global "You" destination (see SPORTS.football above -- same href).
       {
@@ -269,11 +282,6 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
         label: "You",
         activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
       },
-      // Cross-competition Tips stays at /tips in P1 (Play-hub merge is P5).
-      // Keeps the requiresLeagueFormat gate so it and Bracket never both
-      // show, driven by has_brackets at runtime exactly as today's
-      // SPORTS.football.navLinks Tips entry.
-      { href: "/tips", label: "Tips", activePrefixes: [], requiresLeagueFormat: true },
     ],
   },
   nrl: {
@@ -298,13 +306,15 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
       { from: 1, to: 4, label: "Top 4", tone: "finals" },
       { from: 5, to: 8, label: "Finals (5–8)", tone: "europa" },
     ],
-    // Mirrors SPORTS.nrl.navLinks above unchanged (NRL keeps its own space).
+    // Mirrors SPORTS.nrl.navLinks above (NRL keeps its own space); the fifth
+    // slot is the shared Play tab (P5), still resolving to /nrl/tips as its
+    // active surface.
     navLinks: [
       { href: "/nrl", label: "Home", activePrefixes: [] },
       { href: "/nrl/matches", label: "Matches", activePrefixes: [] },
       { href: "/nrl/ladder", label: "Ladder", activePrefixes: [] },
       { href: "/nrl/record", label: "Record", activePrefixes: [] },
-      { href: "/nrl/tips", label: "Tips", activePrefixes: [] },
+      { href: "/play", label: "Play", activePrefixes: ["/nrl/tips"] },
     ],
   },
 };

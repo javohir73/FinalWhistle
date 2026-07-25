@@ -38,14 +38,37 @@ import { ACTIVE_LEAGUES } from "@/lib/leagueConfig";
  *  regardless of element type, so giving the picker and you-vs-ai the exact
  *  same key string for the same league is itself a duplicate-key collision
  *  ("Encountered two children with the same key") that corrupts, rather than
- *  fixes, the remount. */
-export function LeagueTipsPlaySection({ defaultLeague }: { defaultLeague: string }) {
+ *  fixes, the remount.
+ *
+ *  `showLeaderboard` and `onMatchweekResolved` (both optional) are the Play-hub
+ *  hooks (Floodlight P5, p5-s4): the hub hoists this section's leaderboard into
+ *  one unified, competition-filtered board, so it passes showLeaderboard={false}
+ *  to suppress the in-section LeagueTipsLeaderboard and onMatchweekResolved to
+ *  learn the same resolved matchweek the hoisted board needs. Both default to
+ *  the shipped behavior, leaving /tips pixel-identical. */
+export function LeagueTipsPlaySection({
+  defaultLeague,
+  showLeaderboard = true,
+  onMatchweekResolved,
+}: {
+  defaultLeague: string;
+  showLeaderboard?: boolean;
+  onMatchweekResolved?: (matchweek: number | null) => void;
+}) {
   const [league, setLeague] = useState(defaultLeague);
   const [matchweek, setMatchweek] = useState<number | null>(null);
 
+  // Single writer for the matchweek so the hub (via onMatchweekResolved) always
+  // learns exactly what the in-section leaderboard would use -- both the
+  // picker's resolved number and the switch-time reset to null.
+  function applyMatchweek(next: number | null) {
+    setMatchweek(next);
+    onMatchweekResolved?.(next);
+  }
+
   function selectLeague(next: string) {
     setLeague(next);
-    setMatchweek(null);
+    applyMatchweek(null);
   }
 
   return (
@@ -56,9 +79,11 @@ export function LeagueTipsPlaySection({ defaultLeague }: { defaultLeague: string
         </div>
       )}
       <ClaimDeviceLeagueTips />
-      <LeagueTipsPicker key={`picker-${league}`} league={league} onMatchweekChange={setMatchweek} />
+      <LeagueTipsPicker key={`picker-${league}`} league={league} onMatchweekChange={applyMatchweek} />
       <LeagueYouVsAi key={`you-vs-ai-${league}`} league={league} />
-      {matchweek != null && <LeagueTipsLeaderboard league={league} matchweek={matchweek} />}
+      {showLeaderboard && matchweek != null && (
+        <LeagueTipsLeaderboard league={league} matchweek={matchweek} />
+      )}
     </div>
   );
 }
