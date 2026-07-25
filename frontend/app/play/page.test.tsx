@@ -1,14 +1,15 @@
-/** Play hub page -- server component (SSR) output. This slice (p5-s2) fills the
- *  Football group, so the test checks the server wiring on top of the shell:
- *  it renders both sport group headings, seeds the NRL group from
- *  getNrlTipsheetServer (degrading when that returns null/rejects), and -- new
- *  here -- surfaces the /brackets entry with the predicted champion (top
- *  win_title team) and mounts the reused league tips picker. The bracket entry
- *  gates on the active tournament's has_brackets, exactly as app/brackets does,
- *  so a league-format tournament renders the league tips only (honest degrade).
- *  The NRL pick sections arrive in p5-s3. The league tips leaf components are
- *  stubbed the same way components/leagueTips/*.test.tsx do -- this test is
- *  about the composition, not the picker's own fetch machinery. */
+/** Play hub page -- server component (SSR) output. The test checks the server
+ *  wiring on top of the shell: it renders both sport group headings, surfaces
+ *  the /brackets entry with the predicted champion (top win_title team) and
+ *  mounts the reused league tips picker (p5-s2), and composes the reused NRL
+ *  beat-the-AI loop (p5-s3) seeded from getNrlTipsheetServer -- the play round
+ *  and weekly leaderboard mount with that season/round, degrading to an honest
+ *  empty state when the fetch returns null / rejects. The bracket entry gates
+ *  on the active tournament's has_brackets, exactly as app/brackets does, so a
+ *  league-format tournament renders the league tips only (honest degrade). Both
+ *  groups' leaf components are stubbed the same way components/{leagueTips,nrl}/
+ *  *.test.tsx do -- this test is about the composition, not each picker's own
+ *  fetch machinery. */
 import { render, screen } from "@testing-library/react";
 import PlayPage from "./page";
 import {
@@ -43,6 +44,28 @@ jest.mock("@/components/leagueTips/LeagueYouVsAi", () => ({
 jest.mock("@/components/leagueTips/LeagueTipsLeaderboard", () => ({
   LeagueTipsLeaderboard: ({ league, matchweek }: { league: string; matchweek: number }) => (
     <div data-testid="leaderboard">{`${league}-${matchweek}`}</div>
+  ),
+}));
+
+// The NRL group renders the real NrlTipsPlaySection, whose leaf components each
+// fetch on mount (device id, auth context, network) -- stub them (mirrors
+// components/nrl/*.test.tsx) so this test exercises the composition and that
+// the play round + leaderboard get the seeded season/round, not their fetch
+// paths.
+jest.mock("@/components/nrl/ClaimDeviceTips", () => ({
+  ClaimDeviceTips: () => <div data-testid="nrl-claim" />,
+}));
+jest.mock("@/components/nrl/PlayRound", () => ({
+  PlayRound: ({ season, round }: { season: number; round: number }) => (
+    <div data-testid="nrl-play-round">{`${season}-${round}`}</div>
+  ),
+}));
+jest.mock("@/components/nrl/YouVsAi", () => ({
+  YouVsAi: () => <div data-testid="nrl-you-vs-ai" />,
+}));
+jest.mock("@/components/nrl/NrlTipsLeaderboard", () => ({
+  NrlTipsLeaderboard: ({ season, round }: { season: number; round: number }) => (
+    <div data-testid="nrl-leaderboard">{`${season}-${round}`}</div>
   ),
 }));
 
@@ -94,21 +117,36 @@ it("seeds the NRL group with the current round when the tipsheet loads", async (
   expect(screen.getByText("Round 2 · 2026")).toBeInTheDocument();
 });
 
-it("degrades (both groups render, no round line, no crash) when the tipsheet is null", async () => {
+it("composes the NRL beat-the-AI loop, seeding the play round and leaderboard with the current round", async () => {
+  render(await PlayPage());
+
+  // The reused NrlTipsPlaySection mounts the play round + weekly leaderboard,
+  // both seeded with the server-fetched season/round (2026 round 2).
+  expect(screen.getByTestId("nrl-play-round")).toHaveTextContent("2026-2");
+  expect(screen.getByTestId("nrl-leaderboard")).toHaveTextContent("2026-2");
+  expect(screen.queryByText(/NRL tips aren't available/)).not.toBeInTheDocument();
+});
+
+it("degrades to the empty state (no round line, no crash) when the tipsheet is null", async () => {
   mockTipsheet.mockResolvedValue(null);
   render(await PlayPage());
 
   expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
   expect(screen.queryByText(/^Round /)).not.toBeInTheDocument();
+  // No fabricated season/round: the loop is replaced by the honest empty state.
+  expect(screen.queryByTestId("nrl-play-round")).not.toBeInTheDocument();
+  expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();
 });
 
-it("degrades (no crash) when the NRL tipsheet fetch rejects", async () => {
+it("degrades to the empty state (no crash) when the NRL tipsheet fetch rejects", async () => {
   mockTipsheet.mockRejectedValue(new Error("upstream down"));
   render(await PlayPage());
 
   expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
+  expect(screen.queryByTestId("nrl-play-round")).not.toBeInTheDocument();
+  expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();
 });
 
 it("shows the World Cup bracket card linking to /brackets with the predicted champion", async () => {

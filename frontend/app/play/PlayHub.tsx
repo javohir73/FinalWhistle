@@ -1,9 +1,10 @@
 "use client";
 
 import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySection";
+import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
 import { DEFAULT_LEAGUE } from "@/lib/leagueConfig";
-import { SPORTS, competitionsForSport, type SportId } from "@/lib/sports";
+import { SPORTS, type SportId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
 interface PlayHubProps {
@@ -23,10 +24,12 @@ interface PlayHubProps {
 
 /** The Floodlight "Play" hub (design: Floodlight Implementation Plan, P5) --
  *  one predictions surface that merges the WC26 bracket, league score tips and
- *  NRL round tips, grouped by sport. This slice (p5-s2) fills the Football
- *  group: the shipped /brackets route (via PlayBracketCard) plus the existing
- *  league tips loop (LeagueTipsPlaySection, reused whole). The NRL group keeps
- *  the p5-s1 placeholder until p5-s3. The existing /tips, /brackets and
+ *  NRL round tips, grouped by sport. The Football group (p5-s2) composes the
+ *  shipped /brackets route (via PlayBracketCard) plus the league tips loop
+ *  (LeagueTipsPlaySection, reused whole); the NRL group (p5-s3) composes the
+ *  shipped beat-the-AI loop (NrlTipsPlaySection, reused whole), seeded from the
+ *  same current-round tipsheet /nrl/tips uses, and degrades to an honest empty
+ *  state when that fetch has no data. The existing /tips, /brackets and
  *  /nrl/tips routes stay live and get linked in from here. Floodlight skin only
  *  -- lime is the sole action colour, numerics are tabular. */
 export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
@@ -52,14 +55,28 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
       <PlayGroup
         sport="nrl"
         seed={nrlTipsheet ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}` : null}
-      />
+      >
+        {/* Reused whole: the exact /nrl/tips beat-the-AI loop (claim, play the
+            round, you-vs-ai, weekly leaderboard), seeded with the same
+            server-fetched season/round /nrl/tips uses. p5-s4 hoists this
+            section's leaderboard into the unified one. When the tipsheet fetch
+            has no data (off-season / upstream down) we never invent a
+            season/round -- the group degrades to an honest empty state. */}
+        {nrlTipsheet ? (
+          <NrlTipsPlaySection season={nrlTipsheet.season} round={nrlTipsheet.round} />
+        ) : (
+          <div className="glass mt-3 rounded-2xl p-4">
+            <p className="text-[13px] text-muted">NRL tips aren&apos;t available right now.</p>
+          </div>
+        )}
+      </PlayGroup>
     </div>
   );
 }
 
 /** One sport's group: a sticky-ish glass heading (the sport label from the
- *  registry) over its body. Football passes its composed sections as `children`;
- *  NRL still falls through to the p5-s1 placeholder until p5-s3 fills it. */
+ *  registry) over its body. Both groups pass their composed sections (or an
+ *  honest empty state) as `children`. */
 function PlayGroup({
   sport,
   seed,
@@ -80,20 +97,7 @@ function PlayGroup({
         {seed != null && <span className="shrink-0 text-xs tabular-nums text-muted">{seed}</span>}
       </div>
 
-      {children ?? <PlayGroupPlaceholder sport={sport} />}
+      {children}
     </section>
-  );
-}
-
-/** Placeholder body for a group whose pick sections haven't landed yet (NRL,
- *  until p5-s3): the competitions under the sport and an honest "soon" line. */
-function PlayGroupPlaceholder({ sport }: { sport: SportId }) {
-  const competitions = competitionsForSport(sport);
-
-  return (
-    <div className="glass mt-3 rounded-2xl p-4">
-      <p className="text-[13px] text-muted">{competitions.map((c) => c.label).join(" · ")}</p>
-      <p className="mt-1.5 text-[13px] text-muted">Picks land here soon.</p>
-    </div>
   );
 }
