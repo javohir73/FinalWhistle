@@ -7,7 +7,7 @@ import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
 import { PlayLeaderboard } from "@/components/play/PlayLeaderboard";
 import { ACTIVE_LEAGUES, DEFAULT_LEAGUE } from "@/lib/leagueConfig";
-import { SPORTS, type CompetitionId, type SportId } from "@/lib/sports";
+import { SPORTS, type SportId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
 interface PlayHubProps {
@@ -50,7 +50,7 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
         Make your picks against the model in one place — grouped by sport, graded on a public record.
       </p>
 
-      <PlayGroup sport="football" competitions={["wc26", "epl"]}>
+      <PlayGroup sport="football">
         {hasBrackets && <PlayBracketCard champion={champion} className="mt-3" />}
         {/* Reused whole: the exact /tips picker / you-vs-ai, with its
             league-switch remount keying intact. EPL is the only ACTIVE_LEAGUES
@@ -77,7 +77,6 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
 
       <PlayGroup
         sport="nrl"
-        competitions={["nrl"]}
         seed={nrlTipsheet ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}` : null}
       >
         {/* Reused whole: the exact /nrl/tips beat-the-AI loop (claim, play the
@@ -125,12 +124,10 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
  *  honest empty state) as `children`. */
 function PlayGroup({
   sport,
-  competitions,
   seed,
   children,
 }: {
   sport: SportId;
-  competitions: CompetitionId[];
   seed?: string | null;
   children?: React.ReactNode;
 }) {
@@ -139,21 +136,9 @@ function PlayGroup({
   return (
     <section className="mt-8" aria-labelledby={headingId}>
       <div className="-mx-4 flex items-center justify-between gap-3 border-b border-border px-4 pb-2">
-        <div className="flex items-center gap-2.5">
-          <div className="flex -space-x-2" aria-hidden="true">
-            {competitions.map((competition) => (
-              <CompetitionLogo
-                key={competition}
-                competition={competition}
-                size={30}
-                className="ring-2 ring-background"
-              />
-            ))}
-          </div>
-          <h2 id={headingId} className="font-display text-xl font-extrabold">
-            {SPORTS[sport].label}
-          </h2>
-        </div>
+        <h2 id={headingId} className="font-display text-xl font-extrabold">
+          {SPORTS[sport].label}
+        </h2>
         {seed != null && <span className="shrink-0 text-xs tabular-nums text-muted">{seed}</span>}
       </div>
 
