@@ -16,12 +16,18 @@ describe("ConfidenceRing", () => {
     expect(dial).toHaveAttribute("aria-label", expect.stringContaining("High confidence"));
   });
 
-  it("prints MEDIUM at the >=12px-bold amber floor", () => {
+  it("prints MEDIUM at the >=12px-bold amber floor on the standard dial", () => {
     render(<ConfidenceRing probability={0.44} confidence="Medium" />);
     const word = screen.getByText("MEDIUM");
-    // text-xs (12px) + font-bold clears the 'amber text only >=12px bold' rule.
     expect(word.className).toContain("text-xs");
     expect(word.className).toContain("font-bold");
+  });
+
+  it("uses a compact type scale without pushing the percentage off-centre", () => {
+    render(<ConfidenceRing probability={0.51} confidence="Medium" size={56} />);
+    expect(screen.getByText("51")).toHaveClass("text-xl");
+    expect(screen.getByText("%")).toHaveClass("text-[8px]");
+    expect(screen.getByText("MEDIUM")).toHaveClass("text-[8px]");
   });
 
   it("still renders the % and the ring when confidence is null (unrated)", () => {

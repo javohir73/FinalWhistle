@@ -11,12 +11,12 @@ const ACCENT: Record<Exclude<Confidence, null>, string> = {
   Low: "hsl(var(--confidence-low))",
 };
 
-/** Confidence WORD styling. Amber (Medium) prints >=12px bold to clear the
- *  amber-text floor; High lime, Low muted. */
+/** Confidence WORD tone. Type size is responsive to the physical dial size so
+ *  compact play-card rings do not force the percentage or tier off-centre. */
 const WORD: Record<Exclude<Confidence, null>, string> = {
-  High: "text-lime-deep text-xs font-bold",
-  Medium: "text-amber-ink text-xs font-bold",
-  Low: "text-muted text-[11px] font-semibold",
+  High: "text-lime-deep",
+  Medium: "text-amber-ink",
+  Low: "text-muted",
 };
 
 /**
@@ -41,8 +41,9 @@ export function ConfidenceRing({
 }) {
   const pct = Math.round(probability * 100);
   const accent = confidence ? ACCENT[confidence] : "hsl(var(--muted))";
-  const word = confidence ? WORD[confidence] : "text-muted text-[11px] font-semibold";
-  const inner = size - 14;
+  const word = confidence ? WORD[confidence] : "text-muted";
+  const compact = size < 64;
+  const inner = size - (compact ? 10 : 14);
 
   return (
     <div
@@ -60,11 +61,31 @@ export function ConfidenceRing({
         className="absolute flex flex-col items-center justify-center rounded-full [background:hsl(var(--surface))]"
         style={{ width: inner, height: inner }}
       >
-        <span className="font-display text-2xl font-extrabold leading-none tabular-nums">
-          {pct}
-          <span className="text-[0.5em] align-top">%</span>
+        <span className="flex items-start justify-center leading-none">
+          <span
+            className={cn(
+              "font-display font-extrabold tabular-nums",
+              compact ? "text-xl" : "text-2xl",
+            )}
+          >
+            {pct}
+          </span>
+          <span
+            className={cn(
+              "font-display font-bold leading-none",
+              compact ? "mt-px text-[8px]" : "mt-0.5 text-xs",
+            )}
+          >
+            %
+          </span>
         </span>
-        <span className={cn("mt-0.5 uppercase leading-none tracking-wide", word)}>
+        <span
+          className={cn(
+            "font-bold uppercase leading-none",
+            compact ? "mt-px text-[8px] tracking-[0.04em]" : "mt-0.5 text-xs tracking-wide",
+            word,
+          )}
+        >
           {confidence ? confidence.toUpperCase() : "—"}
         </span>
       </div>

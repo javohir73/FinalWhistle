@@ -13,7 +13,8 @@ describe("TeamBadge", () => {
     const shell = container.querySelector('[data-club-logo="Arsenal"]');
     expect(shell).not.toHaveClass("bg-white/95", "ring-1");
     expect(shell?.querySelector("img")).toHaveAttribute("src", "/clubs/epl/arsenal.png");
-    expect(shell?.querySelector("img")).toHaveClass("h-full", "w-full", "object-contain");
+    expect(shell?.querySelector("img")).toHaveClass("object-contain");
+    expect(shell?.querySelector("img")).toHaveStyle({ width: "27.52px", height: "27.52px" });
   });
 
   it("resolves common short club names to the same local crest", () => {
