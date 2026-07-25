@@ -3,14 +3,16 @@
  *  the /brackets entry with the predicted champion (top win_title team) and
  *  mounts the reused league tips picker (p5-s2), and composes the reused NRL
  *  beat-the-AI loop (p5-s3) seeded from getNrlTipsheetServer -- the play round
- *  and weekly leaderboard mount with that season/round, degrading to an honest
- *  empty state when the fetch returns null / rejects. The bracket entry gates
+ *  mounts with that season/round, degrading to an honest empty state when the
+ *  fetch returns null / rejects. Each section's own leaderboard is suppressed
+ *  and hoisted into one unified, competition-filtered board (p5-s4). The
+ *  bracket entry gates
  *  on the active tournament's has_brackets, exactly as app/brackets does, so a
  *  league-format tournament renders the league tips only (honest degrade). Both
  *  groups' leaf components are stubbed the same way components/{leagueTips,nrl}/
  *  *.test.tsx do -- this test is about the composition, not each picker's own
  *  fetch machinery. */
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import PlayPage from "./page";
 import {
   getActiveTournamentServer,
@@ -117,14 +119,25 @@ it("seeds the NRL group with the current round when the tipsheet loads", async (
   expect(screen.getByText("Round 2 · 2026")).toBeInTheDocument();
 });
 
-it("composes the NRL beat-the-AI loop, seeding the play round and leaderboard with the current round", async () => {
+it("composes the NRL beat-the-AI loop, seeding the play round with the current round", async () => {
   render(await PlayPage());
 
-  // The reused NrlTipsPlaySection mounts the play round + weekly leaderboard,
-  // both seeded with the server-fetched season/round (2026 round 2).
+  // The reused NrlTipsPlaySection mounts the play round seeded with the
+  // server-fetched season/round (2026 round 2). Its weekly leaderboard is
+  // suppressed here (showLeaderboard=false) -- it's hoisted into the unified
+  // board below (see the unified-leaderboard test).
   expect(screen.getByTestId("nrl-play-round")).toHaveTextContent("2026-2");
-  expect(screen.getByTestId("nrl-leaderboard")).toHaveTextContent("2026-2");
+  expect(screen.queryByTestId("nrl-leaderboard")).not.toBeInTheDocument();
   expect(screen.queryByText(/NRL tips aren't available/)).not.toBeInTheDocument();
+});
+
+it("hoists the NRL board into the unified leaderboard, seeded from the current round", async () => {
+  render(await PlayPage());
+
+  // The unified board defaults to the EPL filter; picking NRL mounts the reused
+  // NrlTipsLeaderboard seeded with the same server-fetched season/round.
+  fireEvent.click(screen.getByRole("button", { name: "NRL" }));
+  expect(screen.getByTestId("nrl-leaderboard")).toHaveTextContent("2026-2");
 });
 
 it("degrades to the empty state (no round line, no crash) when the tipsheet is null", async () => {

@@ -1,9 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySection";
 import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
-import { DEFAULT_LEAGUE } from "@/lib/leagueConfig";
+import { PlayLeaderboard } from "@/components/play/PlayLeaderboard";
+import { ACTIVE_LEAGUES, DEFAULT_LEAGUE } from "@/lib/leagueConfig";
 import { SPORTS, type SportId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
@@ -33,6 +35,12 @@ interface PlayHubProps {
  *  /nrl/tips routes stay live and get linked in from here. Floodlight skin only
  *  -- lime is the sole action colour, numerics are tabular. */
 export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
+  // The Football group's picker resolves the current matchweek client-side
+  // (there's no public seed for it, unlike NRL). p5-s4 lifts it here so the one
+  // unified leaderboard below can mount the football board on the same matchweek
+  // the in-group section would have -- null until the picker resolves it.
+  const [footballMatchweek, setFootballMatchweek] = useState<number | null>(null);
+
   return (
     <div>
       <p className="font-display text-[11px] uppercase tracking-wider text-muted">Predictions</p>
@@ -43,12 +51,17 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
 
       <PlayGroup sport="football">
         {hasBrackets && <PlayBracketCard champion={champion} className="mt-3" />}
-        {/* Reused whole: the exact /tips picker / you-vs-ai / per-league
-            leaderboard, with its league-switch remount keying intact. EPL is the
-            only ACTIVE_LEAGUES entry, so the switcher never mounts and LaLiga/
-            Bundesliga stay dormant -- no fabricated data. p5-s4 hoists this
-            section's leaderboard into the unified one. */}
-        <LeagueTipsPlaySection defaultLeague={DEFAULT_LEAGUE} />
+        {/* Reused whole: the exact /tips picker / you-vs-ai, with its
+            league-switch remount keying intact. EPL is the only ACTIVE_LEAGUES
+            entry, so the switcher never mounts and LaLiga/Bundesliga stay
+            dormant -- no fabricated data. p5-s4 suppresses this section's own
+            leaderboard (showLeaderboard=false) and instead learns its resolved
+            matchweek, hoisting the board into the unified one below. */}
+        <LeagueTipsPlaySection
+          defaultLeague={DEFAULT_LEAGUE}
+          showLeaderboard={false}
+          onMatchweekResolved={setFootballMatchweek}
+        />
         <p className="mt-6 text-[13px] text-muted">More leagues coming soon.</p>
       </PlayGroup>
 
@@ -57,19 +70,37 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
         seed={nrlTipsheet ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}` : null}
       >
         {/* Reused whole: the exact /nrl/tips beat-the-AI loop (claim, play the
-            round, you-vs-ai, weekly leaderboard), seeded with the same
-            server-fetched season/round /nrl/tips uses. p5-s4 hoists this
-            section's leaderboard into the unified one. When the tipsheet fetch
-            has no data (off-season / upstream down) we never invent a
-            season/round -- the group degrades to an honest empty state. */}
+            round, you-vs-ai), seeded with the same server-fetched season/round
+            /nrl/tips uses. p5-s4 suppresses this section's own weekly
+            leaderboard (showLeaderboard=false) -- it's hoisted into the unified
+            board below. When the tipsheet fetch has no data (off-season /
+            upstream down) we never invent a season/round -- the group degrades
+            to an honest empty state. */}
         {nrlTipsheet ? (
-          <NrlTipsPlaySection season={nrlTipsheet.season} round={nrlTipsheet.round} />
+          <NrlTipsPlaySection
+            season={nrlTipsheet.season}
+            round={nrlTipsheet.round}
+            showLeaderboard={false}
+          />
         ) : (
           <div className="glass mt-3 rounded-2xl p-4">
             <p className="text-[13px] text-muted">NRL tips aren&apos;t available right now.</p>
           </div>
         )}
       </PlayGroup>
+
+      {/* One board for every competition (p5-s4). It reuses the same shipped
+          LeagueTipsLeaderboard / NrlTipsLeaderboard the sections used to render
+          inline -- filtered by competition, seeded with the NRL season/round and
+          the football matchweek resolved above. Dormant leagues degrade to a
+          quiet "coming soon"; NRL off-season / football pre-resolution each show
+          their own honest state. */}
+      <PlayLeaderboard
+        nrlSeason={nrlTipsheet?.season ?? null}
+        nrlRound={nrlTipsheet?.round ?? null}
+        footballLeagues={ACTIVE_LEAGUES}
+        footballMatchweek={footballMatchweek}
+      />
     </div>
   );
 }
