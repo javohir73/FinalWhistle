@@ -108,8 +108,9 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
   );
 }
 
-/** One sport's group: a sticky-ish glass heading (the sport label from the
- *  registry) over its body. Both groups pass their composed sections (or an
+/** One sport's group: the sport label from the registry as a section heading
+ *  (a plain full-bleed divider, not sticky -- the app shell's own sticky top bar
+ *  owns top:0) over its body. Both groups pass their composed sections (or an
  *  honest empty state) as `children`. */
 function PlayGroup({
   sport,
@@ -124,7 +125,7 @@ function PlayGroup({
 
   return (
     <section className="mt-8" aria-labelledby={headingId}>
-      <div className="sticky top-0 z-10 -mx-4 flex items-baseline justify-between gap-3 border-b border-border bg-background/80 px-4 py-2 backdrop-blur-xl">
+      <div className="-mx-4 flex items-baseline justify-between gap-3 border-b border-border px-4 pb-2">
         <h2 id={headingId} className="font-display text-xl font-extrabold">
           {SPORTS[sport].label}
         </h2>
