@@ -1,5 +1,8 @@
 "use client";
 
+import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySection";
+import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
+import { DEFAULT_LEAGUE } from "@/lib/leagueConfig";
 import { SPORTS, competitionsForSport, type SportId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
@@ -8,17 +11,25 @@ interface PlayHubProps {
    *  season/round. Null when the endpoint has no data yet -- the group still
    *  renders, just without the round line (honest degrade). */
   nrlTipsheet: NrlTipsheet | null;
+  /** Whether the active tournament has a knockout bracket (app/brackets gates on
+   *  the same `has_brackets`). False for a league-format tournament -- the
+   *  Football group then renders the league tips only, no bracket entry. */
+  hasBrackets: boolean;
+  /** Predicted champion (top-`win_title` team) surfaced on the bracket card, or
+   *  null when the odds fetch failed / the simulation hasn't run -- the card
+   *  degrades to a plain link. Ignored when `hasBrackets` is false. */
+  champion: BracketChampion | null;
 }
 
 /** The Floodlight "Play" hub (design: Floodlight Implementation Plan, P5) --
  *  one predictions surface that merges the WC26 bracket, league score tips and
- *  NRL round tips, grouped by sport. This slice (p5-s1) stands up the shell:
- *  the eyebrow/title, and one glass-headed section per sport. The actual pick
- *  sections drop into these groups in p5-s2 (Football) and p5-s3 (NRL); the
- *  existing /tips, /brackets and /nrl/tips routes stay live and get linked in
- *  from here. Floodlight skin only -- lime is the sole action colour, numerics
- *  are tabular. Pure render (no window/localStorage) so it's SSR-safe. */
-export function PlayHub({ nrlTipsheet }: PlayHubProps) {
+ *  NRL round tips, grouped by sport. This slice (p5-s2) fills the Football
+ *  group: the shipped /brackets route (via PlayBracketCard) plus the existing
+ *  league tips loop (LeagueTipsPlaySection, reused whole). The NRL group keeps
+ *  the p5-s1 placeholder until p5-s3. The existing /tips, /brackets and
+ *  /nrl/tips routes stay live and get linked in from here. Floodlight skin only
+ *  -- lime is the sole action colour, numerics are tabular. */
+export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
   return (
     <div>
       <p className="font-display text-[11px] uppercase tracking-wider text-muted">Predictions</p>
@@ -27,7 +38,17 @@ export function PlayHub({ nrlTipsheet }: PlayHubProps) {
         Make your picks against the model in one place — grouped by sport, graded on a public record.
       </p>
 
-      <PlayGroup sport="football" />
+      <PlayGroup sport="football">
+        {hasBrackets && <PlayBracketCard champion={champion} className="mt-3" />}
+        {/* Reused whole: the exact /tips picker / you-vs-ai / per-league
+            leaderboard, with its league-switch remount keying intact. EPL is the
+            only ACTIVE_LEAGUES entry, so the switcher never mounts and LaLiga/
+            Bundesliga stay dormant -- no fabricated data. p5-s4 hoists this
+            section's leaderboard into the unified one. */}
+        <LeagueTipsPlaySection defaultLeague={DEFAULT_LEAGUE} />
+        <p className="mt-6 text-[13px] text-muted">More leagues coming soon.</p>
+      </PlayGroup>
+
       <PlayGroup
         sport="nrl"
         seed={nrlTipsheet ? `Round ${nrlTipsheet.round} · ${nrlTipsheet.season}` : null}
@@ -37,10 +58,17 @@ export function PlayHub({ nrlTipsheet }: PlayHubProps) {
 }
 
 /** One sport's group: a sticky-ish glass heading (the sport label from the
- *  registry) over the competitions that live under it. Placeholder body in
- *  this slice -- filled by the per-sport pick sections in p5-s2/p5-s3. */
-function PlayGroup({ sport, seed }: { sport: SportId; seed?: string | null }) {
-  const competitions = competitionsForSport(sport);
+ *  registry) over its body. Football passes its composed sections as `children`;
+ *  NRL still falls through to the p5-s1 placeholder until p5-s3 fills it. */
+function PlayGroup({
+  sport,
+  seed,
+  children,
+}: {
+  sport: SportId;
+  seed?: string | null;
+  children?: React.ReactNode;
+}) {
   const headingId = `play-group-${sport}`;
 
   return (
@@ -52,12 +80,20 @@ function PlayGroup({ sport, seed }: { sport: SportId; seed?: string | null }) {
         {seed != null && <span className="shrink-0 text-xs tabular-nums text-muted">{seed}</span>}
       </div>
 
-      <div className="glass mt-3 rounded-2xl p-4">
-        <p className="text-[13px] text-muted">
-          {competitions.map((c) => c.label).join(" · ")}
-        </p>
-        <p className="mt-1.5 text-[13px] text-muted">Picks land here soon.</p>
-      </div>
+      {children ?? <PlayGroupPlaceholder sport={sport} />}
     </section>
+  );
+}
+
+/** Placeholder body for a group whose pick sections haven't landed yet (NRL,
+ *  until p5-s3): the competitions under the sport and an honest "soon" line. */
+function PlayGroupPlaceholder({ sport }: { sport: SportId }) {
+  const competitions = competitionsForSport(sport);
+
+  return (
+    <div className="glass mt-3 rounded-2xl p-4">
+      <p className="text-[13px] text-muted">{competitions.map((c) => c.label).join(" · ")}</p>
+      <p className="mt-1.5 text-[13px] text-muted">Picks land here soon.</p>
+    </div>
   );
 }
