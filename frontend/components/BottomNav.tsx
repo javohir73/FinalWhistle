@@ -3,9 +3,26 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavIcon } from "@/components/NavIcon";
-import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
+import {
+  COMPETITIONS,
+  competitionFromPathname,
+  isCompetitionHomeHref,
+  isPlatformPathname,
+} from "@/lib/sports";
 import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
+
+const PLATFORM_TABS = [
+  { href: "/", label: "Home", activePrefixes: [] },
+  { href: "/football/epl", label: "Football", activePrefixes: [] },
+  { href: "/nrl", label: "NRL", activePrefixes: [] },
+  { href: "/play", label: "Play", activePrefixes: [] },
+  {
+    href: "/leaderboard",
+    label: "You",
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+  },
+];
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
   // Competition home links ("/football/wc26", "/nrl") need exact-match
@@ -31,9 +48,14 @@ export function BottomNav() {
   // always-on Play tab, so this filter no longer removes anything (no navLink
   // sets requiresBrackets/requiresLeagueFormat now) -- it's kept intact so the
   // gating still works if any future tab reintroduces those flags.
-  const tabs = COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
-    (tab) => (!tab.requiresBrackets || has_brackets) && (!tab.requiresLeagueFormat || !has_brackets),
-  );
+  const tabs =
+    isPlatformPathname(pathname)
+      ? PLATFORM_TABS
+      : COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
+          (tab) =>
+            (!tab.requiresBrackets || has_brackets) &&
+            (!tab.requiresLeagueFormat || !has_brackets),
+        );
 
   return (
     <nav

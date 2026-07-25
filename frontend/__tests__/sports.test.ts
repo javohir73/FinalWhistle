@@ -5,6 +5,7 @@ import {
   COMPETITIONS,
   competitionFromPathname,
   isCompetitionHomeHref,
+  isPlatformPathname,
   isWiredCompetition,
   isWiredFootballCompetition,
   competitionsForSport,
@@ -79,6 +80,20 @@ describe("competition registry", () => {
     expect(competitionFromPathname("/leaderboard")).toBe("wc26");
     expect(competitionFromPathname("/tips")).toBe("wc26");
   });
+
+  it.each(["/", "/play", "/leaderboard", "/methodology", "/privacy"])(
+    "recognizes %s as a shared platform route",
+    (pathname) => {
+      expect(isPlatformPathname(pathname)).toBe(true);
+    },
+  );
+
+  it.each(["/football/epl", "/football/wc26/fixtures", "/nrl", "/nrl/ladder"])(
+    "keeps %s competition-scoped",
+    (pathname) => {
+      expect(isPlatformPathname(pathname)).toBe(false);
+    },
+  );
 
   it("wires every shipped competition and gates unknown ones", () => {
     expect(isWiredCompetition("wc26")).toBe(true);

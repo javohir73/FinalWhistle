@@ -6,9 +6,25 @@ import { BrandMark, Wordmark } from "@/components/Logo";
 import { NavIcon } from "@/components/NavIcon";
 import { AuthButton } from "@/components/AuthButton";
 import { CompetitionOverlay } from "@/components/CompetitionOverlay";
-import { COMPETITIONS, competitionFromPathname, isCompetitionHomeHref } from "@/lib/sports";
+import {
+  COMPETITIONS,
+  competitionFromPathname,
+  isCompetitionHomeHref,
+  isPlatformPathname,
+} from "@/lib/sports";
 import { useTournament } from "@/components/TournamentProvider";
 import { cn } from "@/lib/utils";
+
+const PLATFORM_LINKS = [
+  { href: "/football/epl", label: "Football", activePrefixes: [] },
+  { href: "/nrl", label: "NRL", activePrefixes: [] },
+  { href: "/play", label: "Play", activePrefixes: [] },
+  {
+    href: "/leaderboard",
+    label: "You",
+    activePrefixes: ["/about", "/methodology", "/privacy", "/terms"],
+  },
+];
 
 function matches(pathname: string, prefixes: string[], href: string): boolean {
   // Competition home links ("/football/wc26", "/nrl") need exact-match
@@ -35,9 +51,14 @@ export function SiteNav() {
   // C6: the Bracket link only makes sense for tournaments that have one.
   // Tips (league-format only) takes the slot Bracket vacates -- see
   // requiresLeagueFormat's doc comment in lib/sports.ts.
-  const links = COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
-    (link) => (!link.requiresBrackets || has_brackets) && (!link.requiresLeagueFormat || !has_brackets),
-  );
+  const isPlatformRoute = isPlatformPathname(pathname);
+  const links = isPlatformRoute
+    ? PLATFORM_LINKS
+    : COMPETITIONS[competitionFromPathname(pathname)].navLinks.filter(
+        (link) =>
+          (!link.requiresBrackets || has_brackets) &&
+          (!link.requiresLeagueFormat || !has_brackets),
+      );
 
   return (
     <header className="border-b border-border bg-background/80 backdrop-blur-xl">
@@ -51,7 +72,7 @@ export function SiteNav() {
           <Wordmark className="text-lg font-extrabold" />
         </Link>
 
-        <CompetitionOverlay />
+        {!isPlatformRoute && <CompetitionOverlay />}
 
         <div className="ml-auto mr-2 hidden items-center gap-1 sm:flex">
           {links.map((link) => {

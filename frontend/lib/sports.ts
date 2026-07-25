@@ -384,6 +384,27 @@ export function competitionFromPathname(pathname: string): CompetitionId {
   return best ?? DEFAULT_COMPETITION;
 }
 
+/** Routes that belong to the product as a whole rather than one competition.
+ * Shared surfaces should keep the platform navigation visible instead of
+ * implying that pages such as Play or Methodology belong to WC26. */
+const PLATFORM_ROUTE_PREFIXES = [
+  "/play",
+  "/leaderboard",
+  "/about",
+  "/methodology",
+  "/privacy",
+  "/terms",
+];
+
+export function isPlatformPathname(pathname: string): boolean {
+  return (
+    pathname === "/" ||
+    PLATFORM_ROUTE_PREFIXES.some(
+      (prefix) => pathname === prefix || pathname.startsWith(prefix + "/"),
+    )
+  );
+}
+
 /** True iff `comp` is both a known CompetitionId and enabled. Used by the
  *  route wrappers to reject unknown or deliberately hidden competitions. */
 export function isWiredCompetition(comp: string): comp is CompetitionId {
