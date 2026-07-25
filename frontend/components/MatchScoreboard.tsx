@@ -6,7 +6,7 @@ import { useFetch } from "@/lib/useFetch";
 import { useTimezone } from "@/lib/useTimezone";
 import { kickoffDate, kickoffTime, tzAbbrev } from "@/lib/datetime";
 import { pct, formatScore } from "@/lib/format";
-import { liveLabel, isLiveNow } from "@/lib/liveLabel";
+import { liveLabel, penaltyTally, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict } from "@/lib/verdict";
 import { ShootoutNote, BasisTag, KnockoutDrawNote } from "@/components/ShootoutNote";
 import { KnockoutAdvanceCard } from "@/components/KnockoutAdvanceCard";
@@ -92,6 +92,11 @@ export function MatchScoreboard({
   const liveProbs = live ? summary?.live_probabilities ?? null : null;
   const shownProbs = liveProbs ?? probabilities;
   const predictedScore = formatScore(predicted.home, predicted.away);
+  // During a live knockout shootout the scorebug centre stays on the level 90'/ET
+  // score (e.g. 1–1); the running spot-kick tally is the one decisive number, so
+  // surface it under the score. Null outside a shootout — penaltyTally guards on
+  // the penalty_home/away fields, which the feed only populates once kicks start.
+  const shootoutTally = live && summary ? penaltyTally(summary) : null;
   // The headline says "X to win" only with a decisive predicted scoreline; a
   // level modal scoreline falls back to "Too close to call".
   const showsWinner = !!predictedWinner && predicted.home !== predicted.away;
@@ -121,6 +126,7 @@ export function MatchScoreboard({
         statusLine={statusLine}
         venue={venue}
         score={hasActual ? formatScore(summary!.score_home, summary!.score_away) : null}
+        penaltyTally={shootoutTally}
         predictedScore={predictedScore}
         probabilities={shownProbs}
       />

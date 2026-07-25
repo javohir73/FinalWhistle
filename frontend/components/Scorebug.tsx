@@ -30,6 +30,7 @@ export function Scorebug({
   statusLine,
   venue,
   score,
+  penaltyTally,
   predictedScore,
   probabilities,
 }: {
@@ -48,6 +49,10 @@ export function Scorebug({
   venue?: string | null;
   /** Actual scoreline once the match is live/finished; null before. */
   score?: string | null;
+  /** Live penalty-shootout tally (e.g. "5–4"); null unless a shootout is in
+   *  progress. The centre score stays level (1–1) through the shootout, so this
+   *  runs underneath it as the decisive number. */
+  penaltyTally?: string | null;
   /** Model's most-likely scoreline, shown as the upcoming centrepiece. */
   predictedScore?: string | null;
   probabilities: Probabilities;
@@ -98,6 +103,14 @@ export function Scorebug({
         </div>
         {upcoming && (
           <div className="mt-0.5 text-[11px] tracking-[0.1em] text-muted">MOST LIKELY SCORE</div>
+        )}
+        {/* Live shootout: the level score above is stuck at 1–1, so the running
+            spot-kick tally is the decisive number. Rose ties it to the LIVE·PENS
+            status; `uppercase` renders "PENS" but keeps the text node lowercase. */}
+        {penaltyTally && (
+          <div className="mt-1 text-[13px] font-bold uppercase tracking-[0.06em] tabular-nums text-loss">
+            {penaltyTally} pens
+          </div>
         )}
 
         <div className="mt-1.5 flex justify-center gap-[26px] font-display text-[13px] font-bold">

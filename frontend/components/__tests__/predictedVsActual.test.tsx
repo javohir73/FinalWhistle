@@ -170,11 +170,13 @@ describe("MatchScoreboard", () => {
     expect(screen.queryByText(/\d+'/)).not.toBeInTheDocument();
   });
 
-  it("shows PENS with the 90-minute score during a penalty shootout", () => {
+  it("shows PENS, the 90-minute score, and the live shootout tally during a shootout", () => {
     mockGetMatchSummary.mockResolvedValue(shootout);
     renderBoard(shootout);
     expect(screen.getByText(/LIVE.*PENS/)).toBeInTheDocument();
     expect(screen.getAllByText("1–1").length).toBeGreaterThanOrEqual(1); // level after 90/ET
+    // The running spot-kick tally is the one decisive number while pens are live.
+    expect(screen.getByText(/5–4 pens/)).toBeInTheDocument();
   });
 
   it("at full time shows actual + predicted + verdict together", () => {

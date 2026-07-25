@@ -62,6 +62,26 @@ test("live: rose LIVE clock with a pulsing dot (not animate-pulse), actual score
   expectBarLabelHasPercents();
 });
 
+test("live shootout: the level score plus the running spot-kick tally", () => {
+  render(
+    <Scorebug
+      competitionLabel="World Cup 26"
+      home="Brazil"
+      away="Croatia"
+      status="live"
+      liveLabel="PENS"
+      score="1–1"
+      penaltyTally="5–4"
+      probabilities={probs}
+    />,
+  );
+  // The centre score stays level after 90/ET; the tally is the decisive number.
+  expect(screen.getByText(/LIVE.*PENS/)).toBeInTheDocument();
+  expect(screen.getByText("1–1")).toBeInTheDocument();
+  expect(screen.getByText(/5–4 pens/)).toBeInTheDocument();
+  expectBarLabelHasPercents();
+});
+
 test("ft: muted FULL TIME·venue and the final score", () => {
   render(
     <Scorebug
