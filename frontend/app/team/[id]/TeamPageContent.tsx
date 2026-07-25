@@ -117,6 +117,7 @@ export async function renderTeamPage(
         backHref={leagueMode ? `${basePath}/standings` : `${basePath}/groups`}
         backLabel={COMPETITIONS[comp].terms.standings}
         badge={leagueMode ? "club" : "flag"}
+        meta={leagueMode ? tournament.name : undefined}
       />
 
       {/* AI outlook — plain-language read + run-deep odds tiles */}

@@ -77,6 +77,13 @@ describe("FeatureHero", () => {
     links.forEach((link) => expect(link).toHaveAttribute("href", "/nrl/match/2026/19/3"));
   });
 
+  it("accepts truthful feature copy when the match is not tonight", () => {
+    render(<FeatureHero match={makeMatch()} comp="epl" tz="UTC" eyebrow="Next up" />);
+
+    expect(screen.getByText("Next up")).toBeInTheDocument();
+    expect(screen.queryByText("Tonight's feature")).toBeNull();
+  });
+
   it("drops both CTA links when href is null -- never falls through to /match/<id>", () => {
     // An NRL fixture whose round is still TBC (nrlMatchHref -> null): the CTAs
     // must degrade to non-interactive labels, not the football detail route.

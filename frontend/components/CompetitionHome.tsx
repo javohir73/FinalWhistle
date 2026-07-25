@@ -140,6 +140,7 @@ export function CompetitionHome({
           tz={tz}
           badge="club"
           href={feature ? `${basePath}/match/${feature.match_id}` : null}
+          eyebrow="Next up"
         />
       </div>
 
