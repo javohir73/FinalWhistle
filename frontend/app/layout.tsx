@@ -98,8 +98,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <HideOnEmbed>
               <footer className="mx-auto mt-16 max-w-6xl px-5 pb-[calc(6.5rem+env(safe-area-inset-bottom))] pt-10 text-center text-xs text-muted sm:pb-10">
                 <Wordmark className="font-bold" />{" "}
-                · Explainable {tournament.name} predictions · For analytics and
-                entertainment only. Not betting advice.
+                · Explainable sports predictions · For analytics and entertainment
+                only. Not betting advice.
                 <span className="mt-1.5 block">
                   <Link href="/methodology" className="underline-offset-2 hover:text-foreground hover:underline">
                     Methodology

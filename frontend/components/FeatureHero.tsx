@@ -47,6 +47,7 @@ export function FeatureHero({
   badge = "flag",
   href,
   margin,
+  eyebrow = "Tonight's feature",
 }: {
   match: MatchSummary | null;
   comp: CompetitionId;
@@ -54,6 +55,7 @@ export function FeatureHero({
   badge?: "flag" | "club";
   href?: string | null;
   margin?: number | null;
+  eyebrow?: string;
 }) {
   if (!match) {
     return (
@@ -98,7 +100,7 @@ export function FeatureHero({
             quiet live/kickoff marker pushed to the right. */}
         <div className="flex items-center gap-2">
           <CompEyebrowChip comp={comp} />
-          <Eyebrow tone="lime">Tonight&apos;s feature</Eyebrow>
+          <Eyebrow tone="lime">{eyebrow}</Eyebrow>
           {live ? (
             <span className="ml-auto text-[11px] font-bold uppercase tracking-wide text-loss">Live</span>
           ) : match.kickoff_utc && tz ? (

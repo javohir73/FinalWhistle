@@ -15,18 +15,14 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import PlayPage from "./page";
 import {
-  getActiveTournamentServer,
   getKnockoutOddsServer,
   getNrlTipsheetServer,
 } from "@/lib/api";
-import type { ActiveTournament, NrlTipsheet, TournamentOdds } from "@/lib/types";
+import type { NrlTipsheet, TournamentOdds } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockTipsheet = getNrlTipsheetServer as jest.MockedFunction<typeof getNrlTipsheetServer>;
 const mockKnockoutOdds = getKnockoutOddsServer as jest.MockedFunction<typeof getKnockoutOddsServer>;
-const mockActiveTournament = getActiveTournamentServer as jest.MockedFunction<
-  typeof getActiveTournamentServer
->;
 
 // The Football group renders the real LeagueTipsPlaySection, whose leaf
 // components each fetch on mount -- stub them (mirrors
@@ -90,30 +86,26 @@ const odd = (team_id: number, team: string, win_title: number | null): Tournamen
 // Brazil leads on win_title -> the predicted champion the card should print.
 const odds: TournamentOdds[] = [odd(1, "France", 0.15), odd(2, "Brazil", 0.18)];
 
-const leagueTournament: ActiveTournament = {
-  id: 9, name: "Premier League", year: 2026, format: "league", has_brackets: false,
-};
-
-// getActiveTournamentServer is left unset by default: the auto-mock returns
-// undefined, so lib/tournament's getTournament falls back to WC26 (has_brackets
-// true) -- today's live behavior. Tests that need a league-format tournament set
-// it explicitly.
 beforeEach(() => {
   mockTipsheet.mockResolvedValue(tipsheet);
   mockKnockoutOdds.mockResolvedValue(odds);
 });
 afterEach(() => jest.resetAllMocks());
 
-it("renders the Play title and both sport group headings", async () => {
+it("renders the prototype slate grouped by competition", async () => {
   render(await PlayPage());
 
-  expect(screen.getByRole("heading", { level: 1, name: "Play" })).toBeInTheDocument();
-  const footballHeading = screen.getByRole("heading", { name: "Football" });
-  expect(footballHeading).toBeInTheDocument();
-  // Competition marks belong to their own cards/sections, not an ambiguous
-  // stacked World Cup + EPL badge beside the generic sport heading.
-  expect(footballHeading.parentElement?.querySelector("[data-competition-logo]")).toBeNull();
-  expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { level: 1, name: "The slate" })).toBeInTheDocument();
+  for (const name of [
+    "Premier League",
+    "La Liga",
+    "Bundesliga",
+    "World Cup 2026",
+    "NRL",
+  ]) {
+    expect(screen.getByRole("heading", { name })).toBeInTheDocument();
+  }
+  expect(document.querySelectorAll("[data-competition-logo]")).toHaveLength(10);
 });
 
 it("seeds the NRL group with the current round when the tipsheet loads", async () => {
@@ -148,9 +140,9 @@ it("degrades to the empty state (no round line, no crash) when the tipsheet is n
   mockTipsheet.mockResolvedValue(null);
   render(await PlayPage());
 
-  expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Premier League" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
-  expect(screen.queryByText(/^Round /)).not.toBeInTheDocument();
+  expect(screen.queryByText(/^Round \d/)).not.toBeInTheDocument();
   // No fabricated season/round: the loop is replaced by the honest empty state.
   expect(screen.queryByTestId("nrl-play-round")).not.toBeInTheDocument();
   expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();
@@ -160,7 +152,7 @@ it("degrades to the empty state (no crash) when the NRL tipsheet fetch rejects",
   mockTipsheet.mockRejectedValue(new Error("upstream down"));
   render(await PlayPage());
 
-  expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
+  expect(screen.getByRole("heading", { name: "Premier League" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
   expect(screen.queryByTestId("nrl-play-round")).not.toBeInTheDocument();
   expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();
@@ -184,16 +176,16 @@ it("degrades the bracket card to a plain link when the knockout odds are unavail
   expect(bracketLink).not.toHaveTextContent("Predicted champion");
 });
 
-it("mounts the reused league tips picker in the Football group", async () => {
+it("mounts the reused league tips picker in the Premier League section", async () => {
   render(await PlayPage());
 
   expect(screen.getByTestId("picker")).toHaveTextContent("epl");
 });
 
-it("hides the bracket card for a league-format tournament, keeping the league tips", async () => {
-  mockActiveTournament.mockResolvedValue(leagueTournament);
+it("keeps unavailable leagues honest instead of mounting another league's picker", async () => {
   render(await PlayPage());
 
-  expect(screen.queryByRole("link", { name: /Projected knockout bracket/i })).not.toBeInTheDocument();
-  expect(screen.getByTestId("picker")).toHaveTextContent("epl");
+  expect(screen.getByText("La Liga picks will appear when its season feed is loaded.")).toBeInTheDocument();
+  expect(screen.getByText("Bundesliga picks will appear when its season feed is loaded.")).toBeInTheDocument();
+  expect(screen.getAllByTestId("picker")).toHaveLength(1);
 });

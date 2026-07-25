@@ -330,10 +330,21 @@ def _card_counts(card_events: list | None) -> dict[str, int]:
     return counts
 
 
-def match_to_summary(db: Session, match: Match) -> schemas.MatchSummaryOut:
-    home = db.get(Team, match.team_home_id) if match.team_home_id else None
-    away = db.get(Team, match.team_away_id) if match.team_away_id else None
-    pred = latest_prediction(db, match.id)
+_PREDICTION_NOT_PROVIDED = object()
+
+
+def match_to_summary(
+    db: Session,
+    match: Match,
+    prediction: Prediction | None | object = _PREDICTION_NOT_PROVIDED,
+) -> schemas.MatchSummaryOut:
+    home = match.home_team if match.team_home_id else None
+    away = match.away_team if match.team_away_id else None
+    pred = (
+        latest_prediction(db, match.id)
+        if prediction is _PREDICTION_NOT_PROVIDED
+        else prediction
+    )
 
     probabilities = predicted_score = predicted_winner = confidence = None
     live_probabilities = None

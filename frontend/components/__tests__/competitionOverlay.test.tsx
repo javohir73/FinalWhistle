@@ -28,13 +28,24 @@ it("portals the open dialog out of the trigger's ancestor tree (backdrop-filter 
   expect(document.body).toContainElement(dialog);
 });
 
-it("separates sports into sections and marks unwired competitions Soon", () => {
+it("separates sports into sections and links every football competition", () => {
   render(<CompetitionOverlay />);
   fireEvent.click(screen.getByRole("button", { name: "WC26" }));
   expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
-  // epl / laliga / bundesliga are registered but not yet enabled in P1.
-  expect(screen.getAllByText("Soon")).toHaveLength(3);
+  expect(screen.queryByText("Soon")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /Premier League EPL/i })).toHaveAttribute(
+    "href",
+    "/football/epl",
+  );
+  expect(screen.getByRole("link", { name: /La Liga LaLiga/i })).toHaveAttribute(
+    "href",
+    "/football/laliga",
+  );
+  expect(screen.getByRole("link", { name: /Bundesliga BUN/i })).toHaveAttribute(
+    "href",
+    "/football/bundesliga",
+  );
 });
 
 it("Escape closes the dialog and returns focus to the trigger", () => {

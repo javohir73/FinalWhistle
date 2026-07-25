@@ -12,7 +12,11 @@ import { MatchCard } from "@/components/MatchCard";
 import { TimelineSpine } from "@/components/TimelineSpine";
 import { LocationPicker } from "@/components/LocationPicker";
 import { Loading, ErrorState, Empty } from "@/components/States";
-import { COMPETITIONS, competitionFromPathname } from "@/lib/sports";
+import {
+  COMPETITIONS,
+  competitionFromPathname,
+  type CompetitionId,
+} from "@/lib/sports";
 import type { MatchSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,16 +32,41 @@ const FILTERS: Filter[] = ["Upcoming", "Live", "Finished"];
 const isFinished = (m: MatchSummary) =>
   m.status === "finished" || (m.status === "in_play" && !isLiveNow(m));
 
-export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummary[] }) {
+export function MatchesClient({
+  initialMatches,
+  competition,
+}: {
+  initialMatches?: MatchSummary[];
+  competition?: CompetitionId;
+}) {
+  const pathname = usePathname();
+  const activeCompetition = competition ?? competitionFromPathname(pathname);
+  const config = COMPETITIONS[activeCompetition];
   // Poll every 30s so live in-game scores refresh automatically. Seeded from the
   // server so the first paint shows real fixtures, not a skeleton.
-  const state = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
+  const state = useFetch(
+    () => getUpcomingMatches(activeCompetition),
+    [activeCompetition],
+    30_000,
+    initialMatches,
+  );
   const { tz } = useTimezone();
   // Header vocabulary follows the active competition: 'Fixtures' for wc26 (and
   // the future European leagues that ride this template), 'Matches' for an
   // NRL-shaped comp. The wrapper route serves this at /football/wc26/fixtures;
   // un-namespaced /matches falls back to DEFAULT_COMPETITION (wc26) all the same.
-  const fixturesTerm = COMPETITIONS[competitionFromPathname(usePathname())].terms.fixtures;
+  const fixturesTerm = config.terms.fixtures;
+  const clubCompetition = config.format === "league";
+  const cardHref = useMemo(
+    () =>
+      Object.fromEntries(
+        (state.status === "success" ? state.data : initialMatches ?? []).map((match) => [
+          match.match_id,
+          `${config.basePath}/match/${match.match_id}`,
+        ]),
+      ),
+    [config.basePath, initialMatches, state],
+  );
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("Upcoming");
 
@@ -128,7 +157,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
           <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
             All <span className="text-lime-deep">{fixturesTerm}</span>
           </h1>
-          <p className="mt-1 text-sm text-muted">every match by kickoff</p>
+          <p className="mt-1 text-sm text-muted">{config.label} · every match by kickoff</p>
         </div>
         <div className="relative shrink-0" ref={tzRef}>
           <button
@@ -176,7 +205,7 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
       {/* Beat the AI entry point (design doc: League Score Predictions,
        *  2026-07-24) -- same glass teaser-card idiom as /nrl/tips's "Finals
        *  race" card and /nrl's "State of Origin" card. */}
-      <Link href="/tips" className="glass mb-6 block rounded-2xl p-4 transition hover:bg-white/5">
+      <Link href="/play" className="glass mb-6 block rounded-2xl p-4 transition hover:bg-white/5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
@@ -234,7 +263,13 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {liveMatches.map((m) => (
-                    <MatchCard key={m.match_id} match={m} tz={tz} />
+                    <MatchCard
+                      key={m.match_id}
+                      match={m}
+                      tz={tz}
+                      badge={clubCompetition ? "club" : "flag"}
+                      href={cardHref[m.match_id]}
+                    />
                   ))}
                 </div>
               </section>
@@ -257,6 +292,8 @@ export function MatchesClient({ initialMatches }: { initialMatches?: MatchSummar
                 return { key, heading, matches: dayMatches };
               })}
               tz={tz}
+              badge={clubCompetition ? "club" : "flag"}
+              cardHref={cardHref}
             />
           </div>
         ))}

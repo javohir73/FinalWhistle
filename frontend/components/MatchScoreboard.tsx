@@ -14,6 +14,7 @@ import type { KnockoutAdvance, MatchSummary, PredictedScore, Probabilities, Goal
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { ConfidenceBadge } from "@/components/ConfidenceBadge";
 import { Scorebug } from "@/components/Scorebug";
+import { COMPETITIONS, type CompetitionId } from "@/lib/sports";
 
 /** Match-page headline, Floodlight layout: a TV-style broadcast Scorebug (crests,
  *  score-or-kickoff, status, W/D/L bar) on the canvas, then a distinct "The AI's
@@ -41,6 +42,7 @@ export function MatchScoreboard({
   caveat,
   knockout,
   confidenceRing,
+  competition,
 }: {
   matchId: number;
   /** Tournament / competition name shown in the Scorebug eyebrow. */
@@ -65,12 +67,13 @@ export function MatchScoreboard({
   /** Conic confidence dial for the headline prediction; when passed it stands in
    *  the AI's-call card in place of the compact ConfidenceBadge. */
   confidenceRing?: ReactNode;
+  competition?: CompetitionId;
 }) {
   const { tz } = useTimezone();
   const finishedAtRender = initialSummary?.status === "finished";
   const state = useFetch<MatchSummary>(
-    () => getMatchSummary(matchId),
-    [matchId],
+    () => getMatchSummary(matchId, competition),
+    [matchId, competition],
     finishedAtRender ? undefined : 30_000,
     initialSummary ?? undefined,
   );
@@ -129,6 +132,9 @@ export function MatchScoreboard({
         penaltyTally={shootoutTally}
         predictedScore={predictedScore}
         probabilities={shownProbs}
+        teamBasePath={
+          competition ? `${COMPETITIONS[competition].basePath}/team` : "/team"
+        }
       />
 
       {hasActual &&

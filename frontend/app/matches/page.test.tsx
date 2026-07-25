@@ -40,6 +40,7 @@ function match(
 
 afterEach(() => {
   jest.resetAllMocks();
+  window.localStorage.clear();
 });
 
 it("shows loading then the match cards", async () => {
@@ -49,11 +50,11 @@ it("shows loading then the match cards", async () => {
   await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 });
 
-it("links to the Beat the AI tips page", async () => {
+it("links to the shared Play slate", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
   await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
-  expect(screen.getByRole("link", { name: /Beat the AI/i })).toHaveAttribute("href", "/tips");
+  expect(screen.getByRole("link", { name: /Beat the AI/i })).toHaveAttribute("href", "/play");
 });
 
 it("shows an error state when the API fails", async () => {
@@ -76,6 +77,10 @@ it("filters matches by team search", async () => {
 });
 
 it("groups matches by date under a day heading", async () => {
+  window.localStorage.setItem(
+    "pp:timezone",
+    JSON.stringify({ tz: "Australia/Sydney", confirmed: true }),
+  );
   mockGet.mockResolvedValue([
     match(1, "Mexico", "South Africa", "Group A", {
       kickoff_utc: "2026-06-11T19:00:00+00:00",
@@ -87,7 +92,7 @@ it("groups matches by date under a day heading", async () => {
   render(<MatchesPage />);
   await waitFor(() => expect(screen.getByText(/South Africa/)).toBeInTheDocument());
   // A day heading derived from the kickoff date should appear (year included).
-  expect(screen.getByText(/2026/)).toBeInTheDocument();
+  expect(screen.getByText("Friday, 12 June 2026")).toBeInTheDocument();
 });
 
 it("pins live (in-play) matches in a 'Live now' section at the top", async () => {

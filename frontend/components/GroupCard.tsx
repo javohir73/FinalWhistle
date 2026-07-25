@@ -14,12 +14,16 @@ export function GroupCard({
   group,
   index = 0,
   matches,
+  groupBasePath = "/groups",
+  teamBasePath = "/team",
 }: {
   group: Group;
   index?: number;
   matches?: MatchSummary[];
+  groupBasePath?: string;
+  teamBasePath?: string;
 }) {
-  const href = `/groups/${group.id}`;
+  const href = `${groupBasePath}/${group.id}`;
   const live = groupHasLiveMatch(group.name, matches);
 
   return (
@@ -49,7 +53,7 @@ export function GroupCard({
         </Link>
       </div>
       <div className="relative z-10">
-        <GroupTable standings={group.standings} />
+        <GroupTable standings={group.standings} teamBasePath={teamBasePath} />
       </div>
     </div>
   );

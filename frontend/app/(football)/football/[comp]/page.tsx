@@ -1,16 +1,33 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { isWiredFootballCompetition } from "@/lib/sports";
-import HomePage from "@/app/page";
+import { COMPETITIONS, isWiredFootballCompetition } from "@/lib/sports";
+import { APP_NAME } from "@/lib/constants";
+import {
+  getGroupsServer,
+  getTeamsServer,
+  getUpcomingMatchesServer,
+} from "@/lib/api";
+import { CompetitionHome } from "@/components/CompetitionHome";
+import { renderHomePage } from "@/app/HomePageContent";
 
-// ARCHITECT RULING (Floodlight P1, slice p1-s3): WC26 is the only football
-// competition wired in P1 -- epl/laliga/bundesliga are P2 and stay
-// `enabled: false` in lib/sports.ts, so isWiredFootballCompetition() 404s
-// them here rather than serving a page nothing links to yet. The football
-// scope also 404s non-football competitions (e.g. nrl) that reach this
-// route via /football/<comp> -- NRL keeps its own space. This route wraps
-// (does not move) the existing root HomePage: same component, same data, so
-// /football/wc26 renders identically to today's "/". No metadata export --
-// app/page.tsx has none either; the root layout's generateMetadata covers it.
+// The football scope 404s non-football competitions (for example NRL) that
+// reach /football/<comp>; NRL keeps its own namespace. WC26 reuses the
+// existing tournament home, while league-format competitions use the scoped
+// league home below. A registered league with no loaded feed gets an honest
+// empty state rather than another competition's teams.
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ comp: string }>;
+}): Promise<Metadata> {
+  const { comp } = await params;
+  const label = isWiredFootballCompetition(comp) ? COMPETITIONS[comp].label : "Football";
+  return {
+    title: `${label} predictions — ${APP_NAME}`,
+    description: `Fixtures, standings, and explainable predictions for ${label}.`,
+  };
+}
+
 export default async function CompHomePage({
   params,
 }: {
@@ -18,5 +35,21 @@ export default async function CompHomePage({
 }) {
   const { comp } = await params;
   if (!isWiredFootballCompetition(comp)) notFound();
-  return <HomePage />;
+  if (COMPETITIONS[comp].format === "knockout") {
+    return renderHomePage(comp);
+  }
+
+  const [teams, groups, matches] = await Promise.all([
+    getTeamsServer(comp).catch(() => null),
+    getGroupsServer(comp).catch(() => null),
+    getUpcomingMatchesServer(comp).catch(() => null),
+  ]);
+  return (
+    <CompetitionHome
+      competition={comp}
+      initialTeams={teams ?? undefined}
+      initialGroups={groups ?? undefined}
+      initialMatches={matches ?? undefined}
+    />
+  );
 }

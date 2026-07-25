@@ -1,5 +1,5 @@
 /** Bottom nav (Daylight IA): exactly five first-class tabs — Home, Fixtures,
- *  Groups, Play, You — no overflow sheet. Floodlight P5 folded the old
+ *  Play, Standings, You — no overflow sheet. Floodlight P5 folded the old
  *  mutually-exclusive Bracket/Tips slot into the always-on Play tab. Every key
  *  route lights its tab, including detail pages like /football/wc26/match/[id]
  *  that don't share the tab's prefix. Paths below use the Floodlight P1
@@ -34,7 +34,7 @@ afterEach(() => {
 
 it("exposes exactly the five Daylight tabs", () => {
   renderAt("/");
-  for (const label of ["Home", "Fixtures", "Groups", "Play", "You"]) {
+  for (const label of ["Home", "Fixtures", "Play", "Standings", "You"]) {
     expect(screen.getByRole("link", { name: new RegExp(label) })).toBeInTheDocument();
   }
   expect(screen.getAllByRole("link")).toHaveLength(5);
@@ -50,8 +50,8 @@ it.each([
   ["/football/wc26/team/3", "Home"], // team profiles open from the home hub
   ["/football/wc26/fixtures", "Fixtures"],
   ["/football/wc26/match/12", "Fixtures"], // singular detail route still lights Fixtures
-  ["/football/wc26/groups", "Groups"],
-  ["/football/wc26/groups/2", "Groups"], // group detail still lights Groups
+  ["/football/wc26/groups", "Standings"],
+  ["/football/wc26/groups/2", "Standings"], // group detail still lights Standings
   ["/play", "Play"], // the hub itself lights Play
   ["/tips", "Play"], // Play subsumes the league-tips route (activePrefix)
   ["/football/wc26/bracket", "Play"], // ...and the projected-bracket route the user actually lands on (legacy /brackets 301s here)

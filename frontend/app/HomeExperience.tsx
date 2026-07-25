@@ -18,7 +18,7 @@ import { useTimezone } from "@/lib/useTimezone";
 import { getTeams, getGroups, getUpcomingMatches, getKnockoutOdds, getModelRecord } from "@/lib/api";
 import { isLiveNow } from "@/lib/liveLabel";
 import { relativeDayLabel } from "@/lib/datetime";
-import { competitionFromPathname } from "@/lib/sports";
+import { competitionFromPathname, type CompetitionId } from "@/lib/sports";
 import type { Group, MatchSummary, Team, TournamentOdds } from "@/lib/types";
 
 /** Country-first home. Decides between the chooser, the AI-forecast reveal, and
@@ -29,21 +29,38 @@ export function HomeExperience({
   initialGroups,
   initialMatches,
   initialOdds,
+  competition = "wc26",
 }: {
   initialTeams?: Team[];
   initialGroups?: Group[];
   initialMatches?: MatchSummary[];
   initialOdds?: TournamentOdds[];
+  competition?: CompetitionId;
 }) {
   const { selection, hydrated, select, reveal, clear } = useSelectedCountry();
   const [calculating, setCalculating] = useState(false);
   const [changing, setChanging] = useState(false);
 
-  const teamsState = useFetch(getTeams, [], undefined, initialTeams);
+  const teamsState = useFetch(
+    () => getTeams(competition),
+    [competition],
+    undefined,
+    initialTeams,
+  );
   // Poll fixtures + groups every 30s so live scores/clock and the live group
   // table on the country hub stay current (same cadence as /matches, /groups).
-  const groupsState = useFetch(getGroups, [], 30_000, initialGroups);
-  const matchesState = useFetch(getUpcomingMatches, [], 30_000, initialMatches);
+  const groupsState = useFetch(
+    () => getGroups(competition),
+    [competition],
+    30_000,
+    initialGroups,
+  );
+  const matchesState = useFetch(
+    () => getUpcomingMatches(competition),
+    [competition],
+    30_000,
+    initialMatches,
+  );
   const oddsState = useFetch(getKnockoutOdds, [], undefined, initialOdds);
 
   const teams = teamsState.status === "success" ? teamsState.data : initialTeams ?? [];

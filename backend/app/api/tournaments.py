@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.cache import cache
+from app.competition_scope import tournament_for_competition
 from app.db import get_db
 from app.models import Match, Tournament
 
@@ -15,6 +16,22 @@ router = APIRouter(prefix="/api/tournaments", tags=["tournaments"])
 # so bounding this key's own staleness is what actually keeps the WC26 -> EPL
 # cutover from serving the stale knockout answer for a full cache lifetime.
 _ACTIVE_TTL_SECONDS = 60
+
+
+def _tournament_payload(db: Session, tournament: Tournament) -> dict:
+    has_brackets = (
+        db.query(Match)
+        .filter(Match.tournament_id == tournament.id, Match.stage != "group")
+        .count()
+        > 0
+    )
+    return {
+        "id": tournament.id,
+        "name": tournament.name,
+        "year": tournament.year,
+        "format": "knockout" if has_brackets else "league",
+        "has_brackets": has_brackets,
+    }
 
 
 @router.get("/active")
@@ -52,22 +69,21 @@ def active_tournament(db: Session = Depends(get_db)):
         )
 
     tournament = db.get(Tournament, match.tournament_id)
-    # A tournament "has brackets" once it has any non-group-stage match —
-    # WC26 seeds its 32 knockout placeholders at structure-load time (before
-    # a single result exists), so this is true from day one; a league loader
-    # never creates a non-"group" stage row, so it's always false there.
-    has_brackets = (
-        db.query(Match)
-        .filter(Match.tournament_id == tournament.id, Match.stage != "group")
-        .count()
-        > 0
-    )
-    result = {
-        "id": tournament.id,
-        "name": tournament.name,
-        "year": tournament.year,
-        "format": "knockout" if has_brackets else "league",
-        "has_brackets": has_brackets,
-    }
+    result = _tournament_payload(db, tournament)
     cache.set("tournaments:active", result, ttl_seconds=_ACTIVE_TTL_SECONDS)
     return result
+
+
+@router.get("/{competition}")
+def competition_tournament(competition: str, db: Session = Depends(get_db)):
+    """Metadata for one competition without falling back to the active season."""
+    tournament = tournament_for_competition(db, competition)
+    if tournament is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": "competition_inactive",
+                "message": f"No tournament data loaded for {competition}",
+            },
+        )
+    return _tournament_payload(db, tournament)

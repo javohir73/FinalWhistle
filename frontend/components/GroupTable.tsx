@@ -14,6 +14,7 @@ export function GroupTable({
   standings,
   highlightTeamId,
   mode = "group",
+  teamBasePath = "/team",
 }: {
   standings: StandingRow[];
   highlightTeamId?: number;
@@ -22,6 +23,7 @@ export function GroupTable({
    *  "top two", which is not a real finish line in a 20-team league, so the
    *  column is dropped until the simulator grows league finish lines. */
   mode?: "group" | "league";
+  teamBasePath?: string;
 }) {
   return (
     <StandingsTable
@@ -29,6 +31,7 @@ export function GroupTable({
       zones={[]}
       highlightTeamId={highlightTeamId}
       showQualification={mode === "group"}
+      teamBasePath={teamBasePath}
     />
   );
 }

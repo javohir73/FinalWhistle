@@ -6,27 +6,42 @@ import { useFetch } from "@/lib/useFetch";
 import { GroupCard } from "@/components/GroupCard";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ErrorState, Empty } from "@/components/States";
-import { COMPETITIONS, competitionFromPathname } from "@/lib/sports";
+import {
+  COMPETITIONS,
+  competitionFromPathname,
+  type CompetitionId,
+} from "@/lib/sports";
 import type { ActiveTournament, Group } from "@/lib/types";
 
 export function GroupsClient({
   initialGroups,
   tournament,
+  competition,
 }: {
   initialGroups?: Group[];
   tournament: ActiveTournament;
+  competition?: CompetitionId;
 }) {
-  const state = useFetch(getGroups, [], 30_000, initialGroups);
+  const pathname = usePathname() ?? "";
+  const activeCompetition = competition ?? competitionFromPathname(pathname);
+  const state = useFetch(
+    () => getGroups(activeCompetition),
+    [activeCompetition],
+    30_000,
+    initialGroups,
+  );
   // Match feed drives the per-group LIVE badge. Polled alongside groups; if it
   // fails or is still loading, matches stays empty and no badge shows.
-  const matchesState = useFetch(getUpcomingMatches, [], 30_000);
+  const matchesState = useFetch(
+    () => getUpcomingMatches(activeCompetition),
+    [activeCompetition],
+    30_000,
+  );
   const matches = matchesState.status === "success" ? matchesState.data : undefined;
   // League-format standings paint the active competition's CL/Europa/relegation
   // zone stripes (Floodlight P2). Resolve it from the path so any wired league
   // gets the right bands; today's un-namespaced /groups falls back to WC26
   // (zones: []), which renders a plain league table.
-  const pathname = usePathname() ?? "";
-
   // D1: a league is one Tournament + a single Group holding every team — show
   // it as one full-width table instead of the WC26 multi-group card grid.
   const leagueMode =
@@ -71,13 +86,20 @@ export function GroupsClient({
           <div className="glass rounded-2xl p-5 sm:p-6">
             <StandingsTable
               standings={state.data[0].standings}
-              zones={COMPETITIONS[competitionFromPathname(pathname)].zones}
+              zones={COMPETITIONS[activeCompetition].zones}
             />
           </div>
         ) : (
           <div className="grid gap-5 md:grid-cols-2">
             {state.data.map((g, i) => (
-              <GroupCard key={g.id} group={g} index={i} matches={matches} />
+              <GroupCard
+                key={g.id}
+                group={g}
+                index={i}
+                matches={matches}
+                groupBasePath={`${COMPETITIONS[activeCompetition].basePath}/groups`}
+                teamBasePath={`${COMPETITIONS[activeCompetition].basePath}/team`}
+              />
             ))}
           </div>
         ))}

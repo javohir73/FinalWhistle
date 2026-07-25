@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getKnockoutOddsServer, getNrlTipsheetServer } from "@/lib/api";
-import { getTournament } from "@/lib/tournament";
+import { getCompetitionTournament } from "@/lib/tournament";
 import type { TournamentOdds } from "@/lib/types";
 import type { BracketChampion } from "@/components/play/PlayBracketCard";
 import { PlayHub } from "./PlayHub";
@@ -40,7 +40,7 @@ function topChampion(odds: TournamentOdds[]): BracketChampion | null {
 export default async function PlayPage() {
   const [nrlTipsheet, tournament, odds] = await Promise.all([
     getNrlTipsheetServer().catch(() => null),
-    getTournament(),
+    getCompetitionTournament("wc26"),
     getKnockoutOddsServer().catch(() => null),
   ]);
 

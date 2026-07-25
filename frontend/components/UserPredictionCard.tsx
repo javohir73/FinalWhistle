@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { Flag } from "@/components/Flag";
 import type { Pick } from "@/lib/useMatchPicks";
 import type { MatchSummary } from "@/lib/types";
@@ -242,12 +241,6 @@ export function UserPredictionCard({
               highlight={hi("away", pick, aiPick)}
             />
           </div>
-          <Link
-            href={`/match/${match.match_id}`}
-            className="inline-block text-[11px] font-medium text-lime-deep underline-offset-2 hover:underline"
-          >
-            See full match analysis →
-          </Link>
         </div>
       ) : pick && !p ? (
         <p className="mt-3 border-t border-border/60 pt-3 text-center text-xs text-muted">

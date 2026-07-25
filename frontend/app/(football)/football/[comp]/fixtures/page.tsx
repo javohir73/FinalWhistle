@@ -1,16 +1,22 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { isWiredFootballCompetition } from "@/lib/sports";
-import LegacyMatchesPage from "@/app/matches/page";
+import { APP_NAME } from "@/lib/constants";
+import { COMPETITIONS, isWiredFootballCompetition } from "@/lib/sports";
+import { renderMatchesPage } from "@/app/matches/MatchesPageContent";
 
-export { metadata } from "@/app/matches/page";
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ comp: string }>;
+}): Promise<Metadata> {
+  const { comp } = await params;
+  const label = isWiredFootballCompetition(comp) ? COMPETITIONS[comp].label : "Football";
+  return {
+    title: `${label} fixtures — ${APP_NAME}`,
+    description: `Every ${label} fixture, organized by kickoff and match status.`,
+  };
+}
 
-// Floodlight P1 slice p1-s3: wraps (does not move) app/matches/page.tsx --
-// WC26 is the only enabled competition in P1 (see lib/sports.ts's `enabled`
-// flags), so anything else 404s instead of rendering a page nobody has
-// built for it yet. isWiredFootballCompetition also 404s non-football
-// competitions (e.g. nrl) reached via /football/<comp> -- NRL keeps its own
-// space. The legacy component only reads its own params, so this wrapper
-// needs none from `params` beyond the comp guard.
 export default async function CompFixturesPage({
   params,
 }: {
@@ -18,5 +24,5 @@ export default async function CompFixturesPage({
 }) {
   const { comp } = await params;
   if (!isWiredFootballCompetition(comp)) notFound();
-  return <LegacyMatchesPage />;
+  return renderMatchesPage(comp);
 }

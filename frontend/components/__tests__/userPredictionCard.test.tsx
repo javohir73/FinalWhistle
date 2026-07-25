@@ -46,6 +46,9 @@ it("calls onPick and shows the AI comparison when a side is chosen", () => {
   const agree = screen.getByText("You agree with the ML model");
   expect(agree).toBeInTheDocument();
   expect(agree).toHaveClass("text-lime-deep", "font-semibold");
+  // This card already lives on the full match page. It must not offer a
+  // redundant legacy /match/:id link that can escape the current competition.
+  expect(screen.queryByRole("link")).toBeNull();
 });
 
 it("flags an upset in amber when the user backs the long shot", () => {
