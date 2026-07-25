@@ -2,9 +2,8 @@ import { COMPETITIONS, type CompetitionId } from "@/lib/sports";
 import { cn } from "@/lib/utils";
 
 /**
- * Self-hosted competition identity. The logo sits on a pale disc so dark marks
- * remain legible on Floodlight's pitch canvas. Callers normally keep it
- * decorative because the competition name is printed alongside it.
+ * Self-hosted competition identity. A fixed transparent canvas keeps every
+ * mark aligned without introducing a white tile around the artwork.
  */
 export function CompetitionLogo({
   competition,
@@ -18,14 +17,10 @@ export function CompetitionLogo({
   labelled?: boolean;
 }) {
   const config = COMPETITIONS[competition];
-  const inset = Math.max(2, Math.round(size * 0.14));
-
   return (
     <span
-      className={cn(
-        "grid shrink-0 place-items-center overflow-hidden rounded-full bg-white/95 ring-1 ring-border/80",
-        className,
-      )}
+      data-competition-logo={competition}
+      className={cn("grid shrink-0 place-items-center", className)}
       style={{ width: size, height: size }}
     >
       {/* The assets are deliberately self-hosted: the prototype's remote logo
@@ -35,11 +30,11 @@ export function CompetitionLogo({
         src={config.logoSrc}
         alt={labelled ? `${config.label} logo` : ""}
         aria-hidden={labelled ? undefined : true}
-        width={size - inset * 2}
-        height={size - inset * 2}
+        width={size}
+        height={size}
         loading="lazy"
         decoding="async"
-        className="h-auto max-h-full w-auto max-w-full object-contain"
+        className="h-full w-full object-contain p-[4%] drop-shadow-[0_1px_1px_rgba(0,0,0,0.45)]"
       />
     </span>
   );

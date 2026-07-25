@@ -108,7 +108,11 @@ it("renders the Play title and both sport group headings", async () => {
   render(await PlayPage());
 
   expect(screen.getByRole("heading", { level: 1, name: "Play" })).toBeInTheDocument();
-  expect(screen.getByRole("heading", { name: "Football" })).toBeInTheDocument();
+  const footballHeading = screen.getByRole("heading", { name: "Football" });
+  expect(footballHeading).toBeInTheDocument();
+  // Competition marks belong to their own cards/sections, not an ambiguous
+  // stacked World Cup + EPL badge beside the generic sport heading.
+  expect(footballHeading.parentElement?.querySelector("[data-competition-logo]")).toBeNull();
   expect(screen.getByRole("heading", { name: "NRL" })).toBeInTheDocument();
 });
 

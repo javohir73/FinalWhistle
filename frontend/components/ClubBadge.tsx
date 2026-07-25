@@ -96,26 +96,22 @@ export function ClubBadge({
   const code = club?.code ?? (name ?? "?").slice(0, 3).toUpperCase();
 
   if (club) {
-    const inset = Math.max(2, Math.round(size * 0.1));
     return (
       <span
         aria-hidden="true"
         data-club-logo={name ?? undefined}
-        className={cn(
-          "grid shrink-0 place-items-center overflow-hidden rounded-lg bg-white/95 ring-1 ring-border/80",
-          className,
-        )}
+        className={cn("grid shrink-0 place-items-center", className)}
         style={{ width: size, height: size }}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={club.logoSrc}
           alt=""
-          width={size - inset * 2}
-          height={size - inset * 2}
+          width={size}
+          height={size}
           loading="lazy"
           decoding="async"
-          className="h-auto max-h-full w-auto max-w-full object-contain"
+          className="h-full w-full object-contain p-[3%] drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]"
         />
       </span>
     );
