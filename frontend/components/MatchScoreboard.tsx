@@ -132,6 +132,7 @@ export function MatchScoreboard({
         status={live ? "live" : finished ? "ft" : "upcoming"}
         liveLabel={live ? liveLabel(summary!) : null}
         statusLine={statusLine}
+        venue={venue}
         score={hasActual ? formatScore(summary!.score_home, summary!.score_away) : null}
         predictedScore={predictedScore}
         probabilities={shownProbs}

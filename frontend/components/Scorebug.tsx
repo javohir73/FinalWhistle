@@ -17,7 +17,8 @@ import type { Probabilities } from "@/lib/types";
  *
  *  Status decides the middle: `upcoming` shows the most-likely predicted score
  *  (lime) with an amber kickoff·venue line; `live` shows the actual score with a
- *  pulsing rose LIVE clock; `ft` shows the final score under a muted FULL TIME. */
+ *  pulsing rose LIVE clock·venue; `ft` shows the final score under a muted
+ *  FULL TIME·venue. */
 export function Scorebug({
   competitionLabel,
   home,
@@ -27,6 +28,7 @@ export function Scorebug({
   status,
   liveLabel,
   statusLine,
+  venue,
   score,
   predictedScore,
   probabilities,
@@ -41,6 +43,9 @@ export function Scorebug({
   liveLabel?: string | null;
   /** Pre-match kickoff·venue line; null when unknown. */
   statusLine?: string | null;
+  /** Venue, appended to the live/ft status line (the prototype keeps it under
+   *  the lights after kickoff, mirroring the upcoming line's venue). */
+  venue?: string | null;
   /** Actual scoreline once the match is live/finished; null before. */
   score?: string | null;
   /** Model's most-likely scoreline, shown as the upcoming centrepiece. */
@@ -63,11 +68,11 @@ export function Scorebug({
           <div className="mt-2 flex items-center justify-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.14em] text-loss">
             {/* Rose dot + pulsing ring; both reduced-motion-gated in globals. */}
             <span className="status-live-dot status-live-ring h-[7px] w-[7px] rounded-full bg-current" aria-hidden />
-            LIVE{liveLabel ? ` · ${liveLabel}` : ""}
+            LIVE{liveLabel ? ` · ${liveLabel}` : ""}{venue ? ` · ${venue}` : ""}
           </div>
         ) : status === "ft" ? (
           <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
-            FULL TIME
+            FULL TIME{venue ? ` · ${venue}` : ""}
           </div>
         ) : (
           statusLine && (

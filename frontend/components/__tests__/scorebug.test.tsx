@@ -45,11 +45,14 @@ test("live: rose LIVE clock with a pulsing dot (not animate-pulse), actual score
       away="Croatia"
       status="live"
       liveLabel="63'"
+      venue="Emirates Stadium"
       score="1–0"
       probabilities={probs}
     />,
   );
-  expect(screen.getByText(/LIVE.*63'/)).toBeInTheDocument();
+  // Prototype live line is "LIVE · {clock} · {venue}" — the venue stays under the
+  // lights after kickoff, not only pre-match.
+  expect(screen.getByText(/LIVE.*63'.*Emirates Stadium/)).toBeInTheDocument();
   expect(screen.getByText("1–0")).toBeInTheDocument();
   // The pulse comes from the reduced-motion-gated status-live utilities, never
   // Tailwind's animate-pulse (which ignores prefers-reduced-motion).
@@ -59,18 +62,20 @@ test("live: rose LIVE clock with a pulsing dot (not animate-pulse), actual score
   expectBarLabelHasPercents();
 });
 
-test("ft: muted FULL TIME and the final score", () => {
+test("ft: muted FULL TIME·venue and the final score", () => {
   render(
     <Scorebug
       competitionLabel="World Cup 26"
       home="Brazil"
       away="Croatia"
       status="ft"
+      venue="Emirates Stadium"
       score="3–1"
       probabilities={probs}
     />,
   );
-  expect(screen.getByText("FULL TIME")).toBeInTheDocument();
+  // FULL TIME keeps the venue that always showed via the old LocalKickoff line.
+  expect(screen.getByText("FULL TIME · Emirates Stadium")).toBeInTheDocument();
   expect(screen.getByText("3–1")).toBeInTheDocument();
   expect(screen.queryByText("MOST LIKELY SCORE")).not.toBeInTheDocument();
   expectBarLabelHasPercents();
