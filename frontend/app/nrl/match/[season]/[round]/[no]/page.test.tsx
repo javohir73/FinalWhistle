@@ -45,7 +45,8 @@ const detail: NrlMatchDetail = {
   },
   prediction: {
     home_prob: 0.311, away_prob: 0.672, draw_prob: 0.017,
-    predicted_margin: -6.0, predicted_total: 42.0,
+    predicted_margin: -6.0, predicted_total: null,
+    predicted_score: null, score_model_version: null,
     model_version: "nrl-elo-v0.1",
     preview_text: "Warriors are the model's pick.\n\nWarriors carry the bigger Elo rating.\n\nThe model's number: Warriors by 6.0.",
   },
@@ -195,8 +196,24 @@ it("renders the Match Intelligence sections when the detail endpoint has data", 
   expect(screen.getByText("Form & H2H")).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "Model" })).toBeInTheDocument();
   expect(screen.getByText(/Warriors are the model's pick/)).toBeInTheDocument();
-  expect(screen.getByText(/Predicted total/)).toBeInTheDocument();
-  expect(screen.getByText("42 pts")).toBeInTheDocument();
+  expect(screen.queryByText(/Predicted total/)).not.toBeInTheDocument();
+});
+
+it("renders a fixture-specific scoreline only when the API promotes it", async () => {
+  mockDetail.mockResolvedValue({
+    ...detail,
+    prediction: {
+      ...detail.prediction!,
+      predicted_total: 44,
+      predicted_score: { home: 18, away: 26 },
+      score_model_version: "nrl-score-v1",
+    },
+  });
+  render(await NrlMatchDetailPage({ params: params() }));
+
+  expect(await screen.findByText("Predicted score")).toBeInTheDocument();
+  expect(screen.getByText(/Wests Tigers 18–26 Warriors/)).toBeInTheDocument();
+  expect(screen.getByText("44 total points")).toBeInTheDocument();
 });
 
 it("renders without the Match Intelligence sections when the detail endpoint is unavailable", async () => {

@@ -10,7 +10,8 @@ Two idempotent, append-only sweeps over sport="nrl" rows:
     the football SHADOW_MODEL_VERSION twins). A new row is written only if
     none exists yet for the match, or the newest existing row differs from
     the freshly computed one by more than 1e-9 in any of p_home/p_draw/p_away/
-    predicted_margin/predicted_total, or its preview_text doesn't match
+    predicted_margin/predicted_total/predicted scoreline, or its preview text
+    doesn't match
     exactly -- so a margin/total/preview-only change (e.g. a margin-model
     re-fit, win probs unchanged) still rewrites, while re-running after a
     true no-op day adds nothing. HARD GUARD: matches whose status != "scheduled"
@@ -42,8 +43,8 @@ from sqlalchemy.orm import Session
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
 from ml.sports.nrl.model import NrlParams, predict, regress_season, update
 from ml.sports.nrl.params import load_nrl_params
-from ml.models.nrl_margin_total import load_margin_total_params, predict_margin_total
 from ml.models.nrl_preview import build_preview
+from ml.models.nrl_score import NrlScoreParams, build_score_state, predict_scoreline
 from pipeline.sports.nrl_form import last_n_results
 
 log = logging.getLogger(__name__)
@@ -58,7 +59,15 @@ def _kickoff_key(m: SportMatch) -> tuple:
     return (m.kickoff_utc is None, m.kickoff_utc or datetime.min, m.id)
 
 
-def _current_elos(db: Session) -> dict[int, float]:
+def _finished_matches(db: Session) -> list[SportMatch]:
+    finished = db.query(SportMatch).filter_by(sport=SPORT, status="finished").all()
+    finished.sort(key=_kickoff_key)
+    return finished
+
+
+def _current_elos(
+    db: Session, finished: list[SportMatch] | None = None
+) -> dict[int, float]:
     """Replay every finished nrl match in kickoff order to derive the CURRENT
     per-team Elo state, applying regress_season at each season boundary.
 
@@ -69,12 +78,7 @@ def _current_elos(db: Session) -> dict[int, float]:
     as a season's matches don't interleave with another season's in time,
     which fixturedownload's data never does.
     """
-    finished = (
-        db.query(SportMatch)
-        .filter_by(sport=SPORT, status="finished")
-        .all()
-    )
-    finished.sort(key=_kickoff_key)
+    finished = finished if finished is not None else _finished_matches(db)
 
     params = load_nrl_params()
     elos: dict[int, float] = {}
@@ -138,15 +142,18 @@ def _extras_differ(
     a: SportPrediction,
     predicted_margin: float | None,
     predicted_total: float | None,
+    predicted_score_home: int | None,
+    predicted_score_away: int | None,
+    score_model_version: str | None,
     preview_text: str | None,
 ) -> bool:
-    """True if predicted_margin/predicted_total (float, _DEDUP_TOL) or
-    preview_text (exact) differ from the latest row -- so a margin/total/
-    preview-only change (e.g. a margin-model re-fit) still triggers a
-    rewrite even when the win-prob triple alone is unchanged."""
+    """True if any shadow score field or preview differs from the latest row."""
     return (
         _floats_differ(a.predicted_margin, predicted_margin)
         or _floats_differ(a.predicted_total, predicted_total)
+        or a.predicted_score_home != predicted_score_home
+        or a.predicted_score_away != predicted_score_away
+        or a.score_model_version != score_model_version
         or a.preview_text != preview_text
     )
 
@@ -170,11 +177,22 @@ def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: di
     triple = (out["p_home"], out["p_draw"], out["p_away"])
     predicted_margin = out.get("predicted_margin")
     predicted_total = out.get("predicted_total")
+    predicted_score_home = out.get("predicted_score_home")
+    predicted_score_away = out.get("predicted_score_away")
+    score_model_version = out.get("score_model_version")
     preview_text = out.get("preview_text")
     if (
         latest is not None
         and not _triples_differ(latest, triple)
-        and not _extras_differ(latest, predicted_margin, predicted_total, preview_text)
+        and not _extras_differ(
+            latest,
+            predicted_margin,
+            predicted_total,
+            predicted_score_home,
+            predicted_score_away,
+            score_model_version,
+            preview_text,
+        )
     ):
         return False
 
@@ -187,17 +205,27 @@ def _write_prediction(db: Session, match: SportMatch, params: NrlParams, out: di
         expected_margin=out["expected_margin"],
         predicted_margin=predicted_margin,
         predicted_total=predicted_total,
+        predicted_score_home=predicted_score_home,
+        predicted_score_away=predicted_score_away,
+        score_model_version=score_model_version,
         preview_text=preview_text,
         is_shadow=True,
     ))
     return True
 
 
-def generate(db: Session, params: NrlParams | None = None) -> int:
+def generate(
+    db: Session,
+    params: NrlParams | None = None,
+    score_params: NrlScoreParams | None = None,
+) -> int:
     """Predict every scheduled nrl match from current Elo state. Returns the
     number of SportPrediction rows written this run (0 on a no-op re-run)."""
     params = params or load_nrl_params()
-    elos = _current_elos(db)
+    score_params = score_params or NrlScoreParams()
+    finished = _finished_matches(db)
+    elos = _current_elos(db, finished)
+    score_state = build_score_state(finished, score_params)
     synced = _sync_team_elos(db, elos)
     if synced:
         log.info("elo sync: %d team rating(s) updated", synced)
@@ -214,14 +242,14 @@ def generate(db: Session, params: NrlParams | None = None) -> int:
     team_names = dict(
         db.query(SportTeam.id, SportTeam.name).filter(SportTeam.sport == SPORT).all()
     )
-    mt_params = load_margin_total_params()
-
     written = 0
     for m in scheduled:
         elo_home = elos.get(m.home_team_id, 1500.0)
         elo_away = elos.get(m.away_team_id, 1500.0)
         out = predict(elo_home, elo_away, params)
-        predicted_margin, predicted_total = predict_margin_total(elo_home, elo_away, mt_params)
+        score = predict_scoreline(score_state, m.home_team_id, m.away_team_id)
+        predicted_margin = score.expected_margin
+        predicted_total = score.expected_total
 
         home_name = team_names.get(m.home_team_id, "Home")
         away_name = team_names.get(m.away_team_id, "Away")
@@ -237,6 +265,9 @@ def generate(db: Session, params: NrlParams | None = None) -> int:
         )
         out["predicted_margin"] = predicted_margin
         out["predicted_total"] = predicted_total
+        out["predicted_score_home"] = score.predicted_home
+        out["predicted_score_away"] = score.predicted_away
+        out["score_model_version"] = score.model_version
         out["preview_text"] = preview_text
 
         if _write_prediction(db, m, params, out):

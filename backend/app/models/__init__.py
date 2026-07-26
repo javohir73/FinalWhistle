@@ -829,14 +829,15 @@ class SportPrediction(Base):
     p_draw: Mapped[float] = mapped_column(Float)
     p_away: Mapped[float] = mapped_column(Float)
     expected_margin: Mapped[float | None] = mapped_column(Float)
-    # Wave 1 (NRL Match Intelligence): predicted_margin/predicted_total come
-    # from the separately-fit ml.models.nrl_margin_total model (version
-    # "nrl-elo-v0.2"), NOT from expected_margin (ml.sports.nrl.model's own
-    # win-probability-model margin estimate, kept as-is so existing consumers
-    # like SportMatchCard don't change shape). preview_text is the
-    # deterministic prose preview, regenerated every nrl_predict --generate run.
+    # NRL score fields come from the fixture-specific shadow scoring model,
+    # independently of expected_margin (the Elo W/D/L model's estimate).
+    # Public APIs suppress them until the chronological MAE gate is promoted.
     predicted_margin: Mapped[float | None] = mapped_column(Float)
     predicted_total: Mapped[float | None] = mapped_column(Float)
+    predicted_score_home: Mapped[int | None] = mapped_column(Integer)
+    predicted_score_away: Mapped[int | None] = mapped_column(Integer)
+    score_model_version: Mapped[str | None] = mapped_column(String(40))
+    # Deterministic prose, regenerated every nrl_predict --generate run.
     preview_text: Mapped[str | None] = mapped_column(Text)
     # New verticals ship shadow-only until proven (mirrors predictions.is_shadow);
     # server_default so raw inserts (e.g. backfills) default true too.

@@ -15,6 +15,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.api.auth import _email_action_rate_limited
+from app.config import settings
 from app.db import get_db
 from app.models import EmailActionAttempt, NrlProjection, ProbabilitySnapshot, SportMatch, SportPrediction, SportTeam
 from app.security import client_ip, hash_ip
@@ -25,6 +26,22 @@ router = APIRouter(prefix="/api/nrl", tags=["nrl-intel"])
 
 SPORT = "nrl"
 _DISCLAIMER = "For analytics and entertainment only. Not betting advice."
+
+
+def _public_preview(text: str | None) -> str | None:
+    """Hide the unpromoted league-average total from stored legacy previews.
+
+    Existing rows can outlive a deploy until the next NRL refresh. Sanitizing
+    on read removes the stale `47 points` claim immediately while preserving
+    the independently fitted winner, Elo, form, and margin commentary.
+    """
+    if text is None or settings.nrl_score_model_promoted:
+        return text
+    return re.sub(
+        r",? with a total of \d+(?:\.\d+)? points across both sides\.",
+        ".",
+        text,
+    )
 
 
 _FORM_OVERFETCH = 1000  # effectively "all" -- no NRL team accumulates this many
@@ -133,10 +150,28 @@ def nrl_match_detail(match_id: int, db: Session = Depends(get_db)):
     )
     prediction_out = None
     if pred is not None:
+        predicted_score = None
+        if (
+            settings.nrl_score_model_promoted
+            and pred.predicted_score_home is not None
+            and pred.predicted_score_away is not None
+        ):
+            predicted_score = {
+                "home": pred.predicted_score_home,
+                "away": pred.predicted_score_away,
+            }
         prediction_out = {
             "home_prob": pred.p_home, "away_prob": pred.p_away, "draw_prob": pred.p_draw,
-            "predicted_margin": pred.predicted_margin, "predicted_total": pred.predicted_total,
-            "model_version": pred.model_version, "preview_text": pred.preview_text,
+            "predicted_margin": pred.predicted_margin,
+            "predicted_total": (
+                pred.predicted_total if settings.nrl_score_model_promoted else None
+            ),
+            "predicted_score": predicted_score,
+            "score_model_version": (
+                pred.score_model_version if settings.nrl_score_model_promoted else None
+            ),
+            "model_version": pred.model_version,
+            "preview_text": _public_preview(pred.preview_text),
         }
 
     home_form = (

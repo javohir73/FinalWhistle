@@ -1,5 +1,5 @@
-"""Round-trip tests for Wave 1's schema additions: three new columns on
-sport_predictions (predicted_margin, predicted_total, preview_text) and the
+"""Round-trip tests for NRL match-intelligence columns on sport_predictions
+and the
 nrl_projections table. Uses the same local in-memory SQLite pattern as
 backend/tests/test_sports_api.py -- Base.metadata.create_all picks up the
 model changes directly, so these tests fail until app/models/__init__.py is
@@ -22,7 +22,7 @@ def _session():
     return sessionmaker(bind=engine, future=True)()
 
 
-def test_sport_prediction_round_trips_margin_total_preview():
+def test_sport_prediction_round_trips_margin_total_scoreline_preview():
     db = _session()
     home = SportTeam(sport="nrl", name="Storm")
     away = SportTeam(sport="nrl", name="Eels")
@@ -35,6 +35,8 @@ def test_sport_prediction_round_trips_margin_total_preview():
         match_id=m.id, model_version="nrl-elo-v0.1",
         p_home=0.6, p_draw=0.01, p_away=0.39, expected_margin=3.0,
         predicted_margin=4.2, predicted_total=41.5,
+        predicted_score_home=24, predicted_score_away=18,
+        score_model_version="nrl-score-v0.1-shadow",
         preview_text="Storm are the model's pick.",
     )
     db.add(pred); db.commit()
@@ -42,6 +44,9 @@ def test_sport_prediction_round_trips_margin_total_preview():
     reloaded = db.query(SportPrediction).one()
     assert reloaded.predicted_margin == 4.2
     assert reloaded.predicted_total == 41.5
+    assert reloaded.predicted_score_home == 24
+    assert reloaded.predicted_score_away == 18
+    assert reloaded.score_model_version == "nrl-score-v0.1-shadow"
     assert reloaded.preview_text == "Storm are the model's pick."
 
 
@@ -61,6 +66,9 @@ def test_sport_prediction_new_columns_are_nullable():
     reloaded = db.query(SportPrediction).one()
     assert reloaded.predicted_margin is None
     assert reloaded.predicted_total is None
+    assert reloaded.predicted_score_home is None
+    assert reloaded.predicted_score_away is None
+    assert reloaded.score_model_version is None
     assert reloaded.preview_text is None
 
 
