@@ -79,7 +79,10 @@ def test_match_detail_returns_prediction_form_h2h_factors(client):
         match_id=m.id, model_version="nrl-elo-v0.1",
         p_home=0.62, p_draw=0.01, p_away=0.37,
         expected_margin=5.0, predicted_margin=6.1, predicted_total=41.0,
-        preview_text="Storm are the model's pick.",
+        preview_text=(
+            "Storm are the model's pick.\n\n"
+            "The model's number: Storm by 6.1, with a total of 41 points across both sides."
+        ),
     ))
     db.commit()
 
@@ -96,8 +99,12 @@ def test_match_detail_returns_prediction_form_h2h_factors(client):
     assert pred["away_prob"] == pytest.approx(0.37)
     assert pred["draw_prob"] == pytest.approx(0.01)
     assert pred["predicted_margin"] == pytest.approx(6.1)
-    assert pred["predicted_total"] == pytest.approx(41.0)
-    assert pred["preview_text"] == "Storm are the model's pick."
+    assert pred["predicted_total"] is None
+    assert pred["predicted_score"] is None
+    assert pred["score_model_version"] is None
+    assert pred["preview_text"] == (
+        "Storm are the model's pick.\n\nThe model's number: Storm by 6.1."
+    )
     assert pred["model_version"] == "nrl-elo-v0.1"
 
     assert len(body["form"]["home"]["last5"]) == 1
@@ -117,6 +124,36 @@ def test_match_detail_returns_prediction_form_h2h_factors(client):
     assert home_adv["favors"] == "home"
     elo_gap = next(f for f in body["factors"] if f["key"] == "elo_gap")
     assert elo_gap["favors"] == "home"  # Storm's elo_rating (1560) > Eels' (1490)
+
+
+def test_match_detail_exposes_scoreline_only_after_promotion(client, monkeypatch):
+    c, TestingSession = client
+    db = TestingSession()
+    home = _team(db, "Storm")
+    away = _team(db, "Eels")
+    m = SportMatch(
+        sport="nrl", season=2026, round=2, match_no=2,
+        kickoff_utc=datetime(2026, 3, 8, tzinfo=timezone.utc),
+        home_team_id=home.id, away_team_id=away.id, status="scheduled",
+    )
+    db.add(m); db.flush()
+    db.add(SportPrediction(
+        match_id=m.id, model_version="nrl-elo-v0.1",
+        p_home=0.62, p_draw=0.01, p_away=0.37,
+        expected_margin=5.0, predicted_margin=6.0, predicted_total=44.0,
+        predicted_score_home=25, predicted_score_away=19,
+        score_model_version="nrl-score-v1",
+        preview_text="The model's number: Storm by 6, with a total of 44 points across both sides.",
+    ))
+    db.commit()
+    monkeypatch.setattr("app.api.nrl_intel.settings.nrl_score_model_promoted", True)
+
+    pred = c.get(f"/api/nrl/matches/{m.id}").json()["prediction"]
+
+    assert pred["predicted_total"] == pytest.approx(44.0)
+    assert pred["predicted_score"] == {"home": 25, "away": 19}
+    assert pred["score_model_version"] == "nrl-score-v1"
+    assert "total of 44 points" in pred["preview_text"]
 
 
 def test_match_detail_handles_no_prediction_yet(client):

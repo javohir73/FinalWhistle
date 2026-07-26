@@ -798,6 +798,8 @@ export interface NrlMatchDetailPrediction {
   draw_prob: number;
   predicted_margin: number | null;
   predicted_total: number | null;
+  predicted_score: { home: number; away: number } | null;
+  score_model_version: string | null;
   model_version: string;
   preview_text: string | null;
 }

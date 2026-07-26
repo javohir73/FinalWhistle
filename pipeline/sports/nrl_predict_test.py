@@ -14,7 +14,7 @@ import math
 from datetime import datetime, timedelta, timezone
 
 from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
-from ml.models.nrl_margin_total import NrlMarginTotalParams
+from ml.models.nrl_score import NrlScoreParams
 from ml.sports.nrl.model import NrlParams, predict
 from pipeline.sports.nrl_predict import generate, grade
 
@@ -441,6 +441,10 @@ def test_generate_stamps_predicted_margin_total_and_preview(db_session):
     row = db_session.query(SportPrediction).order_by(SportPrediction.id.desc()).first()
     assert row.predicted_margin is not None
     assert row.predicted_total is not None
+    assert row.predicted_score_home is not None
+    assert row.predicted_score_away is not None
+    assert row.predicted_score_home + row.predicted_score_away == round(row.predicted_total)
+    assert row.score_model_version == "nrl-score-v0.1-shadow"
     assert row.preview_text is not None
     assert "\n\n" in row.preview_text
     assert home_or_away_name_present(row.preview_text)
@@ -460,27 +464,23 @@ def test_generate_rewrites_when_only_margin_params_change_even_if_probs_unchange
     on the row. Here the win-prob triple is bit-identical across both
     generate() calls (same elo state, same NrlParams); only the margin
     model's params change -- the row must still be rewritten."""
-    import pipeline.sports.nrl_predict as nrl_predict_mod
-
     home = _team(db_session, "Broncos")
     away = _team(db_session, "Storm")
     scheduled = _match(db_session, home, away, 2026, 1, _kickoff(2026, 3, 1),
                         status="scheduled")
 
-    monkeypatch.setattr(nrl_predict_mod, "load_margin_total_params",
-                         lambda: NrlMarginTotalParams())
-    first = generate(db_session, PARAMS)
+    first = generate(db_session, PARAMS, NrlScoreParams())
     assert first == 1
     first_row = db_session.query(SportPrediction).filter_by(match_id=scheduled.id).one()
 
     # A re-fit that only moves the margin model's intercept -- win-prob
     # triple is untouched (no finished matches, so elo state and NrlParams
     # are unchanged between runs).
-    monkeypatch.setattr(
-        nrl_predict_mod, "load_margin_total_params",
-        lambda: NrlMarginTotalParams(margin_intercept=99.0),
+    second = generate(
+        db_session,
+        PARAMS,
+        NrlScoreParams(initial_home_mean=99.0),
     )
-    second = generate(db_session, PARAMS)
     assert second == 1
 
     rows = (

@@ -18,12 +18,20 @@ export function MatchIntelClient({
 
   return (
     <div className="space-y-6">
-      {detail.prediction?.predicted_total != null && (
+      {detail.prediction?.predicted_total != null && detail.prediction.predicted_score != null && (
         <div className="flex justify-center">
-          <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
-            <span className="mr-1.5 font-semibold text-muted">Predicted total</span>
-            <span>{Math.round(detail.prediction.predicted_total)} pts</span>
-          </span>
+          <div className="rounded-xl border border-border bg-surface-2 px-3 py-2 text-center">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted">
+              Predicted score
+            </p>
+            <p className="mt-0.5 text-sm font-extrabold tabular-nums text-foreground">
+              {detail.match.home} {detail.prediction.predicted_score.home}–
+              {detail.prediction.predicted_score.away} {detail.match.away}
+            </p>
+            <p className="mt-0.5 text-[11px] font-semibold tabular-nums text-muted">
+              {Math.round(detail.prediction.predicted_total)} total points
+            </p>
+          </div>
         </div>
       )}
 

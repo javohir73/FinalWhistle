@@ -118,6 +118,12 @@ class Settings(BaseSettings):
     # the web process without cross-process cache invalidation.
     cache_ttl_seconds: int = 600
 
+    # NRL scoreline/total promotion gate. The existing total model is only a
+    # league-wide mean and did not clear the agreed historical MAE gate, so
+    # public APIs must keep its number hidden. A future shadow model may set
+    # this true only after its reproducible backtest passes.
+    nrl_score_model_promoted: bool = False
+
     # SANDBOX API keys gating the versioned public API (/v1, ROADMAP Phase 4).
     # Comma-separated allow-list. Empty (the shipped default) => the gate is OFF
     # and /v1 stays public exactly as Phase 2/3 shipped. Set API_KEYS_ALLOWED to a
