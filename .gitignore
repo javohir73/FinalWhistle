@@ -9,6 +9,7 @@ env/
 .mypy_cache/
 .coverage
 htmlcov/
+artifacts/nrl_backtests/
 
 # ---- Node / Next.js (frontend) ----
 node_modules/
