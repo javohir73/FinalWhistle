@@ -5,10 +5,7 @@ import { cn } from "@/lib/utils";
 
 /** Small pill switcher for the handful of active leagues under /tips -- same
  *  visual idiom as LeagueTipsLeaderboard's Weekly|Season toggle (aria-pressed
- *  pill pair) rather than a `<select>` (reserved elsewhere for long lists,
- *  e.g. LocationPicker's timezone dropdown). LeagueTipsPlaySection only
- *  renders this when lib/leagueConfig.ts's ACTIVE_LEAGUES has more than one
- *  entry, so today's EPL-only /tips never mounts it. */
+ *  pills) rather than a `<select>`. It scrolls horizontally on narrow screens. */
 export function LeagueSwitcher({
   leagues,
   value,
@@ -19,7 +16,7 @@ export function LeagueSwitcher({
   onChange: (league: string) => void;
 }) {
   return (
-    <div className="flex gap-1 rounded-lg bg-surface-2 p-0.5 text-[11px] font-semibold" aria-label="League">
+    <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-surface-2 p-0.5 text-[11px] font-semibold" aria-label="League">
       {leagues.map((code) => (
         <button
           key={code}

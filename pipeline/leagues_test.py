@@ -1,22 +1,17 @@
-"""Tests for the league registry (League Score Predictions design doc; Phase 2
-adds La Liga/Bundesliga entries -- see the module docstring for why
-ACTIVE_LEAGUES does NOT grow in the same commit)."""
+"""Tests for the active three-league registry."""
 from pipeline import leagues as leagues_mod
 from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES, PHASE_2_PENDING_ACTIVATION, club_competitions
 
 
-def test_active_leagues_stays_epl_only():
-    """Activation is a separate, stop-gated step (design doc Phasing section:
-    gated on a founder API-Football-quota check) -- registering laliga/
-    bundesliga below must not silently turn them on."""
-    assert ACTIVE_LEAGUES == ["epl"]
+def test_all_three_leagues_are_active_in_pipeline_order():
+    assert ACTIVE_LEAGUES == ["epl", "laliga", "bundesliga"]
 
 
-def test_laliga_and_bundesliga_are_registered_but_not_active():
-    assert set(PHASE_2_PENDING_ACTIVATION) == {"laliga", "bundesliga"}
-    for code in PHASE_2_PENDING_ACTIVATION:
+def test_no_registered_phase_2_league_remains_pending():
+    assert PHASE_2_PENDING_ACTIVATION == []
+    for code in ("laliga", "bundesliga"):
         assert code in LEAGUES
-        assert code not in ACTIVE_LEAGUES
+        assert code in ACTIVE_LEAGUES
 
 
 def test_laliga_config_matches_the_design_doc():
@@ -26,6 +21,8 @@ def test_laliga_config_matches_the_design_doc():
     assert cfg["tournament_name"] == "La Liga 2026-27"
     assert cfg["teams_file"] is None  # no hand-curated roster -- derived at ingest time
     assert cfg["club_division"] == "SP1"
+    assert cfg["home_advantage"] == 80.0
+    assert cfg["cold_start_teams"] == ("Racing Santander",)
 
 
 def test_bundesliga_config_matches_the_design_doc():
@@ -35,6 +32,8 @@ def test_bundesliga_config_matches_the_design_doc():
     assert cfg["tournament_name"] == "Bundesliga 2026-27"
     assert cfg["teams_file"] is None
     assert cfg["club_division"] == "D1"
+    assert cfg["home_advantage"] == 60.0
+    assert cfg["cold_start_teams"] == ("SV Elversberg",)
 
 
 def test_epl_config_is_unchanged():
@@ -43,6 +42,7 @@ def test_epl_config_is_unchanged():
     assert cfg["league_id"] == 39
     assert cfg["club_competition"] == "Premier League"
     assert cfg["club_division"] == "E0"
+    assert cfg["home_advantage"] == 60.0
 
 
 def test_every_leagues_entry_has_a_unique_club_competition():
@@ -69,7 +69,8 @@ def test_club_competitions_reflects_monkeypatched_registry_additions(monkeypatch
         {
             "tournament_name": "Extra 2026-27", "group_name": "Extra", "league_id": 1,
             "season": 2026, "teams_file": None, "club_competition": "Extra League",
-            "club_division": "X1",
+            "club_division": "X1", "history_min_matches": 1,
+            "home_advantage": 50.0, "cold_start_teams": (),
         },
     )
     assert "Extra League" in club_competitions()

@@ -1,5 +1,11 @@
 # League Pivot — Phase 1 execution plan (EPL 2026-27)
 
+Phase 2 update (2026-07-27): La Liga and Bundesliga are activated locally with
+their own historical backfills, roster reconciliation, held-out home-advantage
+fits, and frontend league surfaces. Evidence:
+`docs/experiments/2026-07-27-league-phase2-activation/EVIDENCE-CARD.md`.
+Production pipeline-target/deployment changes remain stop-gated.
+
 Status: ACTIVE (started 2026-07-23)
 Parent: `docs/ROADMAP-POST-WORLDCUP.md` Phase 1 · Audit refresh: this doc §1
 

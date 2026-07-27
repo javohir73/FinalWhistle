@@ -16,9 +16,8 @@ import { ACTIVE_LEAGUES } from "@/lib/leagueConfig";
  *  its static metadata export) and flows down as a prop everywhere below;
  *  lib/leagueConfig.ts's DEFAULT_LEAGUE seeds the initial value.
  *
- *  The switcher only renders when ACTIVE_LEAGUES has more than one entry --
- *  today's EPL-only config renders neither the switcher nor its wrapping row,
- *  so /tips stays pixel-for-pixel what it is today.
+ *  The switcher renders when more than one league is active; fixed-league
+ *  parents such as the Play hub can suppress it.
  *
  *  The matchweek shown isn't known until LeagueTipsPicker's first load
  *  resolves it server-side (there is no public tipsheet endpoint to seed it
@@ -49,10 +48,14 @@ import { ACTIVE_LEAGUES } from "@/lib/leagueConfig";
 export function LeagueTipsPlaySection({
   defaultLeague,
   showLeaderboard = true,
+  showLeagueSwitcher = true,
+  showClaim = true,
   onMatchweekResolved,
 }: {
   defaultLeague: string;
   showLeaderboard?: boolean;
+  showLeagueSwitcher?: boolean;
+  showClaim?: boolean;
   onMatchweekResolved?: (matchweek: number | null) => void;
 }) {
   const [league, setLeague] = useState(defaultLeague);
@@ -73,12 +76,12 @@ export function LeagueTipsPlaySection({
 
   return (
     <div className="mt-8 space-y-6">
-      {ACTIVE_LEAGUES.length > 1 && (
+      {showLeagueSwitcher && ACTIVE_LEAGUES.length > 1 && (
         <div className="flex justify-end">
           <LeagueSwitcher leagues={ACTIVE_LEAGUES} value={league} onChange={selectLeague} />
         </div>
       )}
-      <ClaimDeviceLeagueTips />
+      {showClaim && <ClaimDeviceLeagueTips />}
       <LeagueTipsPicker key={`picker-${league}`} league={league} onMatchweekChange={applyMatchweek} />
       <LeagueYouVsAi key={`you-vs-ai-${league}`} league={league} />
       {showLeaderboard && matchweek != null && (

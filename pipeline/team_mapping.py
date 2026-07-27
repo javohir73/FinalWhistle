@@ -93,18 +93,32 @@ _ALIASES: dict[str, str] = {
     # pipeline/compute_club_elo.py's unrated_roster_teams() -- the
     # reconciliation check this table exists to satisfy.
     #
-    # THIS IS A STARTING SET, NOT A COMPLETE ROSTER MAPPING. Only the pairs
-    # below have been confirmed. Before La Liga/Bundesliga activation
-    # (pipeline/leagues.py's PHASE_2_ACTIVATION_CHECKLIST), run
-    # unrated_roster_teams() against a real ingest of each league and add
-    # whatever other current-roster clubs are still missing -- never guess a
-    # spelling you haven't seen in an actual provider payload.
+    # The pairs below were reconciled against the live 2026-27 API-Football
+    # rosters and the ten-season SP1/D1 football-data.co.uk names on
+    # 2026-07-27. Racing Santander and SV Elversberg have no top-flight row in
+    # that source window and remain explicit cold starts in pipeline/leagues.py.
     "ath madrid": "Atletico Madrid",
     "betis": "Real Betis",
     "ath bilbao": "Athletic Club",
+    "celta": "Celta Vigo",
+    "espanol": "Espanyol",
+    "la coruna": "Deportivo La Coruna",
+    "sociedad": "Real Sociedad",
+    "vallecano": "Rayo Vallecano",
     "bayern munich": "Bayern München",
     "dortmund": "Borussia Dortmund",
     "leverkusen": "Bayer Leverkusen",
+    "augsburg": "FC Augsburg",
+    "ein frankfurt": "Eintracht Frankfurt",
+    "fc koln": "1. FC Köln",
+    "freiburg": "SC Freiburg",
+    "hamburg": "Hamburger SV",
+    "hoffenheim": "1899 Hoffenheim",
+    "m'gladbach": "Borussia Mönchengladbach",
+    "mainz": "FSV Mainz 05",
+    "paderborn": "SC Paderborn 07",
+    "schalke 04": "FC Schalke 04",
+    "stuttgart": "VfB Stuttgart",
 }
 
 

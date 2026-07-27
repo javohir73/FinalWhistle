@@ -9,15 +9,10 @@ import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySec
 // but keeps this page's config consistent with the design doc's ISR bullet.
 export const revalidate = 300;
 
-// Static -- Next.js can't template this per-request off a client-selected
-// league (unlike the share route's generateMetadata, which has a `league`
-// path param to key off). Naming the Premier League by name here is honest
-// while ACTIVE_LEAGUES stays EPL-only; revisit this copy (generic wording, or
-// a dynamic route) when a second league actually goes active.
 export const metadata: Metadata = {
-  title: "Beat the AI's scoreline — Premier League tips",
+  title: "Beat the AI's scoreline — football league tips",
   description:
-    "Predict every Premier League fixture's scoreline against the model, matchweek by matchweek, and see how you stack up on the leaderboard.",
+    "Predict Premier League, La Liga, and Bundesliga scorelines against the model, matchweek by matchweek, and see how you stack up on the leaderboard.",
   alternates: { canonical: "/tips" },
 };
 
@@ -27,8 +22,7 @@ export const metadata: Metadata = {
  *  league switcher itself -- and the state it drives -- lives inside
  *  LeagueTipsPlaySection, one level down, since that's the nearest common
  *  client ancestor of everything that needs to agree on which league is
- *  selected. With ACTIVE_LEAGUES at its current single entry the switcher
- *  never mounts, so the static label below is exactly what renders today. */
+ *  selected. */
 export default function LeagueTipsPage() {
   return (
     <div>

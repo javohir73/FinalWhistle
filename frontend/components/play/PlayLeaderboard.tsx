@@ -22,14 +22,10 @@ interface PlayLeaderboardProps {
    *  degrades to an honest empty state rather than fetching a guessed round. */
   nrlSeason: number | null;
   nrlRound: number | null;
-  /** The football leagues with a live tips loop today (lib/leagueConfig's
-   *  ACTIVE_LEAGUES). A registered-but-dormant league (LaLiga, Bundesliga)
-   *  renders as a "coming soon" preview chip and is never fetched. */
+  /** The football leagues with a live tips loop. */
   footballLeagues: string[];
-  /** The matchweek the Football group's picker resolved, or null until it has.
-   *  Mirrors LeagueTipsPlaySection's own guard: the football board only mounts
-   *  once this is known, so it never has to guess which matchweek is current. */
-  footballMatchweek: number | null;
+  /** Per-league matchweeks resolved by each Play-hub picker. */
+  footballMatchweeks: Partial<Record<string, number | null>>;
 }
 
 /** The Play hub's single, competition-filtered leaderboard (Floodlight P5,
@@ -43,7 +39,7 @@ export function PlayLeaderboard({
   nrlSeason,
   nrlRound,
   footballLeagues,
-  footballMatchweek,
+  footballMatchweeks,
 }: PlayLeaderboardProps) {
   // A football comp is dormant when it has no live tips loop yet; NRL is always
   // an active competition (it just degrades to an empty state off-season), so
@@ -102,7 +98,7 @@ export function PlayLeaderboard({
           dormant={isDormant(active)}
           nrlSeason={nrlSeason}
           nrlRound={nrlRound}
-          footballMatchweek={footballMatchweek}
+          footballMatchweek={footballMatchweeks[active.id] ?? null}
         />
       </div>
     </section>

@@ -1,5 +1,5 @@
 import { zoneForRank, zoneToneClasses } from "@/lib/standingsZones";
-import type { StandingsZone } from "@/lib/sports";
+import { COMPETITIONS, type StandingsZone } from "@/lib/sports";
 
 const EPL_ZONES: StandingsZone[] = [
   { from: 1, to: 4, label: "Champions League", tone: "cl" },
@@ -41,5 +41,25 @@ describe("zoneToneClasses", () => {
 
   it("maps none to all-empty classes", () => {
     expect(zoneToneClasses("none")).toEqual({ stripe: "", bg: "", rankText: "" });
+  });
+});
+
+describe("competition standings zones", () => {
+  it("uses Bundesliga's 18-team relegation playoff and direct-drop bands", () => {
+    const zones = COMPETITIONS.bundesliga.zones;
+
+    expect(zoneForRank(zones, 15)).toBeNull();
+    expect(zoneForRank(zones, 16)?.label).toBe("Relegation playoff");
+    expect(zoneForRank(zones, 17)?.label).toBe("Relegation");
+    expect(zoneForRank(zones, 18)?.label).toBe("Relegation");
+    expect(zoneForRank(zones, 19)).toBeNull();
+  });
+
+  it("keeps La Liga's 20-team relegation band", () => {
+    const zones = COMPETITIONS.laliga.zones;
+
+    expect(zoneForRank(zones, 17)).toBeNull();
+    expect(zoneForRank(zones, 18)?.label).toBe("Relegation");
+    expect(zoneForRank(zones, 20)?.label).toBe("Relegation");
   });
 });

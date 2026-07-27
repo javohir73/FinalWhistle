@@ -156,13 +156,19 @@ export interface Competition {
 /** Reasonable default zone banding for a 20-team European league table:
  *  1-4 Champions League, 5 Europa League, 18-20 relegation. Real qualification
  *  spots (Europa Conference, a league's exact CL count) vary by season and
- *  competition; P1 ships one shared default across epl/laliga/bundesliga and
- *  P2 can special-case it per competition once the StandingsTable consumer
- *  exists to notice the difference. */
+ *  competition. EPL and La Liga use this 20-team default; Bundesliga has its
+ *  own 18-team relegation bands below. */
 const EUROPEAN_LEAGUE_ZONES: StandingsZone[] = [
   { from: 1, to: 4, label: "Champions League", tone: "cl" },
   { from: 5, to: 5, label: "Europa League", tone: "europa" },
   { from: 18, to: 20, label: "Relegation", tone: "releg" },
+];
+
+const BUNDESLIGA_ZONES: StandingsZone[] = [
+  { from: 1, to: 4, label: "Champions League", tone: "cl" },
+  { from: 5, to: 5, label: "Europa League", tone: "europa" },
+  { from: 16, to: 16, label: "Relegation playoff", tone: "releg" },
+  { from: 17, to: 18, label: "Relegation", tone: "releg" },
 ];
 
 export const COMPETITIONS: Record<CompetitionId, Competition> = {
@@ -242,7 +248,7 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
     hasTips: true,
     enabled: true,
     terms: { fixtures: "Fixtures", standings: "Standings" },
-    zones: EUROPEAN_LEAGUE_ZONES,
+    zones: BUNDESLIGA_ZONES,
     navLinks: [
       { href: "/football/bundesliga", label: "Home", activePrefixes: ["/football/bundesliga/team"] },
       {

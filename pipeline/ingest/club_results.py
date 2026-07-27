@@ -66,8 +66,11 @@ def download_club_results_df(
     """Download and concatenate every season's CSV for one division (network)."""
     frames = []
     for code in season_codes:
-        df = pd.read_csv(BASE_URL.format(season=code, division=division))
-        df["season_code"] = code
+        df = pd.read_csv(
+            BASE_URL.format(season=code, division=division),
+            usecols=["Date", "HomeTeam", "AwayTeam", "FTHG", "FTAG"],
+        ).copy()
+        df = df.assign(season_code=code)
         frames.append(df)
     return pd.concat(frames, ignore_index=True)
 
@@ -92,7 +95,9 @@ def clean_club_results_df(df: pd.DataFrame) -> pd.DataFrame:
     df["AwayTeam"] = df["AwayTeam"].map(normalize_team_name)
     df["FTHG"] = df["FTHG"].astype(int)
     df["FTAG"] = df["FTAG"].astype(int)
-    df["match_date"] = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+    df["match_date"] = pd.to_datetime(
+        df["Date"], format="mixed", dayfirst=True, errors="coerce"
+    )
     df = df.dropna(subset=["match_date"])
     df = df[(df["HomeTeam"] != "") & (df["AwayTeam"] != "")]
     df = df[df["HomeTeam"] != df["AwayTeam"]]

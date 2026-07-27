@@ -6,7 +6,7 @@ import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySec
 import { NrlTipsPlaySection } from "@/components/nrl/NrlTipsPlaySection";
 import { PlayBracketCard, type BracketChampion } from "@/components/play/PlayBracketCard";
 import { PlayLeaderboard } from "@/components/play/PlayLeaderboard";
-import { ACTIVE_LEAGUES, DEFAULT_LEAGUE } from "@/lib/leagueConfig";
+import { ACTIVE_LEAGUES } from "@/lib/leagueConfig";
 import { COMPETITIONS, type CompetitionId } from "@/lib/sports";
 import type { NrlTipsheet } from "@/lib/types";
 
@@ -27,16 +27,17 @@ interface PlayHubProps {
 
 /** One competition-by-competition slate, matching the Floodlight prototype.
  *
- * Prediction loops remain connected only where their data pipeline is active.
- * Registered leagues without loaded prediction data still get a clearly
- * labelled section, never another league's picker or leaderboard.
+ * Every active football league owns its picker and resolved matchweek; no
+ * league can borrow another competition's state.
  */
 export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
-  // The Football group's picker resolves the current matchweek client-side
-  // (there's no public seed for it, unlike NRL). p5-s4 lifts it here so the one
-  // unified leaderboard below can mount the football board on the same matchweek
-  // the in-group section would have -- null until the picker resolves it.
-  const [footballMatchweek, setFootballMatchweek] = useState<number | null>(null);
+  const [footballMatchweeks, setFootballMatchweeks] = useState<
+    Partial<Record<string, number | null>>
+  >({});
+
+  function setLeagueMatchweek(league: string, matchweek: number | null) {
+    setFootballMatchweeks((current) => ({ ...current, [league]: matchweek }));
+  }
 
   return (
     <div>
@@ -46,18 +47,23 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
         Make your picks against the model, organized by competition.
       </p>
 
-      <PlayCompetitionSection competition="epl" subtitle="Score predictions">
-        <div className="-mt-5">
-          <LeagueTipsPlaySection
-            defaultLeague={DEFAULT_LEAGUE}
-            showLeaderboard={false}
-            onMatchweekResolved={setFootballMatchweek}
-          />
-        </div>
-      </PlayCompetitionSection>
-
-      <UnavailableCompetition competition="laliga" />
-      <UnavailableCompetition competition="bundesliga" />
+      {ACTIVE_LEAGUES.map((league) => (
+        <PlayCompetitionSection
+          key={league}
+          competition={league as CompetitionId}
+          subtitle="Score predictions"
+        >
+          <div className="-mt-5">
+            <LeagueTipsPlaySection
+              defaultLeague={league}
+              showLeaderboard={false}
+              showLeagueSwitcher={false}
+              showClaim={league === ACTIVE_LEAGUES[0]}
+              onMatchweekResolved={(matchweek) => setLeagueMatchweek(league, matchweek)}
+            />
+          </div>
+        </PlayCompetitionSection>
+      ))}
 
       {hasBrackets && (
         <PlayCompetitionSection competition="wc26" subtitle="Knockout bracket">
@@ -99,14 +105,13 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
       {/* One board for every competition (p5-s4). It reuses the same shipped
           LeagueTipsLeaderboard / NrlTipsLeaderboard the sections used to render
           inline -- filtered by competition, seeded with the NRL season/round and
-          the football matchweek resolved above. Dormant leagues degrade to a
-          quiet "coming soon"; NRL off-season / football pre-resolution each show
-          their own honest state. */}
+          the per-league football matchweeks resolved above. NRL off-season and
+          football pre-resolution each show their own honest state. */}
       <PlayLeaderboard
         nrlSeason={nrlTipsheet?.season ?? null}
         nrlRound={nrlTipsheet?.round ?? null}
         footballLeagues={ACTIVE_LEAGUES}
-        footballMatchweek={footballMatchweek}
+        footballMatchweeks={footballMatchweeks}
       />
     </div>
   );
@@ -138,19 +143,5 @@ function PlayCompetitionSection({
 
       {children}
     </section>
-  );
-}
-
-function UnavailableCompetition({
-  competition,
-}: {
-  competition: "laliga" | "bundesliga";
-}) {
-  return (
-    <PlayCompetitionSection competition={competition} subtitle="Score predictions">
-      <p className="glass mt-3 rounded-2xl p-4 text-[13px] text-muted">
-        {COMPETITIONS[competition].label} picks will appear when its season feed is loaded.
-      </p>
-    </PlayCompetitionSection>
   );
 }

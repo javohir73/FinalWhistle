@@ -1,10 +1,4 @@
-/** Real lib/leagueConfig.ts (today's actual EPL-only ACTIVE_LEAGUES) --
- *  proves the switcher stays hidden and /tips renders exactly what it does
- *  today with no config override. The three-active-league behavior (switcher
- *  shown, league swapped through every child) lives in
- *  LeagueTipsPlaySection.multiLeague.test.tsx, which mocks lib/leagueConfig
- *  instead -- jest.mock is file-scoped/hoisted, so a single active-leagues
- *  count can't vary test-to-test within one file. */
+/** Real three-league configuration. */
 import { fireEvent, render, screen } from "@testing-library/react";
 import { LeagueTipsPlaySection } from "./LeagueTipsPlaySection";
 
@@ -34,9 +28,18 @@ jest.mock("@/components/leagueTips/LeagueTipsLeaderboard", () => ({
   ),
 }));
 
-it("hides the league switcher when the real config has only one active league", () => {
+it("shows every active league in the switcher", () => {
   render(<LeagueTipsPlaySection defaultLeague="epl" />);
+  expect(screen.getByLabelText("League")).toBeInTheDocument();
+  for (const league of ["Premier League", "La Liga", "Bundesliga"]) {
+    expect(screen.getByRole("button", { name: league })).toBeInTheDocument();
+  }
+});
+
+it("can suppress the switcher when a parent renders one fixed league", () => {
+  render(<LeagueTipsPlaySection defaultLeague="laliga" showLeagueSwitcher={false} />);
   expect(screen.queryByLabelText("League")).not.toBeInTheDocument();
+  expect(screen.getByTestId("picker")).toHaveTextContent("laliga");
 });
 
 it("passes the default league down to the picker and you-vs-ai section", () => {

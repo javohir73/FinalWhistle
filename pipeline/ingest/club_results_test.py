@@ -184,7 +184,7 @@ def test_load_sp1_and_d1_samples_tag_their_own_club_competition(db_session):
     # the one a fixtures-derived roster/predictions read.
     assert {t.name for t in db_session.query(Team).all()} == {
         "Real Madrid", "Sevilla", "Barcelona", "Valencia",
-        "Bayern München", "Werder Bremen", "Hoffenheim",
+        "Bayern München", "Werder Bremen", "1899 Hoffenheim",
     }
 
 
