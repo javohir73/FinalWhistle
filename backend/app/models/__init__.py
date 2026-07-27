@@ -12,6 +12,7 @@ from datetime import date, datetime
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     Float,
@@ -1053,6 +1054,256 @@ class MarketOddsSnapshot(Base):
     )
 
 
+# --- Prediction-market intelligence layer ------------------------------------
+# Additive shadow schema. The existing MarketOddsSnapshot path above remains
+# live until the new capture path has proved coverage and correctness.
+
+
+class CanonicalEntity(Base):
+    """Venue-independent team or competition identity (P2 resolver target)."""
+
+    __tablename__ = "canonical_entity"
+    __table_args__ = (
+        UniqueConstraint(
+            "sport", "kind", "canonical_name", name="uq_canonical_entity_identity"
+        ),
+        CheckConstraint(
+            "kind IN ('team', 'competition')", name="ck_canonical_entity_kind"
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    sport: Mapped[str] = mapped_column(String(20), index=True)
+    kind: Mapped[str] = mapped_column(String(20), index=True)
+    canonical_name: Mapped[str] = mapped_column(String(160))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    source_maps: Mapped[list[EntitySourceMap]] = relationship(back_populates="entity")
+
+
+class EntitySourceMap(Base):
+    """One exact, verified external key for a canonical entity."""
+
+    __tablename__ = "entity_source_map"
+    __table_args__ = (
+        UniqueConstraint("source", "source_key", name="uq_entity_source_map_key"),
+        CheckConstraint(
+            "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
+            name="ck_entity_source_map_confidence",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    entity_id: Mapped[int] = mapped_column(
+        ForeignKey("canonical_entity.id"), index=True
+    )
+    source: Mapped[str] = mapped_column(String(40))
+    source_key: Mapped[str] = mapped_column(String(255))
+    confidence: Mapped[float | None] = mapped_column(Float)
+    verified_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    verified_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    entity: Mapped[CanonicalEntity] = relationship(back_populates="source_maps")
+
+
+class VenueMarket(Base):
+    """Registry row for every discovered venue market, including unmapped ones."""
+
+    __tablename__ = "venue_market"
+    __table_args__ = (
+        UniqueConstraint("venue", "venue_key", name="uq_venue_market_key"),
+        CheckConstraint(
+            "mapping_status IN ('mapped', 'unmapped', 'ambiguous')",
+            name="ck_venue_market_mapping_status",
+        ),
+        CheckConstraint(
+            "length(status) > 0", name="ck_venue_market_status_nonempty"
+        ),
+        CheckConstraint(
+            "closed_at IS NULL OR opened_at IS NULL OR closed_at >= opened_at",
+            name="ck_venue_market_lifecycle",
+        ),
+        CheckConstraint(
+            "last_seen >= first_seen", name="ck_venue_market_seen_order"
+        ),
+        Index("ix_venue_market_mapping_coverage", "venue", "mapping_status"),
+        Index("ix_venue_market_settlement_queue", "status", "settled_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    venue: Mapped[str] = mapped_column(String(40))
+    venue_key: Mapped[str] = mapped_column(String(255))
+    sport: Mapped[str] = mapped_column(String(20), index=True)
+    market_type: Mapped[str] = mapped_column(
+        String(60), default="unknown", server_default="unknown", index=True
+    )
+    raw_title: Mapped[str] = mapped_column(Text, default="", server_default="")
+    # Preserve later title variants without rewriting the first observed title.
+    raw_title_history: Mapped[list | None] = mapped_column(JSON)
+    canonical_event_id: Mapped[int | None] = mapped_column(Integer, index=True)
+    canonical_outcome: Mapped[str | None] = mapped_column(String(160))
+    mapping_status: Mapped[str] = mapped_column(
+        String(20), default="unmapped", server_default="unmapped"
+    )
+    # Explainable resolver output. Suggestions remain operator-only and can
+    # never make a row serveable; mapping_history preserves every correction.
+    resolution_context: Mapped[dict | None] = mapped_column(JSON)
+    mapping_history: Mapped[list | None] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20))
+    opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    settled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    settled_outcome: Mapped[str | None] = mapped_column(String(160))
+    settlement_source: Mapped[str | None] = mapped_column(String(500))
+    settlement_source_event_id: Mapped[str | None] = mapped_column(String(255))
+    # Each item records the previous and replacement settlement plus provenance.
+    settlement_history: Mapped[list | None] = mapped_column(JSON)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    ticks: Mapped[list[VenuePriceTick]] = relationship(back_populates="market")
+
+
+class VenuePriceTick(Base):
+    """Append-only normalized quote with a pointer to the lossless raw payload."""
+
+    __tablename__ = "venue_price_tick"
+    __table_args__ = (
+        CheckConstraint(
+            "transport IN ('polling', 'streaming', 'recovery')",
+            name="ck_venue_price_tick_transport",
+        ),
+        CheckConstraint(
+            "yes_bid IS NULL OR (yes_bid >= 0 AND yes_bid <= 1)",
+            name="ck_venue_price_tick_yes_bid",
+        ),
+        CheckConstraint(
+            "yes_ask IS NULL OR (yes_ask >= 0 AND yes_ask <= 1)",
+            name="ck_venue_price_tick_yes_ask",
+        ),
+        CheckConstraint(
+            "last IS NULL OR (last >= 0 AND last <= 1)",
+            name="ck_venue_price_tick_last",
+        ),
+        CheckConstraint(
+            "mid IS NULL OR (mid >= 0 AND mid <= 1)",
+            name="ck_venue_price_tick_mid",
+        ),
+        CheckConstraint(
+            "yes_bid IS NULL OR yes_ask IS NULL OR yes_bid <= yes_ask",
+            name="ck_venue_price_tick_not_crossed",
+        ),
+        CheckConstraint(
+            "bid_size IS NULL OR bid_size > 0",
+            name="ck_venue_price_tick_bid_size",
+        ),
+        CheckConstraint(
+            "ask_size IS NULL OR ask_size > 0",
+            name="ck_venue_price_tick_ask_size",
+        ),
+        Index("ix_venue_price_tick_market_ts", "venue_market_id", "ts"),
+        Index("ix_venue_price_tick_transport_ts", "transport", "ts"),
+        # SQLite drops timezone information from returned datetime values, so
+        # insertmanyvalues cannot match a timezone-aware composite-PK sentinel.
+        # Inserts do not need RETURNING: every key field is supplied by capture.
+        {"implicit_returning": False},
+    )
+
+    venue_market_id: Mapped[int] = mapped_column(
+        ForeignKey("venue_market.id"), primary_key=True
+    )
+    # The logical observation time is stable across replay: scheduled cycle for
+    # polling, venue event time for streaming/recovery. Including it in the
+    # natural primary key permits PostgreSQL RANGE partitioning on this column.
+    ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    source_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    transport: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # `event:<venue id>` or `cycle:<scheduled UTC timestamp>` from CONTRACTS.md.
+    observation_key: Mapped[str] = mapped_column(String(255), primary_key=True)
+    source_event_id: Mapped[str | None] = mapped_column(String(255))
+    scheduled_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    yes_bid: Mapped[float | None] = mapped_column(Float)
+    yes_ask: Mapped[float | None] = mapped_column(Float)
+    last: Mapped[float | None] = mapped_column(Float)
+    mid: Mapped[float | None] = mapped_column(Float)
+    bid_size: Mapped[float | None] = mapped_column(Float)
+    ask_size: Mapped[float | None] = mapped_column(Float)
+    book_top_n: Mapped[dict | None] = mapped_column(JSON)
+    is_in_play: Mapped[bool | None] = mapped_column(Boolean)
+    clock_state: Mapped[str | None] = mapped_column(String(80))
+    raw_payload_ref: Mapped[str] = mapped_column(String(500))
+    validation_flags: Mapped[list | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    market: Mapped[VenueMarket] = relationship(back_populates="ticks")
+
+
+class CaptureHeartbeat(Base):
+    """One worker/venue cycle; makes expected capture gaps queryable."""
+
+    __tablename__ = "capture_heartbeat"
+    __table_args__ = (
+        UniqueConstraint(
+            "worker", "venue", "scheduled_cycle_at", name="uq_capture_heartbeat_cycle"
+        ),
+        CheckConstraint("markets_seen >= 0", name="ck_capture_heartbeat_markets_seen"),
+        CheckConstraint("success_count >= 0", name="ck_capture_heartbeat_success_count"),
+        CheckConstraint("error_count >= 0", name="ck_capture_heartbeat_error_count"),
+        CheckConstraint("retry_count >= 0", name="ck_capture_heartbeat_retry_count"),
+        CheckConstraint(
+            "rate_limit_count >= 0", name="ck_capture_heartbeat_rate_limit_count"
+        ),
+        CheckConstraint(
+            "intended_cadence_seconds > 0",
+            name="ck_capture_heartbeat_intended_cadence",
+        ),
+        CheckConstraint(
+            "cycle_duration_ms >= 0", name="ck_capture_heartbeat_cycle_duration"
+        ),
+        CheckConstraint(
+            "completed_at >= scheduled_cycle_at",
+            name="ck_capture_heartbeat_completion_order",
+        ),
+        Index("ix_capture_heartbeat_venue_cycle", "venue", "scheduled_cycle_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    worker: Mapped[str] = mapped_column(String(120))
+    venue: Mapped[str] = mapped_column(String(40))
+    scheduled_cycle_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    intended_cadence_seconds: Mapped[int] = mapped_column(Integer)
+    markets_seen: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    success_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    error_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    rate_limit_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    cycle_duration_ms: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    errors: Mapped[list | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 # --- Wave 2: NRL team-stats layer -------------------------------------------
 # Table names nrl_match_stats / nrl_try_events are frozen by the match-intel
 # program spec (Wave 3 builds on them). They deviate from the sport_* naming
@@ -1191,6 +1442,11 @@ __all__ = [
     "NrlProjection",
     "ProbabilitySnapshot",
     "MarketOddsSnapshot",
+    "CanonicalEntity",
+    "EntitySourceMap",
+    "VenueMarket",
+    "VenuePriceTick",
+    "CaptureHeartbeat",
     "NrlMatchStat",
     "NrlTryEvent",
     "NrlTeamList",
