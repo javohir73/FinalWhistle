@@ -71,3 +71,7 @@ def test_sp1_d1_club_aliases_resolve_to_the_api_football_spelling(raw, expected)
     API-Football's canonical name -- see team_mapping.py's own section on why
     this reconciliation matters (League Score Predictions Phase 2)."""
     assert normalize_team_name(raw) == expected
+
+
+def test_e0_hull_alias_resolves_to_the_live_api_football_spelling():
+    assert normalize_team_name("Hull") == "Hull City"

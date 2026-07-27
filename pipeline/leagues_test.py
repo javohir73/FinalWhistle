@@ -36,13 +36,14 @@ def test_bundesliga_config_matches_the_design_doc():
     assert cfg["cold_start_teams"] == ("SV Elversberg",)
 
 
-def test_epl_config_is_unchanged():
+def test_epl_config_matches_the_live_2026_27_roster():
     cfg = LEAGUES["epl"]
     assert cfg["teams_file"] == "pipeline/data/epl2627_teams.json"
     assert cfg["league_id"] == 39
     assert cfg["club_competition"] == "Premier League"
     assert cfg["club_division"] == "E0"
     assert cfg["home_advantage"] == 60.0
+    assert cfg["cold_start_teams"] == ("Coventry",)
 
 
 def test_every_leagues_entry_has_a_unique_club_competition():

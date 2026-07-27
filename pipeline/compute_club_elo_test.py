@@ -2,7 +2,7 @@
 (league pivot D3)."""
 import pandas as pd
 
-from app.models import HistoricalMatch, Team, Tournament
+from app.models import Group, GroupTeam, HistoricalMatch, Team, Tournament
 from pipeline.compute_club_elo import compute_and_store_club_elo, fit_home_advantage, unrated_roster_teams
 from pipeline.compute_elo import compute_and_store_elo
 from pipeline.generate_predictions import _host_adv
@@ -49,6 +49,47 @@ def test_replays_only_club_rows_and_writes_elo(db_session):
     arsenal = db_session.query(Team).filter_by(name="Arsenal").one()
     assert arsenal.elo_rating is not None
     assert arsenal.elo_rating != 1500.0
+
+
+def test_replay_applies_new_aliases_to_already_stored_historical_team_ids(db_session):
+    """A late alias must repair the canonical live roster without rewriting
+    production historical rows first (Hull -> Hull City is the 2026-27 case)."""
+    legacy_hull = Team(name="Hull", is_host=False)
+    live_hull = Team(name="Hull City", is_host=False)
+    arsenal = Team(name="Arsenal", is_host=False)
+    tournament = Tournament(
+        name=TOURNAMENT_NAME,
+        year=2026,
+        host_countries="",
+        home_advantage_mode="home",
+    )
+    db_session.add_all([legacy_hull, live_hull, arsenal, tournament])
+    db_session.flush()
+    group = Group(tournament_id=tournament.id, name="Premier League")
+    db_session.add(group)
+    db_session.flush()
+    db_session.add_all(
+        [
+            GroupTeam(group_id=group.id, team_id=live_hull.id),
+            GroupTeam(group_id=group.id, team_id=arsenal.id),
+            HistoricalMatch(
+                date=pd.Timestamp("2016-08-13", tz="UTC"),
+                team_a_id=legacy_hull.id,
+                team_b_id=arsenal.id,
+                score_a=2,
+                score_b=1,
+                competition=CLUB_COMPETITION,
+                is_neutral=False,
+            ),
+        ]
+    )
+    db_session.commit()
+
+    compute_and_store_club_elo(db_session)
+
+    db_session.refresh(live_hull)
+    assert live_hull.elo_rating is not None
+    assert unrated_roster_teams(db_session, TOURNAMENT_NAME, "Premier League") == []
 
 
 def test_international_recompute_never_touches_club_ratings(db_session):

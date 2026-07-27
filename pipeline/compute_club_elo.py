@@ -45,6 +45,7 @@ from pipeline.ingest.club_results import (
     download_club_results_df,
 )
 from pipeline.ingest.league_structure import TOURNAMENT_NAME
+from pipeline.team_mapping import normalize_team_name
 
 # EPL's fitted value (see the module docstring). The module-level default for
 # compute_and_store_club_elo, so every existing (EPL) caller is unaffected.
@@ -90,9 +91,23 @@ def compute_and_store_club_elo(
     own fitted magnitude (or whatever ``home_advantage`` this call used).
     """
     rows = _club_matches(db, competition=competition)
+    # Historical rows can predate a newly discovered provider-name alias. Map
+    # their stored Team IDs onto the current canonical Team row at replay time
+    # so adding an alias repairs production on the next Elo run without a
+    # destructive historical-data rewrite. Example: the 2016-17 E0 source
+    # stored "Hull", while the 2026-27 live roster uses "Hull City".
+    teams = {team.id: team for team in db.query(Team).all()}
+    canonical_ids = {team.name: team.id for team in teams.values()}
+
+    def replay_team_id(team_id: int) -> int:
+        team = teams.get(team_id)
+        if team is None:
+            return team_id
+        return canonical_ids.get(normalize_team_name(team.name), team_id)
+
     matches = [
         MatchInput(
-            home_id=r.team_a_id, away_id=r.team_b_id,
+            home_id=replay_team_id(r.team_a_id), away_id=replay_team_id(r.team_b_id),
             score_home=r.score_a, score_away=r.score_b,
             competition=r.competition, is_neutral=False,
         )
