@@ -6,7 +6,7 @@ interface ClubIdentity {
   logoSrc: string;
 }
 
-/** Self-hosted club identities used by the current NRL and EPL datasets.
+/** Self-hosted club identities used by every active domestic-league dataset.
  *  Unknown/future clubs still degrade to the previous colored monogram. */
 const CLUBS: Record<string, ClubIdentity> = {
   Broncos: { code: "BRI", color: "#6b1d45", logoSrc: "/clubs/nrl/broncos.svg" },
@@ -47,6 +47,46 @@ const CLUBS: Record<string, ClubIdentity> = {
   "Nottingham Forest": { code: "NFO", color: "#dd0000", logoSrc: "/clubs/epl/nottingham-forest.png" },
   Sunderland: { code: "SUN", color: "#eb172b", logoSrc: "/clubs/epl/sunderland.png" },
   Tottenham: { code: "TOT", color: "#132257", logoSrc: "/clubs/epl/tottenham.png" },
+
+  Barcelona: { code: "BAR", color: "#004d98", logoSrc: "/clubs/laliga/barcelona.png" },
+  "Atletico Madrid": { code: "ATM", color: "#cb3524", logoSrc: "/clubs/laliga/atletico-madrid.png" },
+  "Athletic Club": { code: "BIL", color: "#ee2523", logoSrc: "/clubs/laliga/athletic-club.png" },
+  Valencia: { code: "VAL", color: "#f9a01b", logoSrc: "/clubs/laliga/valencia.png" },
+  Villarreal: { code: "VIL", color: "#f7df1e", logoSrc: "/clubs/laliga/villarreal.png" },
+  Malaga: { code: "MAL", color: "#0092cf", logoSrc: "/clubs/laliga/malaga.png" },
+  Sevilla: { code: "SEV", color: "#d71920", logoSrc: "/clubs/laliga/sevilla.png" },
+  "Celta Vigo": { code: "CEL", color: "#8ac3ee", logoSrc: "/clubs/laliga/celta-vigo.png" },
+  Levante: { code: "LEV", color: "#00529f", logoSrc: "/clubs/laliga/levante.png" },
+  Espanyol: { code: "ESP", color: "#007fc8", logoSrc: "/clubs/laliga/espanyol.png" },
+  "Real Madrid": { code: "RMA", color: "#febd11", logoSrc: "/clubs/laliga/real-madrid.png" },
+  Alaves: { code: "ALA", color: "#005cab", logoSrc: "/clubs/laliga/alaves.png" },
+  "Real Betis": { code: "BET", color: "#00954c", logoSrc: "/clubs/laliga/real-betis.png" },
+  "Deportivo La Coruna": { code: "DEP", color: "#005ca9", logoSrc: "/clubs/laliga/deportivo-la-coruna.png" },
+  Getafe: { code: "GET", color: "#005999", logoSrc: "/clubs/laliga/getafe.png" },
+  "Real Sociedad": { code: "RSO", color: "#0067b1", logoSrc: "/clubs/laliga/real-sociedad.png" },
+  Osasuna: { code: "OSA", color: "#d91a2a", logoSrc: "/clubs/laliga/osasuna.png" },
+  "Rayo Vallecano": { code: "RAY", color: "#e30613", logoSrc: "/clubs/laliga/rayo-vallecano.png" },
+  Elche: { code: "ELC", color: "#007a3d", logoSrc: "/clubs/laliga/elche.png" },
+  "Racing Santander": { code: "RAC", color: "#008b4c", logoSrc: "/clubs/laliga/racing-santander.png" },
+
+  "Bayern München": { code: "FCB", color: "#dc052d", logoSrc: "/clubs/bundesliga/bayern-munchen.png" },
+  "SC Freiburg": { code: "SCF", color: "#e2001a", logoSrc: "/clubs/bundesliga/sc-freiburg.png" },
+  "Werder Bremen": { code: "SVW", color: "#1d9053", logoSrc: "/clubs/bundesliga/werder-bremen.png" },
+  "Borussia Mönchengladbach": { code: "BMG", color: "#111111", logoSrc: "/clubs/bundesliga/borussia-monchengladbach.png" },
+  "FSV Mainz 05": { code: "M05", color: "#c3142d", logoSrc: "/clubs/bundesliga/fsv-mainz-05.png" },
+  "Borussia Dortmund": { code: "BVB", color: "#fde100", logoSrc: "/clubs/bundesliga/borussia-dortmund.png" },
+  "1899 Hoffenheim": { code: "TSG", color: "#1961a9", logoSrc: "/clubs/bundesliga/1899-hoffenheim.png" },
+  "Bayer Leverkusen": { code: "B04", color: "#e32221", logoSrc: "/clubs/bundesliga/bayer-leverkusen.png" },
+  "Eintracht Frankfurt": { code: "SGE", color: "#e1000f", logoSrc: "/clubs/bundesliga/eintracht-frankfurt.png" },
+  "FC Augsburg": { code: "FCA", color: "#ba3733", logoSrc: "/clubs/bundesliga/fc-augsburg.png" },
+  "VfB Stuttgart": { code: "VFB", color: "#e32219", logoSrc: "/clubs/bundesliga/vfb-stuttgart.png" },
+  "RB Leipzig": { code: "RBL", color: "#dd0741", logoSrc: "/clubs/bundesliga/rb-leipzig.png" },
+  "FC Schalke 04": { code: "S04", color: "#004d9d", logoSrc: "/clubs/bundesliga/fc-schalke-04.png" },
+  "Hamburger SV": { code: "HSV", color: "#005aaa", logoSrc: "/clubs/bundesliga/hamburger-sv.png" },
+  "Union Berlin": { code: "FCU", color: "#eb1923", logoSrc: "/clubs/bundesliga/union-berlin.png" },
+  "SC Paderborn 07": { code: "SCP", color: "#005ca9", logoSrc: "/clubs/bundesliga/sc-paderborn-07.png" },
+  "1. FC Köln": { code: "KOE", color: "#ed1c24", logoSrc: "/clubs/bundesliga/1-fc-koln.png" },
+  "SV Elversberg": { code: "SVE", color: "#111111", logoSrc: "/clubs/bundesliga/sv-elversberg.png" },
 };
 
 const CLUB_ALIASES: Record<string, string> = {
@@ -80,6 +120,16 @@ const CLUB_ALIASES: Record<string, string> = {
   "Nottingham Forest FC": "Nottingham Forest",
   Spurs: "Tottenham",
   "Tottenham Hotspur": "Tottenham",
+  "FC Barcelona": "Barcelona",
+  "Atlético Madrid": "Atletico Madrid",
+  "Athletic Bilbao": "Athletic Club",
+  "Deportivo La Coruña": "Deportivo La Coruna",
+  "Bayern Munich": "Bayern München",
+  "Borussia Monchengladbach": "Borussia Mönchengladbach",
+  "FC Koln": "1. FC Köln",
+  Hoffenheim: "1899 Hoffenheim",
+  "Mainz 05": "FSV Mainz 05",
+  "Schalke 04": "FC Schalke 04",
 };
 
 export function ClubBadge({

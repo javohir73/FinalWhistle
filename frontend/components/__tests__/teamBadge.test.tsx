@@ -1,6 +1,47 @@
 import { render } from "@testing-library/react";
 import { TeamBadge } from "@/components/TeamBadge";
 
+const ACTIVE_LEAGUE_CLUBS = [
+  ["Barcelona", "laliga"],
+  ["Atletico Madrid", "laliga"],
+  ["Athletic Club", "laliga"],
+  ["Valencia", "laliga"],
+  ["Villarreal", "laliga"],
+  ["Malaga", "laliga"],
+  ["Sevilla", "laliga"],
+  ["Celta Vigo", "laliga"],
+  ["Levante", "laliga"],
+  ["Espanyol", "laliga"],
+  ["Real Madrid", "laliga"],
+  ["Alaves", "laliga"],
+  ["Real Betis", "laliga"],
+  ["Deportivo La Coruna", "laliga"],
+  ["Getafe", "laliga"],
+  ["Real Sociedad", "laliga"],
+  ["Osasuna", "laliga"],
+  ["Rayo Vallecano", "laliga"],
+  ["Elche", "laliga"],
+  ["Racing Santander", "laliga"],
+  ["Bayern München", "bundesliga"],
+  ["SC Freiburg", "bundesliga"],
+  ["Werder Bremen", "bundesliga"],
+  ["Borussia Mönchengladbach", "bundesliga"],
+  ["FSV Mainz 05", "bundesliga"],
+  ["Borussia Dortmund", "bundesliga"],
+  ["1899 Hoffenheim", "bundesliga"],
+  ["Bayer Leverkusen", "bundesliga"],
+  ["Eintracht Frankfurt", "bundesliga"],
+  ["FC Augsburg", "bundesliga"],
+  ["VfB Stuttgart", "bundesliga"],
+  ["RB Leipzig", "bundesliga"],
+  ["FC Schalke 04", "bundesliga"],
+  ["Hamburger SV", "bundesliga"],
+  ["Union Berlin", "bundesliga"],
+  ["SC Paderborn 07", "bundesliga"],
+  ["1. FC Köln", "bundesliga"],
+  ["SV Elversberg", "bundesliga"],
+] as const;
+
 describe("TeamBadge", () => {
   it("keeps national teams on their self-hosted flags", () => {
     const { container } = render(<TeamBadge team="Brazil" size={32} />);
@@ -22,6 +63,26 @@ describe("TeamBadge", () => {
     expect(container.querySelector('[data-club-logo="Man City"] img')).toHaveAttribute(
       "src",
       "/clubs/epl/manchester-city.png",
+    );
+  });
+
+  it.each(ACTIVE_LEAGUE_CLUBS)("uses a self-hosted crest for %s", (team, league) => {
+    const { container } = render(<TeamBadge team={team} size={32} />);
+    expect(container.querySelector(`[data-club-logo="${team}"] img`)).toHaveAttribute(
+      "src",
+      expect.stringMatching(new RegExp(`^/clubs/${league}/.+\\.png$`)),
+    );
+  });
+
+  it.each([
+    ["Atlético Madrid", "/clubs/laliga/atletico-madrid.png"],
+    ["Bayern Munich", "/clubs/bundesliga/bayern-munchen.png"],
+    ["Schalke 04", "/clubs/bundesliga/fc-schalke-04.png"],
+  ])("resolves the common alias %s", (team, expectedSrc) => {
+    const { container } = render(<TeamBadge team={team} size={32} />);
+    expect(container.querySelector(`[data-club-logo="${team}"] img`)).toHaveAttribute(
+      "src",
+      expectedSrc,
     );
   });
 });
