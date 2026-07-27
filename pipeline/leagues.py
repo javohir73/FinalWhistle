@@ -81,7 +81,10 @@ LEAGUES: dict[str, LeagueConfig] = {
         "club_division": _epl_club_division,
         "history_min_matches": 3_000,
         "home_advantage": 60.0,
-        "cold_start_teams": (),
+        # Coventry have no Premier League row in the ten-season E0 window.
+        # Hull City are not a cold start: football-data.co.uk calls them
+        # "Hull", reconciled in team_mapping.py.
+        "cold_start_teams": ("Coventry",),
     },
     # Phase 2 (La Liga id 140, Bundesliga id 78). teams_file is None on
     # purpose: neither

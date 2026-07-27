@@ -76,6 +76,7 @@ _ALIASES: dict[str, str] = {
     "man city": "Manchester City",
     "nott'm forest": "Nottingham Forest",
     "nottm forest": "Nottingham Forest",
+    "hull": "Hull City",
 
     # --- La Liga (SP1) / Bundesliga (D1), League Score Predictions Phase 2
     # (docs/superpowers/specs/2026-07-24-league-score-predictions-design.md)
