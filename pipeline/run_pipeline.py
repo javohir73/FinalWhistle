@@ -59,10 +59,11 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     fails the whole run, exactly as it always has.
     """
     from app.models import Tournament
-    from pipeline.compute_club_elo import compute_and_store_club_elo
+    from pipeline.compute_club_elo import compute_and_store_club_elo, unrated_roster_teams
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.club_results import sync_finished_matches_to_history
     from pipeline.ingest.league_structure import load_league_structure
+    from pipeline.league_activation import ensure_club_history
     from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES
     from pipeline.learning_loop import run_learning_loop
 
@@ -88,6 +89,10 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     leagues_run: list[tuple[str, Tournament]] = []
     for code, cfg in configured:
         try:
+            step(
+                f"{_prefix(code)}historical_backfill",
+                lambda cfg=cfg: ensure_club_history(db, cfg),
+            )
             league_summary = step(
                 f"{_prefix(code)}league_structure",
                 lambda cfg=cfg: load_league_structure(
@@ -127,7 +132,10 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     def _club_elo_all_leagues() -> dict:
         results = {
             code: compute_and_store_club_elo(
-                db, competition=cfg["club_competition"], tournament_name=cfg["tournament_name"],
+                db,
+                home_advantage=cfg["home_advantage"],
+                competition=cfg["club_competition"],
+                tournament_name=cfg["tournament_name"],
             )
             for code, cfg in configured
         }
@@ -135,7 +143,34 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
 
     step("club_elo", _club_elo_all_leagues)
 
+    prediction_ready: list[tuple[str, Tournament]] = []
     for code, tournament in leagues_run:
+        cfg = LEAGUES[code]
+        unrated = unrated_roster_teams(
+            db, cfg["tournament_name"], cfg["group_name"]
+        )
+        expected_cold_starts = set(cfg["cold_start_teams"])
+        unexpected = sorted(set(unrated) - expected_cold_starts)
+        step(
+            f"{_prefix(code)}roster_audit",
+            lambda code=code, unrated=unrated, unexpected=unexpected: {
+                "league": code,
+                "unrated": unrated,
+                "expected_cold_starts": sorted(set(unrated) & expected_cold_starts),
+                "unexpected_unrated": unexpected,
+            },
+        )
+        if unexpected:
+            log.error(
+                "league pipeline: %s has unexpected unrated roster teams %s; "
+                "predictions skipped until aliases/history are repaired",
+                code,
+                unexpected,
+            )
+            continue
+        prediction_ready.append((code, tournament))
+
+    for code, tournament in prediction_ready:
         step(
             f"{_prefix(code)}predictions",
             lambda t=tournament: generate_predictions(

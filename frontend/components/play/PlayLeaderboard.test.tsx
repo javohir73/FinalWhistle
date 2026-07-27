@@ -37,7 +37,7 @@ function renderBoard(overrides: Partial<React.ComponentProps<typeof PlayLeaderbo
       nrlSeason={2026}
       nrlRound={2}
       footballLeagues={["epl"]}
-      footballMatchweek={4}
+      footballMatchweeks={{ epl: 4 }}
       {...overrides}
     />,
   );
@@ -55,7 +55,7 @@ it("defaults to the EPL board, mounting LeagueTipsLeaderboard on the resolved ma
 it("marks the active chip with lime state and toggle semantics", () => {
   // Matchweek unresolved -> the EPL board stays in its loading state and never
   // fetches, so the chip attributes can be asserted synchronously.
-  renderBoard({ footballMatchweek: null });
+  renderBoard({ footballMatchweeks: {} });
 
   const epl = screen.getByRole("button", { name: "Premier League" });
   expect(epl).toHaveAttribute("aria-pressed", "true");
@@ -74,25 +74,20 @@ it("switching to the NRL filter mounts NrlTipsLeaderboard seeded from the curren
   expect(screen.queryByText("EplTipster")).not.toBeInTheDocument();
 });
 
-it("lets coming-soon chips explain their state without pretending to be disabled", async () => {
-  renderBoard();
+it("mounts an active additional league on its own resolved matchweek", async () => {
+  renderBoard({
+    footballLeagues: ["epl", "laliga", "bundesliga"],
+    footballMatchweeks: { epl: 4, laliga: 7, bundesliga: 3 },
+  });
   await screen.findByText("EplTipster");
 
   const laliga = screen.getByRole("button", { name: /La Liga/i });
-  expect(laliga).not.toHaveAttribute("aria-disabled");
-  expect(laliga).toBeEnabled();
-
   fireEvent.click(laliga);
-  expect(screen.getByText("La Liga tips are coming soon.")).toBeInTheDocument();
-  // Selecting a dormant competition fires no fetch: the only league call ever
-  // made is the initial EPL one; La Liga is never requested.
-  expect(mockLeague).toHaveBeenCalledTimes(1);
-  expect(mockLeague).not.toHaveBeenCalledWith("laliga", expect.anything());
-  expect(mockNrl).not.toHaveBeenCalled();
+  expect(mockLeague).toHaveBeenCalledWith("laliga", 7);
 });
 
 it("holds the football board back until the matchweek is known (its own loading state)", () => {
-  renderBoard({ footballMatchweek: null });
+  renderBoard({ footballMatchweeks: {} });
 
   // EPL is selected but the matchweek is unresolved -> the board doesn't mount,
   // so nothing is fetched; the loading state stands in.
@@ -103,7 +98,7 @@ it("holds the football board back until the matchweek is known (its own loading 
 it("degrades the NRL filter to an honest empty state off-season (no round seeded)", () => {
   // footballMatchweek null too, so the default EPL board stays in loading and
   // fires no fetch -- this test is only about NRL's off-season degrade.
-  renderBoard({ nrlSeason: null, nrlRound: null, footballMatchweek: null });
+  renderBoard({ nrlSeason: null, nrlRound: null, footballMatchweeks: {} });
 
   fireEvent.click(screen.getByRole("button", { name: "NRL" }));
   expect(screen.getByText("NRL tips aren't available right now.")).toBeInTheDocument();

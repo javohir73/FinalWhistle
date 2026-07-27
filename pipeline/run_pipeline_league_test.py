@@ -4,12 +4,38 @@ iteration and the score-prediction grading step)."""
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
+import pytest
 
 from app.config import settings
 from app.models import HistoricalMatch, LeagueScorePrediction, Match, Prediction, Team, TipPlayer, Tournament
 from pipeline import leagues as leagues_mod
 from pipeline.ingest import league_structure as ls_mod
 from pipeline.run_pipeline import run_pipeline
+
+
+@pytest.fixture(autouse=True)
+def _isolate_legacy_single_league_tests(monkeypatch):
+    """Most tests below lock the original one-league summary contract.
+
+    Dedicated multi-league tests override ACTIVE_LEAGUES themselves. Historical
+    download and roster reconciliation have their own focused tests and stay
+    network-free here.
+    """
+    from pipeline import league_activation as activation_mod
+    from pipeline import compute_club_elo as club_elo_mod
+
+    monkeypatch.setattr(leagues_mod, "ACTIVE_LEAGUES", ["epl"])
+    monkeypatch.setattr(
+        activation_mod,
+        "ensure_club_history",
+        lambda _db, cfg: {
+            "competition": cfg["club_competition"],
+            "matches": 0,
+            "downloaded": False,
+            "minimum": cfg["history_min_matches"],
+        },
+    )
+    monkeypatch.setattr(club_elo_mod, "unrated_roster_teams", lambda *_args: [])
 
 
 def _fixture(fid, home, away, status="NS", gh=None, ga=None):
@@ -277,10 +303,10 @@ def test_league_pipeline_runs_all_three_registered_leagues(db_session, monkeypat
 
     tournaments = {t.name: t for t in db_session.query(Tournament).all()}
     assert set(tournaments) == {"Premier League 2026-27", "La Liga 2026-27", "Bundesliga 2026-27"}
-    # Each league's own fitted (here: default 60.0) home advantage landed on
-    # its OWN row -- three separate writes, not one shared side effect.
-    for t in tournaments.values():
-        assert t.home_advantage_value == 60.0
+    # Each league's own held-out fitted home advantage landed on its own row.
+    assert tournaments["Premier League 2026-27"].home_advantage_value == 60.0
+    assert tournaments["La Liga 2026-27"].home_advantage_value == 80.0
+    assert tournaments["Bundesliga 2026-27"].home_advantage_value == 60.0
 
     assert db_session.query(HistoricalMatch).filter_by(competition="Premier League").count() == 1
     assert db_session.query(HistoricalMatch).filter_by(competition="La Liga").count() == 1

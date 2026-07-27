@@ -33,7 +33,7 @@ jest.mock("@/components/leagueTips/ClaimDeviceLeagueTips", () => ({
 }));
 jest.mock("@/components/leagueTips/LeagueTipsPicker", () => ({
   LeagueTipsPicker: ({ league }: { league: string; onMatchweekChange?: (mw: number) => void }) => (
-    <div data-testid="picker">{league}</div>
+    <div data-testid={`picker-${league}`}>{league}</div>
   ),
 }));
 jest.mock("@/components/leagueTips/LeagueYouVsAi", () => ({
@@ -176,16 +176,10 @@ it("degrades the bracket card to a plain link when the knockout odds are unavail
   expect(bracketLink).not.toHaveTextContent("Predicted champion");
 });
 
-it("mounts the reused league tips picker in the Premier League section", async () => {
+it("mounts one fixed league tips picker for every active football league", async () => {
   render(await PlayPage());
 
-  expect(screen.getByTestId("picker")).toHaveTextContent("epl");
-});
-
-it("keeps unavailable leagues honest instead of mounting another league's picker", async () => {
-  render(await PlayPage());
-
-  expect(screen.getByText("La Liga picks will appear when its season feed is loaded.")).toBeInTheDocument();
-  expect(screen.getByText("Bundesliga picks will appear when its season feed is loaded.")).toBeInTheDocument();
-  expect(screen.getAllByTestId("picker")).toHaveLength(1);
+  expect(screen.getByTestId("picker-epl")).toHaveTextContent("epl");
+  expect(screen.getByTestId("picker-laliga")).toHaveTextContent("laliga");
+  expect(screen.getByTestId("picker-bundesliga")).toHaveTextContent("bundesliga");
 });
