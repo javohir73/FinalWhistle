@@ -19,6 +19,36 @@ function match(): MatchSummary {
   };
 }
 
+it("keeps national teams on their flags in the prediction card", () => {
+  const { container } = render(
+    <UserPredictionCard match={match()} country="Brazil" pick={undefined} onPick={jest.fn()} tz="UTC" />,
+  );
+
+  expect(container.querySelector('img[src="/flags/br.png"]')).toBeInTheDocument();
+  expect(container.querySelector('img[src="/flags/gb-sct.png"]')).toBeInTheDocument();
+});
+
+it.each([
+  ["Premier League", "Arsenal", "Chelsea", "/clubs/epl/arsenal.png", "/clubs/epl/chelsea.png"],
+  ["La Liga", "Levante", "Athletic Club", "/clubs/laliga/levante.png", "/clubs/laliga/athletic-club.png"],
+  ["Bundesliga", "Bayern München", "VfB Stuttgart", "/clubs/bundesliga/bayern-munchen.png", "/clubs/bundesliga/vfb-stuttgart.png"],
+])(
+  "shows both %s club crests in the prediction card",
+  (group, home, away, homeSrc, awaySrc) => {
+    const clubMatch: MatchSummary = {
+      ...match(),
+      group,
+      teams: { home, away },
+    };
+    const { container } = render(
+      <UserPredictionCard match={clubMatch} country={home} pick={undefined} onPick={jest.fn()} tz="UTC" />,
+    );
+
+    expect(container.querySelector(`[data-club-logo="${home}"] img`)).toHaveAttribute("src", homeSrc);
+    expect(container.querySelector(`[data-club-logo="${away}"] img`)).toHaveAttribute("src", awaySrc);
+  },
+);
+
 it("calls onPick and shows the AI comparison when a side is chosen", () => {
   const onPick = jest.fn();
   const { rerender } = render(
