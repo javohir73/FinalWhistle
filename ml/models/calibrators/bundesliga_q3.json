@@ -1,0 +1,85 @@
+{
+  "bucket_occupancy_train": {
+    "0-69.9": 919,
+    "167.3+": 917,
+    "69.9-167.3": 918
+  },
+  "buckets": {
+    "0-69.9": {
+      "b": [
+        0.0,
+        0.0,
+        -0.2
+      ],
+      "t": 1.1
+    },
+    "167.3+": {
+      "b": [
+        0.0,
+        -0.1,
+        -0.1
+      ],
+      "t": 1.4
+    },
+    "69.9-167.3": {
+      "b": [
+        0.0,
+        0.0,
+        0.1
+      ],
+      "t": 1.3
+    }
+  },
+  "by": "effective_elo_gap",
+  "default": {
+    "b": [
+      0.0,
+      0.0,
+      -0.1
+    ],
+    "t": 1.3
+  },
+  "edges": [
+    69.9,
+    167.3
+  ],
+  "method": "vector_scaling_segmented_edges",
+  "n_train": 2754,
+  "provenance": {
+    "candidate": "refit_q3",
+    "command": "python -m pipeline.fit_club_calibrator --league bundesliga --csv-dir <captures> --out <artifact>",
+    "engine": {
+      "base": 1.44,
+      "beta": 0.0021,
+      "home_adv": 60.0,
+      "rho": -0.06,
+      "served_params_version": "poisson-elo-v0.5"
+    },
+    "excluded_holdout_season": "2526",
+    "fit": {
+      "grid": {
+        "kind": "refit",
+        "min_bucket": 200,
+        "n_buckets": 3
+      },
+      "min_bucket": 200,
+      "n_buckets": 3
+    },
+    "fitted_on_seasons": [
+      "1617",
+      "1718",
+      "1819",
+      "1920",
+      "2021",
+      "2122",
+      "2223",
+      "2324",
+      "2425"
+    ],
+    "league": "bundesliga",
+    "manifest_digest_sha256": "9fb708e1db0e21ef6ca4129646dd69a213d3bd6fd40110a5eeadd13e8a17af0f",
+    "manifest_files_verified": 27,
+    "note": "Fitted ONCE on the whole pre-confirmation block. T1.6's archived nested results refit per outer season and are NOT this artifact; they are not restated."
+  },
+  "thin_buckets": []
+}

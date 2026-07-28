@@ -163,3 +163,50 @@ def test_shadow_baseline_is_the_previous_version_with_no_overrides():
     # The whole point of the twin: it must NOT carry the refit.
     assert baseline.base == load_params().base
     assert baseline.base != leagues_mod.club_params_for("bundesliga").base
+
+
+# ---------------------------------------------------------------------------
+# Shadow variants (docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md).
+# Nothing is enabled by default. Availability is a hardcoded allowlist, so a
+# league with no reviewed artifact cannot be switched on by configuration.
+# ---------------------------------------------------------------------------
+
+def test_only_bundesliga_has_an_available_shadow_variant():
+    """EPL was nominal-only and La Liga showed no effect in T1.6, so neither
+    has a reviewed artifact -- they are excluded structurally, not by config."""
+    assert set(leagues_mod.AVAILABLE_SHADOW_VARIANTS) == {"bundesliga"}
+    assert set(leagues_mod.AVAILABLE_SHADOW_VARIANTS["bundesliga"]) == {"cal_q3"}
+
+
+def test_no_variant_is_enabled_by_default(monkeypatch):
+    monkeypatch.delenv(leagues_mod.SHADOW_VARIANTS_ENV, raising=False)
+    for code in LEAGUES:
+        assert leagues_mod.club_shadow_variants_for(code) == {}
+    assert leagues_mod.enabled_shadow_variants() == {}
+
+
+def test_the_flag_cannot_enable_a_league_without_an_artifact():
+    for code in ("epl", "laliga"):
+        assert leagues_mod.enabled_shadow_variants(f"{code}:cal_q3") == {}
+        assert leagues_mod.club_shadow_variants_for(
+            code, env_value=f"{code}:cal_q3") == {}
+
+
+def test_the_flag_enables_bundesliga_q3_and_loads_the_reviewed_artifact():
+    v = leagues_mod.club_shadow_variants_for("bundesliga", env_value="bundesliga:cal_q3")
+    assert set(v) == {"cal_q3"}
+    blob = v["cal_q3"].calibrator
+    assert blob["method"] == "vector_scaling_segmented_edges"
+    assert blob["provenance"]["excluded_holdout_season"] == "2526"
+
+
+def test_a_variant_overrides_the_calibrator_alone():
+    """Otherwise the live comparison confounds the calibrator with whatever
+    else moved."""
+    served = leagues_mod.club_params_for("bundesliga")
+    variant = leagues_mod.club_shadow_variants_for(
+        "bundesliga", env_value="bundesliga:cal_q3")["cal_q3"]
+    assert variant.calibrator != served.calibrator
+    assert variant.base == served.base == 1.44
+    for field in ("beta", "rho", "home_adv", "temperature", "version"):
+        assert getattr(variant, field) == getattr(served, field), field
