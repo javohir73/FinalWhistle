@@ -62,13 +62,16 @@ def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
     return (exps[0] / total, exps[1] / total, exps[2] / total)
 
 
-#: Calibrator ``method`` strings `calibrate` actually implements. Anything else
-#: silently degrades to `apply_temperature` (a deliberate, tested contract —
-#: see test_calibrate_unknown_method_falls_back_to_temperature). That
-#: fallthrough is fail-OPEN: a typo'd or not-yet-supported method produces
-#: plausible numbers with no error. Callers that must not degrade silently —
-#: notably the shadow-twin writer, which would otherwise log a twin that is
-#: secretly the identity — gate on `assert_servable_calibrator` first.
+#: Calibrator ``method`` strings `calibrate` actually implements.
+#:
+#: A non-null blob naming anything else RAISES. It used to degrade silently to
+#: `apply_temperature`, which is fail-OPEN: a typo'd or not-yet-supported
+#: method produced plausible numbers with no error anywhere. That nearly cost
+#: us a shadow twin that was secretly the identity (T1.6 q3), and the same
+#: failure on a PROMOTED calibrator would silently de-calibrate production.
+#: Gating only at the shadow writer was insufficient for exactly that reason.
+#:
+#: ``calibrator is None`` remains the valid scalar-temperature path.
 SUPPORTED_METHODS = frozenset({
     "vector_scaling",
     "vector_scaling_segmented",
@@ -136,6 +139,15 @@ def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0,
         return apply_vector_scaling(probs, cell["t"], tuple(cell["b"]))
     if calibrator and calibrator.get("method") == "vector_scaling":
         return apply_vector_scaling(probs, calibrator["t"], tuple(calibrator["b"]))
+    if calibrator:
+        # Fail CLOSED. Previously this fell through to apply_temperature, so an
+        # unrecognised method produced plausible-looking probabilities that were
+        # not calibrated at all -- undetectable downstream.
+        raise ValueError(
+            f"calibrator method {calibrator.get('method')!r} is not implemented; "
+            f"supported: {sorted(SUPPORTED_METHODS)}. Pass calibrator=None for "
+            "the scalar-temperature path."
+        )
     return apply_temperature(probs, temperature)
 
 

@@ -229,35 +229,82 @@ def club_baseline_params_for(code: str) -> "ModelParams":
     return replace(load_params(), version=CLUB_SHADOW_BASELINE_VERSION)
 
 
-#: Opt-in shadow VARIANTS per league: {variant_name: calibrator-or-params
-#: override}. Empty for every league = nothing is enabled anywhere, which is
-#: the shipped state. A variant logs an extra is_shadow row and can never
-#: affect a served prediction (pipeline/shadow_variants_test.py pins that).
-#:
-#: The Bundesliga q3 recalibrator is the only candidate that survived
-#: multiplicity correction in T1.6, and enabling it is a separate, reviewed
-#: decision — see docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md, which also
-#: records that ONE season is underpowered to confirm it (n>=759 needed).
-CLUB_SHADOW_VARIANTS: dict[str, dict[str, dict]] = {
-    "epl": {},
-    "laliga": {},
-    "bundesliga": {},
+#: Calibrator artifacts that MAY be shadowed, per league. A league absent here
+#: has no enablable variant at all, which is how EPL and La Liga are excluded
+#: structurally rather than by configuration: no env value can name a variant
+#: that does not exist. Only Bundesliga's recut survived T1.6's
+#: multiplicity-corrected gate (docs/MODEL-EXPERIMENTS.md).
+AVAILABLE_SHADOW_VARIANTS: dict[str, dict[str, str]] = {
+    "bundesliga": {"cal_q3": "bundesliga_q3.json"},
 }
 
+#: Env var selecting which AVAILABLE variants are live, as comma-separated
+#: "league:variant" tokens (e.g. "bundesliga:cal_q3"). Unset/empty = none,
+#: which is the shipped default. A token naming an unavailable league or
+#: variant is IGNORED with a warning -- a typo must not silently enable
+#: something else, and must not break the pipeline either.
+SHADOW_VARIANTS_ENV = "CLUB_SHADOW_VARIANTS"
 
-def club_shadow_variants_for(code: str) -> dict[str, "ModelParams"]:
+_CALIBRATOR_DIR = "ml/models/calibrators"
+
+
+def _load_calibrator_artifact(filename: str) -> dict:
+    """Read a reviewed calibrator artifact from disk, validating it is servable."""
+    import json
+    from pathlib import Path
+
+    from ml.evaluation.calibration import assert_servable_calibrator
+
+    path = Path(__file__).resolve().parents[1] / _CALIBRATOR_DIR / filename
+    blob = json.loads(path.read_text())
+    assert_servable_calibrator(blob)
+    return blob
+
+
+def enabled_shadow_variants(env_value: str | None = None) -> dict[str, set[str]]:
+    """Parse the env selection into {league: {variant, ...}}.
+
+    Filtered against AVAILABLE_SHADOW_VARIANTS, so an operator cannot enable a
+    league that has no reviewed artifact. Returns {} when unset -- the default.
+    """
+    import logging
+    import os
+
+    raw = env_value if env_value is not None else os.getenv(SHADOW_VARIANTS_ENV, "")
+    out: dict[str, set[str]] = {}
+    for token in (t.strip() for t in (raw or "").split(",")):
+        if not token:
+            continue
+        league, _, variant = token.partition(":")
+        if variant and variant in AVAILABLE_SHADOW_VARIANTS.get(league, {}):
+            out.setdefault(league, set()).add(variant)
+        else:
+            logging.getLogger(__name__).warning(
+                "%s: ignoring %r -- no reviewed artifact for that league/variant "
+                "(available: %s)", SHADOW_VARIANTS_ENV, token,
+                {k: sorted(v) for k, v in AVAILABLE_SHADOW_VARIANTS.items()},
+            )
+    return out
+
+
+def club_shadow_variants_for(code: str, env_value: str | None = None) -> dict[str, "ModelParams"]:
     """Named shadow-variant params for ``code``. Empty dict = none enabled.
 
-    Each entry overrides the league's SERVED params, so a calibrator variant
-    differs from production in the calibrator alone — otherwise the comparison
-    would confound the calibrator with whatever else moved.
+    Each variant overrides the league's SERVED params in the calibrator ALONE,
+    so the live comparison isolates the calibrator instead of confounding it
+    with whatever else moved. Default is empty: enabling one is an explicit,
+    reviewed operator action (docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md).
     """
     from dataclasses import replace
 
+    wanted = enabled_shadow_variants(env_value).get(code, set())
+    if not wanted:
+        return {}
     served = club_params_for(code)
     return {
-        name: replace(served, **overrides)
-        for name, overrides in CLUB_SHADOW_VARIANTS.get(code, {}).items()
+        name: replace(served, calibrator=_load_calibrator_artifact(
+            AVAILABLE_SHADOW_VARIANTS[code][name]))
+        for name in sorted(wanted)
     }
 
 

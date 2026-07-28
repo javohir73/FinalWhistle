@@ -163,42 +163,100 @@ A **production** rollback is not in scope because nothing production changes.
 
 ---
 
-## 5. Operator runbook
+## 5. Operational activation — stated honestly
 
-**Enable** (local or a single environment; still shadow-only):
+### Merging this changes nothing that accrues data
 
-```python
-# pipeline/run_pipeline.py, league branch
-generate_predictions(
-    db, model_version=CLUB_MODEL_VERSION, n_sims=n_sims, tournament_id=t.id,
-    params=club_params_for(code),
-    baseline_params=club_baseline_params_for(code),
-    shadow_variants=club_shadow_variants_for(code),   # {} for every league but bundesliga
-)
+`PIPELINE_TARGET` is `wc26`. The league branch of `run_pipeline` — the only
+place `club_shadow_variants_for` is called — **does not execute in production**.
+So merging this infrastructure, with or without the flag set, accrues **zero
+Bundesliga pairs**. `/api/health` confirms production serves
+`poisson-elo-v0.5` against the 104-match WC26 ledger.
+
+Data accrual needs, in order: (1) `PIPELINE_TARGET` flipped to the league path
+— its own stop-gated decision, not requested here; (2) the flag set; (3) the
+2026-27 season to actually play. Item (3) alone is 2.5–4.5 seasons at the
+required n. **This branch buys readiness, not evidence.**
+
+### The flag
+
+`CLUB_SHADOW_VARIANTS`, comma-separated `league:variant`. Unset = off, the
+shipped default.
+
+```
+CLUB_SHADOW_VARIANTS=bundesliga:cal_q3
 ```
 
-**Verify after the first pipeline run:**
+Enablement is filtered through `AVAILABLE_SHADOW_VARIANTS`, which contains
+**only** `bundesliga: {cal_q3}`. EPL and La Liga are excluded *structurally*,
+not by configuration — no env value can name a variant that does not exist, and
+neither league has a reviewed artifact because neither cleared T1.6's
+multiplicity-corrected gate. WC26 is untouchable for a second, independent
+reason: it runs the other pipeline branch entirely. Four tests pin this.
+
+### The artifact
+
+`ml/models/calibrators/bundesliga_q3.json`, fitted **once** on exactly the 27
+manifest-verified 2016-17…2024-25 captures via
+`pipeline/fit_club_calibrator.py`. Edges `[69.9, 167.3]`, occupancy
+919/918/917, no thin buckets, `n_train=2754`. Provenance records the seasons,
+the excluded holdout, the engine it was fitted against, a digest over the 27
+manifest hashes, and the reproduction command. If upstream revises a season
+file the digest moves and a test fails — the artifact is then stale, not merely
+old. T1.6's archived nested results are **not** restated; they refit per outer
+season and are a different object.
+
+### Failure isolation
+
+Each variant write runs inside a **SAVEPOINT** (`db.begin_nested()`). A plain
+try/except is insufficient: a database-level failure leaves the *session*
+unusable, so production rows added earlier in the same transaction would fail
+to commit — the shadow would take serving down with it. A test forces a real
+`IntegrityError` inside the variant write and asserts production still commits
+byte-identically and the session stays usable.
+
+## 5b. Operator runbook
+
+**Enable** (single environment, still shadow-only, still no data unless
+`PIPELINE_TARGET` is on the league path):
+
+```bash
+CLUB_SHADOW_VARIANTS=bundesliga:cal_q3
+```
+
+**Verify after the first league pipeline run:**
 
 1. `SELECT model_version, is_shadow, count(*) FROM predictions GROUP BY 1,2;`
-   — expect `poisson-elo-club-v0.2+cal_q3` present, `is_shadow=true`, count
-   equal to the production row count for Bundesliga fixtures.
-2. Confirm production is untouched: production row count and probabilities
-   unchanged from the prior run.
-3. Confirm the variant is not the identity: at least one match where the
-   `+cal_q3` triple differs from production. If none differ, the calibrator was
-   silently discarded — stop and investigate (that is Blocker A recurring).
+   — expect `poisson-elo-club-v0.2+cal_q3`, `is_shadow=true`, count equal to
+   the Bundesliga production row count.
+2. Production row count and probabilities unchanged from the prior run.
+3. At least one match where the `+cal_q3` triple differs from production. If
+   none differ the calibrator was discarded — stop and investigate.
 4. `GET /api/health` unchanged.
 
-**Weekly:** read the report, publish nothing until a gate fires.
+**Read the benchmark** (safe to run any time; honest-empty until pairs exist):
 
-**On alarm** (variant row count ≠ production count, or triples identical):
-disable, then investigate. A quiet shadow is worse than no shadow.
+```bash
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_calibrator_benchmark --variant cal_q3
+```
 
----
+It reports paired log loss / Brier / RPS / ECE / sharpness, headline flip rate,
+grid-equality status, the closing-market benchmark, and the pre-registered
+verdict: `insufficient` · `continue_underpowered` · `continue` ·
+`confirm_eligible` · `rollback`.
+
+**On alarm** — `grid equality: VIOLATED` (a mechanism bug, not a result),
+variant row count ≠ production count, or identical triples — unset the flag,
+then investigate. A quiet shadow is worse than no shadow.
 
 ## 6. Out of scope
 
 Promotion of any calibrator · EPL and La Liga · xG / GBM · `PIPELINE_TARGET` ·
-schema migrations · changing `calibrate()`'s documented unknown-method
-fallthrough (fenced instead — but see §1 Blocker A; a reviewer may reasonably
-argue that contract should change, which is a separate decision).
+schema migrations · flipping `PIPELINE_TARGET` · activating the flag.
+
+**Resolved since the first draft:** `calibrate()`'s unknown-method
+fallthrough is no longer fenced at the shadow writer — it now **raises**
+globally. Validating only at the writer was insufficient, because a later
+*promotion* of a mis-specified calibrator would have silently de-calibrated
+production with nothing to detect it. `calibrator=None` remains the valid
+scalar-temperature path; the old contract test is updated in place.

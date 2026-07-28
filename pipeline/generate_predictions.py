@@ -1227,12 +1227,19 @@ def generate_predictions(
                 strengths, baseline_params, booster,
             )
         for _name, _vp in (shadow_variants or {}).items():
+            # SAVEPOINT per variant. A plain try/except is not enough: a
+            # database-level failure (constraint violation, bad flush) leaves
+            # the SESSION unusable, so the production rows added above would
+            # fail to commit too -- the shadow would take serving down with it.
+            # begin_nested() rolls back only this variant's work and leaves the
+            # outer transaction healthy.
             try:
-                write_variant_prediction(
-                    db, match,
-                    variant_model_version_for(active_model_version, _name),
-                    strengths, _vp, booster,
-                )
+                with db.begin_nested():
+                    write_variant_prediction(
+                        db, match,
+                        variant_model_version_for(active_model_version, _name),
+                        strengths, _vp, booster,
+                    )
             except Exception:  # noqa: BLE001 - a shadow must never break serving
                 log.exception(
                     "shadow variant %r failed for match %s; dropped (production "

@@ -264,3 +264,110 @@ def test_one_broken_variant_does_not_suppress_a_healthy_one(db_session):
         model_version=f"{MV}+broken").all() == []
     assert db_session.query(Prediction).filter_by(
         model_version=f"{MV}+cal_q3").all()
+
+
+# ---------------------------------------------------------------------------
+# Transaction isolation. A plain try/except is NOT enough: a database-level
+# failure inside a variant write leaves the SESSION unusable, so the production
+# rows added earlier in the same transaction would fail to commit — the shadow
+# would take serving down with it. Each variant write runs in a SAVEPOINT.
+# ---------------------------------------------------------------------------
+
+def test_a_database_failure_in_a_variant_cannot_poison_the_production_write(
+        db_session, monkeypatch):
+    """Forces a real flush failure, not a Python-level raise."""
+    from sqlalchemy import text
+
+    import pipeline.generate_predictions as gp
+
+    _seed(db_session)
+    generate_predictions(db_session, MV, n_sims=60, tournament_sims=30)
+    before = _served(db_session)
+    for row in db_session.query(Prediction).all():
+        db_session.delete(row)
+    db_session.commit()
+
+    real = gp._write_prediction
+
+    def poisoned(db, match, payload, version, is_shadow=False):
+        # Only THIS variant's write. The five pre-existing twins
+        # (+shadow/+avail/+xg/+bans/+rest) also call _write_prediction with
+        # is_shadow=True and run OUTSIDE the savepoint, so poisoning them would
+        # be testing a different code path entirely.
+        if is_shadow and version.endswith("+cal_q3"):
+            # A genuine DB error: violates predictions.match_id NOT NULL/FK by
+            # writing an impossible row, surfacing on flush inside the savepoint.
+            db.execute(text(
+                "INSERT INTO predictions (match_id, model_version, is_shadow, "
+                "prob_home_win, prob_draw, prob_away_win) "
+                "VALUES (NULL, 'x', 1, NULL, NULL, NULL)"))
+            db.flush()
+            return
+        return real(db, match, payload, version, is_shadow)
+
+    monkeypatch.setattr(gp, "_write_prediction", poisoned)
+    generate_predictions(
+        db_session, MV, n_sims=60, tournament_sims=30,
+        shadow_variants={"cal_q3": replace(load_params(), version=MV, calibrator=Q3)},
+    )
+    monkeypatch.undo()
+
+    # The session survived and production committed unchanged.
+    assert _served(db_session) == before
+    assert db_session.query(Prediction).filter_by(
+        model_version=f"{MV}+cal_q3").all() == []
+
+
+def test_the_session_remains_usable_after_a_variant_failure(db_session, monkeypatch):
+    import pipeline.generate_predictions as gp
+
+    _seed(db_session)
+    monkeypatch.setattr(gp, "write_variant_prediction",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("boom")))
+    generate_predictions(
+        db_session, MV, n_sims=60, tournament_sims=30,
+        shadow_variants={"cal_q3": replace(load_params(), version=MV, calibrator=Q3)},
+    )
+    monkeypatch.undo()
+    # A further write on the same session still works — proving no poisoning.
+    db_session.add(Team(name="post-failure-canary", is_host=False))
+    db_session.commit()
+    assert db_session.query(Team).filter_by(name="post-failure-canary").one()
+
+
+# ---------------------------------------------------------------------------
+# Config gating: default OFF, and structurally incapable of enabling EPL,
+# La Liga or WC26.
+# ---------------------------------------------------------------------------
+
+def test_variants_are_off_by_default_for_every_league(monkeypatch):
+    from pipeline.leagues import LEAGUES, club_shadow_variants_for
+
+    monkeypatch.delenv("CLUB_SHADOW_VARIANTS", raising=False)
+    for code in LEAGUES:
+        assert club_shadow_variants_for(code) == {}
+
+
+def test_the_flag_can_enable_only_bundesliga_q3(monkeypatch):
+    from pipeline.leagues import club_shadow_variants_for
+
+    assert club_shadow_variants_for("bundesliga", env_value="bundesliga:cal_q3")
+    for code in ("epl", "laliga"):
+        assert club_shadow_variants_for(code, env_value=f"{code}:cal_q3") == {}
+        assert club_shadow_variants_for(code, env_value="bundesliga:cal_q3") == {}
+
+
+def test_unknown_variant_names_and_junk_are_ignored_not_guessed(monkeypatch):
+    from pipeline.leagues import club_shadow_variants_for, enabled_shadow_variants
+
+    for junk in ("bundesliga:not_a_variant", "nonsense", "wc26:cal_q3", ":", ",,,"):
+        assert enabled_shadow_variants(junk) == {}
+        assert club_shadow_variants_for("bundesliga", env_value=junk) == {}
+
+
+def test_wc26_cannot_be_targeted_because_it_has_no_available_variant():
+    from pipeline.leagues import AVAILABLE_SHADOW_VARIANTS, enabled_shadow_variants
+
+    assert set(AVAILABLE_SHADOW_VARIANTS) == {"bundesliga"}
+    for token in ("wc26:cal_q3", "poisson-elo-v0.5:cal_q3", "international:cal_q3"):
+        assert enabled_shadow_variants(token) == {}

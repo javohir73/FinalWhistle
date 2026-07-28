@@ -134,11 +134,23 @@ def test_calibrate_none_t1_is_identity():
     assert all(abs(a - b) < 1e-9 for a, b in zip(out, p))
 
 
-def test_calibrate_unknown_method_falls_back_to_temperature():
-    # A blob with a method we don't recognize is treated as no calibrator.
+def test_calibrate_unknown_method_raises_instead_of_degrading_silently():
+    """Contract CHANGED 2026-07-28 (was: fall back to temperature).
+
+    The old fallthrough was fail-open: an unrecognised method returned
+    plausible but UNCALIBRATED probabilities with no error. A typo in a
+    promoted calibrator would have silently de-calibrated production, and it
+    nearly logged a shadow twin that was secretly the identity. Callers that
+    want the scalar path pass calibrator=None, which still works.
+    """
+    import pytest
+
     p = (0.5, 0.3, 0.2)
-    blob = {"method": "future_method"}
-    assert calibrate(p, blob, temperature=1.4) == apply_temperature(p, 1.4)
+    with pytest.raises(ValueError, match="not implemented"):
+        calibrate(p, {"method": "future_method"}, temperature=1.4)
+
+    # None remains the valid temperature path.
+    assert calibrate(p, None, temperature=1.4) == apply_temperature(p, 1.4)
 
 
 def test_effective_gap_uses_home_adv():
