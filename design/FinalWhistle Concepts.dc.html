@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/colors.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/typography.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/effects.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/base.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/styles.css">
+<script src="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#060d09;font-family:'Hanken Grotesk',system-ui,sans-serif}
+a{color:#9ee633}a:hover{color:#c4f36f}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(255,255,255,.06);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 20px}
+.dv-tid{font:600 10px ui-monospace,Menlo,monospace;padding:3px 7px;background:#9ee633;color:#0a1410;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Hanken Grotesk',sans-serif;color:#f3f6f3}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:10px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px ui-monospace,Menlo,monospace;padding:3px 7px;background:rgba(158,230,51,.15);color:#9ee633;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'Hanken Grotesk',sans-serif;color:rgba(243,246,243,.55)}
+.dv-card{background:#0a1410;border:1px solid rgba(158,230,51,.12);border-radius:12px;box-shadow:0 2px 24px rgba(0,0,0,.5);overflow:hidden}
+.dv-opt:target .dv-oid{background:#9ee633;color:#0a1410}
+.dv-next{margin:22px 0 0;font:12px/1.5 'Hanken Grotesk',sans-serif;color:rgba(243,246,243,.45)}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t0" style="padding-bottom:24px">
+  <div style="max-width:1060px">
+    <div style="font:700 11px 'Hanken Grotesk';letter-spacing:.14em;color:#9ee633;text-transform:uppercase;margin-bottom:10px">FinalWhistle · Multi-sport expansion · Design concepts</div>
+    <h1 style="font:800 34px/1.1 'Bricolage Grotesque';letter-spacing:-0.02em;color:#f3f6f3;margin:0 0 14px">Three UX concepts for one platform:<br>World Cup → EPL · LaLiga · Bundesliga · NRL</h1>
+    <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:18px">
+      <div style="flex:1;min-width:300px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:16px 18px">
+        <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;text-transform:uppercase;margin-bottom:8px">What I read in the codebase</div>
+        <ul style="margin:0;padding-left:16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+          <li>NRL already lives at <span style="color:#9ee633">/nrl/*</span> with its own ladder, tips, round pages — a parallel tree, not a shared system.</li>
+          <li><b style="color:#f3f6f3">Reusable as-is:</b> ProbabilityBar, ChanceChip, ConfidenceBadge, Flag/ClubBadge, glass Card, FormStrip, Sparkline, ShareButton.</li>
+          <li><b style="color:#f3f6f3">Should generalise:</b> MatchCard vs SportMatchCard (near-twins → one SportMatchCard), GroupTable vs LadderTable (→ one StandingsTable with zone config), SiteNav/BottomNav link maps.</li>
+          <li><b style="color:#f3f6f3">Scaling risks:</b> per-sport routes hard-code terminology; two leaderboards; SportSwitcher is binary (Football/NRL) — breaks at 5+ competitions; no "my competitions" memory.</li>
+          <li><b style="color:#f3f6f3">A11y:</b> probability communicated by colour alone in bars (needs labels); 10px nav type below WCAG comfort; lime-on-dark passes, amber-on-dark is borderline for small text.</li>
+        </ul>
+      </div>
+      <div style="flex:1;min-width:300px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:16px 18px">
+        <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;text-transform:uppercase;margin-bottom:8px">Market research → how we stand out</div>
+        <ul style="margin:0;padding-left:16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+          <li><b style="color:#f3f6f3">FotMob</b> wins on calm simplicity + a followed-teams home. <b style="color:#f3f6f3">Sofascore</b> wins on depth but users call it congested and ad-heavy.</li>
+          <li>Top complaints across all rivals: ads over live moments, notification spam, UI churn. FinalWhistle's edge: <b style="color:#9ee633">no ads, explainable AI, play-against-the-model</b>.</li>
+          <li>Nobody pairs predictions with a public accuracy record — our "honest model" framing is unique shelf space.</li>
+          <li>Borrowed ideas: followed-first home (FotMob), momentum visuals (FotMob xG timeline → our win-prob timeline), fantasy-style play loop (Sofascore) recast as ad-free tipping vs the AI.</li>
+        </ul>
+      </div>
+    </div>
+    <div style="margin-top:16px;background:linear-gradient(135deg,#101d16,#0d1a12);border:1px solid rgba(158,230,51,.3);border-radius:14px;padding:16px 18px;max-width:1060px">
+      <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#9ee633;text-transform:uppercase;margin-bottom:8px">Recommendation</div>
+      <div style="font:400 13px/1.65 'Hanken Grotesk';color:#c9d4ca">
+        <b style="color:#f3f6f3">Ship <a class="dv-oid" href="#1b">1b</a> Clubhouse as the app's information architecture</b> — its followed-first home and single competition switcher scale to any number of leagues without new nav, and it gives tipping and AI predictions the equal billing you asked for.
+        Then borrow <a class="dv-oid" href="#1c">1c</a> Floodlight's match-centre treatment for match detail (that's the screen people screenshot), and offer <a class="dv-oid" href="#1a">1a</a> Terminal's dense rows as a "compact mode" for stats-heads.
+        Shared nav decision (all three): <b style="color:#f3f6f3">two sport spaces at the top level — Football (with EPL, LaLiga, Bundesliga, WC26 as subsections) and NRL — never mixed in one feed</b>; below that, one constant bottom bar (Home · Matches · Play · Tables · You) whose labels adapt per sport (Fixtures/Matches, Standings/Ladder).
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Three concepts — same identity (dark · lime · Bricolage/Hanken), three different UX architectures</span></div>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a><b style="color:#f3f6f3;font-weight:700">TERMINAL</b> — the data desk. Density, tables, one glance = whole matchday. For the serious user.</div>
+      <div class="dv-card" style="padding:22px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px;max-width:1280px">
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Direction</b> — pitch-side data desk. Rows over cards, tabular numerals everywhere, zero decoration. Chrome recedes; numbers lead. Lime only for signal (win, live, active).</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Navigation</b> — mobile: sport segment (Football | NRL) with a league strip below it + 5-tab bar. Desktop: persistent left rail (sport → competition tree, pinnable). You always see which competition you're in — the strip never leaves.</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Strengths / limits</b> — fastest scan, scales to 20 leagues, loved by stats-heads. Risk: colder first impression for casual fans; hero moments are quieter.</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">HOME — TODAY DESK</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="display:flex;align-items:center;gap:6px;padding:8px 12px 6px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                <span style="font:800 13px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                <span style="margin-left:auto;width:18px;height:18px;border-radius:99px;background:#151f19;border:1px solid #243028;display:flex;align-items:center;justify-content:center;font:700 8px 'Hanken Grotesk';color:#9ee633">J</span>
+              </div>
+              <div style="display:flex;gap:6px;padding:4px 12px 4px">
+                <span style="flex:none;padding:3px 12px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 9px 'Hanken Grotesk'">Football</span>
+                <span style="flex:none;padding:3px 12px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;font:600 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:10px;height:10px;object-fit:contain" alt="">NRL</span>
+              </div>
+              <div style="display:flex;gap:5px;padding:2px 12px 8px;overflow:hidden">
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:rgba(158,230,51,.14);border:1px solid rgba(158,230,51,.4);color:#9ee633;font:700 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:10px;height:10px;object-fit:contain" alt="">EPL</span>
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;font:600 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:10px;height:10px;object-fit:contain" alt="">LaLiga</span>
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;font:600 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/78.png" style="width:10px;height:10px;object-fit:contain" alt="">Bundesliga</span>
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;font:600 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:10px;height:10px;object-fit:contain" alt="">WC26</span>
+              </div>
+              <div style="margin:0 12px;border:1px solid rgba(246,81,107,.35);border-radius:10px;background:#101d16;padding:8px 10px">
+                <div style="display:flex;align-items:center;gap:6px;font:700 8.5px 'Hanken Grotesk';color:#f6516b;letter-spacing:.1em"><span style="width:5px;height:5px;border-radius:99px;background:#f6516b"></span>LIVE · 64'</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-top:5px;font:700 12px 'Bricolage Grotesque'">
+                  <span>Arsenal</span><span style="font:800 14px 'Bricolage Grotesque';color:#9ee633">2–1</span><span>Chelsea</span>
+                </div>
+                <div style="display:flex;height:3px;gap:1px;margin-top:6px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:78%"></i><i style="background:#f9b030;width:15%"></i><i style="background:#f6516b;width:7%"></i></div>
+                <div style="display:flex;justify-content:space-between;font:600 8px 'Hanken Grotesk';color:#94a897;margin-top:3px"><span>Win 78%</span><span>Live win probability</span></div>
+              </div>
+              <div style="padding:10px 12px 4px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">SATURDAY · MATCHWEEK 24</div>
+              <div style="padding:0 12px">
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1a251d">
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897;width:30px">12:30</span>
+                  <span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Liverpool – Man City</span>
+                  <div style="display:flex;height:4px;gap:1px;border-radius:99px;overflow:hidden;width:46px"><i style="background:#9ee633;width:44%"></i><i style="background:#f9b030;width:27%"></i><i style="background:#f6516b;width:29%"></i></div>
+                  <span style="font:700 8px 'Hanken Grotesk';color:#9ee633">44%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #1a251d">
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897;width:30px">15:00</span>
+                  <span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Newcastle – Spurs</span>
+                  <div style="display:flex;height:4px;gap:1px;border-radius:99px;overflow:hidden;width:46px"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div>
+                  <span style="font:700 8px 'Hanken Grotesk';color:#9ee633">52%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 0">
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897;width:30px">17:30</span>
+                  <span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Brighton – Villa</span>
+                  <div style="display:flex;height:4px;gap:1px;border-radius:99px;overflow:hidden;width:46px"><i style="background:#9ee633;width:38%"></i><i style="background:#f9b030;width:30%"></i><i style="background:#f6516b;width:32%"></i></div>
+                  <span style="font:700 8px 'Hanken Grotesk';color:#94a897">38%</span>
+                </div>
+              </div>
+              <div style="padding:8px 12px 4px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">LALIGA · MATCHDAY 24</div>
+              <div style="padding:0 12px 10px">
+                <div style="display:flex;align-items:center;gap:8px;padding:7px 0">
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897;width:30px">21:00</span>
+                  <span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Barcelona – Sevilla</span>
+                  <div style="display:flex;height:4px;gap:1px;border-radius:99px;overflow:hidden;width:46px"><i style="background:#9ee633;width:71%"></i><i style="background:#f9b030;width:18%"></i><i style="background:#f6516b;width:11%"></i></div>
+                  <span style="font:700 8px 'Hanken Grotesk';color:#9ee633">71%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-around;border-top:1px solid #243028;background:rgba(16,29,22,.95);padding:7px 0 12px">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:600 7.5px 'Hanken Grotesk';color:#9ee633"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l9-8 9 8M5 10v10h14V10"></path></svg>Home</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>Fixtures</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12.5l2 2 4-4.5"></path></svg>Play</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Tables</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">COMPETITION SWITCHER — BOTTOM SHEET</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3;position:relative">
+              <div style="padding:8px 14px 40px;opacity:.25;font:600 9px 'Hanken Grotesk';color:#94a897">9:41 · home dimmed behind sheet</div>
+              <div style="background:#101d16;border-top:1px solid #243028;border-radius:18px 18px 0 0;padding:10px 14px 14px;box-shadow:0 -20px 40px rgba(0,0,0,.6)">
+                <div style="width:32px;height:3px;border-radius:99px;background:#243028;margin:0 auto 10px"></div>
+                <div style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em;margin-bottom:2px">Competitions</div>
+                <div style="font:400 9.5px 'Hanken Grotesk';color:#94a897;margin-bottom:10px">Star to pin. Pinned competitions feed Home and the strip.</div>
+                <div style="font:700 8.5px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;margin:8px 0 4px">FOOTBALL</div>
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(158,230,51,.08);border:1px solid rgba(158,230,51,.25)"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Premier League</span><span style="color:#9ee633;font-size:10px">★</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">LaLiga</span><span style="color:#9ee633;font-size:10px">★</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px"><img src="https://media.api-sports.io/football/leagues/78.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Bundesliga</span><span style="color:#243028;font-size:10px">☆</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px"><span style="width:16px;height:16px;border-radius:99px;background:#151f19;border:1px solid #243028;display:flex;align-items:center;justify-content:center;font:700 6px 'Bricolage Grotesque';color:#e0b64a"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:11px;height:11px;object-fit:contain" alt=""></span><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">World Cup 2026</span><span style="color:#9ee633;font-size:10px">★</span></div>
+                </div>
+                <div style="font:700 8.5px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;margin:10px 0 4px">RUGBY LEAGUE</div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">NRL Telstra Premiership</span><span style="color:#9ee633;font-size:10px">★</span></div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;opacity:.5"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">State of Origin</span><span style="font:600 8px 'Hanken Grotesk';color:#94a897">off-season</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">MATCH CENTRE — TABS + WHY</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:6px 12px 8px;border-bottom:1px solid #1a251d">
+                <div style="display:flex;justify-content:space-between;font:600 8.5px 'Hanken Grotesk';color:#94a897"><span>‹ EPL · MW24</span><span style="color:#f9b030">SAT 15:00 AEST</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                  <div style="text-align:center;width:80px"><span style="display:inline-flex;width:30px;height:30px;border-radius:99px;background:#151f19;border:1px solid #243028;align-items:center;justify-content:center;font:800 9px 'Bricolage Grotesque';color:#9ee633"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:20px;height:20px;object-fit:contain" alt=""></span><div style="font:700 10.5px 'Bricolage Grotesque';margin-top:3px">Newcastle</div></div>
+                  <div style="text-align:center"><div style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;color:#9ee633">2–1</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897">MOST LIKELY SCORE</div></div>
+                  <div style="text-align:center;width:80px"><span style="display:inline-flex;width:30px;height:30px;border-radius:99px;background:#151f19;border:1px solid #243028;align-items:center;justify-content:center;font:800 9px 'Bricolage Grotesque';color:#f3f6f3"><img src="https://resources.premierleague.com/premierleague/badges/50/t6.png" style="width:20px;height:20px;object-fit:contain" alt=""></span><div style="font:700 10.5px 'Bricolage Grotesque';margin-top:3px">Spurs</div></div>
+                </div>
+                <div style="display:flex;height:6px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div>
+                <div style="display:flex;justify-content:space-between;font:600 8px 'Hanken Grotesk';margin-top:3px"><span style="color:#9ee633">Win 52%</span><span style="color:#f9b030">Draw 25%</span><span style="color:#f6516b">Loss 23%</span></div>
+              </div>
+              <div style="display:flex;gap:2px;padding:8px 12px;border-bottom:1px solid #1a251d;font:600 9px 'Hanken Grotesk'">
+                <span style="padding:4px 9px;border-radius:8px;background:rgba(158,230,51,.12);color:#9ee633">Prediction</span>
+                <span style="padding:4px 9px;border-radius:8px;color:#94a897">Why</span>
+                <span style="padding:4px 9px;border-radius:8px;color:#94a897">Lineups</span>
+                <span style="padding:4px 9px;border-radius:8px;color:#94a897">H2H</span>
+                <span style="padding:4px 9px;border-radius:8px;color:#94a897">Stats</span>
+              </div>
+              <div style="padding:10px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">WHY THIS PREDICTION</span><span style="padding:2px 7px;border-radius:99px;background:rgba(158,230,51,.12);font:700 8px 'Hanken Grotesk';color:#9ee633">HIGH CONFIDENCE</span></div>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px;font:400 10px/1.45 'Hanken Grotesk';color:#c9d4ca">
+                  <div style="display:flex;gap:7px"><span style="color:#9ee633">＋</span>Newcastle unbeaten in 7 at St James' Park (W6 D1)</div>
+                  <div style="display:flex;gap:7px"><span style="color:#9ee633">＋</span>Elo gap +48 after Spurs' midweek defeat</div>
+                  <div style="display:flex;gap:7px"><span style="color:#f6516b">－</span>Isak doubtful — xG drops 0.31 without him</div>
+                </div>
+                <div style="margin-top:10px;font:700 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">FEATURE IMPORTANCE</div>
+                <div style="margin-top:6px;display:flex;flex-direction:column;gap:5px;font:600 8.5px 'Hanken Grotesk';color:#94a897">
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:56px">Home form</span><div style="flex:1;height:5px;border-radius:99px;background:#151f19"><div style="width:72%;height:5px;border-radius:99px;background:#9ee633"></div></div><span style="color:#f3f6f3">+7.2</span></div>
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:56px">Elo gap</span><div style="flex:1;height:5px;border-radius:99px;background:#151f19"><div style="width:54%;height:5px;border-radius:99px;background:#9ee633"></div></div><span style="color:#f3f6f3">+5.4</span></div>
+                  <div style="display:flex;align-items:center;gap:6px"><span style="width:56px">Injuries</span><div style="flex:1;height:5px;border-radius:99px;background:#151f19"><div style="width:31%;height:5px;border-radius:99px;background:#f6516b"></div></div><span style="color:#f3f6f3">−3.1</span></div>
+                </div>
+                <div style="margin-top:10px;border-top:1px solid #1a251d;padding-top:8px;display:flex;justify-content:space-between;align-items:center">
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897">Your pick</span>
+                  <div style="display:flex;gap:4px;font:700 9px 'Hanken Grotesk'">
+                    <span style="padding:4px 10px;border-radius:8px;background:#9ee633;color:#0a1410">NEW</span>
+                    <span style="padding:4px 10px;border-radius:8px;background:#151f19;border:1px solid #243028;color:#94a897">Draw</span>
+                    <span style="padding:4px 10px;border-radius:8px;background:#151f19;border:1px solid #243028;color:#94a897">TOT</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">TABLES — STANDINGS ↔ LADDER (SAME SKIN)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:6px 12px 4px;display:flex;align-items:center;justify-content:space-between">
+                <span style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Standings</span>
+                <span style="padding:3px 9px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 9px 'Hanken Grotesk';display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:10px;height:10px;object-fit:contain" alt="">EPL</span>
+              </div>
+              <div style="padding:2px 12px 8px">
+                <div style="display:flex;font:700 8px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897;padding:4px 0;border-bottom:1px solid #1a251d"><span style="flex:1">CLUB</span><span style="width:20px;text-align:right">P</span><span style="width:26px;text-align:right">GD</span><span style="width:26px;text-align:right">PTS</span><span style="width:34px;text-align:right">TITLE%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-bottom:1px solid #1a251d;background:rgba(158,230,51,.06);border-left:2px solid #9ee633;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">1</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://resources.premierleague.com/premierleague/badges/50/t3.png" style="width:13px;height:13px;object-fit:contain" alt="">Arsenal</span><span style="width:20px;text-align:right">24</span><span style="width:26px;text-align:right">+38</span><span style="width:26px;text-align:right;font-weight:800">58</span><span style="width:34px;text-align:right;color:#9ee633">61%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-bottom:1px solid #1a251d;background:rgba(158,230,51,.06);border-left:2px solid #9ee633;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">2</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://resources.premierleague.com/premierleague/badges/50/t14.png" style="width:13px;height:13px;object-fit:contain" alt="">Liverpool</span><span style="width:20px;text-align:right">24</span><span style="width:26px;text-align:right">+31</span><span style="width:26px;text-align:right;font-weight:800">55</span><span style="width:34px;text-align:right;color:#9ee633">27%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-bottom:1px solid #1a251d;border-left:2px solid transparent;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">5</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://resources.premierleague.com/premierleague/badges/50/t43.png" style="width:13px;height:13px;object-fit:contain" alt="">Man City</span><span style="width:20px;text-align:right">24</span><span style="width:26px;text-align:right">+22</span><span style="width:26px;text-align:right;font-weight:800">47</span><span style="width:34px;text-align:right;color:#94a897">8%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-left:2px solid #f6516b;padding-left:4px;background:rgba(246,81,107,.05)"><span style="width:14px;color:#94a897;font-size:8.5px">18</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://resources.premierleague.com/premierleague/badges/50/t40.png" style="width:13px;height:13px;object-fit:contain" alt="">Ipswich</span><span style="width:20px;text-align:right">24</span><span style="width:26px;text-align:right">−28</span><span style="width:26px;text-align:right;font-weight:800">16</span><span style="width:34px;text-align:right;color:#f6516b">72%↓</span></div>
+                <div style="display:flex;gap:8px;margin-top:6px;font:600 7.5px 'Hanken Grotesk';color:#94a897"><span><i style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#9ee633;vertical-align:-1px"></i> Champions Lg</span><span><i style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#e0b64a;vertical-align:-1px"></i> Europa</span><span><i style="display:inline-block;width:7px;height:7px;border-radius:2px;background:#f6516b;vertical-align:-1px"></i> Relegation</span></div>
+              </div>
+              <div style="padding:6px 12px 4px;display:flex;align-items:center;justify-content:space-between;border-top:1px solid #243028">
+                <span style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Ladder</span>
+                <span style="padding:3px 9px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 9px 'Hanken Grotesk'">NRL</span>
+              </div>
+              <div style="padding:2px 12px 12px">
+                <div style="display:flex;font:700 8px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897;padding:4px 0;border-bottom:1px solid #1a251d"><span style="flex:1">CLUB</span><span style="width:34px;text-align:right">W–L</span><span style="width:26px;text-align:right">DIFF</span><span style="width:26px;text-align:right">PTS</span><span style="width:34px;text-align:right">TOP 8%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-bottom:1px solid #1a251d;background:rgba(158,230,51,.06);border-left:2px solid #9ee633;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">1</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://www.nrl.com/.theme/storm/badge.svg" style="width:13px;height:13px;object-fit:contain" alt="">Storm</span><span style="width:34px;text-align:right">16–4</span><span style="width:26px;text-align:right">+212</span><span style="width:26px;text-align:right;font-weight:800">34</span><span style="width:34px;text-align:right;color:#9ee633">99%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-bottom:1px solid #1a251d;background:rgba(158,230,51,.06);border-left:2px solid #9ee633;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">2</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://www.nrl.com/.theme/panthers/badge.svg" style="width:13px;height:13px;object-fit:contain" alt="">Panthers</span><span style="width:34px;text-align:right">15–5</span><span style="width:26px;text-align:right">+188</span><span style="width:26px;text-align:right;font-weight:800">32</span><span style="width:34px;text-align:right;color:#9ee633">98%</span></div>
+                <div style="display:flex;align-items:center;font:600 10px 'Hanken Grotesk';padding:5.5px 0;border-left:2px solid transparent;padding-left:4px"><span style="width:14px;color:#94a897;font-size:8.5px">9</span><span style="flex:1;display:flex;align-items:center;gap:5px"><img src="https://www.nrl.com/.theme/dolphins/badge.svg" style="width:13px;height:13px;object-fit:contain" alt="">Dolphins</span><span style="width:34px;text-align:right">10–10</span><span style="width:26px;text-align:right">−14</span><span style="width:26px;text-align:right;font-weight:800">22</span><span style="width:34px;text-align:right;color:#94a897">31%</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">PLAY — PREDICTIONS DESK + PROFILE</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:6px 12px 8px">
+                <div style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">You vs the model</div>
+                <div style="display:flex;gap:8px;margin-top:8px">
+                  <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:10px;padding:8px"><div style="font:800 16px 'Bricolage Grotesque';color:#9ee633">67%</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.08em">YOUR HIT RATE</div></div>
+                  <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:10px;padding:8px"><div style="font:800 16px 'Bricolage Grotesque'">64%</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.08em">AI MODEL</div></div>
+                  <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:10px;padding:8px"><div style="font:800 16px 'Bricolage Grotesque';color:#e0b64a">#212</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.08em">GLOBAL RANK</div></div>
+                </div>
+                <div style="margin-top:10px;font:700 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">FOOTBALL · EPL MW24 · 5 OF 10 PICKED</div>
+                <div style="margin-top:6px;height:5px;border-radius:99px;background:#151f19"><div style="width:50%;height:5px;border-radius:99px;background:#9ee633"></div></div>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
+                  <div style="display:flex;align-items:center;gap:8px;background:#101d16;border:1px solid #243028;border-radius:10px;padding:7px 9px"><span style="flex:1;font:600 10px 'Hanken Grotesk'">Liverpool – Man City</span><span style="font:700 8px 'Hanken Grotesk';color:#9ee633">YOU: LIV</span><span style="font:700 8px 'Hanken Grotesk';color:#94a897">AI: LIV 44%</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;background:#101d16;border:1px solid rgba(249,176,48,.4);border-radius:10px;padding:7px 9px"><span style="flex:1;font:600 10px 'Hanken Grotesk'">Newcastle – Spurs</span><span style="font:700 8px 'Hanken Grotesk';color:#f9b030">PICK NOW</span><span style="font:700 8px 'Hanken Grotesk';color:#94a897">AI: NEW 52%</span></div>
+                  <div style="font:700 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897;margin-top:6px">NRL · ROUND 21</div>
+                  <div style="display:flex;align-items:center;gap:8px;background:#101d16;border:1px solid #243028;border-radius:10px;padding:7px 9px"><span style="flex:1;font:600 10px 'Hanken Grotesk'">Broncos – Storm</span><span style="font:700 8px 'Hanken Grotesk';color:#f6516b">YOU: STO ≠</span><span style="font:700 8px 'Hanken Grotesk';color:#94a897">AI: BRI 41%</span></div>
+                </div>
+                <div style="margin-top:10px;border-top:1px solid #1a251d;padding-top:8px;font:700 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">YOU · SAVED COMPETITIONS</div>
+                <div style="display:flex;gap:5px;margin-top:6px;flex-wrap:wrap">
+                  <span style="padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;font:600 8.5px 'Hanken Grotesk';color:#c9d4ca">EPL · Newcastle ★</span>
+                  <span style="padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;font:600 8.5px 'Hanken Grotesk';color:#c9d4ca">NRL · Broncos ★</span>
+                  <span style="padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;font:600 8.5px 'Hanken Grotesk';color:#c9d4ca">WC26 · Australia</span>
+                </div>
+                <div style="margin-top:8px;font:400 7.5px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:1240px;min-width:1240px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">DESKTOP — HOME WITH COMPETITION RAIL (3-COLUMN DESK)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:14px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid #243028;background:rgba(10,20,16,.9)">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                <span style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                <div style="margin-left:auto;display:flex;gap:4px;font:600 11px 'Hanken Grotesk';color:#94a897"><span style="padding:5px 11px;border-radius:8px;background:rgba(158,230,51,.1);color:#9ee633">Today</span><span style="padding:5px 11px">Fixtures</span><span style="padding:5px 11px">Play</span><span style="padding:5px 11px">Tables</span><span style="padding:5px 11px">Record</span></div>
+                <span style="padding:5px 13px;border-radius:8px;background:#9ee633;color:#0a1410;font:700 11px 'Hanken Grotesk'">Sign in</span>
+              </div>
+              <div style="display:flex">
+                <div style="width:200px;flex:none;border-right:1px solid #1a251d;padding:14px 10px;background:rgba(16,29,22,.5)">
+                  <div style="font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;padding:0 8px 6px">FOOTBALL</div>
+                  <div style="display:flex;flex-direction:column;gap:1px;font:600 11px 'Hanken Grotesk'">
+                    <span style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:rgba(158,230,51,.1);color:#9ee633"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:15px;height:15px;object-fit:contain" alt="">Premier League</span>
+                    <span style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#c9d4ca"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:15px;height:15px;object-fit:contain" alt="">LaLiga</span>
+                    
+                    <span style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;color:#c9d4ca"><span style="width:15px;height:15px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:700 6px 'Bricolage Grotesque';color:#e0b64a"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:11px;height:11px;object-fit:contain" alt=""></span>World Cup 26</span>
+                  </div>
+                  
+                  <div style="display:flex;flex-direction:column;gap:1px;font:600 11px 'Hanken Grotesk';color:#94a897"><span style="padding:5px 8px">Bundesliga</span><span style="padding:5px 8px">Serie A</span><span style="padding:5px 8px">Ligue 1</span></div>
+                  <div style="font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897;padding:12px 8px 6px">RUGBY LEAGUE</div>
+                  <div style="display:flex;flex-direction:column;gap:1px;font:600 11px 'Hanken Grotesk';color:#94a897"><span style="display:flex;align-items:center;gap:8px;padding:5px 8px;color:#c9d4ca"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:15px;height:15px;object-fit:contain" alt="">NRL Premiership</span><span style="padding:5px 8px">State of Origin</span></div>
+                </div>
+                <div style="flex:1;padding:16px 18px;border-right:1px solid #1a251d">
+                  <div style="display:flex;align-items:center;gap:8px;background:#101d16;border:1px solid rgba(246,81,107,.35);border-radius:10px;padding:9px 12px">
+                    <span style="display:flex;align-items:center;gap:6px;font:700 9px 'Hanken Grotesk';color:#f6516b;letter-spacing:.1em"><span style="width:6px;height:6px;border-radius:99px;background:#f6516b"></span>LIVE 64'</span>
+                    <span style="font:700 12px 'Bricolage Grotesque'">Arsenal 2–1 Chelsea</span>
+                    <div style="display:flex;height:4px;gap:1px;border-radius:99px;overflow:hidden;width:120px;margin-left:auto"><i style="background:#9ee633;width:78%"></i><i style="background:#f9b030;width:15%"></i><i style="background:#f6516b;width:7%"></i></div>
+                    <span style="font:700 10px 'Hanken Grotesk';color:#9ee633">78%</span>
+                  </div>
+                  <div style="margin-top:14px;font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">SATURDAY · MATCHWEEK 24</div>
+                  <div style="margin-top:6px">
+                    <div style="display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid #1a251d;font:600 12px 'Hanken Grotesk'"><span style="width:40px;color:#94a897;font-size:10.5px">12:30</span><span style="flex:1">Liverpool – Man City</span><span style="font:700 10px 'Hanken Grotesk';color:#9ee633;background:rgba(158,230,51,.1);padding:2px 8px;border-radius:99px">LIV 44%</span><div style="display:flex;height:5px;gap:1px;border-radius:99px;overflow:hidden;width:110px"><i style="background:#9ee633;width:44%"></i><i style="background:#f9b030;width:27%"></i><i style="background:#f6516b;width:29%"></i></div><span style="font:600 10px 'Hanken Grotesk';color:#94a897">2–1 likely</span></div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:9px 2px;border-bottom:1px solid #1a251d;font:600 12px 'Hanken Grotesk'"><span style="width:40px;color:#94a897;font-size:10.5px">15:00</span><span style="flex:1">Newcastle – Spurs</span><span style="font:700 10px 'Hanken Grotesk';color:#9ee633;background:rgba(158,230,51,.1);padding:2px 8px;border-radius:99px">NEW 52%</span><div style="display:flex;height:5px;gap:1px;border-radius:99px;overflow:hidden;width:110px"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div><span style="font:600 10px 'Hanken Grotesk';color:#94a897">2–1 likely</span></div>
+                    <div style="display:flex;align-items:center;gap:12px;padding:9px 2px;font:600 12px 'Hanken Grotesk'"><span style="width:40px;color:#94a897;font-size:10.5px">17:30</span><span style="flex:1">Brighton – Aston Villa</span><span style="font:700 10px 'Hanken Grotesk';color:#94a897;background:#151f19;padding:2px 8px;border-radius:99px">EVEN</span><div style="display:flex;height:5px;gap:1px;border-radius:99px;overflow:hidden;width:110px"><i style="background:#9ee633;width:38%"></i><i style="background:#f9b030;width:30%"></i><i style="background:#f6516b;width:32%"></i></div><span style="font:600 10px 'Hanken Grotesk';color:#94a897">1–1 likely</span></div>
+                  </div>
+                  <div style="margin-top:14px;font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">LALIGA · MATCHDAY 24</div>
+                  <div style="display:flex;align-items:center;gap:12px;padding:9px 2px;font:600 12px 'Hanken Grotesk'"><span style="width:40px;color:#94a897;font-size:10.5px">21:00</span><span style="flex:1">Barcelona – Sevilla</span><span style="font:700 10px 'Hanken Grotesk';color:#9ee633;background:rgba(158,230,51,.1);padding:2px 8px;border-radius:99px">BAR 71%</span><div style="display:flex;height:5px;gap:1px;border-radius:99px;overflow:hidden;width:110px"><i style="background:#9ee633;width:71%"></i><i style="background:#f9b030;width:18%"></i><i style="background:#f6516b;width:11%"></i></div><span style="font:600 10px 'Hanken Grotesk';color:#94a897">3–1 likely</span></div>
+                </div>
+                <div style="width:250px;flex:none;padding:16px 16px">
+                  <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">MODEL MOVERS · 24H</div>
+                  <div style="margin-top:8px;display:flex;flex-direction:column;gap:7px;font:600 11px 'Hanken Grotesk'">
+                    <div style="display:flex;justify-content:space-between"><span>Arsenal title odds</span><span style="color:#9ee633">61% ↑4</span></div>
+                    <div style="display:flex;justify-content:space-between"><span>Barcelona title odds</span><span style="color:#9ee633">54% ↑2</span></div>
+                    <div style="display:flex;justify-content:space-between"><span>Spurs top 4</span><span style="color:#f6516b">12% ↓5</span></div>
+                  </div>
+                  <div style="margin-top:16px;font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">MODEL RECORD</div>
+                  <div style="margin-top:8px;background:#101d16;border:1px solid #243028;border-radius:10px;padding:10px"><div style="font:800 18px 'Bricolage Grotesque';color:#9ee633">64.2%</div><div style="font:600 9px 'Hanken Grotesk';color:#94a897">season accuracy · graded public</div></div>
+                  <div style="margin-top:14px;font:400 9px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a><b style="color:#f3f6f3;font-weight:700">CLUBHOUSE</b> — followed-first. Your teams, your competitions, your round of picks. For everyone. <b style="color:#9ee633">← recommended</b></div>
+      <div class="dv-card" style="padding:22px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px;max-width:1280px">
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Direction</b> — followed-first. Home is built from what you follow (teams + competitions), not from a league you must pick. Glass cards, warm and tactile; the tipping loop and AI predictions share top billing. Closest to today's app — an evolution, not a rebuild.</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Navigation</b> — 5 constant tabs: Home · Matches · Play · Tables · You. One "Competitions" screen (from the chip row or Tables) replaces the binary sport switcher; following a competition adds it everywhere; football and NRL feeds stay separate sections, never interleaved. Labels adapt: Fixtures/Standings for football, Matches/Ladder for NRL.</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Strengths / limits</b> — instantly personal, scales to N sports with zero new nav, best onboarding story ("pick your teams"). Risk: needs a good empty state before the user follows anything; card feed is less scannable than Terminal's rows.</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">HOME — FOR YOU</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="display:flex;align-items:center;gap:6px;padding:6px 12px">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                <span style="font:800 13px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                <span style="margin-left:auto;width:18px;height:18px;border-radius:99px;background:#151f19;border:1px solid #243028;display:flex;align-items:center;justify-content:center;font:700 8px 'Hanken Grotesk';color:#9ee633">J</span>
+              </div>
+              <div style="padding:2px 12px 0;font:800 17px 'Bricolage Grotesque';letter-spacing:-.02em">Your matchday, Jay</div>
+              <div style="display:flex;gap:5px;padding:8px 12px 4px">
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #9ee63355;color:#9ee633;font:700 9px 'Hanken Grotesk'">Newcastle ★</span>
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #9ee63355;color:#9ee633;font:700 9px 'Hanken Grotesk'">Broncos ★</span>
+                <span style="flex:none;padding:3px 9px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;font:600 9px 'Hanken Grotesk'">+ Follow</span>
+              </div>
+              <div style="margin:6px 12px;background:linear-gradient(135deg,rgba(16,29,22,.95),rgba(21,31,25,.85));border:1px solid rgba(158,230,51,.3);border-radius:16px;padding:12px;backdrop-filter:blur(12px)">
+                <div style="display:flex;justify-content:space-between;font:700 8.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897"><span>NEXT FOR NEWCASTLE</span><span style="color:#f9b030">SAT 15:00 · in 4h 12m</span></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+                  <div style="display:flex;align-items:center;gap:7px"><span style="width:26px;height:26px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:800 8px 'Bricolage Grotesque';color:#9ee633"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:17px;height:17px;object-fit:contain" alt=""></span><span style="font:700 12.5px 'Bricolage Grotesque'">Newcastle</span></div>
+                  <span style="font:600 9px 'Hanken Grotesk';color:#94a897">vs</span>
+                  <div style="display:flex;align-items:center;gap:7px"><span style="font:700 12.5px 'Bricolage Grotesque'">Spurs</span><span style="width:26px;height:26px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:800 8px 'Bricolage Grotesque'"><img src="https://resources.premierleague.com/premierleague/badges/50/t6.png" style="width:17px;height:17px;object-fit:contain" alt=""></span></div>
+                </div>
+                <div style="display:flex;height:6px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div>
+                <div style="display:flex;justify-content:space-between;margin-top:6px;align-items:center">
+                  <span style="font:600 8.5px 'Hanken Grotesk';color:#9ee633">AI: Newcastle 52% · 2–1</span>
+                  <span style="padding:3px 10px;border-radius:8px;background:#9ee633;color:#0a1410;font:700 8.5px 'Hanken Grotesk'">Make your pick</span>
+                </div>
+              </div>
+              <div style="margin:8px 12px;display:flex;gap:8px">
+                <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:14px;padding:9px 10px">
+                  <div style="font:700 8px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">ROUND PROGRESS</div>
+                  <div style="display:flex;align-items:center;gap:7px;margin-top:5px"><div style="position:relative;width:26px;height:26px;border-radius:99px;background:conic-gradient(#9ee633 180deg,#151f19 0)"><span style="position:absolute;inset:3px;border-radius:99px;background:#101d16;display:flex;align-items:center;justify-content:center;font:800 7.5px 'Hanken Grotesk';color:#9ee633">5/10</span></div><span style="font:600 8.5px/1.3 'Hanken Grotesk';color:#c9d4ca">picks in before Saturday</span></div>
+                </div>
+                <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:14px;padding:9px 10px">
+                  <div style="font:700 8px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">VS THE MODEL</div>
+                  <div style="font:800 14px 'Bricolage Grotesque';color:#9ee633;margin-top:4px">You +3</div>
+                  <div style="font:600 8px 'Hanken Grotesk';color:#94a897">over 24 graded picks</div>
+                </div>
+              </div>
+              <div style="padding:4px 12px 2px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">FOOTBALL · TODAY</span><span style="font:600 8.5px 'Hanken Grotesk';color:#9ee633">All ›</span></div>
+              <div style="display:flex;gap:8px;padding:6px 12px 10px;overflow:hidden">
+                <div style="flex:none;width:150px;background:#101d16;border:1px solid rgba(246,81,107,.35);border-radius:14px;padding:9px">
+                  <div style="font:700 7.5px 'Hanken Grotesk';color:#f6516b;letter-spacing:.1em">● LIVE 64' · EPL</div>
+                  <div style="font:700 10.5px 'Bricolage Grotesque';margin-top:4px">Arsenal 2–1 Chelsea</div>
+                  <div style="display:flex;height:4px;gap:1px;margin-top:6px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:78%"></i><i style="background:#f9b030;width:15%"></i><i style="background:#f6516b;width:7%"></i></div>
+                </div>
+                <div style="flex:none;width:150px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:9px">
+                  <div style="font:700 7.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.1em">12:30 · EPL</div>
+                  <div style="font:700 10.5px 'Bricolage Grotesque';margin-top:4px">Liverpool v Man City</div>
+                  <div style="display:flex;height:4px;gap:1px;margin-top:6px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:44%"></i><i style="background:#f9b030;width:27%"></i><i style="background:#f6516b;width:29%"></i></div>
+                </div>
+              </div>
+              <div style="padding:0 12px 2px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">NRL · TODAY</span><span style="font:600 8.5px 'Hanken Grotesk';color:#9ee633">All ›</span></div>
+              <div style="display:flex;gap:8px;padding:6px 12px 10px">
+                <div style="flex:none;width:150px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:9px">
+                  <div style="display:flex;align-items:center;gap:5px;font:700 7.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.1em"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:10px;height:10px;object-fit:contain" alt="">19:50 · ROUND 21</div>
+                  <div style="font:700 10.5px 'Bricolage Grotesque';margin-top:4px">Broncos v Storm</div>
+                  <div style="display:flex;height:4px;gap:1px;margin-top:6px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:41%"></i><i style="background:#f9b030;width:4%"></i><i style="background:#f6516b;width:55%"></i></div>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-around;border-top:1px solid #243028;background:rgba(16,29,22,.95);padding:7px 0 12px">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:600 7.5px 'Hanken Grotesk';color:#9ee633"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l9-8 9 8M5 10v10h14V10"></path></svg>Home</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>Matches</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12.5l2 2 4-4.5"></path></svg>Play</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Tables</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">COMPETITIONS — SPORT + LEAGUE, ONE SCREEN</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:4px 12px 0;font:800 17px 'Bricolage Grotesque';letter-spacing:-.02em">Competitions</div>
+              <div style="padding:2px 12px 8px;font:400 9.5px 'Hanken Grotesk';color:#94a897">Follow to add to Home, Matches and Play.</div>
+              <div style="margin:0 12px 8px;background:linear-gradient(135deg,#101d16,#151f19);border:1px solid #243028;border-radius:14px;padding:10px 12px">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 12px 'Bricolage Grotesque'">Football</span><span style="font:600 8.5px 'Hanken Grotesk';color:#94a897">4 competitions</span></div>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:rgba(158,230,51,.08)"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Premier League</span><span style="padding:2px 8px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 8px 'Hanken Grotesk'">Following</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">LaLiga</span><span style="padding:2px 8px;border-radius:99px;border:1px solid #243028;color:#94a897;font:700 8px 'Hanken Grotesk'">Follow</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px"><img src="https://media.api-sports.io/football/leagues/78.png" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">Bundesliga</span><span style="padding:2px 8px;border-radius:99px;border:1px solid #243028;color:#94a897;font:700 8px 'Hanken Grotesk'">Follow</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px"><span style="width:16px;height:16px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:700 6px 'Bricolage Grotesque';color:#e0b64a"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:11px;height:11px;object-fit:contain" alt=""></span><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">World Cup 2026</span><span style="padding:2px 8px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 8px 'Hanken Grotesk'">Following</span></div>
+                </div>
+              </div>
+              <div style="margin:0 12px 8px;background:linear-gradient(135deg,#101d16,#151f19);border:1px solid #243028;border-radius:14px;padding:10px 12px">
+                <div style="display:flex;align-items:center;justify-content:space-between"><span style="font:800 12px 'Bricolage Grotesque'">Rugby League</span><span style="font:600 8.5px 'Hanken Grotesk';color:#94a897">2 competitions</span></div>
+                <div style="margin-top:8px;display:flex;flex-direction:column;gap:3px">
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;background:rgba(158,230,51,.08)"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">NRL Premiership</span><span style="padding:2px 8px;border-radius:99px;background:#9ee633;color:#0a1410;font:700 8px 'Hanken Grotesk'">Following</span></div>
+                  <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:9px;opacity:.55"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:16px;height:16px;object-fit:contain" alt=""><span style="flex:1;font:600 10.5px 'Hanken Grotesk'">State of Origin</span><span style="font:600 8px 'Hanken Grotesk';color:#94a897">returns May</span></div>
+                </div>
+              </div>
+              <div style="margin:0 12px 12px;border:1px dashed #243028;border-radius:14px;padding:9px 12px;font:400 9.5px/1.5 'Hanken Grotesk';color:#94a897">More sports coming — the shelf grows without changing navigation.</div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">MATCH CENTRE — YOU VS AI, CARD ANATOMY</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:4px 12px 0;display:flex;justify-content:space-between;font:600 9px 'Hanken Grotesk';color:#94a897"><span>‹ Matches</span><span>Share ↗</span></div>
+              <div style="margin:8px 12px;background:linear-gradient(135deg,rgba(16,29,22,.95),rgba(21,31,25,.85));border:1px solid #243028;border-radius:16px;padding:12px">
+                <div style="text-align:center;font:700 8.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">EPL · MATCHWEEK 24 · ST JAMES' PARK</div>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
+                  <div style="text-align:center;width:76px"><span style="display:inline-flex;width:34px;height:34px;border-radius:99px;background:#151f19;border:1px solid #243028;align-items:center;justify-content:center;font:800 10px 'Bricolage Grotesque';color:#9ee633"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:22px;height:22px;object-fit:contain" alt=""></span><div style="font:700 11px 'Bricolage Grotesque';margin-top:4px">Newcastle</div><div style="display:flex;gap:2px;justify-content:center;margin-top:3px"><i style="width:6px;height:6px;border-radius:2px;background:#9ee633"></i><i style="width:6px;height:6px;border-radius:2px;background:#9ee633"></i><i style="width:6px;height:6px;border-radius:2px;background:#f9b030"></i><i style="width:6px;height:6px;border-radius:2px;background:#9ee633"></i><i style="width:6px;height:6px;border-radius:2px;background:#9ee633"></i></div></div>
+                  <div style="text-align:center"><div style="font:800 22px 'Bricolage Grotesque';letter-spacing:-.02em;color:#9ee633">2–1</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897">MOST LIKELY</div><span style="display:inline-block;margin-top:4px;padding:2px 8px;border-radius:99px;background:rgba(158,230,51,.12);font:700 7.5px 'Hanken Grotesk';color:#9ee633">HIGH CONFIDENCE</span></div>
+                  <div style="text-align:center;width:76px"><span style="display:inline-flex;width:34px;height:34px;border-radius:99px;background:#151f19;border:1px solid #243028;align-items:center;justify-content:center;font:800 10px 'Bricolage Grotesque'"><img src="https://resources.premierleague.com/premierleague/badges/50/t6.png" style="width:22px;height:22px;object-fit:contain" alt=""></span><div style="font:700 11px 'Bricolage Grotesque';margin-top:4px">Spurs</div><div style="display:flex;gap:2px;justify-content:center;margin-top:3px"><i style="width:6px;height:6px;border-radius:2px;background:#f6516b"></i><i style="width:6px;height:6px;border-radius:2px;background:#9ee633"></i><i style="width:6px;height:6px;border-radius:2px;background:#f6516b"></i><i style="width:6px;height:6px;border-radius:2px;background:#f9b030"></i><i style="width:6px;height:6px;border-radius:2px;background:#f6516b"></i></div></div>
+                </div>
+                <div style="display:flex;height:7px;gap:1px;margin-top:10px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div>
+                <div style="display:flex;justify-content:space-between;font:600 8px 'Hanken Grotesk';margin-top:4px"><span style="color:#9ee633">52%</span><span style="color:#f9b030">25%</span><span style="color:#f6516b">23%</span></div>
+              </div>
+              <div style="margin:0 12px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:10px 12px">
+                <div style="font:700 8.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">YOUR PICK VS THE MODEL</div>
+                <div style="display:flex;gap:5px;margin-top:7px">
+                  <span style="flex:1;text-align:center;padding:7px 0;border-radius:10px;background:#9ee633;color:#0a1410;font:800 10px 'Bricolage Grotesque'">NEW<div style="font:600 7px 'Hanken Grotesk'">your pick ✓</div></span>
+                  <span style="flex:1;text-align:center;padding:7px 0;border-radius:10px;background:#151f19;border:1px solid #243028;color:#94a897;font:800 10px 'Bricolage Grotesque'">DRAW<div style="font:600 7px 'Hanken Grotesk'">25%</div></span>
+                  <span style="flex:1;text-align:center;padding:7px 0;border-radius:10px;background:#151f19;border:1px solid #243028;color:#94a897;font:800 10px 'Bricolage Grotesque'">TOT<div style="font:600 7px 'Hanken Grotesk'">23%</div></span>
+                </div>
+                <div style="margin-top:7px;font:600 8.5px 'Hanken Grotesk';color:#9ee633">You and the AI agree — locked at kickoff, graded at FT.</div>
+              </div>
+              <div style="margin:8px 12px 12px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:10px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 8.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">WHY THIS PREDICTION</span><span style="font:600 8.5px 'Hanken Grotesk';color:#9ee633">Full breakdown ›</span></div>
+                <div style="margin-top:7px;display:flex;flex-direction:column;gap:5px;font:400 9.5px/1.45 'Hanken Grotesk';color:#c9d4ca">
+                  <div style="display:flex;gap:7px"><span style="color:#9ee633">＋</span>Unbeaten in 7 at home (W6 D1)</div>
+                  <div style="display:flex;gap:7px"><span style="color:#9ee633">＋</span>Elo gap +48 after Spurs' midweek loss</div>
+                  <div style="display:flex;gap:7px"><span style="color:#f6516b">－</span>Isak doubtful — xG drops 0.31</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">PLAY — TIPPING HUB (ALL COMPETITIONS)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:4px 12px 0;font:800 17px 'Bricolage Grotesque';letter-spacing:-.02em">Play</div>
+              <div style="padding:2px 12px 6px;font:400 9.5px 'Hanken Grotesk';color:#94a897">One pick game, every competition you follow.</div>
+              <div style="padding:0 12px 2px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">FOOTBALL</div>
+              <div style="margin:0 12px;background:linear-gradient(135deg,rgba(16,29,22,.95),rgba(21,31,25,.85));border:1px solid rgba(158,230,51,.3);border-radius:16px;padding:11px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:800 12px 'Bricolage Grotesque'">EPL · Matchweek 24</span><span style="font:700 8.5px 'Hanken Grotesk';color:#f9b030">closes in 4h</span></div>
+                <div style="margin-top:7px;height:5px;border-radius:99px;background:#151f19"><div style="width:50%;height:5px;border-radius:99px;background:#9ee633"></div></div>
+                <div style="display:flex;justify-content:space-between;margin-top:5px;font:600 8.5px 'Hanken Grotesk';color:#94a897"><span>5 of 10 picked</span><span style="color:#9ee633">Continue ›</span></div>
+              </div>
+              <div style="margin:0 12px;background:#101d16;border:1px solid #243028;border-radius:16px;padding:11px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:800 12px 'Bricolage Grotesque'">WC26 · Bracket</span><span style="padding:2px 8px;border-radius:99px;background:rgba(224,182,74,.15);color:#e0b64a;font:700 8px 'Hanken Grotesk'">TOP 4%</span></div>
+                <div style="margin-top:5px;font:600 8.5px 'Hanken Grotesk';color:#94a897">Your bracket beats the AI in 3 of 8 regions</div>
+              </div>
+              <div style="padding:10px 12px 2px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">RUGBY LEAGUE</div>
+              <div style="margin:0 12px;background:#101d16;border:1px solid #243028;border-radius:16px;padding:11px 12px">
+                <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:800 12px 'Bricolage Grotesque'">NRL · Round 21</span><span style="font:700 8.5px 'Hanken Grotesk';color:#94a897">closes Fri 19:50</span></div>
+                <div style="margin-top:7px;height:5px;border-radius:99px;background:#151f19"><div style="width:100%;height:5px;border-radius:99px;background:#9ee633"></div></div>
+                <div style="display:flex;justify-content:space-between;margin-top:5px;font:600 8.5px 'Hanken Grotesk';color:#94a897"><span>8 of 8 tipped ✓</span><span style="color:#9ee633">Edit tips ›</span></div>
+              </div>
+              <div style="padding:10px 12px 4px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">LEADERBOARD · GLOBAL</div>
+              <div style="padding:0 12px 12px">
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1a251d;font:600 10px 'Hanken Grotesk'"><span style="color:#e0b64a;width:20px">1</span><span style="flex:1">tactico_9</span><span style="color:#9ee633">71.2%</span></div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #1a251d;font:600 10px 'Hanken Grotesk'"><span style="color:#94a897;width:20px">2</span><span style="flex:1">wsw_anna</span><span style="color:#9ee633">70.8%</span></div>
+                <div style="display:flex;align-items:center;gap:8px;padding:6px 0;font:700 10px 'Hanken Grotesk';background:rgba(158,230,51,.06);border-radius:8px;padding-left:6px"><span style="color:#9ee633;width:20px">212</span><span style="flex:1;color:#9ee633">You</span><span style="color:#9ee633">67.0%</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">TEAM PAGE + PROFILE (YOU)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="margin:6px 12px;background:linear-gradient(160deg,rgba(158,230,51,.12),rgba(16,29,22,.9) 55%);border:1px solid #243028;border-radius:16px;padding:12px">
+                <div style="display:flex;align-items:center;gap:10px">
+                  <span style="width:38px;height:38px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:800 11px 'Bricolage Grotesque';color:#9ee633"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:25px;height:25px;object-fit:contain" alt=""></span>
+                  <div><div style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Newcastle United</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897">Premier League · 4th · Following ★</div></div>
+                </div>
+                <div style="display:flex;gap:8px;margin-top:10px">
+                  <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:10px;padding:7px 9px"><div style="font:800 13px 'Bricolage Grotesque';color:#9ee633">62%</div><div style="font:600 7px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">TOP 4 ODDS</div></div>
+                  <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:10px;padding:7px 9px"><div style="font:800 13px 'Bricolage Grotesque'">1710</div><div style="font:600 7px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">ELO RATING</div></div>
+                  <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:10px;padding:7px 9px"><div style="font:800 13px 'Bricolage Grotesque'">W4</div><div style="font:600 7px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">STREAK</div></div>
+                </div>
+              </div>
+              <div style="display:flex;gap:2px;padding:0 12px 6px;font:600 9px 'Hanken Grotesk'">
+                <span style="padding:4px 9px;border-radius:8px;background:rgba(158,230,51,.12);color:#9ee633">Fixtures</span>
+                <span style="padding:4px 9px;color:#94a897">Results</span>
+                <span style="padding:4px 9px;color:#94a897">Squad</span>
+                <span style="padding:4px 9px;color:#94a897">Stats</span>
+              </div>
+              <div style="margin:0 12px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:8px">
+                <span style="font:600 8.5px 'Hanken Grotesk';color:#94a897">SAT 15:00</span><span style="flex:1;font:700 10px 'Bricolage Grotesque'">vs Spurs (H)</span><span style="font:700 8.5px 'Hanken Grotesk';color:#9ee633">52%</span>
+              </div>
+              <div style="margin:6px 12px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:8px 10px;display:flex;align-items:center;gap:8px">
+                <span style="font:600 8.5px 'Hanken Grotesk';color:#94a897">SAT 22/8</span><span style="flex:1;font:700 10px 'Bricolage Grotesque'">at Everton (A)</span><span style="font:700 8.5px 'Hanken Grotesk';color:#94a897">44%</span>
+              </div>
+              <div style="border-top:1px solid #243028;margin-top:10px;padding:10px 12px 4px;font:700 9px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">YOU</div>
+              <div style="padding:0 12px 12px">
+                <div style="display:flex;align-items:center;gap:10px;padding:6px 0">
+                  <span style="width:30px;height:30px;border-radius:99px;background:#9ee633;color:#0a1410;display:inline-flex;align-items:center;justify-content:center;font:800 11px 'Bricolage Grotesque'">J</span>
+                  <div style="flex:1"><div style="font:700 11px 'Hanken Grotesk'">Jay · @jay_nufc</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897">Rank #212 · 67% hit rate · 12-week streak</div></div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:2px;font:600 9.5px 'Hanken Grotesk';color:#c9d4ca">
+                  <span style="padding:6px 8px;border-radius:8px;background:#101d16;border:1px solid #243028">★ Followed: Newcastle · Broncos · Australia</span>
+                  <span style="padding:6px 8px;border-radius:8px;background:#101d16;border:1px solid #243028">Saved competitions: EPL · NRL · WC26</span>
+                  <span style="padding:6px 8px;border-radius:8px;background:#101d16;border:1px solid #243028">Notifications: kickoff + graded picks only</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:1240px;min-width:1240px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">DESKTOP — HOME: FEED + RIGHT RAIL (TOP NAV UNCHANGED FROM TODAY)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:14px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;align-items:center;gap:14px;padding:10px 18px;border-bottom:1px solid #243028">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                <span style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                <div style="display:flex;gap:4px;margin-left:10px;font:700 10px 'Hanken Grotesk';align-items:center">
+                  <span style="padding:4px 12px;border-radius:99px;background:#9ee633;color:#0a1410">Football</span>
+                  <span style="padding:4px 12px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;display:inline-flex;align-items:center;gap:4px"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:11px;height:11px;object-fit:contain" alt="">NRL</span>
+                  <span style="width:1px;height:16px;background:#243028;margin:0 4px"></span>
+                  <span style="padding:4px 10px;border-radius:99px;background:rgba(158,230,51,.14);border:1px solid rgba(158,230,51,.4);color:#9ee633;display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:11px;height:11px;object-fit:contain" alt="">EPL</span>
+                  <span style="padding:4px 10px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:11px;height:11px;object-fit:contain" alt="">LaLiga</span>
+                  <span style="padding:4px 10px;border-radius:99px;background:#151f19;border:1px solid #243028;color:#94a897;display:inline-flex;align-items:center;gap:4px"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:11px;height:11px;object-fit:contain" alt="">WC26</span>
+                </div>
+                <div style="margin-left:auto;display:flex;gap:4px;font:600 11px 'Hanken Grotesk';color:#94a897"><span style="padding:5px 11px;border-radius:8px;background:rgba(158,230,51,.1);color:#9ee633">Home</span><span style="padding:5px 11px">Matches</span><span style="padding:5px 11px">Play</span><span style="padding:5px 11px">Tables</span></div>
+                <span style="width:26px;height:26px;border-radius:99px;background:#151f19;border:1px solid #243028;display:flex;align-items:center;justify-content:center;font:700 10px 'Hanken Grotesk';color:#9ee633">J</span>
+              </div>
+              <div style="display:flex;gap:18px;padding:18px;max-width:1100px;margin:0 auto">
+                <div style="flex:1.8">
+                  <div style="background:linear-gradient(135deg,rgba(16,29,22,.95),rgba(21,31,25,.85));border:1px solid rgba(158,230,51,.3);border-radius:18px;padding:16px 18px">
+                    <div style="display:flex;justify-content:space-between;font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897"><span>NEXT FOR NEWCASTLE ★</span><span style="color:#f9b030">SAT 15:00 · in 4h 12m</span></div>
+                    <div style="display:flex;align-items:center;gap:24px;margin-top:12px">
+                      <div style="display:flex;align-items:center;gap:10px"><span style="width:36px;height:36px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:800 11px 'Bricolage Grotesque';color:#9ee633"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:24px;height:24px;object-fit:contain" alt=""></span><span style="font:800 18px 'Bricolage Grotesque';letter-spacing:-.02em">Newcastle</span></div>
+                      <span style="font:800 16px 'Bricolage Grotesque';color:#94a897">v</span>
+                      <div style="display:flex;align-items:center;gap:10px"><span style="font:800 18px 'Bricolage Grotesque';letter-spacing:-.02em">Spurs</span><span style="width:36px;height:36px;border-radius:99px;background:#151f19;border:1px solid #243028;display:inline-flex;align-items:center;justify-content:center;font:800 11px 'Bricolage Grotesque'"><img src="https://resources.premierleague.com/premierleague/badges/50/t6.png" style="width:24px;height:24px;object-fit:contain" alt=""></span></div>
+                      <div style="margin-left:auto;text-align:right"><div style="font:800 20px 'Bricolage Grotesque';color:#9ee633">52%</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897">AI: 2–1 · HIGH CONF</div></div>
+                    </div>
+                    <div style="display:flex;height:7px;gap:1px;margin-top:12px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div>
+                    <div style="display:flex;gap:8px;margin-top:12px"><span style="padding:6px 14px;border-radius:9px;background:#9ee633;color:#0a1410;font:700 10.5px 'Hanken Grotesk'">Make your pick</span><span style="padding:6px 14px;border-radius:9px;background:#151f19;border:1px solid #243028;color:#c9d4ca;font:700 10.5px 'Hanken Grotesk'">Why 52%?</span></div>
+                  </div>
+                  <div style="margin-top:14px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">FOOTBALL · TODAY</span><span style="font:600 10px 'Hanken Grotesk';color:#9ee633">All matches ›</span></div>
+                  <div style="display:flex;gap:10px;margin-top:8px">
+                    <div style="flex:1;background:#101d16;border:1px solid rgba(246,81,107,.35);border-radius:14px;padding:11px"><div style="font:700 8.5px 'Hanken Grotesk';color:#f6516b;letter-spacing:.1em">● LIVE 64' · EPL</div><div style="font:700 12px 'Bricolage Grotesque';margin-top:5px">Arsenal 2–1 Chelsea</div><div style="display:flex;height:4px;gap:1px;margin-top:7px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:78%"></i><i style="background:#f9b030;width:15%"></i><i style="background:#f6516b;width:7%"></i></div></div>
+                    <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:14px;padding:11px"><div style="font:700 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.1em">12:30 · EPL</div><div style="font:700 12px 'Bricolage Grotesque';margin-top:5px">Liverpool v Man City</div><div style="display:flex;height:4px;gap:1px;margin-top:7px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:44%"></i><i style="background:#f9b030;width:27%"></i><i style="background:#f6516b;width:29%"></i></div></div>
+                    <div style="flex:1;background:#101d16;border:1px solid #243028;border-radius:14px;padding:11px"><div style="font:700 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.1em">21:00 · LALIGA</div><div style="font:700 12px 'Bricolage Grotesque';margin-top:5px">Barcelona v Sevilla</div><div style="display:flex;height:4px;gap:1px;margin-top:7px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:71%"></i><i style="background:#f9b030;width:18%"></i><i style="background:#f6516b;width:11%"></i></div></div>
+                  </div>
+                </div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:12px">
+                  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+                    <div style="display:flex;justify-content:space-between"><span style="font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">EPL MW24 · YOUR PICKS</span><span style="font:700 9px 'Hanken Grotesk';color:#f9b030">closes 4h</span></div>
+                    <div style="margin-top:8px;height:5px;border-radius:99px;background:#151f19"><div style="width:50%;height:5px;border-radius:99px;background:#9ee633"></div></div>
+                    <div style="display:flex;justify-content:space-between;margin-top:6px;font:600 9.5px 'Hanken Grotesk';color:#94a897"><span>5 of 10</span><span style="color:#9ee633">Continue ›</span></div>
+                  </div>
+                  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+                    <div style="font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">EPL TABLE · TOP 4</div>
+                    <div style="margin-top:6px;font:600 10.5px 'Hanken Grotesk'">
+                      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a251d"><span><span style="color:#94a897;margin-right:8px">1</span>Arsenal</span><b>58</b></div>
+                      <div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #1a251d"><span><span style="color:#94a897;margin-right:8px">2</span>Liverpool</span><b>55</b></div>
+                      <div style="display:flex;justify-content:space-between;padding:4px 0;background:rgba(158,230,51,.06)"><span><span style="color:#94a897;margin-right:8px">4</span><b style="color:#9ee633">Newcastle</b></span><b>49</b></div>
+                    </div>
+                  </div>
+                  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+                    <div style="font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">YOU VS THE MODEL</div>
+                    <div style="font:800 20px 'Bricolage Grotesque';color:#9ee633;margin-top:4px">You +3</div>
+                    <div style="font:600 9px 'Hanken Grotesk';color:#94a897">over 24 graded picks · Rank #212</div>
+                  </div>
+                  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+                    <div style="display:flex;align-items:center;gap:5px;font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:12px;height:12px;object-fit:contain" alt="">NRL · TONIGHT</div>
+                    <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><img src="https://www.nrl.com/.theme/broncos/badge.svg" style="width:18px;height:18px;object-fit:contain" alt=""><span style="flex:1;font:700 11px 'Bricolage Grotesque'">Broncos v Storm</span><span style="font:700 10px 'Hanken Grotesk';color:#f6516b">STO 55%</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a><b style="color:#f3f6f3;font-weight:700">FLOODLIGHT</b> — cinematic broadcast. Full-bleed, giant type, the match as theatre. For brand distinctiveness.</div>
+      <div class="dv-card" style="padding:22px">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:20px;max-width:1280px">
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Direction</b> — the match as broadcast theatre. Full-bleed surfaces, oversized Bricolage numerals, TV scorebug language, lime used as floodlight glow. Minimal chrome; screens pace vertically like a story.</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Navigation</b> — same 5 constant tabs; the competition switcher is a full-screen typographic overlay (tap the competition name anywhere). Matches hang off a kickoff timeline spine. Desktop is a theatre: full-width hero + horizontal rails.</div>
+          <div style="flex:1;min-width:260px;font:400 11.5px/1.6 'Hanken Grotesk';color:#94a897"><b style="color:#9ee633">Strengths / limits</b> — unmistakable identity, the most shareable match screens, best live experience. Risk: lower information density; big type needs discipline on small phones; heaviest build effort.</div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start">
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">HOME — TONIGHT'S FEATURE</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="position:relative;background:radial-gradient(120% 90% at 80% -10%,rgba(158,230,51,.22),transparent 60%),linear-gradient(180deg,#101d16,#0a1410);padding:12px 14px 16px">
+                <div style="display:flex;align-items:center;gap:6px">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                  <span style="font:800 12px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                  <span style="margin-left:auto;display:inline-flex;align-items:center;gap:4px;font:700 9px 'Hanken Grotesk';color:#94a897"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:11px;height:11px;object-fit:contain" alt="">PREMIER LEAGUE ▾</span>
+                </div>
+                <div style="margin-top:14px;font:700 9px 'Hanken Grotesk';letter-spacing:.14em;color:#9ee633">TONIGHT · 20:00 · EMIRATES</div>
+                <div style="display:flex;align-items:flex-end;gap:10px;margin-top:6px">
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t3.png" style="width:44px;height:44px;object-fit:contain" alt="">
+                  <div style="font:800 26px/0.95 'Bricolage Grotesque';letter-spacing:-.03em">Arsenal<br><span style="color:#94a897;font-size:15px">v</span> Chelsea</div>
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t8.png" style="width:32px;height:32px;object-fit:contain;margin-left:auto;opacity:.9" alt="">
+                </div>
+                <div style="display:flex;align-items:baseline;gap:8px;margin-top:12px">
+                  <span style="font:800 40px/1 'Bricolage Grotesque';letter-spacing:-.03em;color:#9ee633">64<span style="font-size:20px">%</span></span>
+                  <span style="font:600 9px/1.4 'Hanken Grotesk';color:#94a897">ARSENAL WIN<br>AI most likely: 2–1 · HIGH CONFIDENCE</span>
+                </div>
+                <div style="display:flex;height:6px;gap:1px;margin-top:10px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:64%"></i><i style="background:#f9b030;width:21%"></i><i style="background:#f6516b;width:15%"></i></div>
+                <div style="display:flex;gap:8px;margin-top:12px">
+                  <span style="flex:1;text-align:center;padding:7px 0;border-radius:9px;background:#9ee633;color:#0a1410;font:700 10px 'Hanken Grotesk'">Make your pick</span>
+                  <span style="flex:1;text-align:center;padding:7px 0;border-radius:9px;border:1px solid #243028;color:#c9d4ca;font:700 10px 'Hanken Grotesk'">Why 64%?</span>
+                </div>
+              </div>
+              <div style="padding:10px 14px 4px;font:700 9px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">ALSO ON TONIGHT · FOOTBALL</div>
+              <div style="padding:0 14px 12px;display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;align-items:center;gap:9px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:8px 10px">
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t14.png" style="width:16px;height:16px;object-fit:contain" alt="">
+                  <span style="flex:1;font:700 10.5px 'Bricolage Grotesque'">Liverpool v Man City</span>
+                  <span style="font:800 12px 'Bricolage Grotesque';color:#9ee633">44%</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:5px;font:700 9px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897;margin-top:4px"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:11px;height:11px;object-fit:contain" alt="">NRL</div>
+                <div style="display:flex;align-items:center;gap:9px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:8px 10px">
+                  <img src="https://www.nrl.com/.theme/broncos/badge.svg" style="width:16px;height:16px;object-fit:contain" alt="">
+                  <span style="flex:1;font:700 10.5px 'Bricolage Grotesque'">Broncos v Storm <span style="font:600 8px 'Hanken Grotesk';color:#94a897">R21</span></span>
+                  <span style="font:800 12px 'Bricolage Grotesque';color:#f6516b">55%</span>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:space-around;border-top:1px solid #243028;background:rgba(16,29,22,.95);padding:7px 0 12px">
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:600 7.5px 'Hanken Grotesk';color:#9ee633"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M3 11l9-8 9 8M5 10v10h14V10"></path></svg>Home</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>Matches</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12.5l2 2 4-4.5"></path></svg>Play</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>Tables</span>
+                <span style="display:flex;flex-direction:column;align-items:center;gap:2px;font:500 7.5px 'Hanken Grotesk';color:#94a897"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">SWITCHER — FULL-SCREEN TYPOGRAPHIC OVERLAY</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>✕ Close</span></div>
+              <div style="padding:14px 16px 18px;background:radial-gradient(120% 60% at 85% 0%,rgba(158,230,51,.14),transparent 60%)">
+                <div style="font:700 9px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">CHOOSE YOUR COMPETITION</div>
+                <div style="margin-top:12px;display:flex;flex-direction:column;gap:12px">
+                  <div style="display:flex;align-items:center;gap:12px"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:28px;height:28px;object-fit:contain" alt=""><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em;color:#9ee633">Premier League</span><span style="margin-left:auto;font:700 9px 'Hanken Grotesk';color:#9ee633">★</span></div>
+                  <div style="display:flex;align-items:center;gap:12px;opacity:.75"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:28px;height:28px;object-fit:contain" alt=""><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em">LaLiga</span></div>
+                  <div style="display:flex;align-items:center;gap:12px;opacity:.75"><img src="https://media.api-sports.io/football/leagues/78.png" style="width:28px;height:28px;object-fit:contain" alt=""><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em">Bundesliga</span></div>
+                  <div style="display:flex;align-items:center;gap:12px;opacity:.75"><img src="https://media.api-sports.io/football/leagues/1.png" style="width:28px;height:28px;object-fit:contain" alt=""><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em">World Cup 26</span><span style="margin-left:auto;font:700 9px 'Hanken Grotesk';color:#9ee633">★</span></div>
+                  <div style="border-top:1px solid #1a251d;margin:2px 0"></div>
+                  <div style="display:flex;align-items:center;gap:12px"><img src="https://www.nrl.com/.theme/nrl/badge.svg" style="width:28px;height:28px;object-fit:contain" alt=""><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em;color:#9ee633">NRL</span><span style="margin-left:auto;font:700 9px 'Hanken Grotesk';color:#9ee633">★</span></div>
+                  <div style="display:flex;align-items:center;gap:12px;opacity:.4"><span style="width:28px"></span><span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.03em">Origin <span style="font:600 10px 'Hanken Grotesk';color:#94a897">May</span></span></div>
+                </div>
+                <div style="margin-top:16px;font:400 9.5px/1.5 'Hanken Grotesk';color:#94a897">Starred competitions rotate through Home. Terminology follows the sport — fixtures &amp; standings, matches &amp; ladder.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">MATCH CENTRE — LIVE SCOREBUG + PROB TIMELINE</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="background:radial-gradient(140% 80% at 50% -20%,rgba(158,230,51,.16),transparent 65%);padding:10px 14px 14px;border-bottom:1px solid #1a251d">
+                <div style="display:flex;justify-content:center;gap:8px;font:700 8.5px 'Hanken Grotesk';letter-spacing:.12em;color:#f6516b"><span style="width:6px;height:6px;border-radius:99px;background:#f6516b;margin-top:2px"></span>LIVE · 64' · EMIRATES</div>
+                <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-top:8px">
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t3.png" style="width:34px;height:34px;object-fit:contain" alt="">
+                  <span style="font:800 34px 'Bricolage Grotesque';letter-spacing:-.03em">2<span style="color:#94a897;font-size:22px">–</span>1</span>
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t8.png" style="width:34px;height:34px;object-fit:contain" alt="">
+                </div>
+                <div style="display:flex;justify-content:center;gap:22px;font:700 10px 'Bricolage Grotesque';margin-top:2px"><span>Arsenal</span><span style="color:#94a897">Chelsea</span></div>
+              </div>
+              <div style="padding:12px 14px">
+                <div style="display:flex;justify-content:space-between;font:700 8.5px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897"><span>WIN PROBABILITY · IN-MATCH</span><span style="color:#9ee633">ARS 78%</span></div>
+                <svg width="100%" height="64" viewBox="0 0 252 64" preserveAspectRatio="none" style="margin-top:8px">
+                  <line x1="0" y1="32" x2="252" y2="32" stroke="#243028" stroke-width="1" stroke-dasharray="3 3"></line>
+                  <path d="M0 34 L30 32 L52 36 L70 22 L95 25 L118 30 L140 14 L165 18 L190 16 L215 12 L252 10" fill="none" stroke="#9ee633" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>
+                  <circle cx="70" cy="22" r="3.5" fill="#0a1410" stroke="#9ee633" stroke-width="2"></circle>
+                  <circle cx="140" cy="14" r="3.5" fill="#0a1410" stroke="#9ee633" stroke-width="2"></circle>
+                  <circle cx="118" cy="30" r="3.5" fill="#0a1410" stroke="#f6516b" stroke-width="2"></circle>
+                  <circle cx="252" cy="10" r="3" fill="#9ee633"></circle>
+                </svg>
+                <div style="display:flex;justify-content:space-between;font:600 7.5px 'Hanken Grotesk';color:#586b5c"><span>KO</span><span>1H</span><span>HT</span><span>2H</span><span>64'</span></div>
+                <div style="margin-top:10px;display:flex;gap:6px;font:600 8.5px 'Hanken Grotesk';color:#c9d4ca">
+                  <span style="padding:3px 8px;border-radius:99px;background:#151f19;border:1px solid #243028">23' Saka ⟵ goal</span>
+                  <span style="padding:3px 8px;border-radius:99px;background:#151f19;border:1px solid #243028">51' Palmer</span>
+                  <span style="padding:3px 8px;border-radius:99px;background:#151f19;border:1px solid #243028">58' Ødegaard</span>
+                </div>
+                <div style="margin-top:12px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:9px 11px">
+                  <div style="font:700 8.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897">THE MODEL SAYS</div>
+                  <div style="font:400 10px/1.5 'Hanken Grotesk';color:#c9d4ca;margin-top:4px">"Arsenal's xG edge (1.9 v 0.8) and a one-goal lead at 64' put this at 78% — Chelsea's equaliser chance fades ~1.1% per minute."</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:280px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">THE SLATE — PREDICTIONS + LADDER, BROADCAST SKIN</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:20px;overflow:hidden;color:#f3f6f3">
+              <div style="display:flex;justify-content:space-between;padding:8px 14px 4px;font:600 9px 'Hanken Grotesk';color:#94a897"><span>9:41</span><span>􀙇 􀛨</span></div>
+              <div style="padding:6px 14px 2px;font:800 17px 'Bricolage Grotesque';letter-spacing:-.02em">The slate</div>
+              <div style="padding:0 14px 8px;font:400 9.5px 'Hanken Grotesk';color:#94a897">Every call tonight. Beat the model.</div>
+              <div style="margin:0 14px;display:flex;flex-direction:column;gap:6px">
+                <div style="font:700 8px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">FOOTBALL</div>
+                <div style="background:#101d16;border:1px solid #243028;border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:9px">
+                  <img src="https://resources.premierleague.com/premierleague/badges/50/t3.png" style="width:18px;height:18px;object-fit:contain" alt="">
+                  <div style="flex:1"><div style="font:700 10.5px 'Bricolage Grotesque'">Arsenal beat Chelsea</div><div style="font:600 8px 'Hanken Grotesk';color:#94a897">64% · HIGH</div></div>
+                  <div style="width:30px;height:30px;border-radius:99px;background:conic-gradient(#9ee633 230deg,#151f19 0);position:relative"><span style="position:absolute;inset:3px;border-radius:99px;background:#0a1410;display:flex;align-items:center;justify-content:center;font:800 8px 'Hanken Grotesk';color:#9ee633">64</span></div>
+                </div>
+                <div style="font:700 8px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897;margin-top:2px">NRL</div>
+                <div style="background:#101d16;border:1px solid #243028;border-radius:12px;padding:9px 11px;display:flex;align-items:center;gap:9px">
+                  <img src="https://www.nrl.com/.theme/storm/badge.svg" style="width:18px;height:18px;object-fit:contain" alt="">
+                  <div style="flex:1"><div style="font:700 10.5px 'Bricolage Grotesque'">Storm at Broncos</div><div style="font:600 8px 'Hanken Grotesk';color:#94a897">55% · margin −4.5 · MEDIUM</div></div>
+                  <div style="width:30px;height:30px;border-radius:99px;background:conic-gradient(#f9b030 198deg,#151f19 0);position:relative"><span style="position:absolute;inset:3px;border-radius:99px;background:#0a1410;display:flex;align-items:center;justify-content:center;font:800 8px 'Hanken Grotesk';color:#f9b030">55</span></div>
+                </div>
+              </div>
+              <div style="padding:12px 14px 4px;display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 9px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">NRL LADDER</span><span style="font:600 8.5px 'Hanken Grotesk';color:#9ee633">Full ladder ›</span></div>
+              <div style="padding:0 14px 14px">
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a251d">
+                  <span style="font:800 22px/1 'Bricolage Grotesque';color:#9ee633;width:26px">1</span>
+                  <img src="https://www.nrl.com/.theme/storm/badge.svg" style="width:20px;height:20px;object-fit:contain" alt="">
+                  <div style="flex:1"><div style="font:700 11px 'Bricolage Grotesque'">Storm</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897">16–4 · +212</div></div>
+                  <span style="font:800 14px 'Bricolage Grotesque'">34</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #1a251d">
+                  <span style="font:800 22px/1 'Bricolage Grotesque';color:#9ee633;width:26px">2</span>
+                  <img src="https://www.nrl.com/.theme/panthers/badge.svg" style="width:20px;height:20px;object-fit:contain" alt="">
+                  <div style="flex:1"><div style="font:700 11px 'Bricolage Grotesque'">Panthers</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897">15–5 · +188</div></div>
+                  <span style="font:800 14px 'Bricolage Grotesque'">32</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:10px;padding:7px 0">
+                  <span style="font:800 22px/1 'Bricolage Grotesque';color:#586b5c;width:26px">9</span>
+                  <img src="https://www.nrl.com/.theme/dolphins/badge.svg" style="width:20px;height:20px;object-fit:contain" alt="">
+                  <div style="flex:1"><div style="font:700 11px 'Bricolage Grotesque'">Dolphins</div><div style="font:600 7.5px 'Hanken Grotesk';color:#94a897">10–10 · −14 · outside top 8</div></div>
+                  <span style="font:800 14px 'Bricolage Grotesque';color:#94a897">22</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:1240px;min-width:1240px;flex:none">
+            <div style="font:600 9.5px ui-monospace;color:#94a897;margin-bottom:6px">DESKTOP — THEATRE HOME (FULL-BLEED HERO + RAILS)</div>
+            <div style="background:#0a1410;border:1px solid #243028;border-radius:14px;overflow:hidden;color:#f3f6f3">
+              <div style="background:radial-gradient(90% 120% at 78% -20%,rgba(158,230,51,.2),transparent 55%),linear-gradient(180deg,#101d16,#0a1410);padding:16px 26px 22px">
+                <div style="display:flex;align-items:center;gap:14px">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+                  <span style="font:800 15px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+                  <span style="display:inline-flex;align-items:center;gap:6px;font:700 11px 'Hanken Grotesk';color:#c9d4ca;padding:4px 10px;border-radius:99px;border:1px solid #243028"><img src="https://media.api-sports.io/football/leagues/39.png" style="width:13px;height:13px;object-fit:contain" alt="">Premier League ▾</span>
+                  <div style="margin-left:auto;display:flex;gap:4px;font:600 11px 'Hanken Grotesk';color:#94a897"><span style="padding:5px 11px;border-radius:8px;background:rgba(158,230,51,.1);color:#9ee633">Home</span><span style="padding:5px 11px">Matches</span><span style="padding:5px 11px">Play</span><span style="padding:5px 11px">Tables</span></div>
+                  <span style="padding:5px 13px;border-radius:8px;background:#9ee633;color:#0a1410;font:700 11px 'Hanken Grotesk'">Sign in</span>
+                </div>
+                <div style="display:flex;align-items:flex-end;gap:40px;margin-top:26px;max-width:1050px">
+                  <div>
+                    <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.16em;color:#9ee633">TONIGHT · 20:00 · EMIRATES STADIUM</div>
+                    <div style="display:flex;align-items:center;gap:16px;margin-top:10px">
+                      <img src="https://resources.premierleague.com/premierleague/badges/50/t3.png" style="width:58px;height:58px;object-fit:contain" alt="">
+                      <span style="font:800 46px/0.95 'Bricolage Grotesque';letter-spacing:-.03em">Arsenal <span style="color:#94a897;font-size:26px">v</span> Chelsea</span>
+                      <img src="https://resources.premierleague.com/premierleague/badges/50/t8.png" style="width:44px;height:44px;object-fit:contain;opacity:.9" alt="">
+                    </div>
+                    <div style="display:flex;gap:10px;margin-top:16px"><span style="padding:8px 18px;border-radius:10px;background:#9ee633;color:#0a1410;font:700 12px 'Hanken Grotesk'">Make your pick</span><span style="padding:8px 18px;border-radius:10px;border:1px solid #243028;color:#c9d4ca;font:700 12px 'Hanken Grotesk'">Why this prediction</span></div>
+                  </div>
+                  <div style="margin-left:auto;text-align:right">
+                    <div style="font:800 74px/1 'Bricolage Grotesque';letter-spacing:-.04em;color:#9ee633">64<span style="font-size:34px">%</span></div>
+                    <div style="font:600 10px 'Hanken Grotesk';color:#94a897;letter-spacing:.1em">ARSENAL WIN · 2–1 MOST LIKELY · HIGH</div>
+                    <div style="display:flex;height:7px;gap:1px;margin-top:8px;border-radius:99px;overflow:hidden;width:280px"><i style="background:#9ee633;width:64%"></i><i style="background:#f9b030;width:21%"></i><i style="background:#f6516b;width:15%"></i></div>
+                  </div>
+                </div>
+              </div>
+              <div style="padding:16px 26px 22px">
+                <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font:700 10px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">THE SLATE — EVERY CALL TONIGHT</span><span style="font:600 10px 'Hanken Grotesk';color:#9ee633">All competitions ›</span></div>
+                <div style="display:flex;gap:12px;margin-top:10px;overflow:hidden">
+                  <div style="flex:none;width:230px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px"><div style="display:flex;align-items:center;gap:8px"><img src="https://resources.premierleague.com/premierleague/badges/50/t14.png" style="width:20px;height:20px;object-fit:contain" alt=""><span style="font:700 11.5px 'Bricolage Grotesque'">Liverpool v Man City</span></div><div style="display:flex;height:5px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:44%"></i><i style="background:#f9b030;width:27%"></i><i style="background:#f6516b;width:29%"></i></div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;margin-top:5px">LIV 44% · 2–1 · MEDIUM</div></div>
+                  <div style="flex:none;width:230px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px"><div style="display:flex;align-items:center;gap:8px"><img src="https://resources.premierleague.com/premierleague/badges/50/t4.png" style="width:20px;height:20px;object-fit:contain" alt=""><span style="font:700 11.5px 'Bricolage Grotesque'">Newcastle v Spurs</span></div><div style="display:flex;height:5px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:52%"></i><i style="background:#f9b030;width:25%"></i><i style="background:#f6516b;width:23%"></i></div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;margin-top:5px">NEW 52% · 2–1 · HIGH</div></div>
+                  <div style="flex:none;width:230px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px;opacity:.7"><div style="display:flex;align-items:center;gap:8px"><img src="https://media.api-sports.io/football/leagues/140.png" style="width:20px;height:20px;object-fit:contain" alt=""><span style="font:700 11.5px 'Bricolage Grotesque'">Barcelona v Sevilla</span></div><div style="display:flex;height:5px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:71%"></i><i style="background:#f9b030;width:18%"></i><i style="background:#f6516b;width:11%"></i></div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;margin-top:5px">BAR 71% · 3–1 · HIGH</div></div>
+                  <div style="flex:none;width:1px;background:#243028;margin:4px 8px"></div>
+                  <div style="flex:none;display:flex;align-items:center"><span style="font:800 10px 'Hanken Grotesk';letter-spacing:.16em;color:#94a897;writing-mode:vertical-rl;transform:rotate(180deg)">NRL</span></div>
+                  <div style="flex:none;width:230px;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px"><div style="display:flex;align-items:center;gap:8px"><img src="https://www.nrl.com/.theme/broncos/badge.svg" style="width:20px;height:20px;object-fit:contain" alt=""><span style="font:700 11.5px 'Bricolage Grotesque'">Broncos v Storm</span></div><div style="display:flex;height:5px;gap:1px;margin-top:9px;border-radius:99px;overflow:hidden"><i style="background:#9ee633;width:41%"></i><i style="background:#f9b030;width:4%"></i><i style="background:#f6516b;width:55%"></i></div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;margin-top:5px">STO 55% · margin −4.5 · MEDIUM</div></div>
+                </div>
+                <div style="margin-top:14px;font:400 9px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "build out <a class="dv-oid" href="#1b">1b</a> as a full clickable prototype" · "merge <a class="dv-oid" href="#1c">1c</a>'s match centre into <a class="dv-oid" href="#1b">1b</a>" · "show the design-token spec"</p>
+</section>
+</x-dc>
+</body>
+</html>
+

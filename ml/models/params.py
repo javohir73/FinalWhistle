@@ -85,6 +85,9 @@ def params_from_dict(data: dict) -> ModelParams:
     """Parse a model_params.json-shaped dict into a ModelParams. Shared by
     load_params() and any caller loading a candidate params file off disk
     (pipeline/evaluate_candidate.py)."""
+    w_odds = float(data.get("w_odds", 0.0))
+    if not 0 <= w_odds <= 1:
+        raise ValueError(f"w_odds must be within [0, 1], got {w_odds}")
     return ModelParams(
         version=data.get("version", "poisson-elo-v0.2"),
         base=float(data["base"]),
@@ -97,7 +100,7 @@ def params_from_dict(data: dict) -> ModelParams:
         pk_keeper_delta=float(data.get("pk_keeper_delta", 0.0)),
         calibrator=data.get("calibrator"),
         wdl_blend=data.get("wdl_blend"),
-        w_odds=float(data.get("w_odds", 0.0)),
+        w_odds=w_odds,
         use_availability=bool(data.get("use_availability", False)),
         use_odds=bool(data.get("use_odds", False)),
         team_offsets=data.get("team_offsets"),

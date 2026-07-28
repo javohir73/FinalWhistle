@@ -1,0 +1,53 @@
+/* ============================================================
+   COLOR TOKENS — "broadcast terminal" palette.
+   Canvas is a deep, near-black pitch green. Data accents are
+   electric: pitch lime (win), amber (draw), rose (loss), gold.
+   Base values are HSL channel triplets so they compose with
+   alpha via hsl(var(--x) / <a>). Semantic aliases sit on top.
+   ============================================================ */
+:root {
+  /* ---- Raw channel triplets (H S% L%) ---- */
+  --c-background: 156 30% 5%; /* @kind color */
+  --c-surface: 156 22% 9%; /* @kind color */
+  --c-surface-2: 156 18% 12%; /* @kind color */
+  --c-foreground: 150 20% 96%; /* @kind color */
+  --c-muted: 150 9% 64%; /* @kind color */
+  --c-border: 153 18% 18%; /* @kind color */
+
+  --c-win: 84 78% 55%; /* @kind color */
+  --c-draw: 41 96% 60%; /* @kind color */
+  --c-loss: 351 90% 65%; /* @kind color */
+  --c-gold: 43 74% 62%; /* @kind color */
+  --c-accent: 84 78% 55%; /* @kind color */
+
+  /* ---- Solid hex mirrors (for non-HSL contexts: icons, SVG, meta) ---- */
+  --hex-background: #0a1410; /* @kind color */
+  --hex-canvas-deep: #08120d; /* @kind color */
+  --hex-win: #9ee633; /* @kind color */
+  --hex-draw: #f9b030; /* @kind color */
+  --hex-loss: #f6516b; /* @kind color */
+  --hex-gold: #e0b64a; /* @kind color */
+  --hex-foreground: #f3f6f3; /* @kind color */
+
+  /* ---- Semantic surface aliases ---- */
+  --surface-canvas: hsl(var(--c-background));
+  --surface-card: hsl(var(--c-surface));
+  --surface-raised: hsl(var(--c-surface-2));
+  --surface-input: hsl(var(--c-surface-2) / 0.6);
+
+  /* ---- Semantic text aliases ---- */
+  --text-strong: hsl(var(--c-foreground));
+  --text-body: hsl(var(--c-foreground) / 0.92);
+  --text-muted: hsl(var(--c-muted));
+  --text-accent: hsl(var(--c-win));
+
+  /* ---- Borders ---- */
+  --border-hairline: hsl(var(--c-border));
+  --border-soft: hsl(var(--c-border) / 0.6);
+  --border-accent: hsl(var(--c-win) / 0.4);
+
+  /* ---- Result semantics (W / D / L) ---- */
+  --result-win: hsl(var(--c-win));
+  --result-draw: hsl(var(--c-draw));
+  --result-loss: hsl(var(--c-loss));
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "id": "market-501",
+    "conditionId": "0xaaa",
+    "closed": true,
+    "outcomes": "[\"Yes\", \"No\"]",
+    "outcomePrices": "[\"1\", \"0\"]",
+    "umaResolutionStatus": "resolved",
+    "closedTime": "2026-07-27T03:30:00Z",
+    "updatedAt": "2026-07-27T03:35:00Z"
+  }
+]

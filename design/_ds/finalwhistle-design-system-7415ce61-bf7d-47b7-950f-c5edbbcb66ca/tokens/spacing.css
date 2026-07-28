@@ -1,0 +1,31 @@
+/* ============================================================
+   SPACING, RADII & LAYOUT TOKENS
+   4px base grid. Cards use generous radii (16–20px). Pills are
+   fully round. Page content maxes at ~1152px (max-w-6xl).
+   ============================================================ */
+:root {
+  /* Spacing scale (4px base) */
+  --space-1: 0.25rem;   /* 4 */
+  --space-2: 0.5rem;    /* 8 */
+  --space-3: 0.75rem;   /* 12 */
+  --space-4: 1rem;      /* 16 */
+  --space-5: 1.25rem;   /* 20 */
+  --space-6: 1.5rem;    /* 24 */
+  --space-8: 2rem;      /* 32 */
+  --space-10: 2.5rem;   /* 40 */
+  --space-12: 3rem;     /* 48 */
+  --space-16: 4rem;     /* 64 */
+
+  /* Border radii */
+  --radius-sm: 0.375rem;   /* 6 — chips, score tags */
+  --radius-md: 0.5rem;     /* 8 — buttons, inputs */
+  --radius-lg: 0.75rem;    /* 12 — small cards */
+  --radius-xl: 1rem;       /* 16 — cards */
+  --radius-2xl: 1.25rem;   /* 20 — match cards, panels */
+  --radius-3xl: 1.5rem;    /* 24 — hero panels */
+  --radius-pill: 999px;    /* fully round pills, flags, dots */
+
+  /* Layout */
+  --container-max: 72rem;  /* 1152px page width */
+  --nav-height: 3.75rem;
+}

@@ -164,6 +164,29 @@ def stats(
     }
 
 
+@router.get("/market-coverage")
+def market_coverage(
+    venue: str | None = None,
+    competition: str | None = None,
+    market_type: str | None = None,
+    status: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
+    db: Session = Depends(get_db),
+    x_recompute_token: str | None = Header(default=None),
+):
+    """Token-guarded operations coverage; no secret is sent to browser code."""
+    _require_token(x_recompute_token)
+    if status is not None and status not in {"mapped", "unmapped", "ambiguous"}:
+        raise HTTPException(status_code=422, detail={"code": "invalid_status", "message": "status must be mapped, unmapped, or ambiguous"})
+    from pipeline.report_market_coverage import build_coverage_report
+
+    return build_coverage_report(
+        db, venue=venue, competition=competition, market_type=market_type,
+        status=status, start=start, end=end,
+    )
+
+
 class FlagInternalUserIn(BaseModel):
     email: str | None = None
     display_name: str | None = None  # bracket display name shown on the board

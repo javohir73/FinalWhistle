@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/colors.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/typography.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/effects.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/base.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/styles.css">
+<script src="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/_ds_bundle.js"></script>
+<style>
+body{margin:0;background:#060d09;font-family:'Hanken Grotesk',system-ui,sans-serif}
+a{color:#9ee633}a:hover{color:#c4f36f}
+@keyframes fwPulse{0%,100%{opacity:1}50%{opacity:.35}}
+</style>
+</helmet>
+<div style="position:relative;width:390px;margin:0 auto;height:100vh;display:flex;flex-direction:column;background:#0a1410;border-left:1px solid #1a251d;border-right:1px solid #1a251d;overflow:hidden;color:#f3f6f3">
+
+  <div style="flex:1;overflow-y:auto;overflow-x:hidden">
+
+    <sc-if value="{{ tabHome }}" hint-placeholder-val="{{ true }}">
+      <div style="background:radial-gradient(120% 80% at 80% -10%,rgba(158,230,51,.2),transparent 60%),linear-gradient(180deg,#101d16,#0a1410);padding:14px 18px 22px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#9ee633" stroke-width="2.4"><circle cx="12" cy="12" r="9"></circle><path d="M8 12l3 3 5-6"></path></svg>
+          <span style="font:800 17px 'Bricolage Grotesque';letter-spacing:-.02em">Final<span style="color:#9ee633">Whistle</span></span>
+          <span onClick="{{ openSwitcher }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;font:700 11px 'Hanken Grotesk';letter-spacing:.08em;color:#c9d4ca;padding:6px 12px;border-radius:999px;border:1px solid #243028;cursor:pointer" style-hover="border-color:#9ee633;color:#9ee633"><img src="{{ compLogo }}" style="width:14px;height:14px;object-fit:contain" alt="">{{ compUpper }} ▾</span>
+        </div>
+        <sc-if value="{{ isFootball }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;gap:6px;margin-top:14px">
+            <sc-for list="{{ footballComps }}" as="fc" hint-placeholder-count="4">
+              <span onClick="{{ fc.sel }}" style="flex:none;display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:999px;font:700 11px 'Hanken Grotesk';cursor:pointer;{{ fc.pillStyle }}"><img src="{{ fc.logo }}" style="width:12px;height:12px;object-fit:contain" alt="">{{ fc.short }}</span>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="margin-top:20px;font:700 11px 'Hanken Grotesk';letter-spacing:.16em;color:#9ee633">{{ featureEyebrow }}</div>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:10px">
+          <img src="{{ feature.hc }}" style="width:52px;height:52px;object-fit:{{ feature.fit }};border-radius:{{ feature.crad }}" alt="">
+          <div style="font:800 30px/1 'Bricolage Grotesque';letter-spacing:-.03em">{{ feature.home }}<br><span style="color:#94a897;font-size:17px">v</span> {{ feature.away }}</div>
+          <img src="{{ feature.ac }}" style="width:38px;height:38px;object-fit:{{ feature.fit }};border-radius:{{ feature.crad }};margin-left:auto;opacity:.9" alt="">
+        </div>
+        <div style="display:flex;align-items:baseline;gap:10px;margin-top:14px">
+          <span style="font:800 56px/1 'Bricolage Grotesque';letter-spacing:-.03em;color:#9ee633">{{ feature.heroP }}<span style="font-size:26px">%</span></span>
+          <span style="font:600 11px/1.5 'Hanken Grotesk';color:#94a897">{{ feature.heroLabel }}<br>AI most likely: {{ feature.likely }} · <span style="color:{{ feature.confColor }}">{{ feature.conf }} CONFIDENCE</span></span>
+        </div>
+        <div style="display:flex;height:7px;gap:1px;margin-top:12px;border-radius:999px;overflow:hidden"><i style="background:#9ee633;width:{{ feature.ph }}%"></i><i style="background:#f9b030;width:{{ feature.pd }}%"></i><i style="background:#f6516b;width:{{ feature.pa }}%"></i></div>
+        <div style="display:flex;gap:10px;margin-top:16px">
+          <span onClick="{{ feature.open }}" style="flex:1;text-align:center;padding:11px 0;border-radius:12px;background:#9ee633;color:#0a1410;font:700 13px 'Hanken Grotesk';cursor:pointer" style-hover="filter:brightness(1.06)">Make your pick</span>
+          <span onClick="{{ feature.open }}" style="flex:1;text-align:center;padding:11px 0;border-radius:12px;border:1px solid #243028;color:#c9d4ca;font:700 13px 'Hanken Grotesk';cursor:pointer" style-hover="border-color:#9ee633;color:#9ee633">Why {{ feature.heroP }}%?</span>
+        </div>
+      </div>
+      <div style="padding:16px 18px 6px;font:700 11px 'Hanken Grotesk';letter-spacing:.16em;color:#94a897">ALSO ON · {{ compRound }}</div>
+      <div style="padding:0 18px 18px;display:flex;flex-direction:column;gap:8px">
+        <sc-for list="{{ also }}" as="m" hint-placeholder-count="3">
+          <div onClick="{{ m.open }}" style="display:flex;align-items:center;gap:11px;background:#101d16;border:{{ m.cardBorder }};border-radius:14px;padding:12px 13px;cursor:pointer" style-hover="transform:translateY(-2px);border-color:rgba(158,230,51,.5)">
+            <img src="{{ m.hc }}" style="width:22px;height:22px;object-fit:{{ m.fit }};border-radius:{{ m.crad }}" alt="">
+            <div style="flex:1;min-width:0"><div style="font:700 14px 'Bricolage Grotesque'">{{ m.home }} v {{ m.away }}</div><div style="font:600 10px 'Hanken Grotesk';color:{{ m.timeColor }};letter-spacing:.06em;margin-top:2px">{{ m.time }} · {{ m.venue }}</div></div>
+            <span style="font:800 17px 'Bricolage Grotesque';color:{{ m.leadColor }}">{{ m.lead }}%</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="padding:0 18px 16px;font:400 10px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+    </sc-if>
+
+    <sc-if value="{{ tabMatches }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 18px 4px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.02em">{{ matchesLabel }}</span>
+        <span onClick="{{ openSwitcher }}" style="display:inline-flex;align-items:center;gap:6px;font:700 10.5px 'Hanken Grotesk';color:#c9d4ca;padding:5px 11px;border-radius:999px;border:1px solid #243028;cursor:pointer"><img src="{{ compLogo }}" style="width:12px;height:12px;object-fit:contain" alt="">{{ compShort }} ▾</span>
+      </div>
+      <div style="padding:2px 18px 8px;font:600 11px 'Hanken Grotesk';color:#94a897">{{ compRound }} · every match by kickoff</div>
+      <div style="padding:4px 18px 18px">
+        <sc-for list="{{ days }}" as="d" hint-placeholder-count="2">
+          <div style="font:700 10.5px 'Hanken Grotesk';letter-spacing:.16em;color:#9ee633;margin:10px 0 4px">{{ d.label }}</div>
+          <div style="border-left:2px solid #1a251d;margin-left:5px;padding-left:16px;display:flex;flex-direction:column;gap:8px;padding-top:4px;padding-bottom:4px">
+            <sc-for list="{{ d.items }}" as="m" hint-placeholder-count="2">
+              <div onClick="{{ m.open }}" style="position:relative;background:#101d16;border:{{ m.cardBorder }};border-radius:14px;padding:11px 13px;cursor:pointer" style-hover="transform:translateY(-2px);border-color:rgba(158,230,51,.5)">
+                <span style="position:absolute;left:-23px;top:16px;width:12px;height:12px;border-radius:999px;background:#0a1410;border:2px solid {{ m.dotColor }}"></span>
+                <div style="display:flex;align-items:center;gap:8px;font:600 10px 'Hanken Grotesk';letter-spacing:.08em;color:{{ m.timeColor }}"><span>{{ m.time }}</span><span style="color:#586b5c">· {{ m.venue }}</span><span style="margin-left:auto;font-weight:800;color:{{ m.leadColor }}">{{ m.lead }}%</span></div>
+                <div style="display:flex;align-items:center;gap:9px;margin-top:7px">
+                  <img src="{{ m.hc }}" style="width:20px;height:20px;object-fit:{{ m.fit }};border-radius:{{ m.crad }}" alt="">
+                  <span style="font:700 14.5px 'Bricolage Grotesque'">{{ m.home }} <span style="color:#94a897;font-weight:600;font-size:12px">v</span> {{ m.away }}</span>
+                  <img src="{{ m.ac }}" style="width:20px;height:20px;object-fit:{{ m.fit }};border-radius:{{ m.crad }};margin-left:auto;opacity:.85" alt="">
+                </div>
+                <div style="display:flex;height:5px;gap:1px;margin-top:9px;border-radius:999px;overflow:hidden"><i style="background:#9ee633;width:{{ m.ph }}%"></i><i style="background:#f9b030;width:{{ m.pd }}%"></i><i style="background:#f6516b;width:{{ m.pa }}%"></i></div>
+              </div>
+            </sc-for>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ tabPlay }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 18px 2px;font:800 24px 'Bricolage Grotesque';letter-spacing:-.02em">The slate</div>
+      <div style="padding:2px 18px 10px;font:600 11px 'Hanken Grotesk';color:#94a897">Every call in {{ sportLabel }}. Beat the model.</div>
+      <div style="margin:0 18px;background:linear-gradient(135deg,rgba(16,29,22,.95),rgba(21,31,25,.85));border:1px solid rgba(158,230,51,.3);border-radius:16px;padding:13px 15px;display:flex;align-items:center;gap:12px">
+        <div style="position:relative;width:44px;height:44px;border-radius:999px;{{ progRing }}"><span style="position:absolute;inset:4px;border-radius:999px;background:#0d1a12;display:flex;align-items:center;justify-content:center;font:800 11px 'Hanken Grotesk';color:#9ee633">{{ pickedCount }}/{{ totalCount }}</span></div>
+        <div style="flex:1"><div style="font:700 13px 'Bricolage Grotesque'">Your picks this round</div><div style="font:600 10.5px 'Hanken Grotesk';color:#94a897;margin-top:2px">Locked at kickoff · graded at full time</div></div>
+        <div style="text-align:right"><div style="font:800 16px 'Bricolage Grotesque';color:#9ee633">You +3</div><div style="font:600 9px 'Hanken Grotesk';color:#94a897">vs the model</div></div>
+      </div>
+      <div style="padding:6px 18px 18px;display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ playGroups }}" as="g" hint-placeholder-count="2">
+          <div style="display:flex;align-items:center;gap:6px;font:700 10.5px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897;margin-top:10px"><img src="{{ g.logo }}" style="width:13px;height:13px;object-fit:contain" alt="">{{ g.name }} · {{ g.round }}</div>
+          <sc-for list="{{ g.items }}" as="m" hint-placeholder-count="2">
+            <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:11px 13px">
+              <div style="display:flex;align-items:center;gap:9px">
+                <img src="{{ m.hc }}" style="width:20px;height:20px;object-fit:{{ m.fit }};border-radius:{{ m.crad }}" alt="">
+                <span style="flex:1;font:700 13.5px 'Bricolage Grotesque'">{{ m.home }} v {{ m.away }}</span>
+                <span style="font:600 9.5px 'Hanken Grotesk';color:#94a897">{{ m.time }}</span>
+              </div>
+              <div style="display:flex;gap:6px;margin-top:9px">
+                <span onClick="{{ m.pickH }}" style="flex:1;text-align:center;padding:8px 0;border-radius:10px;font:800 11.5px 'Bricolage Grotesque';cursor:pointer;{{ m.hStyle }}">{{ m.hcode }}<div style="font:600 8.5px 'Hanken Grotesk';margin-top:1px">{{ m.ph }}%</div></span>
+                <span onClick="{{ m.pickD }}" style="flex:1;text-align:center;padding:8px 0;border-radius:10px;font:800 11.5px 'Bricolage Grotesque';cursor:pointer;{{ m.dStyle }}">DRAW<div style="font:600 8.5px 'Hanken Grotesk';margin-top:1px">{{ m.pd }}%</div></span>
+                <span onClick="{{ m.pickA }}" style="flex:1;text-align:center;padding:8px 0;border-radius:10px;font:800 11.5px 'Bricolage Grotesque';cursor:pointer;{{ m.aStyle }}">{{ m.acode }}<div style="font:600 8.5px 'Hanken Grotesk';margin-top:1px">{{ m.pa }}%</div></span>
+              </div>
+              <div style="margin-top:7px;font:600 9.5px 'Hanken Grotesk';color:{{ m.agreeColor }}">{{ m.agreeText }}</div>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+      <div style="padding:0 18px 16px;font:400 10px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+    </sc-if>
+
+    <sc-if value="{{ tabTables }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 18px 4px;display:flex;align-items:center;justify-content:space-between">
+        <span style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.02em">{{ tableLabel }}</span>
+        <span onClick="{{ openSwitcher }}" style="display:inline-flex;align-items:center;gap:6px;font:700 10.5px 'Hanken Grotesk';color:#c9d4ca;padding:5px 11px;border-radius:999px;border:1px solid #243028;cursor:pointer"><img src="{{ compLogo }}" style="width:12px;height:12px;object-fit:contain" alt="">{{ compShort }} ▾</span>
+      </div>
+      <div style="padding:2px 18px 10px;font:600 11px 'Hanken Grotesk';color:#94a897">{{ tableSub }}</div>
+      <div style="padding:0 18px 8px">
+        <div style="display:flex;font:700 9.5px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897;padding:6px 0;border-bottom:1px solid #1a251d"><span style="width:34px"></span><span style="flex:1">{{ clubLabel }}</span><span style="width:44px;text-align:right">{{ col1 }}</span><span style="width:44px;text-align:right">{{ col2 }}</span><span style="width:40px;text-align:right">PTS</span><span style="width:52px;text-align:right">{{ col3 }}</span></div>
+        <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+          <div onClick="{{ r.openTeam }}" style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #1a251d;border-left:3px solid {{ r.zoneColor }};padding-left:6px;background:{{ r.zoneBg }};cursor:pointer" style-hover="background:rgba(158,230,51,.05)">
+            <span style="width:28px;font:800 17px/1 'Bricolage Grotesque';color:{{ r.rankColor }}">{{ r.pos }}</span>
+            <img src="{{ r.crest }}" style="width:22px;height:22px;object-fit:{{ r.fit }};border-radius:{{ r.crad }};margin-right:8px" alt="">
+            <span style="flex:1;font:700 13px 'Bricolage Grotesque'">{{ r.name }}</span>
+            <span style="width:44px;text-align:right;font:600 12px 'Hanken Grotesk';color:#c9d4ca">{{ r.c1 }}</span>
+            <span style="width:44px;text-align:right;font:600 12px 'Hanken Grotesk';color:#c9d4ca">{{ r.c2 }}</span>
+            <span style="width:40px;text-align:right;font:800 14px 'Bricolage Grotesque'">{{ r.pts }}</span>
+            <span style="width:52px;text-align:right;font:700 11px 'Hanken Grotesk';color:{{ r.projColor }}">{{ r.proj }}</span>
+          </div>
+        </sc-for>
+        <div style="display:flex;gap:12px;margin-top:10px;font:600 9.5px 'Hanken Grotesk';color:#94a897;flex-wrap:wrap">
+          <sc-for list="{{ zoneLegend }}" as="z" hint-placeholder-count="3">
+            <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:8px;height:8px;border-radius:2px;background:{{ z.color }}"></i>{{ z.label }}</span>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding:8px 18px 16px;font:400 10px 'Hanken Grotesk';color:#586b5c">Projections from Monte-Carlo simulation · updated daily.</div>
+    </sc-if>
+
+    <sc-if value="{{ tabYou }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:16px 18px 2px;font:800 24px 'Bricolage Grotesque';letter-spacing:-.02em">You</div>
+      <div style="margin:10px 18px;background:linear-gradient(160deg,rgba(158,230,51,.12),rgba(16,29,22,.9) 55%);border:1px solid #243028;border-radius:16px;padding:14px 15px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <span style="width:44px;height:44px;border-radius:999px;background:#9ee633;color:#0a1410;display:inline-flex;align-items:center;justify-content:center;font:800 17px 'Bricolage Grotesque'">J</span>
+          <div><div style="font:800 16px 'Bricolage Grotesque'">Jay</div><div style="font:600 10.5px 'Hanken Grotesk';color:#94a897">@jay_nufc · member since June 2026</div></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:12px;padding:9px 11px"><div style="font:800 18px 'Bricolage Grotesque';color:#9ee633">67%</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">HIT RATE</div></div>
+          <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:12px;padding:9px 11px"><div style="font:800 18px 'Bricolage Grotesque'">#212</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">GLOBAL RANK</div></div>
+          <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:12px;padding:9px 11px"><div style="font:800 18px 'Bricolage Grotesque';color:#e0b64a">12w</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">STREAK</div></div>
+        </div>
+      </div>
+      <div style="padding:6px 18px 4px;font:700 10.5px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">FOLLOWED TEAMS</div>
+      <div style="display:flex;gap:6px;padding:4px 18px;flex-wrap:wrap">
+        <sc-for list="{{ followedChips }}" as="f" hint-placeholder-count="2">
+          <span style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;background:#151f19;border:1px solid rgba(158,230,51,.35);font:700 11px 'Hanken Grotesk';color:#9ee633"><img src="{{ f.crest }}" style="width:14px;height:14px;object-fit:contain" alt="">{{ f.name }} ★</span>
+        </sc-for>
+      </div>
+      <div style="padding:14px 18px 4px;font:700 10.5px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">SAVED COMPETITIONS</div>
+      <div style="padding:4px 18px;display:flex;flex-direction:column;gap:6px">
+        <sc-for list="{{ savedComps }}" as="sc" hint-placeholder-count="3">
+          <div onClick="{{ sc.sel }}" style="display:flex;align-items:center;gap:10px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:10px 12px;cursor:pointer" style-hover="border-color:rgba(158,230,51,.5)">
+            <img src="{{ sc.logo }}" style="width:18px;height:18px;object-fit:contain" alt="">
+            <span style="flex:1;font:700 12.5px 'Hanken Grotesk'">{{ sc.name }}</span>
+            <span style="font:600 10px 'Hanken Grotesk';color:#94a897">{{ sc.meta }}</span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="padding:14px 18px 4px;font:700 10.5px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">SETTINGS</div>
+      <div style="padding:4px 18px 18px;display:flex;flex-direction:column;gap:6px;font:600 12px 'Hanken Grotesk';color:#c9d4ca">
+        <span style="padding:10px 12px;border-radius:12px;background:#101d16;border:1px solid #243028">Notifications · kickoff + graded picks only</span>
+        <span style="padding:10px 12px;border-radius:12px;background:#101d16;border:1px solid #243028">Display · compact rows off</span>
+        <span style="padding:10px 12px;border-radius:12px;background:#101d16;border:1px solid #243028">Save across devices · signed in</span>
+      </div>
+    </sc-if>
+
+  </div>
+
+  <div style="flex:none;display:flex;justify-content:space-around;border-top:1px solid #243028;background:rgba(16,29,22,.96);padding:9px 0 14px;backdrop-filter:blur(12px)">
+    <span onClick="{{ goHome }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px 'Hanken Grotesk';cursor:pointer;min-width:56px;color:{{ cHome }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 11l9-8 9 8M5 10v10h14V10"></path></svg>Home</span>
+    <span onClick="{{ goMatches }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px 'Hanken Grotesk';cursor:pointer;min-width:56px;color:{{ cMatches }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"></rect><path d="M8 3v4M16 3v4M3 10h18"></path></svg>{{ matchesLabel }}</span>
+    <span onClick="{{ goPlay }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px 'Hanken Grotesk';cursor:pointer;min-width:56px;color:{{ cPlay }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6a1 1 0 011 1v1H8V4a1 1 0 011-1Z"></path><rect x="5" y="5" width="14" height="16" rx="2"></rect><path d="M9 12.5l2 2 4-4.5"></path></svg>Play</span>
+    <span onClick="{{ goTables }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px 'Hanken Grotesk';cursor:pointer;min-width:56px;color:{{ cTables }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"></path></svg>{{ tableLabel }}</span>
+    <span onClick="{{ goYou }}" style="display:flex;flex-direction:column;align-items:center;gap:3px;font:600 10px 'Hanken Grotesk';cursor:pointer;min-width:56px;color:{{ cYou }}"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 4-6 8-6s8 2 8 6"></path></svg>You</span>
+  </div>
+
+  <sc-if value="{{ matchOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:30;background:#0a1410;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px 6px">
+        <span onClick="{{ closeMatch }}" style="font:700 12px 'Hanken Grotesk';color:#c9d4ca;cursor:pointer" style-hover="color:#9ee633">‹ Back</span>
+        <span style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">{{ curCompLabel }}</span>
+        <span style="font:700 12px 'Hanken Grotesk';color:#c9d4ca;cursor:pointer" style-hover="color:#9ee633">Share ↗</span>
+      </div>
+      <div style="background:radial-gradient(140% 80% at 50% -20%,rgba(158,230,51,.16),transparent 65%);padding:8px 18px 16px;border-bottom:1px solid #1a251d;text-align:center">
+        <sc-if value="{{ cur.isLive }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;justify-content:center;align-items:center;gap:7px;font:700 10px 'Hanken Grotesk';letter-spacing:.14em;color:#f6516b"><span style="width:7px;height:7px;border-radius:999px;background:#f6516b;animation:fwPulse 2s infinite"></span>LIVE · {{ cur.time }} · {{ cur.venue }}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:10px">
+            <img src="{{ cur.hc }}" style="width:44px;height:44px;object-fit:{{ cur.fit }};border-radius:{{ cur.crad }}" alt="">
+            <span style="font:800 44px 'Bricolage Grotesque';letter-spacing:-.03em">{{ cur.score }}</span>
+            <img src="{{ cur.ac }}" style="width:44px;height:44px;object-fit:{{ cur.fit }};border-radius:{{ cur.crad }}" alt="">
+          </div>
+        </sc-if>
+        <sc-if value="{{ cur.isUp }}" hint-placeholder-val="{{ true }}">
+          <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.14em;color:#f9b030">{{ cur.time }} · {{ cur.venue }}</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:10px">
+            <img src="{{ cur.hc }}" style="width:44px;height:44px;object-fit:{{ cur.fit }};border-radius:{{ cur.crad }}" alt="">
+            <span style="font:800 40px 'Bricolage Grotesque';letter-spacing:-.03em;color:#9ee633">{{ cur.likely }}</span>
+            <img src="{{ cur.ac }}" style="width:44px;height:44px;object-fit:{{ cur.fit }};border-radius:{{ cur.crad }}" alt="">
+          </div>
+          <div style="font:600 9px 'Hanken Grotesk';letter-spacing:.1em;color:#94a897;margin-top:2px">MOST LIKELY SCORE</div>
+        </sc-if>
+        <div style="display:flex;justify-content:center;gap:26px;font:700 13px 'Bricolage Grotesque';margin-top:6px"><span>{{ cur.home }}</span><span style="color:#94a897">{{ cur.away }}</span></div>
+        <div style="display:flex;height:7px;gap:1px;margin-top:12px;border-radius:999px;overflow:hidden"><i style="background:#9ee633;width:{{ cur.ph }}%"></i><i style="background:#f9b030;width:{{ cur.pd }}%"></i><i style="background:#f6516b;width:{{ cur.pa }}%"></i></div>
+        <div style="display:flex;justify-content:space-between;font:600 10px 'Hanken Grotesk';margin-top:5px"><span style="color:#9ee633">{{ cur.hcode }} {{ cur.ph }}%</span><span style="color:#f9b030">Draw {{ cur.pd }}%</span><span style="color:#f6516b">{{ cur.acode }} {{ cur.pa }}%</span></div>
+      </div>
+      <sc-if value="{{ cur.isLive }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 18px 0">
+          <div style="display:flex;justify-content:space-between;font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897"><span>WIN PROBABILITY · IN-MATCH</span><span style="color:#9ee633">{{ cur.hcode }} {{ cur.liveP }}%</span></div>
+          <svg width="100%" height="80" viewBox="0 0 354 80" preserveAspectRatio="none" style="margin-top:10px">
+            <line x1="0" y1="40" x2="354" y2="40" stroke="#243028" stroke-width="1" stroke-dasharray="3 3"></line>
+            <path d="M0 43 L42 40 L73 45 L98 28 L133 31 L166 38 L197 18 L232 23 L267 20 L302 15 L354 12" fill="none" stroke="#9ee633" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>
+            <circle cx="98" cy="28" r="4" fill="#0a1410" stroke="#9ee633" stroke-width="2"></circle>
+            <circle cx="166" cy="38" r="4" fill="#0a1410" stroke="#f6516b" stroke-width="2"></circle>
+            <circle cx="197" cy="18" r="4" fill="#0a1410" stroke="#9ee633" stroke-width="2"></circle>
+            <circle cx="354" cy="12" r="3.5" fill="#9ee633"></circle>
+          </svg>
+          <div style="display:flex;justify-content:space-between;font:600 9px 'Hanken Grotesk';color:#586b5c"><span>KO</span><span>1H</span><span>HT</span><span>2H</span><span>{{ cur.time }}</span></div>
+          <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;font:600 10.5px 'Hanken Grotesk';color:#c9d4ca">
+            <sc-for list="{{ cur.events }}" as="e" hint-placeholder-count="3">
+              <span style="padding:4px 10px;border-radius:999px;background:#151f19;border:1px solid #243028">{{ e }}</span>
+            </sc-for>
+          </div>
+        </div>
+      </sc-if>
+      <div style="margin:14px 18px 0;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center"><span style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">WHY THIS PREDICTION</span><span style="padding:3px 10px;border-radius:999px;background:{{ cur.confBg }};font:700 9.5px 'Hanken Grotesk';color:{{ cur.confColor }}">{{ cur.conf }} CONFIDENCE</span></div>
+        <div style="margin-top:9px;display:flex;flex-direction:column;gap:7px;font:400 12.5px/1.5 'Hanken Grotesk';color:#c9d4ca">
+          <sc-for list="{{ cur.reasons }}" as="r" hint-placeholder-count="3">
+            <div style="display:flex;gap:9px"><span style="color:{{ r.color }};font-weight:700">{{ r.sign }}</span><span>{{ r.text }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <sc-if value="{{ cur.isUp }}" hint-placeholder-val="{{ true }}">
+        <div style="margin:10px 18px 0;background:#101d16;border:1px solid #243028;border-radius:14px;padding:12px 14px">
+          <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.12em;color:#94a897">YOUR PICK VS THE MODEL</div>
+          <div style="display:flex;gap:7px;margin-top:9px">
+            <span onClick="{{ cur.pickH }}" style="flex:1;text-align:center;padding:11px 0;border-radius:12px;font:800 13px 'Bricolage Grotesque';cursor:pointer;{{ cur.hStyle }}">{{ cur.hcode }}</span>
+            <span onClick="{{ cur.pickD }}" style="flex:1;text-align:center;padding:11px 0;border-radius:12px;font:800 13px 'Bricolage Grotesque';cursor:pointer;{{ cur.dStyle }}">DRAW</span>
+            <span onClick="{{ cur.pickA }}" style="flex:1;text-align:center;padding:11px 0;border-radius:12px;font:800 13px 'Bricolage Grotesque';cursor:pointer;{{ cur.aStyle }}">{{ cur.acode }}</span>
+          </div>
+          <div style="margin-top:8px;font:600 10.5px 'Hanken Grotesk';color:{{ cur.agreeColor }}">{{ cur.agreeText }}</div>
+        </div>
+      </sc-if>
+      <div style="padding:12px 18px 24px;font:400 10px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice. Predictions are probabilistic and never guaranteed.</div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ teamOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:30;background:#0a1410;overflow-y:auto">
+      <div style="background:radial-gradient(120% 80% at 20% -10%,rgba(158,230,51,.16),transparent 60%);padding:14px 18px 16px;border-bottom:1px solid #1a251d">
+        <span onClick="{{ closeTeam }}" style="font:700 12px 'Hanken Grotesk';color:#c9d4ca;cursor:pointer" style-hover="color:#9ee633">‹ {{ tableLabel }}</span>
+        <div style="display:flex;align-items:center;gap:14px;margin-top:14px">
+          <img src="{{ team.crest }}" style="width:56px;height:56px;object-fit:{{ team.fit }};border-radius:{{ team.crad }}" alt="">
+          <div style="flex:1"><div style="font:800 24px 'Bricolage Grotesque';letter-spacing:-.02em">{{ team.name }}</div><div style="font:600 11px 'Hanken Grotesk';color:#94a897;margin-top:2px">{{ team.meta }}</div></div>
+          <span onClick="{{ team.toggleFollow }}" style="padding:7px 14px;border-radius:999px;font:700 11px 'Hanken Grotesk';cursor:pointer;{{ team.followStyle }}">{{ team.followLabel }}</span>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <sc-for list="{{ team.tiles }}" as="t" hint-placeholder-count="3">
+            <div style="flex:1;background:rgba(16,29,22,.8);border:1px solid #243028;border-radius:12px;padding:9px 11px"><div style="font:800 17px 'Bricolage Grotesque';color:{{ t.color }}">{{ t.value }}</div><div style="font:600 8.5px 'Hanken Grotesk';color:#94a897;letter-spacing:.06em">{{ t.label }}</div></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding:14px 18px 4px;font:700 10.5px 'Hanken Grotesk';letter-spacing:.14em;color:#94a897">UPCOMING</div>
+      <div style="padding:4px 18px 24px;display:flex;flex-direction:column;gap:7px">
+        <sc-for list="{{ team.fixtures }}" as="m" hint-placeholder-count="2">
+          <div onClick="{{ m.open }}" style="display:flex;align-items:center;gap:10px;background:#101d16;border:1px solid #243028;border-radius:13px;padding:11px 13px;cursor:pointer" style-hover="border-color:rgba(158,230,51,.5)">
+            <span style="font:600 10px 'Hanken Grotesk';color:#94a897;width:64px">{{ m.time }}</span>
+            <span style="flex:1;font:700 13.5px 'Bricolage Grotesque'">{{ m.home }} v {{ m.away }}</span>
+            <span style="font:800 13px 'Bricolage Grotesque';color:{{ m.leadColor }}">{{ m.lead }}%</span>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ switcherOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;z-index:40;background:rgba(10,20,16,.97);backdrop-filter:blur(12px);overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 18px 4px">
+        <span style="font:700 10px 'Hanken Grotesk';letter-spacing:.16em;color:#94a897">CHOOSE YOUR COMPETITION</span>
+        <span onClick="{{ closeSwitcher }}" style="font:700 12px 'Hanken Grotesk';color:#c9d4ca;cursor:pointer" style-hover="color:#9ee633">✕ Close</span>
+      </div>
+      <div style="padding:14px 18px">
+        <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.16em;color:#586b5c;margin-bottom:10px">FOOTBALL</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ switcherFootball }}" as="c" hint-placeholder-count="4">
+            <div onClick="{{ c.sel }}" style="display:flex;align-items:center;gap:14px;cursor:pointer;opacity:{{ c.opacity }}" style-hover="opacity:1">
+              <img src="{{ c.logo }}" style="width:30px;height:30px;object-fit:contain" alt="">
+              <span style="font:800 27px 'Bricolage Grotesque';letter-spacing:-.03em;color:{{ c.color }}">{{ c.name }}</span>
+              <span style="margin-left:auto;font:700 12px 'Hanken Grotesk';color:{{ c.starColor }}">★</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="border-top:1px solid #1a251d;margin:18px 0"></div>
+        <div style="font:700 10px 'Hanken Grotesk';letter-spacing:.16em;color:#586b5c;margin-bottom:10px">RUGBY LEAGUE</div>
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <sc-for list="{{ switcherNrl }}" as="c" hint-placeholder-count="2">
+            <div onClick="{{ c.sel }}" style="display:flex;align-items:center;gap:14px;cursor:pointer;opacity:{{ c.opacity }}" style-hover="opacity:1">
+              <img src="{{ c.logo }}" style="width:30px;height:30px;object-fit:contain" alt="">
+              <span style="font:800 27px 'Bricolage Grotesque';letter-spacing:-.03em;color:{{ c.color }}">{{ c.name }}</span>
+              <span style="margin-left:auto;font:600 11px 'Hanken Grotesk';color:#94a897">{{ c.note }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="margin-top:22px;font:400 11px/1.6 'Hanken Grotesk';color:#94a897">Sports stay separate — football and NRL each have their own home, {{ matchesLabelLower }} and tables. Starred competitions feed your Play slate.</div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:390,&quot;height&quot;:844}}">
+class Component extends DCLogic {
+  state = { sport:'football', comp:'epl', tab:'home', match:null, team:null, switcher:false, picks:{'m3':'H'}, followed:{'Newcastle':true,'Broncos':true} };
+
+  constructor(props){
+    super(props);
+    const plc=t=>`https://resources.premierleague.com/premierleague/badges/50/${t}.png`;
+    const api=i=>`https://media.api-sports.io/football/teams/${i}.png`;
+    const nrl=k=>`https://www.nrl.com/.theme/${k}/badge.svg`;
+    const fl=c=>`https://flagcdn.com/w80/${c}.png`;
+    const lg=i=>`https://media.api-sports.io/football/leagues/${i}.png`;
+    this.C={
+      epl:{key:'epl',sport:'football',name:'Premier League',short:'EPL',logo:lg(39),round:'Matchweek 24',
+        matches:[
+          {id:'m1',home:'Arsenal',away:'Chelsea',hcode:'ARS',acode:'CHE',hc:plc('t3'),ac:plc('t8'),time:"64'",day:'TONIGHT',status:'live',score:'2–1',ph:64,pd:21,pa:15,liveP:78,likely:'2–1',conf:'HIGH',venue:'Emirates Stadium',events:["23' Saka 1–0","51' Palmer 1–1","58' Ødegaard 2–1"],reasons:[['+','Arsenal xG edge 1.9 v 0.8 after 64 minutes'],['+','Unbeaten in 11 home league games'],['−','Chelsea dangerous on the counter — 3 big chances']]},
+          {id:'m2',home:'Liverpool',away:'Man City',hcode:'LIV',acode:'MCI',hc:plc('t14'),ac:plc('t43'),time:'Sat 12:30',day:'SATURDAY',status:'up',ph:44,pd:27,pa:29,likely:'2–1',conf:'MEDIUM',venue:'Anfield',reasons:[['+','Anfield: Liverpool W8 D2 this season'],['+','City missing Rodri — win rate drops 18% without him'],['−','City unbeaten in last 5 league away games']]},
+          {id:'m3',home:'Newcastle',away:'Spurs',hcode:'NEW',acode:'TOT',hc:plc('t4'),ac:plc('t6'),time:'Sat 15:00',day:'SATURDAY',status:'up',ph:52,pd:25,pa:23,likely:'2–1',conf:'HIGH',venue:"St James' Park",reasons:[['+',"Unbeaten in 7 at St James' Park (W6 D1)"],['+','Elo gap +48 after Spurs\u2019 midweek defeat'],['−','Isak doubtful — xG drops 0.31 without him']]},
+          {id:'m4',home:'Brighton',away:'Aston Villa',hcode:'BHA',acode:'AVL',hc:plc('t36'),ac:plc('t7'),time:'Sat 17:30',day:'SATURDAY',status:'up',ph:38,pd:30,pa:32,likely:'1–1',conf:'LOW',venue:'Amex Stadium',reasons:[['+','Brighton stronger at home (1.9 pts/game)'],['−','Villa won the reverse fixture 3–1'],['−','Coin-flip Elo gap of just 9 points']]}],
+        table:[
+          {pos:1,name:'Arsenal',crest:plc('t3'),c1:'24',c2:'+38',pts:58,proj:'61%',zone:'cl'},
+          {pos:2,name:'Liverpool',crest:plc('t14'),c1:'24',c2:'+31',pts:55,proj:'27%',zone:'cl'},
+          {pos:3,name:'Man City',crest:plc('t43'),c1:'24',c2:'+22',pts:49,proj:'8%',zone:'cl'},
+          {pos:4,name:'Newcastle',crest:plc('t4'),c1:'24',c2:'+18',pts:49,proj:'3%',zone:'cl'},
+          {pos:5,name:'Spurs',crest:plc('t6'),c1:'24',c2:'+12',pts:44,proj:'1%',zone:'eu'},
+          {pos:6,name:'Brighton',crest:plc('t36'),c1:'24',c2:'+6',pts:41,proj:'—',zone:''},
+          {pos:17,name:'Everton',crest:plc('t11'),c1:'24',c2:'−15',pts:20,proj:'34%',zone:''},
+          {pos:18,name:'Ipswich',crest:plc('t40'),c1:'24',c2:'−28',pts:16,proj:'72%',zone:'rel'}],
+        cols:['P','GD','TITLE%'],tableSub:'Season 2026–27 · title odds from 10,000 sims',
+        zones:[['#9ee633','Champions League'],['#e0b64a','Europa League'],['#f6516b','Relegation']]},
+      laliga:{key:'laliga',sport:'football',name:'LaLiga',short:'LaLiga',logo:lg(140),round:'Matchday 24',
+        matches:[
+          {id:'l1',home:'Barcelona',away:'Sevilla',hcode:'BAR',acode:'SEV',hc:api(529),ac:api(536),time:'Sat 21:00',day:'SATURDAY',status:'up',ph:71,pd:18,pa:11,likely:'3–1',conf:'HIGH',venue:'Camp Nou',reasons:[['+','Barcelona scored 2+ in 9 straight home games'],['+','Elo gap +112 — biggest of the matchday'],['−','Rotation risk before midweek UCL tie']]},
+          {id:'l2',home:'Real Madrid',away:'Atlético',hcode:'RMA',acode:'ATM',hc:api(541),ac:api(530),time:'Sun 21:00',day:'SUNDAY',status:'up',ph:48,pd:26,pa:26,likely:'2–1',conf:'MEDIUM',venue:'Bernabéu',reasons:[['+','Madrid unbeaten in 6 derbies at home'],['−','Atlético best defensive record in the league'],['−','Derby variance — draws in 4 of last 8']]},
+          {id:'l3',home:'Girona',away:'Betis',hcode:'GIR',acode:'BET',hc:api(547),ac:api(543),time:'Sun 18:30',day:'SUNDAY',status:'up',ph:45,pd:28,pa:27,likely:'1–1',conf:'LOW',venue:'Montilivi',reasons:[['+','Girona strong at Montilivi (W7 of 12)'],['−','Betis in form: W4 of last 5'],['−','Narrow Elo gap of 21 points']]}],
+        table:[
+          {pos:1,name:'Barcelona',crest:api(529),c1:'24',c2:'+41',pts:59,proj:'58%',zone:'cl'},
+          {pos:2,name:'Real Madrid',crest:api(541),c1:'24',c2:'+35',pts:57,proj:'38%',zone:'cl'},
+          {pos:3,name:'Atlético',crest:api(530),c1:'24',c2:'+21',pts:50,proj:'4%',zone:'cl'},
+          {pos:4,name:'Athletic Club',crest:api(531),c1:'24',c2:'+14',pts:45,proj:'—',zone:'cl'},
+          {pos:5,name:'Girona',crest:api(547),c1:'24',c2:'+8',pts:41,proj:'—',zone:'eu'},
+          {pos:6,name:'Betis',crest:api(543),c1:'24',c2:'+5',pts:39,proj:'—',zone:''}],
+        cols:['P','GD','TITLE%'],tableSub:'Season 2026–27 · title odds from 10,000 sims',
+        zones:[['#9ee633','Champions League'],['#e0b64a','Europa League'],['#f6516b','Relegation']]},
+      bundesliga:{key:'bundesliga',sport:'football',name:'Bundesliga',short:'BUN',logo:lg(78),round:'Matchday 20',
+        matches:[
+          {id:'b1',home:'Bayern',away:'Dortmund',hcode:'FCB',acode:'BVB',hc:api(157),ac:api(165),time:'Sat 18:30',day:'SATURDAY',status:'up',ph:58,pd:22,pa:20,likely:'3–2',conf:'MEDIUM',venue:'Allianz Arena',reasons:[['+','Bayern won 7 of last 8 Klassikers at home'],['+','League-best attack: 2.8 goals/game'],['−','Dortmund scored in every away game this season']]},
+          {id:'b2',home:'Leverkusen',away:'Leipzig',hcode:'B04',acode:'RBL',hc:api(168),ac:api(173),time:'Sun 17:30',day:'SUNDAY',status:'up',ph:51,pd:25,pa:24,likely:'2–1',conf:'MEDIUM',venue:'BayArena',reasons:[['+','Leverkusen unbeaten in 9 at the BayArena'],['−','Leipzig top-4 pressing numbers'],['−','Rotation after cup midweek']]}],
+        table:[
+          {pos:1,name:'Bayern',crest:api(157),c1:'20',c2:'+39',pts:50,proj:'71%',zone:'cl'},
+          {pos:2,name:'Leverkusen',crest:api(168),c1:'20',c2:'+27',pts:45,proj:'22%',zone:'cl'},
+          {pos:3,name:'Dortmund',crest:api(165),c1:'20',c2:'+19',pts:40,proj:'5%',zone:'cl'},
+          {pos:4,name:'Leipzig',crest:api(173),c1:'20',c2:'+15',pts:38,proj:'2%',zone:'cl'},
+          {pos:5,name:'Stuttgart',crest:api(172),c1:'20',c2:'+9',pts:34,proj:'—',zone:'eu'},
+          {pos:6,name:'Frankfurt',crest:api(169),c1:'20',c2:'+4',pts:31,proj:'—',zone:''}],
+        cols:['P','GD','TITLE%'],tableSub:'Season 2026–27 · title odds from 10,000 sims',
+        zones:[['#9ee633','Champions League'],['#e0b64a','Europa League'],['#f6516b','Relegation']]},
+      wc26:{key:'wc26',sport:'football',name:'World Cup 26',short:'WC26',logo:lg(1),round:'Round of 16',flag:true,
+        matches:[
+          {id:'w1',home:'Australia',away:'Japan',hcode:'AUS',acode:'JPN',hc:fl('au'),ac:fl('jp'),time:'Wed 02:00',day:'WEDNESDAY',status:'up',ph:36,pd:28,pa:36,likely:'1–1',conf:'LOW',venue:'Seattle',reasons:[['+','Australia unbeaten in the group stage'],['−','Japan won 3 of last 4 meetings'],['−','Dead-even Elo — knockout coin flip']]},
+          {id:'w2',home:'Brazil',away:'Mexico',hcode:'BRA',acode:'MEX',hc:fl('br'),ac:fl('mx'),time:'Thu 05:00',day:'THURSDAY',status:'up',ph:62,pd:22,pa:16,likely:'2–0',conf:'HIGH',venue:'Houston',reasons:[['+','Brazil topped the group with 3 clean sheets'],['+','Elo gap +96'],['−','Mexico near-home crowd advantage']]}],
+        table:[
+          {pos:1,name:'Australia',crest:fl('au'),c1:'3',c2:'+3',pts:7,proj:'81%',zone:'cl'},
+          {pos:2,name:'Japan',crest:fl('jp'),c1:'3',c2:'+2',pts:6,proj:'74%',zone:'cl'},
+          {pos:3,name:'USA',crest:fl('us'),c1:'3',c2:'0',pts:4,proj:'22%',zone:'eu'},
+          {pos:4,name:'Tunisia',crest:fl('tn'),c1:'3',c2:'−5',pts:0,proj:'—',zone:''}],
+        cols:['P','GD','ADV%'],tableSub:'Group C · qualification odds from Monte-Carlo sims',
+        zones:[['#9ee633','Qualified'],['#e0b64a','Best third']]},
+      nrl:{key:'nrl',sport:'nrl',name:'NRL',short:'NRL',logo:nrl('nrl'),round:'Round 21',
+        matches:[
+          {id:'n1',home:'Broncos',away:'Storm',hcode:'BRI',acode:'MEL',hc:nrl('broncos'),ac:nrl('storm'),time:'Fri 19:50',day:'FRIDAY',status:'up',ph:41,pd:4,pa:55,likely:'−4.5',conf:'MEDIUM',venue:'Suncorp Stadium',reasons:[['+','Broncos won 3 straight at Suncorp'],['−','Storm best completion rate in the comp (84%)'],['−','Munster back from injury — attack rating +6']]},
+          {id:'n2',home:'Panthers',away:'Roosters',hcode:'PEN',acode:'SYD',hc:nrl('panthers'),ac:nrl('roosters'),time:'Sat 17:30',day:'SATURDAY',status:'up',ph:63,pd:3,pa:34,likely:'+8.5',conf:'HIGH',venue:'BlueBet Stadium',reasons:[['+','Panthers W9 of last 10 at home'],['+','Roosters missing 3 starting forwards'],['−','Short turnaround after golden-point win']]},
+          {id:'n3',home:'Sharks',away:'Dolphins',hcode:'CRO',acode:'DOL',hc:nrl('sharks'),ac:nrl('dolphins'),time:'Sat 19:35',day:'SATURDAY',status:'up',ph:55,pd:4,pa:41,likely:'+3.5',conf:'MEDIUM',venue:'PointsBet Stadium',reasons:[['+','Sharks 7–2 at home this season'],['−','Dolphins won the round-8 meeting'],['−','Wet forecast narrows the gap']]}],
+        table:[
+          {pos:1,name:'Storm',crest:nrl('storm'),c1:'16–4',c2:'+212',pts:34,proj:'99%',zone:'cl'},
+          {pos:2,name:'Panthers',crest:nrl('panthers'),c1:'15–5',c2:'+188',pts:32,proj:'98%',zone:'cl'},
+          {pos:3,name:'Broncos',crest:nrl('broncos'),c1:'14–6',c2:'+141',pts:30,proj:'96%',zone:'cl'},
+          {pos:4,name:'Roosters',crest:nrl('roosters'),c1:'12–8',c2:'+87',pts:26,proj:'88%',zone:'cl'},
+          {pos:5,name:'Sharks',crest:nrl('sharks'),c1:'12–8',c2:'+64',pts:26,proj:'84%',zone:'eu'},
+          {pos:8,name:'Raiders',crest:nrl('raiders'),c1:'10–10',c2:'+2',pts:22,proj:'52%',zone:'eu'},
+          {pos:9,name:'Dolphins',crest:nrl('dolphins'),c1:'10–10',c2:'−14',pts:22,proj:'31%',zone:''}],
+        cols:['W–L','DIFF','TOP 8%'],tableSub:'Telstra Premiership 2027 · finals odds from 10,000 sims',
+        zones:[['#9ee633','Top 4'],['#e0b64a','Finals (5–8)']]},
+    };
+  }
+
+  pick(id,v){ this.setState(s=>({picks:{...s.picks,[id]: s.picks[id]===v? null: v}})); }
+
+  mk(m,comp){
+    const s=this.state, p=s.picks[m.id]||null;
+    const flag=!!comp.flag;
+    const on='background:#9ee633;color:#0a1410', off='background:#151f19;border:1px solid #243028;color:#94a897';
+    const confColor=m.conf==='HIGH'?'#9ee633':m.conf==='MEDIUM'?'#f9b030':'#94a897';
+    const lead=m.status==='live'?m.liveP:Math.max(m.ph,m.pa);
+    const leadSide=m.ph>=m.pa?m.hcode:m.acode;
+    const aiSide=m.ph>=Math.max(m.pd,m.pa)?'H':(m.pa>=m.pd?'A':'D');
+    let agreeText='Tap to lock a pick — graded after full time', agreeColor='#94a897';
+    if(p){ agreeText = p===aiSide? 'You and the AI agree — locked at kickoff.' : 'You\u2019re against the model. Prove it wrong.'; agreeColor = p===aiSide? '#9ee633':'#f9b030'; }
+    return {...m,
+      fit: flag?'cover':'contain', crad: flag?'999px':'0',
+      open:()=>this.setState({match:m.id, tab:this.state.tab}),
+      pickH:()=>this.pick(m.id,'H'), pickD:()=>this.pick(m.id,'D'), pickA:()=>this.pick(m.id,'A'),
+      hStyle:p==='H'?on:off, dStyle:p==='D'?on:off, aStyle:p==='A'?on:off,
+      isLive:m.status==='live', isUp:m.status!=='live',
+      cardBorder:m.status==='live'?'1px solid rgba(246,81,107,.4)':'1px solid #243028',
+      dotColor:m.status==='live'?'#f6516b':'#243028',
+      timeColor:m.status==='live'?'#f6516b':'#94a897',
+      time:m.status==='live'?('LIVE '+m.time):m.time,
+      lead, leadColor: lead>=60?'#9ee633':'#94a897',
+      heroP: m.status==='live'?m.liveP:m.ph,
+      heroLabel: (m.status==='live'?m.hcode:leadSide)+' WIN',
+      confColor, confBg: m.conf==='HIGH'?'rgba(158,230,51,.12)':m.conf==='MEDIUM'?'rgba(249,176,48,.14)':'rgba(148,168,151,.12)',
+      agreeText, agreeColor,
+      reasons:(m.reasons||[]).map(r=>({sign:r[0]==='+'?'＋':'－', color:r[0]==='+'?'#9ee633':'#f6516b', text:r[1]})),
+      events:m.events||[]};
+  }
+
+  renderVals(){
+    const s=this.state, C=this.C;
+    const comp=C[s.comp];
+    const isF=s.sport==='football';
+    const nav=(k)=>()=>this.setState({tab:k, match:null, team:null});
+    const matches=comp.matches.map(m=>this.mk(m,comp));
+    const feature=matches.find(m=>m.isLive)||matches[0];
+    const also=matches.filter(m=>m.id!==feature.id);
+    const dayOrder=[]; const dayMap={};
+    matches.forEach(m=>{ if(!dayMap[m.day]){dayMap[m.day]=[];dayOrder.push(m.day);} dayMap[m.day].push(m); });
+    const days=dayOrder.map(d=>({label:d+' · '+comp.round.toUpperCase(), items:dayMap[d]}));
+    const zc={cl:'#9ee633',eu:'#e0b64a',rel:'#f6516b','':'transparent'};
+    const rows=comp.table.map(r=>({...r,
+      fit: comp.flag?'cover':'contain', crad: comp.flag?'999px':'0',
+      openTeam:()=>this.setState({team:r.name}),
+      zoneColor:zc[r.zone], zoneBg:r.zone==='cl'?'rgba(158,230,51,.04)':r.zone==='rel'?'rgba(246,81,107,.04)':'transparent',
+      rankColor:r.zone==='cl'?'#9ee633':r.zone==='rel'?'#f6516b':'#586b5c',
+      c1:r.c1, c2:r.c2, projColor:r.zone==='rel'?'#f6516b':(r.proj!=='—'?'#9ee633':'#586b5c')}));
+    const fKeys=['epl','laliga','bundesliga','wc26'];
+    const footballComps=fKeys.map(k=>({key:k,short:C[k].short,logo:C[k].logo,
+      pillStyle:k===s.comp?'background:rgba(158,230,51,.14);border:1px solid rgba(158,230,51,.45);color:#9ee633':'background:#151f19;border:1px solid #243028;color:#94a897',
+      sel:()=>this.setState({comp:k,match:null,team:null})}));
+    const playKeys=isF?fKeys:['nrl'];
+    const playGroups=playKeys.map(k=>({name:C[k].short.toUpperCase(),logo:C[k].logo,round:C[k].round,
+      items:C[k].matches.filter(m=>m.status!=='live').map(m=>this.mk(m,C[k]))}));
+    const allPlay=playGroups.flatMap(g=>g.items);
+    const pickedCount=allPlay.filter(m=>s.picks[m.id]).length, totalCount=allPlay.length;
+    const deg=totalCount?Math.round(360*pickedCount/totalCount):0;
+    let cur=null,curCompLabel='';
+    if(s.match){ for(const k of Object.keys(C)){ const f=C[k].matches.find(m=>m.id===s.match); if(f){cur=this.mk(f,C[k]); curCompLabel=C[k].name.toUpperCase()+' · '+C[k].round.toUpperCase(); break;} } }
+    let team=null;
+    if(s.team){ const r=comp.table.find(t=>t.name===s.team)||{name:s.team,crest:comp.logo,pts:0,pos:0};
+      const fx=matches.filter(m=>m.home===s.team||m.away===s.team);
+      const followed=!!s.followed[s.team];
+      team={name:r.name,crest:r.crest,fit:comp.flag?'cover':'contain',crad:comp.flag?'999px':'0',
+        meta:comp.name+' · '+(r.pos?('#'+r.pos+' · '+r.pts+' pts'):''),
+        followLabel:followed?'Following ★':'Follow',
+        followStyle:followed?'background:#9ee633;color:#0a1410':'background:#151f19;border:1px solid #243028;color:#c9d4ca',
+        toggleFollow:()=>this.setState(st=>({followed:{...st.followed,[s.team]:!st.followed[s.team]}})),
+        tiles:[{value:(r.proj&&r.proj!=='—')?r.proj:'—',label:isF?'TITLE ODDS':'TOP 8 ODDS',color:'#9ee633'},{value:r.pts+'',label:'POINTS',color:'#f3f6f3'},{value:'W4',label:'STREAK',color:'#f3f6f3'}],
+        fixtures:fx};
+    }
+    const followedChips=[{name:'Newcastle',crest:'https://resources.premierleague.com/premierleague/badges/50/t4.png'},{name:'Broncos',crest:'https://www.nrl.com/.theme/broncos/badge.svg'}].filter(f=>s.followed[f.name]);
+    const savedComps=[
+      {name:'Premier League',logo:C.epl.logo,meta:'Football',sel:()=>this.setState({sport:'football',comp:'epl',tab:'home',team:null,match:null})},
+      {name:'World Cup 26',logo:C.wc26.logo,meta:'Football',sel:()=>this.setState({sport:'football',comp:'wc26',tab:'home',team:null,match:null})},
+      {name:'NRL Premiership',logo:C.nrl.logo,meta:'Rugby league',sel:()=>this.setState({sport:'nrl',comp:'nrl',tab:'home',team:null,match:null})}];
+    const selComp=k=>()=>this.setState({sport:C[k].sport,comp:k,switcher:false,match:null,team:null,tab:'home'});
+    const switcherFootball=fKeys.map(k=>({name:C[k].name,logo:C[k].logo,sel:selComp(k),
+      color:k===s.comp?'#9ee633':'#f3f6f3',opacity:k===s.comp?'1':'.75',starColor:(k==='epl'||k==='wc26')?'#9ee633':'#243028'}));
+    const switcherNrl=[{name:'NRL',logo:C.nrl.logo,sel:selComp('nrl'),color:s.comp==='nrl'?'#9ee633':'#f3f6f3',opacity:s.comp==='nrl'?'1':'.75',note:'★'},
+      {name:'Origin',logo:C.nrl.logo,sel:()=>{},color:'#f3f6f3',opacity:'.35',note:'returns May'}];
+    const active='#9ee633',idle='#94a897';
+    const overlay=s.switcher||!!s.match||!!s.team;
+    return {
+      isFootball:isF, sportLabel:isF?'football':'rugby league',
+      compLogo:comp.logo, compUpper:comp.name.toUpperCase(), compShort:comp.short, compRound:comp.round.toUpperCase(),
+      matchesLabel:isF?'Fixtures':'Matches', matchesLabelLower:isF?'fixtures':'matches', tableLabel:isF?'Standings':'Ladder',
+      clubLabel:isF?'CLUB':'CLUB', col1:comp.cols[0], col2:comp.cols[1], col3:comp.cols[2], tableSub:comp.tableSub,
+      zoneLegend:comp.zones.map(z=>({color:z[0],label:z[1]})),
+      tabHome:s.tab==='home'&&!overlay, tabMatches:s.tab==='matches'&&!overlay, tabPlay:s.tab==='play'&&!overlay, tabTables:s.tab==='tables'&&!overlay, tabYou:s.tab==='you'&&!overlay,
+      goHome:nav('home'), goMatches:nav('matches'), goPlay:nav('play'), goTables:nav('tables'), goYou:nav('you'),
+      cHome:s.tab==='home'?active:idle, cMatches:s.tab==='matches'?active:idle, cPlay:s.tab==='play'?active:idle, cTables:s.tab==='tables'?active:idle, cYou:s.tab==='you'?active:idle,
+      feature, also, days, rows, footballComps, playGroups, pickedCount, totalCount,
+      progRing:'background:conic-gradient(#9ee633 '+deg+'deg,#151f19 0)',
+      featureEyebrow:(feature.isLive?'LIVE NOW':'NEXT UP')+' · '+feature.venue.toUpperCase(),
+      matchOpen:!!cur, cur:cur||{reasons:[],events:[]}, curCompLabel, closeMatch:()=>this.setState({match:null}),
+      teamOpen:!!team, team:team||{tiles:[],fixtures:[]}, closeTeam:()=>this.setState({team:null}),
+      switcherOpen:s.switcher, openSwitcher:()=>this.setState({switcher:true}), closeSwitcher:()=>this.setState({switcher:false}),
+      switcherFootball, switcherNrl, followedChips, savedComps,
+    };
+  }
+}
+</script>
+</body>
+</html>
+

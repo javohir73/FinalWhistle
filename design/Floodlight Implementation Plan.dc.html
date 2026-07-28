@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/fonts.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/colors.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/typography.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/spacing.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/effects.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/tokens/base.css">
+<link rel="stylesheet" href="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/styles.css">
+<script src="_ds/finalwhistle-design-system-7415ce61-bf7d-47b7-950f-c5edbbcb66ca/_ds_bundle.js"></script>
+<style>body{margin:0;background:#0a1410;font-family:'Hanken Grotesk',system-ui,sans-serif}a{color:#9ee633}a:hover{color:#c4f36f}</style>
+</helmet>
+<div style="max-width:880px;margin:0 auto;padding:48px 28px 80px;color:#f3f6f3">
+  <div style="font:700 11px 'Hanken Grotesk';letter-spacing:.14em;color:#9ee633;text-transform:uppercase">FinalWhistle · Concept 1c "Floodlight" · Implementation plan</div>
+  <h1 style="font:800 36px/1.1 'Bricolage Grotesque';letter-spacing:-0.02em;margin:10px 0 8px">From World Cup app to multi-sport platform</h1>
+  <p style="font:400 14px/1.65 'Hanken Grotesk';color:#94a897;margin:0 0 6px;max-width:640px">Scope: Football space (EPL · LaLiga · Bundesliga · WC26 as subsections) + separate NRL space, in the Floodlight broadcast visual language. Sports are never interleaved in one feed. Stack: existing Next.js App Router + Tailwind frontend; FastAPI + pipeline untouched except serving league metadata.</p>
+
+  <h2 style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;margin:36px 0 12px"><span style="color:#9ee633">1</span> · Information architecture &amp; routes</h2>
+  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:16px 18px;font:400 13px/1.7 'Hanken Grotesk';color:#c9d4ca">
+    <div style="font:600 12px ui-monospace;color:#9ee633;margin-bottom:8px">lib/sports.ts becomes a config registry — routes become templates, not trees</div>
+    <pre style="margin:0;font:11.5px/1.6 ui-monospace;color:#94a897;overflow-x:auto">app/
+  (football)/football/[comp]/            comp ∈ epl · laliga · bundesliga · wc26
+    page.tsx            → Home (Tonight's feature)
+    fixtures/           → timeline spine list      ("Fixtures")
+    match/[id]/         → match centre
+    standings/          → StandingsTable + zones   ("Standings")
+    team/[id]/
+  (nrl)/nrl/
+    page.tsx · matches/ · match/[id]/ · ladder/ · team/[id]/   ("Matches", "Ladder")
+  play/                 → cross-competition Play hub (grouped by sport, labelled)
+  you/                  → profile, followed teams, saved competitions</pre>
+    <ul style="margin:10px 0 0;padding-left:18px">
+      <li>One <b style="color:#f3f6f3">SPORTS registry</b> drives nav links, terminology ("fixtures/standings" vs "matches/ladder"), zone configs, and which tabs exist (Bracket only for WC26). Kills today's duplicated <span style="font-family:ui-monospace;font-size:11.5px">/nrl/*</span> parallel tree logic.</li>
+      <li><b style="color:#f3f6f3">Competition switcher</b> = full-screen typographic overlay (Floodlight signature). Sports are section-separated; starring pins a competition. Persisted in localStorage + account.</li>
+      <li>Current URLs 301 into the new scheme (<span style="font-family:ui-monospace;font-size:11.5px">/matches → /football/wc26/fixtures</span>, <span style="font-family:ui-monospace;font-size:11.5px">/nrl/ladder → /nrl/ladder</span>).</li>
+    </ul>
+  </div>
+
+  <h2 style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;margin:36px 0 12px"><span style="color:#9ee633">2</span> · Design tokens (extends the existing DS — nothing replaced)</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:14px 16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+      <b style="color:#f3f6f3">Keep as-is</b><br>Colors (canvas/surface/win/draw/loss/gold), Bricolage + Hanken, 4px spacing, radii, glass, expo-out easing, atmosphere.
+    </div>
+    <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:14px 16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+      <b style="color:#f3f6f3">New — display scale</b><br><span style="font-family:ui-monospace;font-size:11px">--text-display-hero: 46/74px · -0.03em</span> (feature %, scorebug), <span style="font-family:ui-monospace;font-size:11px">--text-rank: 22px</span> (ladder numerals). Min body 13px, nav labels 11px (fixes current 10px WCAG issue).
+    </div>
+    <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:14px 16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+      <b style="color:#f3f6f3">New — status states</b><br><span style="font-family:ui-monospace;font-size:11px">--status-upcoming</span> (muted), <span style="font-family:ui-monospace;font-size:11px">--status-live</span> (rose dot + rose/40 ring, 2s pulse), <span style="font-family:ui-monospace;font-size:11px">--status-ft</span> (surface-2 chip). Confidence: HIGH=lime, MEDIUM=amber, LOW=muted — ring + label, never colour alone.
+    </div>
+    <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:14px 16px;font:400 12.5px/1.65 'Hanken Grotesk';color:#c9d4ca">
+      <b style="color:#f3f6f3">New — competition branding</b><br><span style="font-family:ui-monospace;font-size:11px">--comp-accent</span> per league (EPL purple, LaLiga coral, BUN red, NRL teal) used ONLY on the switcher overlay + league eyebrow chips at ≤12% opacity. Lime stays the sole action colour. Crest assets served from our own CDN after licensing (mocks currently hotlink PL/api-sports/nrl.com).
+    </div>
+  </div>
+
+  <h2 style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;margin:36px 0 12px"><span style="color:#9ee633">3</span> · Component inventory</h2>
+  <div style="background:#101d16;border:1px solid #243028;border-radius:14px;padding:6px 18px 14px;font:400 13px/1.7 'Hanken Grotesk';color:#c9d4ca">
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:4px 16px;padding:10px 0;border-bottom:1px solid #1a251d"><b style="color:#9ee633">Reuse as-is</b><span>ProbabilityBar · ChanceChip · ConfidenceBadge · Flag · ClubBadge · FormStrip · Sparkline · ShareButton · Reveal · DisclaimerBanner · glass Card</span></div>
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:4px 16px;padding:10px 0;border-bottom:1px solid #1a251d"><b style="color:#f9b030">Generalise</b><span>MatchCard + SportMatchCard → one <b style="color:#f3f6f3">SportMatchCard(sport, comp)</b> · GroupTable + LadderTable → <b style="color:#f3f6f3">StandingsTable(zoneConfig)</b> (CL/Europa/relegation zones or top-8/top-4) · SiteNav + BottomNav → config-driven from SPORTS registry · SportSwitcher → CompetitionOverlay · two leaderboards → one Play hub with sport groups</span></div>
+    <div style="display:grid;grid-template-columns:150px 1fr;gap:4px 16px;padding:10px 0"><b style="color:#f3f6f3">New (Floodlight)</b><span><b style="color:#f3f6f3">FeatureHero</b> (tonight's match, giant %, floodlight glow) · <b style="color:#f3f6f3">Scorebug</b> (live TV-style header) · <b style="color:#f3f6f3">WinProbTimeline</b> (in-match probability chart w/ goal markers) · <b style="color:#f3f6f3">ConfidenceRing</b> (conic % dial) · <b style="color:#f3f6f3">SlateCard</b> (prediction call card) · <b style="color:#f3f6f3">TimelineSpine</b> (kickoff-time match list) · <b style="color:#f3f6f3">TeamHeader</b> (full-bleed crest banner)</span></div>
+  </div>
+
+  <h2 style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;margin:36px 0 12px"><span style="color:#9ee633">4</span> · Build phases</h2>
+  <div style="display:flex;flex-direction:column;gap:8px">
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P1</b><span><b style="color:#f3f6f3">Foundations</b> — SPORTS registry, route scheme + redirects, token additions, config-driven SiteNav/BottomNav/CompetitionOverlay. No visual change yet.</span></div>
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P2</b><span><b style="color:#f3f6f3">Football space</b> — FeatureHero home, TimelineSpine fixtures, StandingsTable, team pages for EPL; LaLiga + Bundesliga ride the same templates (data only). WC26 keeps Groups/Bracket extras.</span></div>
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P3</b><span><b style="color:#f3f6f3">NRL space</b> — restyle existing NRL pages onto the shared templates (ladder zones, margin chips, Origin placeholder). Delete the parallel component set.</span></div>
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P4</b><span><b style="color:#f3f6f3">Match centre</b> — Scorebug + WinProbTimeline (live poll feed exists), "model says" narrative, pick-vs-AI module. This is the shareable screen; OG images re-templated here.</span></div>
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P5</b><span><b style="color:#f3f6f3">Play hub</b> — merge NRL tips + league tips + WC bracket into one Play tab grouped by sport; single leaderboard with per-competition filters; ConfidenceRing picks.</span></div>
+    <div style="display:flex;gap:14px;background:#101d16;border:1px solid #243028;border-radius:12px;padding:12px 16px;font:400 13px/1.6 'Hanken Grotesk';color:#c9d4ca"><b style="color:#9ee633;font-family:'Bricolage Grotesque';font-size:16px;width:34px">P6</b><span><b style="color:#f3f6f3">Polish</b> — a11y pass (labels on probability bars, 44px targets, reduced-motion), skeletons, PWA icons/splash, store screenshots in Floodlight skin.</span></div>
+  </div>
+
+  <h2 style="font:800 20px 'Bricolage Grotesque';letter-spacing:-.02em;margin:36px 0 12px"><span style="color:#9ee633">5</span> · Risks &amp; accessibility</h2>
+  <ul style="margin:0;padding-left:18px;font:400 13px/1.75 'Hanken Grotesk';color:#c9d4ca;max-width:680px">
+    <li><b style="color:#f3f6f3">Density</b> — Floodlight's big type costs rows per screen; TimelineSpine keeps a compact row variant (Terminal-style) behind a display toggle.</li>
+    <li><b style="color:#f3f6f3">Logos</b> — official crests/league marks need licensing; ship with typographic ClubBadge fallback (already exists) so nothing breaks.</li>
+    <li><b style="color:#f3f6f3">A11y</b> — W/D/L bars get aria-labels + printed %; live pulse respects reduced-motion; amber text only ≥12px bold; nav labels 11px minimum.</li>
+    <li><b style="color:#f3f6f3">Perf</b> — hero glow is one radial-gradient (no images); WinProbTimeline is inline SVG from the existing prob-snapshot endpoint.</li>
+  </ul>
+  <div style="margin-top:28px;font:400 11px 'Hanken Grotesk';color:#586b5c">For analytics and entertainment only. Not betting advice.</div>
+</div>
+</x-dc>
+</body>
+</html>

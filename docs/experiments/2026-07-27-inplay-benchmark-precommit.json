@@ -1,0 +1,17 @@
+{
+  "bootstrap_samples": 2000,
+  "bootstrap_seed": 20260727,
+  "held_out_cutoff": "2026-10-01T00:00:00+00:00",
+  "market_types": [
+    "match_winner",
+    "spread",
+    "first_half",
+    "correct_score",
+    "btts",
+    "total"
+  ],
+  "max_alignment_seconds": 10,
+  "max_quote_age_seconds": 30,
+  "minimum_matches": 20,
+  "note": "Frozen before held-out capture. Never pool venues, market types, or horizons after inspecting results."
+}

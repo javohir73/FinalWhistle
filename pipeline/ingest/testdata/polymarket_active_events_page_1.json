@@ -1,0 +1,50 @@
+{
+  "events": [
+    {
+      "id": "event-101",
+      "slug": "arsenal-vs-chelsea-2026-08-01",
+      "title": "Arsenal vs Chelsea",
+      "active": true,
+      "closed": false,
+      "live": true,
+      "elapsed": "67",
+      "period": "2H",
+      "markets": [
+        {
+          "id": "market-501",
+          "conditionId": "0xaaa",
+          "slug": "arsenal-vs-chelsea-arsenal",
+          "question": "Will Arsenal win on 2026-08-01?",
+          "active": true,
+          "closed": false,
+          "sportsMarketType": "Moneyline",
+          "startDate": "2026-07-20T02:00:00Z",
+          "endDate": "2026-08-01T16:00:00Z",
+          "clobTokenIds": "[\"yes-aaa\", \"no-aaa\"]"
+        },
+        {
+          "id": "market-502",
+          "conditionId": "0xbbb",
+          "slug": "arsenal-vs-chelsea-draw",
+          "question": "Will Arsenal vs Chelsea end in a draw?",
+          "active": false,
+          "closed": false,
+          "sportsMarketType": null,
+          "startDate": "2026-07-20T02:00:00Z",
+          "endDate": "2026-08-01T16:00:00Z",
+          "clobTokenIds": "[\"yes-bbb\", \"no-bbb\"]"
+        },
+        {
+          "id": "market-without-condition",
+          "question": "Malformed but isolated"
+        }
+      ]
+    },
+    {
+      "id": "event-malformed",
+      "title": "Malformed nested markets",
+      "markets": {"not": "a list"}
+    }
+  ],
+  "next_cursor": "page-2"
+}

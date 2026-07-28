@@ -71,13 +71,29 @@ unusable (extra-time, shootout, or no estimable minute), `GET
 /v1/markets/{id}?live=1` falls back to the frozen pre-match markets
 (`is_live: false`) rather than erroring.
 
-## In-play market benchmark — blocked on a live odds feed
+## In-play market benchmark — capture window pending
 
-Phase 3's "benchmark vs in-play market snapshots" is **blocked on external
-data**: neither the free live provider (football-data.org, match state only) nor
-the pre-match odds source (api-sports `/odds`, populated ~48h pre-kickoff)
-exposes in-play prices, and sharp live feeds (Pinnacle/Betfair) require a
-commercial licence. Until such a feed is available, the model can only be
-benchmarked against the **closing line** (the 90-minute snapshot, Phase 0/2).
-When a live feed is obtained, capture in-play snapshots (minute-stamped) and
-compare the re-priced W/D/L at minute *m* against the market at minute *m*.
+The prediction-market shadow path now supports public REST polling from Kalshi
+and Polymarket plus a transport-neutral stream/recovery persistence path. This
+removes the earlier code-level dependency on a licensed bookmaker feed, but it
+does not create historical evidence retroactively. The held-out window begins
+2026-10-01 and requires matched score/card state, fresh source timestamps,
+verified canonical outcomes, settlement, and a pure-model ledger observation.
+The precommit and match-clustered benchmark are in
+`docs/experiments/2026-07-27-inplay-benchmark-precommit.json` and
+`ml/evaluation/market_benchmark.py`. Until accrued data passes those checks, P4
+is `insufficient` and neither P5 branch is selected.
+# Prediction-market capture (shadow path, 2026-07-27)
+
+The capture worker is isolated from serving and model computation. Venue failures
+are independent, polling cycles are idempotent, raw payloads are integrity-addressed,
+and heartbeats make gaps queryable. The configured local defaults are 300 seconds
+pre-match and 30 seconds in-play, with a five-minute stale-source flag. These are
+proposed defaults only: production SLOs are not established until the full-weekend
+control described in `docs/PREDICTION-MARKET-RUNBOOK.md` measures achieved cadence,
+catalogue load, venue throttling, and settlement lag.
+
+Streaming does not silently erase gaps. Numeric venue sequences are checked when
+available; duplicates and out-of-order events are rejected. An unsupported
+history/backfill interval is permanently recorded and polling becomes the
+fallback. Full-matchday stream acceptance remains pending real control data.

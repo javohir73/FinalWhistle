@@ -1,5 +1,8 @@
 # Keep the backend image small and clean.
 .git
+.claude
+.superpowers
+.gstack
 .venv
 venv
 __pycache__
@@ -9,6 +12,9 @@ __pycache__
 .mypy_cache
 node_modules
 frontend
+graphify-out
+marketing
+store-assets
 data/raw
 data/processed
 *.db
@@ -19,3 +25,4 @@ tasks
 docs
 .github
 *.md
+.DS_Store
