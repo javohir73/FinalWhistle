@@ -502,6 +502,121 @@ lambda multiplier the way the `+bans`/`+rest` offsets are.
 Expected state until 2026-08-15: `insufficient`, no pairs. That is correct,
 not a failure.
 
+## POST-MERGE AUDIT of #202 (2026-07-28) — corrections
+
+Read-only audit after #202 merged. Nothing here was tuned on the consumed
+2025-26 season. Two findings materially qualify the shipped result.
+
+### What held up
+
+- **No leakage.** Empirically probed, not argued: tampering with the
+  confirmation season's results, dropping it entirely, and tampering with each
+  scored season's own results all leave selection picks bit-identical. Selection
+  is provably prior-only.
+- **Data integrity clean.** 3,800 / 3,800 / 3,060 rows, zero dropped in
+  cleaning, zero duplicate `(date, home, away)`, zero unparsed dates, file
+  order already chronological in all 30 season files, 2–3 promotions/season.
+- **Offline↔live Elo parity** re-verified against `main` (including #199's
+  alias remapping), all three leagues, zero divergence.
+
+### Finding 1 (P1) — the market baseline was never computed
+
+Every #202 gate scored against realized outcomes only. No de-vigged
+closing-line comparator was ever run, despite ten seasons of closing odds
+being present in the same football-data.co.uk files and
+`pipeline/ingest/football_data.py` already parsing them. The club cache was
+built with `usecols=[Date,HomeTeam,AwayTeam,FTHG,FTAG]`, so the odds columns
+never reached disk.
+
+Computed now (`AvgC` closing, proportional de-vig, ~70% of matches carry odds):
+
+| League | control − market | shipped − market | n with odds |
+|---|---|---|---|
+| Premier League | +0.0312 | +0.0316 | 2,660 |
+| La Liga | +0.0279 | +0.0279 | 2,660 |
+| Bundesliga | +0.0326 | **+0.0369** | 2,142 |
+
+**The model is behind the closing line in all three leagues**, and #202 moved
+Bundesliga *further* behind on 1X2. Against the metric this program was
+chartered on — paired Δ log-loss vs de-vigged closing odds — the shipped
+Bundesliga change is a 1X2 regression. It remains a large totals win.
+
+### Finding 2 (P1) — `base` was changed without refitting the calibrator
+
+The segmented calibrator's per-bucket `(t, b)` were fitted for a lambda scale
+of `base=1.2`. #202 raised `base` without refitting it, moving the model
+outside the calibrator's fitted regime.
+
+| Config | 1X2 LL | ECE | sharpness |
+|---|---|---|---|
+| Bundesliga control 1.20 | 1.0074 | **0.0147** | 0.525 |
+| Bundesliga shipped 1.44 | 1.0101 | **0.0437** | 0.554 |
+
+**Calibration degraded ~3× on Bundesliga 1X2** while sharpness rose — the
+model became more confident and less correct. Not measured in #202, which
+reported only log loss.
+
+Related, and larger: the internationals calibrator *costs* club 1X2 log loss
+in 3 of 4 configurations tested (EPL control +0.0042, EPL shipped +0.0028,
+Bundesliga control +0.0030 vs calibrator-off). Pre-registered candidate T1.6
+(calibrator recut) was never run — it was deprioritised after bucket occupancy
+turned out non-degenerate. That was the wrong call: occupancy is not fit.
+
+### Finding 3 (P2) — effect stability differs sharply by league
+
+Per-season deltas (shipped − control), 9 pre-confirmation seasons:
+
+| League | metric | mean | season SD | read |
+|---|---|---|---|---|
+| Bundesliga | O/U 2.5 | −0.0296 | 0.0169 | robust; 9/10 seasons improve |
+| Bundesliga | 1X2 | **+0.0026** | 0.0041 | consistently worse, 7/10 seasons |
+| Premier League | O/U 2.5 | −0.0069 | 0.0089 | **SD 1.3× the mean — weak** |
+| Premier League | 1X2 | −0.0009 | 0.0022 | noise |
+
+Bundesliga's totals gain is real. **EPL's `base` change is not well
+supported**: its season-to-season SD exceeds its mean effect, and it shipped
+under the defect-fix bar on a CI that touched zero.
+
+### Finding 4 (P2) — the confirmation CI is anti-conservative
+
+The confirmation clustered by **matchweek** (33–37 clusters) because one
+held-out season gives a single season-cluster. Matchweek clustering ignores
+season-level correlation, so those intervals are narrower than a season-level
+analysis would give. They are conditional on that season and carry no
+season-to-season uncertainty. The per-season tables above are the honest
+sensitivity: read them, not the confirmation CI alone, when judging effect size.
+
+Multiplicity: 27 selection gates at nominal 95% imply ≈1.35 expected false
+positives under a global null. Four cleared; three failed confirmation. That
+is consistent with roughly one real effect plus noise, which is what the
+per-season tables show (Bundesliga totals real, the rest not).
+
+### Finding 5 (P3) — served `home_advantage` retains contaminated provenance
+
+La Liga 80 / Bundesliga 60 were selected on the 2025-26 season with v0.1
+params (Dixon–Coles disabled). #202 voided that selection and refit inside the
+walk-forward, but T1.5 did not replicate, so the **original contaminated
+values still serve**. They are not wrong — selection and confirmation agree
+they are indistinguishable from the alternatives — but their provenance is the
+now-burnt holdout, and that should not be cited as validation.
+
+### Not changed here
+
+No parameter was retuned. Correcting Findings 1–3 requires a fresh holdout —
+the 2025-26 season is consumed — and the live 2026-27 season is that holdout.
+The `+baseline` twin already logs the live A/B needed to adjudicate Bundesliga
+1X2 vs totals.
+
+### Reproduction
+
+```
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.club_data_manifest --dir <captures>
+```
+
+Raw inputs are pinned in `pipeline/data/club_data_manifest.json` (sha256 for
+all 30 season files, captured 2026-07-28). football-data.co.uk revises files in
+place, so verify before citing any number above as reproduced.
+
 ### Scoreboard
 
 Two parameter changes ship, in one and a bit leagues, out of 27 gates and 9

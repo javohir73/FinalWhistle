@@ -1,0 +1,158 @@
+{
+  "algorithm": "sha256",
+  "captured_utc": "2026-07-28",
+  "files": {
+    "D1_1617": {
+      "bytes": 80195,
+      "rows": 306,
+      "sha256": "bb49b41a30b0421bdb277ea10cd2773180482aabf42adcf0504d381506b71084"
+    },
+    "D1_1718": {
+      "bytes": 80198,
+      "rows": 306,
+      "sha256": "62f6c0658535c084b8307a336490e5ffc1b2cdb9f7a17ea95cec9549fed38f48"
+    },
+    "D1_1819": {
+      "bytes": 77050,
+      "rows": 306,
+      "sha256": "56708d2e2c9158ec5d7851de56cd328fd605a3f50f574f9840b081cd0c46d237"
+    },
+    "D1_1920": {
+      "bytes": 142616,
+      "rows": 306,
+      "sha256": "dda7053f5997e1cd91c19b7e77d49cfd647704f01d03acda5b1540394f92420d"
+    },
+    "D1_2021": {
+      "bytes": 142596,
+      "rows": 306,
+      "sha256": "8fd8e3d9a2d6a536eb5d24a7edaa30a6e77f2038a8b5deac4d17ae2597311bda"
+    },
+    "D1_2122": {
+      "bytes": 142626,
+      "rows": 306,
+      "sha256": "508ff47cb949f1144a4f8af4ff3f2b4726e8c834e80b587340340a5844707ca2"
+    },
+    "D1_2223": {
+      "bytes": 142433,
+      "rows": 306,
+      "sha256": "8dbacc58bfb2359c8bada1a440314b66a92ec13ee199918369f53566eeeb8518"
+    },
+    "D1_2324": {
+      "bytes": 139154,
+      "rows": 306,
+      "sha256": "4d37f8e3f03f838cce6e0da0810f059b6acc323f2903ca5145b6ef0c4c9a66c3"
+    },
+    "D1_2425": {
+      "bytes": 168382,
+      "rows": 306,
+      "sha256": "f80f898f7806ab985ece03a41d42d815f0406887ba2775fcbd170c7e1f5e5e6b"
+    },
+    "D1_2526": {
+      "bytes": 164800,
+      "rows": 306,
+      "sha256": "f3b075bc28511c4d8a3e8cceee38d9c04dde9de4adecb00d101ab39067f06e4b"
+    },
+    "E0_1617": {
+      "bytes": 102505,
+      "rows": 380,
+      "sha256": "ea2166a51ed2da0cdcd99782c32895ec637b21a9645648bf25465119481de92d"
+    },
+    "E0_1718": {
+      "bytes": 103569,
+      "rows": 380,
+      "sha256": "6198a3965509ccea6be922c3e736ef0d6cc4f73b08de80bf8a4f82c4075cbde9"
+    },
+    "E0_1819": {
+      "bytes": 98513,
+      "rows": 380,
+      "sha256": "6811e9d855938773a8724bc46df3b53206b2020f643e2aa6229a4bf904ff7c19"
+    },
+    "E0_1920": {
+      "bytes": 179968,
+      "rows": 380,
+      "sha256": "0a4a75a71e263c17a024f7a7ffe85b30b89d0822195f55b4c0ca36b6d9a7dfd9"
+    },
+    "E0_2021": {
+      "bytes": 179860,
+      "rows": 380,
+      "sha256": "feca59b3a8638c26f0877aeb3e8aa6f540cb6113b81f23179fd315b7d5ff0f6d"
+    },
+    "E0_2122": {
+      "bytes": 179969,
+      "rows": 380,
+      "sha256": "bea2cd444d42f63651702a683343589a775e92a11a0f981a24aae681d4089eb2"
+    },
+    "E0_2223": {
+      "bytes": 180307,
+      "rows": 380,
+      "sha256": "c9a9edcf87acb65b94ccafa37b2e8e05b8da837a4e7fc10a571d382b6a29171e"
+    },
+    "E0_2324": {
+      "bytes": 176593,
+      "rows": 380,
+      "sha256": "a04c2b030976cc7a16bb5ef260c1e0e4ce36b514abe3ad3a45c53de5dc655a4b"
+    },
+    "E0_2425": {
+      "bytes": 201454,
+      "rows": 380,
+      "sha256": "556a1c2cafab6fdba9688b6c561cac74a4f24e93ad22910e03898e07bf85b125"
+    },
+    "E0_2526": {
+      "bytes": 209088,
+      "rows": 380,
+      "sha256": "1db228378d20fa0c729c69155eaf76995c8d17906a1b16bea8340bd35bca3a17"
+    },
+    "SP1_1617": {
+      "bytes": 99071,
+      "rows": 380,
+      "sha256": "ee8d355f611d7acb35765253b66b359cc885700f15fefa226a7db0a97fe4a869"
+    },
+    "SP1_1718": {
+      "bytes": 99188,
+      "rows": 380,
+      "sha256": "f012fcec69a6f188639291384d6b7172908e990e5a32bd75fbf2d5dab852691f"
+    },
+    "SP1_1819": {
+      "bytes": 94619,
+      "rows": 380,
+      "sha256": "8e41cd284025acdc1e5918d3046c08c4a4d98da513aedf11eda5ce1dcd4fbe3a"
+    },
+    "SP1_1920": {
+      "bytes": 175521,
+      "rows": 380,
+      "sha256": "f8f8ad8798af6016756f8a0546e5a27d6d9bc0f8971a9065eb58f1f5971bf9ce"
+    },
+    "SP1_2021": {
+      "bytes": 175634,
+      "rows": 380,
+      "sha256": "e657d66c049dc0fca3e26486af3a4cf5dc9ae75582f369e5a39eee288dbae4ee"
+    },
+    "SP1_2122": {
+      "bytes": 175847,
+      "rows": 380,
+      "sha256": "3acd31c6fee9d00be9a9ebc72c89faf41f2ab6cc7dee5e1902021dc4c75be309"
+    },
+    "SP1_2223": {
+      "bytes": 176132,
+      "rows": 380,
+      "sha256": "46bb390290217323ec8d33814e69f745547c5b628e84713fa672784894902c22"
+    },
+    "SP1_2324": {
+      "bytes": 171969,
+      "rows": 380,
+      "sha256": "d41ca9bf1e1e46f206e7096f6bc73bea4cc12104b4bfeec1ca299ba0a3cf72d7"
+    },
+    "SP1_2425": {
+      "bytes": 197223,
+      "rows": 380,
+      "sha256": "b46462581495658297ad2d26f215fe34e8299b9e2584474e464943d8d7ffaae0"
+    },
+    "SP1_2526": {
+      "bytes": 203629,
+      "rows": 380,
+      "sha256": "a4c18bf1464e6461b6aec8a99b5e1d20bc64e5020250d3fc4a338e9f2e35ab61"
+    }
+  },
+  "note": "Full-column captures incl. closing-odds columns. Upstream files are revised in place, so a hash mismatch means the source changed, not a bug.",
+  "source": "https://www.football-data.co.uk/mmz4281/{season}/{division}.csv"
+}
