@@ -70,6 +70,7 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
         LEAGUES,
         club_baseline_params_for,
         club_params_for,
+        club_shadow_variants_for,
     )
     from pipeline.learning_loop import run_learning_loop
 
@@ -186,6 +187,10 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
                 # v0.1 twin: the per-league refit's live A/B. Offline evidence
                 # for it is one confirmation season; this accrues the real one.
                 baseline_params=club_baseline_params_for(code),
+                # Opt-in named shadow variants. Empty for every league today,
+                # so this adds no rows and changes nothing served
+                # (docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md).
+                shadow_variants=club_shadow_variants_for(code),
             ),
         )
 

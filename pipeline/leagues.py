@@ -229,6 +229,38 @@ def club_baseline_params_for(code: str) -> "ModelParams":
     return replace(load_params(), version=CLUB_SHADOW_BASELINE_VERSION)
 
 
+#: Opt-in shadow VARIANTS per league: {variant_name: calibrator-or-params
+#: override}. Empty for every league = nothing is enabled anywhere, which is
+#: the shipped state. A variant logs an extra is_shadow row and can never
+#: affect a served prediction (pipeline/shadow_variants_test.py pins that).
+#:
+#: The Bundesliga q3 recalibrator is the only candidate that survived
+#: multiplicity correction in T1.6, and enabling it is a separate, reviewed
+#: decision — see docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md, which also
+#: records that ONE season is underpowered to confirm it (n>=759 needed).
+CLUB_SHADOW_VARIANTS: dict[str, dict[str, dict]] = {
+    "epl": {},
+    "laliga": {},
+    "bundesliga": {},
+}
+
+
+def club_shadow_variants_for(code: str) -> dict[str, "ModelParams"]:
+    """Named shadow-variant params for ``code``. Empty dict = none enabled.
+
+    Each entry overrides the league's SERVED params, so a calibrator variant
+    differs from production in the calibrator alone — otherwise the comparison
+    would confound the calibrator with whatever else moved.
+    """
+    from dataclasses import replace
+
+    served = club_params_for(code)
+    return {
+        name: replace(served, **overrides)
+        for name, overrides in CLUB_SHADOW_VARIANTS.get(code, {}).items()
+    }
+
+
 def club_competitions() -> frozenset[str]:
     """Every league's club_competition discriminator, across ALL registered
     LEAGUES (not just ACTIVE_LEAGUES -- a registered-but-inactive league's

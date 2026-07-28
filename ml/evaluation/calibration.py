@@ -62,6 +62,51 @@ def apply_vector_scaling(probs: Probs, t: float, b: Probs) -> Probs:
     return (exps[0] / total, exps[1] / total, exps[2] / total)
 
 
+#: Calibrator ``method`` strings `calibrate` actually implements. Anything else
+#: silently degrades to `apply_temperature` (a deliberate, tested contract —
+#: see test_calibrate_unknown_method_falls_back_to_temperature). That
+#: fallthrough is fail-OPEN: a typo'd or not-yet-supported method produces
+#: plausible numbers with no error. Callers that must not degrade silently —
+#: notably the shadow-twin writer, which would otherwise log a twin that is
+#: secretly the identity — gate on `assert_servable_calibrator` first.
+SUPPORTED_METHODS = frozenset({
+    "vector_scaling",
+    "vector_scaling_segmented",
+    "vector_scaling_segmented_edges",
+})
+
+
+def assert_servable_calibrator(calibrator: dict | None) -> None:
+    """Raise unless `calibrate` genuinely implements this blob.
+
+    None is servable (the temperature path). A blob whose ``method`` is not in
+    SUPPORTED_METHODS is not: `calibrate` would quietly return a
+    temperature-scaled triple instead, and the caller would have no way to tell
+    that its calibrator was ignored.
+    """
+    if calibrator is None:
+        return
+    method = calibrator.get("method")
+    if method not in SUPPORTED_METHODS:
+        raise ValueError(
+            f"calibrator method {method!r} is not implemented by calibrate(); "
+            f"it would silently degrade to temperature scaling. "
+            f"Supported: {sorted(SUPPORTED_METHODS)}"
+        )
+    if method == "vector_scaling_segmented_edges" and not calibrator.get("edges"):
+        raise ValueError("vector_scaling_segmented_edges requires non-empty 'edges'")
+
+
+def _bucket_of_edges(eff_gap: float, edges: list[float]) -> str:
+    """Bucket label for explicit, blob-carried edges (ascending, exclusive)."""
+    lo = 0.0
+    for e in edges:
+        if eff_gap < e:
+            return f"{lo:g}-{e:g}"
+        lo = e
+    return f"{lo:g}+"
+
+
 def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0,
               *, eff_gap: float | None = None) -> Probs:
     """Apply the shipped calibrator to a W/D/L triple — the one shared helper for
@@ -72,6 +117,17 @@ def calibrate(probs: Probs, calibrator: dict | None, temperature: float = 1.0,
         per effective-Elo-gap bucket. `eff_gap` selects the bucket via gap_bucket();
         a missing bucket or a None eff_gap falls back to "default".
     The global and None paths ignore `eff_gap`, so existing callers are unchanged."""
+    if calibrator and calibrator.get("method") == "vector_scaling_segmented_edges":
+        # Bucket edges travel INSIDE the blob rather than coming from the
+        # module-level _GAP_EDGES, so a recut fitted for a different gap
+        # distribution (T1.6, club football) is expressible without changing
+        # what every other caller buckets on.
+        key = (_bucket_of_edges(eff_gap, calibrator["edges"])
+               if eff_gap is not None else None)
+        cell = calibrator["buckets"].get(key) if key is not None else None
+        if cell is None:
+            cell = calibrator["default"]
+        return apply_vector_scaling(probs, cell["t"], tuple(cell["b"]))
     if calibrator and calibrator.get("method") == "vector_scaling_segmented":
         key = gap_bucket(eff_gap) if eff_gap is not None else None
         cell = calibrator["buckets"].get(key) if key is not None else None

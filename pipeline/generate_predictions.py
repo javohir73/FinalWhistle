@@ -11,6 +11,7 @@ import logging
 import math
 from datetime import datetime, timezone
 from types import SimpleNamespace
+from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import Session
 
@@ -27,7 +28,11 @@ from app.models import (
     TeamTournamentState,
     TournamentOdds,
 )
-from ml.evaluation.calibration import calibrate, effective_gap
+from ml.evaluation.calibration import (
+    assert_servable_calibrator,
+    calibrate,
+    effective_gap,
+)
 from ml.explain.reasons import confidence_level, generate_reasons, top_features
 from ml.explain.writeup import WriteupInputs, build_writeup
 from ml.features.build_features import build_match_features, estimate_strength
@@ -42,6 +47,9 @@ from ml.models.team_offsets import load_team_offsets, offsets_for
 from ml.ratings.elo import HOME_ADVANTAGE
 from ml.simulate.bracket import GroupFixture as KnockoutFixture, simulate_tournament
 from ml.simulate.group_sim import GroupFixture, simulate_group
+
+if TYPE_CHECKING:  # forward ref used in signatures below
+    from ml.models.wdl_boost import WdlBoost
 
 log = logging.getLogger(__name__)
 
@@ -878,6 +886,39 @@ def _write_scaled_twin(
     _write_prediction(db, match, twin, version, is_shadow=True)
 
 
+def variant_model_version_for(production_version: str, name: str) -> str:
+    """Tag for a named shadow VARIANT of ``production_version``.
+
+    Scoped to its own production family for the same reason every other twin
+    is (see shadow_model_version_for): a club variant row must never pool into
+    a WC26 comparison. ``name`` is the variant's own suffix, e.g. "cal_q3".
+    """
+    if not name or "+" in name or "/" in name:
+        raise ValueError(f"variant name must be a non-empty plain token, got {name!r}")
+    return f"{production_version}+{name}"
+
+
+def write_variant_prediction(
+    db: Session, match: Match, version: str,
+    strengths: dict[int, float], variant_params: ModelParams,
+    booster: "WdlBoost | None" = None,
+) -> None:
+    """One named shadow variant: the same engine under different params.
+
+    FAIL-CLOSED on the calibrator. `calibrate` silently degrades an
+    unrecognised calibrator method to temperature scaling, so a variant whose
+    whole point IS its calibrator could otherwise log a twin that is secretly
+    the identity and look perfectly healthy. `assert_servable_calibrator`
+    raises instead; the caller drops that variant and leaves production alone.
+    """
+    assert_servable_calibrator(variant_params.calibrator)
+    payload = build_payload(db, match, version, strengths=strengths,
+                            params=variant_params, booster=booster)
+    if payload is None:
+        return
+    _write_prediction(db, match, payload, version, is_shadow=True)
+
+
 def write_baseline_prediction(
     db: Session, match: Match, version: str,
     strengths: dict[int, float], baseline_params: ModelParams,
@@ -1094,6 +1135,7 @@ def generate_predictions(
     tournament_id: int | None = None,
     params: ModelParams | None = None,
     baseline_params: ModelParams | None = None,
+    shadow_variants: dict[str, ModelParams] | None = None,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1124,6 +1166,13 @@ def generate_predictions(
     default) writes no such twin, so WC26 and every existing call site is
     unchanged -- and a promotion with no meaningful predecessor does not log a
     pointless exact copy of itself.
+
+    ``shadow_variants`` maps a variant NAME to the params it represents, and
+    logs one additional "+<name>" is_shadow row per match. None (the default)
+    writes nothing, so served predictions stay byte-identical -- the flag is
+    opt-in per call site, not a global. A variant that raises (e.g. a
+    calibrator `calibrate` cannot actually serve) is DROPPED with a logged
+    error; it never aborts the pass and never touches the production row.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -1177,6 +1226,18 @@ def generate_predictions(
                 db, match, baseline_model_version_for(active_model_version),
                 strengths, baseline_params, booster,
             )
+        for _name, _vp in (shadow_variants or {}).items():
+            try:
+                write_variant_prediction(
+                    db, match,
+                    variant_model_version_for(active_model_version, _name),
+                    strengths, _vp, booster,
+                )
+            except Exception:  # noqa: BLE001 - a shadow must never break serving
+                log.exception(
+                    "shadow variant %r failed for match %s; dropped (production "
+                    "row unaffected)", _name, match.id,
+                )
         predicted += 1
 
     groups_q = db.query(Group)
