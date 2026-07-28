@@ -217,3 +217,63 @@ def test_to_dict_includes_use_availability():
     p = ModelParams(version="v", base=1.2, beta=0.002, home_adv=60.0, rho=0.0,
                     temperature=1.0, use_availability=True)
     assert p.to_dict()["use_availability"] is True
+
+
+# ---------------------------------------------------------------------------
+# temperature / calibrator interaction (2026-07-28 club audit).
+#
+# calibrate() applies the scalar temperature ONLY when calibrator is None; with
+# a vector-scaling blob the bucket's own `t` wins and the scalar is discarded.
+# The failure is silent: sweeping temperature against a calibrated model yields
+# a perfectly flat response surface that reads as "already optimal".
+# ---------------------------------------------------------------------------
+
+def test_temperature_is_live_only_without_a_calibrator():
+    from ml.models.params import temperature_is_live
+
+    assert temperature_is_live(None) is True
+    assert temperature_is_live({"method": "vector_scaling", "t": 1.1, "b": [0, 0, 0]}) is False
+    assert temperature_is_live({"method": "vector_scaling_segmented", "buckets": {}}) is False
+
+
+def test_a_dead_temperature_is_rejected_rather_than_silently_ignored():
+    import pytest
+
+    from ml.models.params import params_from_dict
+
+    data = {
+        "version": "t", "base": 1.2, "beta": 0.002, "home_adv": 60.0, "rho": -0.06,
+        "temperature": 1.2,
+        "calibrator": {"method": "vector_scaling_segmented", "buckets": {},
+                       "default": {"t": 1.0, "b": [0.0, 0.0, 0.0]}},
+    }
+    with pytest.raises(ValueError, match="discards it"):
+        params_from_dict(data)
+
+
+def test_identity_temperature_with_a_calibrator_is_fine():
+    from ml.models.params import params_from_dict
+
+    data = {
+        "version": "t", "base": 1.2, "beta": 0.002, "home_adv": 60.0, "rho": -0.06,
+        "temperature": 1.0,
+        "calibrator": {"method": "vector_scaling_segmented", "buckets": {},
+                       "default": {"t": 1.0, "b": [0.0, 0.0, 0.0]}},
+    }
+    assert params_from_dict(data).temperature == 1.0
+
+
+def test_a_live_temperature_without_a_calibrator_is_fine():
+    from ml.models.params import params_from_dict
+
+    data = {"version": "t", "base": 1.2, "beta": 0.002, "home_adv": 60.0,
+            "rho": -0.06, "temperature": 1.2, "calibrator": None}
+    assert params_from_dict(data).temperature == 1.2
+
+
+def test_the_shipped_params_file_does_not_carry_a_dead_temperature():
+    """Regression guard on the real model_params.json."""
+    from ml.models.params import load_params, temperature_is_live
+
+    p = load_params()
+    assert temperature_is_live(p.calibrator) or p.temperature == 1.0

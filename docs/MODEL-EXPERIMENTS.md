@@ -161,7 +161,17 @@ market it actually moves:
 
 | Metric | Parameters gated on it |
 |---|---|
-| **1X2 log loss** vs de-vigged closing line (vs actuals where odds absent) | `beta`, `rho`, `temperature`, `home_adv`, calibrator, `k_factor`, season shrinkage, `rest_days`, promoted prior, `w_odds` |
+| **1X2 log loss** ~~vs de-vigged closing line (vs actuals where odds absent)~~ — see correction below | `beta`, `rho`, `temperature`, `home_adv`, calibrator, `k_factor`, season shrinkage, `rest_days`, promoted prior, `w_odds` |
+
+> **CORRECTION (2026-07-28 audit).** The struck wording overstates what was
+> run. Every one of the 27 gates below scored 1X2 log loss **against realized
+> outcomes only**. No de-vigged closing-line comparator was computed at any
+> point in the original program — the club CSV cache was built with
+> `usecols=[Date,HomeTeam,AwayTeam,FTHG,FTAG]`, so the odds columns never
+> reached disk. Read every "1X2 log loss" figure in the #202 tables as
+> *vs outcomes*, never *vs market*. The market baseline was first computed in
+> the post-merge audit, and is reported there and in T1.6 as a **benchmark
+> only** — it is never a label and never a feature.
 | **O/U totals log loss** | `base` |
 
 ## Pre-registered candidates
@@ -501,6 +511,226 @@ lambda multiplier the way the `+bans`/`+rest` offsets are.
 
 Expected state until 2026-08-15: `insufficient`, no pairs. That is correct,
 not a failure.
+
+## POST-MERGE AUDIT of #202 (2026-07-28) — corrections
+
+Read-only audit after #202 merged. Nothing here was tuned on the consumed
+2025-26 season. Two findings materially qualify the shipped result.
+
+### What held up
+
+- **No leakage.** Empirically probed, not argued: tampering with the
+  confirmation season's results, dropping it entirely, and tampering with each
+  scored season's own results all leave selection picks bit-identical. Selection
+  is provably prior-only.
+- **Data integrity clean.** 3,800 / 3,800 / 3,060 rows, zero dropped in
+  cleaning, zero duplicate `(date, home, away)`, zero unparsed dates, file
+  order already chronological in all 30 season files, 2–3 promotions/season.
+- **Offline↔live Elo parity** re-verified against `main` (including #199's
+  alias remapping), all three leagues, zero divergence.
+
+### Finding 1 (P1) — the market baseline was never computed
+
+Every #202 gate scored against realized outcomes only. No de-vigged
+closing-line comparator was ever run, despite ten seasons of closing odds
+being present in the same football-data.co.uk files and
+`pipeline/ingest/football_data.py` already parsing them. The club cache was
+built with `usecols=[Date,HomeTeam,AwayTeam,FTHG,FTAG]`, so the odds columns
+never reached disk.
+
+Computed now (`AvgC` closing, proportional de-vig, ~70% of matches carry odds):
+
+| League | control − market | shipped − market | n with odds |
+|---|---|---|---|
+| Premier League | +0.0312 | +0.0316 | 2,660 |
+| La Liga | +0.0279 | +0.0279 | 2,660 |
+| Bundesliga | +0.0326 | **+0.0369** | 2,142 |
+
+**The model is behind the closing line in all three leagues**, and #202 moved
+Bundesliga *further* behind on 1X2. Against the metric this program was
+chartered on — paired Δ log-loss vs de-vigged closing odds — the shipped
+Bundesliga change is a 1X2 regression. It remains a large totals win.
+
+### Finding 2 (P1) — `base` was changed without refitting the calibrator
+
+The segmented calibrator's per-bucket `(t, b)` were fitted for a lambda scale
+of `base=1.2`. #202 raised `base` without refitting it, moving the model
+outside the calibrator's fitted regime.
+
+| Config | 1X2 LL | ECE | sharpness |
+|---|---|---|---|
+| Bundesliga control 1.20 | 1.0074 | **0.0147** | 0.525 |
+| Bundesliga shipped 1.44 | 1.0101 | **0.0437** | 0.554 |
+
+**Calibration degraded ~3× on Bundesliga 1X2** while sharpness rose — the
+model became more confident and less correct. Not measured in #202, which
+reported only log loss.
+
+Related, and larger: the internationals calibrator *costs* club 1X2 log loss
+in 3 of 4 configurations tested (EPL control +0.0042, EPL shipped +0.0028,
+Bundesliga control +0.0030 vs calibrator-off). Pre-registered candidate T1.6
+(calibrator recut) was never run — it was deprioritised after bucket occupancy
+turned out non-degenerate. That was the wrong call: occupancy is not fit.
+
+### Finding 3 (P2) — effect stability differs sharply by league
+
+Per-season deltas (shipped − control), 9 pre-confirmation seasons:
+
+| League | metric | mean | season SD | read |
+|---|---|---|---|---|
+| Bundesliga | O/U 2.5 | −0.0296 | 0.0169 | robust; 9/10 seasons improve |
+| Bundesliga | 1X2 | **+0.0026** | 0.0041 | consistently worse, 7/10 seasons |
+| Premier League | O/U 2.5 | −0.0069 | 0.0089 | **SD 1.3× the mean — weak** |
+| Premier League | 1X2 | −0.0009 | 0.0022 | noise |
+
+Bundesliga's totals gain is real. **EPL's `base` change is not well
+supported**: its season-to-season SD exceeds its mean effect, and it shipped
+under the defect-fix bar on a CI that touched zero.
+
+### Finding 4 (P2) — the confirmation CI is anti-conservative
+
+The confirmation clustered by **matchweek** (33–37 clusters) because one
+held-out season gives a single season-cluster. Matchweek clustering ignores
+season-level correlation, so those intervals are narrower than a season-level
+analysis would give. They are conditional on that season and carry no
+season-to-season uncertainty. The per-season tables above are the honest
+sensitivity: read them, not the confirmation CI alone, when judging effect size.
+
+Multiplicity: 27 selection gates at nominal 95% imply ≈1.35 expected false
+positives under a global null. Four cleared; three failed confirmation. That
+is consistent with roughly one real effect plus noise, which is what the
+per-season tables show (Bundesliga totals real, the rest not).
+
+### Finding 5 (P3) — served `home_advantage` retains contaminated provenance
+
+La Liga 80 / Bundesliga 60 were selected on the 2025-26 season with v0.1
+params (Dixon–Coles disabled). #202 voided that selection and refit inside the
+walk-forward, but T1.5 did not replicate, so the **original contaminated
+values still serve**. They are not wrong — selection and confirmation agree
+they are indistinguishable from the alternatives — but their provenance is the
+now-burnt holdout, and that should not be cited as validation.
+
+### Not changed here
+
+No parameter was retuned. Correcting Findings 1–3 requires a fresh holdout —
+the 2025-26 season is consumed — and the live 2026-27 season is that holdout.
+The `+baseline` twin already logs the live A/B needed to adjudicate Bundesliga
+1X2 vs totals.
+
+### Reproduction
+
+```
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.club_data_manifest --dir <captures>
+```
+
+Raw inputs are pinned in `pipeline/data/club_data_manifest.json` (sha256 for
+all 30 season files, captured 2026-07-28). football-data.co.uk revises files in
+place, so verify before citing any number above as reproduced.
+
+**Two verification scopes.** This audit and the #202 reproduction use the full
+30-file set — that program consumed the 2025-26 season, so re-reading it
+changes nothing. Any POST-confirmation experiment must instead use
+`--pre-confirmation-only` (27 files), because hashing a capture opens it and
+that would itself be a holdout read. T1.6 uses the 27-file scope.
+
+## T1.6 — club calibrator recut (2026-07-28). SHADOW-ONLY, nothing promoted
+
+The pre-registered candidate that #202 skipped. Run after the audit showed the
+internationals calibrator costing club 1X2 log loss, and #202's `base` change
+degrading Bundesliga calibration ~3×.
+
+### Protocol
+
+- **Data** — nine PRE-confirmation seasons, 2016-17…2024-25. The consumed
+  2025-26 holdout is dropped **at load**; `assert_holdout_absent` is a backstop
+  that raises if one row of it reaches any fit/score path. Six regression tests
+  pin this, including one proving the loader drops it before the guard runs.
+- **Manifest scope — the holdout is never opened.** Verification *hashes*
+  files, i.e. opens and reads them, so this is a distinct exposure from the
+  season filter above. Two scopes exist and must not be confused:
+
+  | Scope | Files | Used by |
+  |---|---|---|
+  | `expected_keys()` | **30** (2016-17…2025-26) | #202 reproduction — may read the holdout, that program consumed it |
+  | `pre_confirmation_keys()` | **27** (2016-17…2024-25) | **T1.6** — the three `*_2526` captures are never opened |
+
+  Found in mentor review of the first cut of this branch, where the T1.6
+  runner verified all 30 keys and therefore hashed the holdout bytes at its
+  entry point, *before* the season filter ran. Now scoped, and pinned by a
+  regression test that replaces each `*_2526` capture with a directory (so any
+  `read_bytes()` raises regardless of permissions or test user), proves the
+  27-file path completes cleanly, asserts `expected == matched == 27`, and
+  separately proves the poison is real by showing the unscoped call still
+  raises. Correcting the manifest scope changed **no result**: the re-run is
+  byte-identical to the pre-fix output.
+- **Outer** — for each scored season S, the training block is every season
+  strictly before S. Every candidate's bucket **edges** and per-bucket `(t, b)`
+  are fitted on that block alone, then scored on S. Calibration is never fitted
+  on the outcomes it scores.
+- **Abstention** — `--min-train-seasons 3`. Seasons 2016-17/2017-18/2018-19 are
+  **abstained, not scored**, and never pooled with later data to cover the
+  shortfall. Six seasons are scored per league: n=2,280 (EPL, La Liga),
+  n=1,836 (Bundesliga).
+- **Family** — six candidates declared before the run: two fixed references
+  (`prod_calibrator`, `no_calibrator`) and a four-member recut family
+  (`refit_served_edges`, `refit_q3`, `refit_q4`, `refit_q4_thin`). CIs are
+  season-clustered bootstrap, reported nominal **and** Bonferroni-corrected at
+  k=4 over the recut family.
+- **Market** — de-vigged closing odds reported as a benchmark. Not a label, not
+  a feature; no candidate reads them.
+
+### Result — Δ log loss vs the production calibrator (negative = better)
+
+Bundesliga, **shipped base=1.44 — the configuration production actually serves**:
+
+| candidate | Δ vs prod | CI95 | CI95 Bonferroni (k=4) | ECE |
+|---|---|---|---|---|
+| prod_calibrator | — | — | — | **0.0645** |
+| no_calibrator | −0.0009 | [−0.0073, +0.0038] | — | 0.0733 |
+| refit_served_edges | −0.0073 | [−0.0131, −0.0021] | [−0.0144, −0.0008] | 0.0366 |
+| **refit_q3** | **−0.0104** | **[−0.0168, −0.0046]** | **[−0.0188, −0.0036]** | 0.0340 |
+| refit_q4 | −0.0078 | [−0.0131, −0.0030] | [−0.0148, −0.0021] | **0.0312** |
+
+**All four recut variants survive Bonferroni.** The recut recovers ≈0.010 nats
+and roughly halves ECE (0.0645 → 0.031–0.034) in exactly the configuration
+#202 damaged. Market benchmark on the same matches: LL 0.9779 vs the recut's
+1.0061 — still behind.
+
+Bundesliga control (base=1.20): only `refit_q3` survives Bonferroni
+(−0.0071, [−0.0142, −0.0007]).
+
+| League / config | best candidate | nominal | Bonferroni | verdict |
+|---|---|---|---|---|
+| Bundesliga shipped | refit_q3 | −0.0104 ✓ | ✓ | **survives** |
+| Bundesliga control | refit_q3 | −0.0071 ✓ | ✓ | **survives** |
+| Premier League shipped | refit_q3 | −0.0050 ✓ | ✗ | nominal only |
+| Premier League control | refit_q3 | −0.0046 ✓ | ✗ | nominal only |
+| La Liga (control=shipped) | refit_q4 | −0.0017 | ✗ | no effect |
+
+### Reading
+
+1. **The recut is a repair for #202's `base` change, not a general win.** Its
+   effect tracks the damage: largest where ECE was worst (Bundesliga shipped),
+   absent where `base` never moved (La Liga).
+2. **"Remove the calibrator" is refuted.** `no_calibrator` is nowhere credible
+   and makes Bundesliga-shipped ECE *worse* (0.0733 vs 0.0645). The problem is
+   a calibrator fitted for the wrong lambda scale, not calibration itself.
+3. **The audit's descriptive estimate was optimistic.** It suggested the
+   internationals calibrator costs log loss broadly; under proper nesting the
+   effect is smaller and only Bundesliga clears. Nested estimates beat
+   full-sample descriptive ones — as expected.
+4. **Equal-count edges beat the served edges.** `refit_q3` wins in five of five
+   configurations, consistent with club gaps being lower and tighter than the
+   international matchups the 50/150/300 cuts were drawn for.
+5. **Still behind the market everywhere.** The best recut leaves Bundesliga at
+   1.0061 vs the closing line's 0.9779.
+
+### Not promoted
+
+Nothing here changes serving. A shipped recut would additionally require
+`calibration.calibrate` to read `edges` from the blob — the served path's
+edges are a module constant — which is deliberately out of scope. The next
+clean holdout is the live 2026-27 season.
 
 ### Scoreboard
 

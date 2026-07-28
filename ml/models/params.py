@@ -81,21 +81,53 @@ DEFAULT_PARAMS = ModelParams(
 )
 
 
+def temperature_is_live(calibrator: dict | None) -> bool:
+    """Does the scalar ``temperature`` actually reach the probabilities?
+
+    Only when no calibrator blob is configured. ml.evaluation.calibration
+    .calibrate() uses the scalar solely on the ``calibrator is None`` path;
+    with a vector_scaling / vector_scaling_segmented blob the bucket's own
+    ``t`` wins and the scalar is DISCARDED.
+
+    Named and exported because that is not obvious at any call site, and the
+    failure mode is silent: a tuner sweeping ``temperature`` against a
+    calibrated model gets a perfectly flat response surface and reads it as
+    "already optimal" rather than "this knob is disconnected". Measured
+    directly during the 2026-07-28 club audit: t=0.8/1.0/1.4 return
+    byte-identical triples under the shipped segmented calibrator.
+    """
+    return calibrator is None
+
+
 def params_from_dict(data: dict) -> ModelParams:
     """Parse a model_params.json-shaped dict into a ModelParams. Shared by
     load_params() and any caller loading a candidate params file off disk
-    (pipeline/evaluate_candidate.py)."""
+    (pipeline/evaluate_candidate.py).
+
+    Rejects a non-identity ``temperature`` combined with a calibrator blob:
+    that config silently discards the temperature, so accepting it would let a
+    meaningless number sit in model_params.json looking like a fitted value.
+    """
+    temperature = float(data["temperature"])
+    calibrator = data.get("calibrator")
+    if temperature != 1.0 and not temperature_is_live(calibrator):
+        raise ValueError(
+            f"temperature={temperature} is set alongside a "
+            f"{calibrator.get('method', 'calibrator')!r} blob, which discards it "
+            "— the scalar only applies when calibrator is null. Set temperature "
+            "to 1.0, or fit the value into the calibrator's per-bucket 't'."
+        )
     return ModelParams(
         version=data.get("version", "poisson-elo-v0.2"),
         base=float(data["base"]),
         beta=float(data["beta"]),
         home_adv=float(data["home_adv"]),
         rho=float(data["rho"]),
-        temperature=float(data["temperature"]),
+        temperature=temperature,
         pk_beta=float(data.get("pk_beta", 0.0)),
         et_tempo=float(data.get("et_tempo", 1.0)),
         pk_keeper_delta=float(data.get("pk_keeper_delta", 0.0)),
-        calibrator=data.get("calibrator"),
+        calibrator=calibrator,
         wdl_blend=data.get("wdl_blend"),
         w_odds=float(data.get("w_odds", 0.0)),
         use_availability=bool(data.get("use_availability", False)),
