@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import math
 from datetime import datetime, timedelta, timezone
 
 import pytest
@@ -768,3 +769,185 @@ def test_stored_probabilities_are_always_a_valid_distribution(db_session):
         assert 0.0 < r.implied_prob_devig < 1.0
         assert 0.0 < r.implied_prob_raw < 1.0
         assert r.price_decimal > 1.0
+
+
+# ---------------------------------------------------------------------------
+# Final independent review: coherent snapshots, superseded revisions, q3 pairing.
+# ---------------------------------------------------------------------------
+
+def _snap(db, match, *, source, book, market, captured, probs, outcomes=None):
+    """Write one market snapshot per outcome for a single coherent snapshot."""
+    for outcome, p in (outcomes or probs).items():
+        db.add(ValidationMarketSnapshot(
+            source=source, source_market_id=market, outcome=outcome,
+            competition_code="BL1", kickoff_utc=match.kickoff_utc,
+            raw_home_label="x", raw_away_label="y", match_id=match.id,
+            bookmaker_key=book, implied_prob_devig=p, captured_at=captured,
+            retrieved_at=match.kickoff_utc, payload_sha256="p",
+            reconciliation_status="matched"))
+
+
+def _prod_pred(db, match, probs=(0.50, 0.25, 0.25),
+               version="poisson-elo-club-v0.2"):
+    db.add(Prediction(
+        match_id=match.id, model_version=version, is_shadow=False,
+        prob_home_win=probs[0], prob_draw=probs[1], prob_away_win=probs[2],
+        created_at=match.kickoff_utc - timedelta(hours=3)))
+
+
+def test_a_closing_triple_is_never_stitched_from_different_timestamps(db_session):
+    """Selecting the latest row PER OUTCOME would fabricate a line that never
+    existed at any instant."""
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m)
+    t = m.kickoff_utc
+    # Three incomplete snapshots, each missing two outcomes, at three times.
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=t - timedelta(hours=3), probs={"home": 0.90})
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=t - timedelta(hours=2), probs={"draw": 0.05})
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=t - timedelta(hours=1), probs={"away": 0.05})
+    db_session.commit()
+
+    assert secondary_market_benchmark(db_session)["by_source"] == {}
+
+
+def test_a_coherent_snapshot_is_used_even_when_a_later_partial_exists(db_session):
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m)
+    t = m.kickoff_utc
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=t - timedelta(hours=3),
+          probs={"home": 0.60, "draw": 0.25, "away": 0.15})
+    # A later, INCOMPLETE update must not displace the complete earlier one.
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=t - timedelta(hours=1), probs={"home": 0.99})
+    db_session.commit()
+
+    b = secondary_market_benchmark(db_session)["by_source"]["the_odds_api"]
+    assert b["n_matches"] == 1
+    # Home happened at p=0.60 -> LL ~0.51. The 0.99 partial would give ~0.01.
+    assert b["source_log_loss"] == pytest.approx(-math.log(0.60), abs=1e-6)
+
+
+def test_the_newest_complete_snapshot_wins_not_the_alphabetically_first_book(db_session):
+    """'aaa_book' sorts first but is older; 'zzz_book' is closer to kickoff."""
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m)
+    t = m.kickoff_utc
+    _snap(db_session, m, source="the_odds_api", book="aaa_book", market="mk1",
+          captured=t - timedelta(hours=5),
+          probs={"home": 0.90, "draw": 0.05, "away": 0.05})
+    _snap(db_session, m, source="the_odds_api", book="zzz_book", market="mk2",
+          captured=t - timedelta(minutes=20),
+          probs={"home": 0.40, "draw": 0.30, "away": 0.30})
+    db_session.commit()
+
+    b = secondary_market_benchmark(db_session)["by_source"]["the_odds_api"]
+    assert b["source_log_loss"] == pytest.approx(-math.log(0.40), abs=1e-6)
+
+
+def test_snapshot_selection_is_deterministic_across_reruns(db_session):
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m)
+    t = m.kickoff_utc - timedelta(hours=1)
+    for book, market in (("b_book", "m2"), ("a_book", "m1")):
+        _snap(db_session, m, source="the_odds_api", book=book, market=market,
+              captured=t, probs={"home": 0.5, "draw": 0.3, "away": 0.2})
+    db_session.commit()
+    runs = {secondary_market_benchmark(db_session)["by_source"][
+        "the_odds_api"]["source_log_loss"] for _ in range(3)}
+    assert len(runs) == 1
+
+
+def test_a_corrected_observation_supersedes_the_old_conflict(db_session):
+    """Append-only history is preserved, but only the CURRENT row is judged."""
+    _fixture_db(db_session, score=(1, 1), status="finished")
+    loader.load_fixture_observations(
+        db_session, sources.parse_openligadb(_old_payload(score=(2, 1))))
+    assert reconciliation_report(db_session)["score_disagreements"]
+
+    corrected = sources.parse_openligadb(_old_payload(score=(1, 1)))
+    corrected[0].source_updated_at = KO + timedelta(hours=4)  # later revision
+    loader.load_fixture_observations(db_session, corrected)
+
+    rep = reconciliation_report(db_session)
+    assert rep["score_disagreements"] == []
+    assert rep["per_source"]["openligadb"]["score_agreements"] == 1
+    assert rep["effective_observations"] == 1
+    assert rep["superseded_revisions"] == 1
+    # History retained, not rewritten.
+    assert db_session.query(ValidationFixtureObservation).count() == 2
+
+
+def test_q3_coverage_is_reported_separately_and_never_shrinks_the_counts(db_session):
+    """Two matches, only one with a twin: source counts must stay at 2."""
+    from pipeline.generate_predictions import variant_model_version_for
+
+    matches = []
+    for i, ko in enumerate((KO, KO + timedelta(days=7))):
+        m = _fixture_db(db_session, home="Bayern Munich", away="Dortmund",
+                        kickoff=ko, score=(2, 0), status="finished")
+        _prod_pred(db_session, m)
+        _snap(db_session, m, source="the_odds_api", book="pin", market=f"mk{i}",
+              captured=ko - timedelta(hours=1),
+              probs={"home": 0.55, "draw": 0.25, "away": 0.20})
+        matches.append(m)
+    # Twin on the FIRST match only.
+    db_session.add(Prediction(
+        match_id=matches[0].id,
+        model_version=variant_model_version_for("poisson-elo-club-v0.2", "cal_q3"),
+        is_shadow=True, prob_home_win=0.70, prob_draw=0.18, prob_away_win=0.12,
+        created_at=matches[0].kickoff_utc - timedelta(hours=3)))
+    db_session.commit()
+
+    bench = secondary_market_benchmark(db_session)
+    b = bench["by_source"]["the_odds_api"]
+    assert b["n_matches"] == 2                    # NOT reduced by the missing twin
+    assert bench["distinct_matches"] == 2
+    assert bench["distinct_matches_with_variant"] == 1
+
+    v = b["variant"]
+    assert v["name"] == "cal_q3" and v["n_paired"] == 1
+    assert v["coverage"] == pytest.approx(0.5)
+    # Paired deltas are stated on the paired subset, not the full sample.
+    assert v["variant_log_loss"] == pytest.approx(-math.log(0.70), abs=1e-6)
+    assert v["model_log_loss_on_paired"] == pytest.approx(-math.log(0.50), abs=1e-6)
+    assert v["delta_variant_minus_model"] < 0
+
+
+def test_a_post_kickoff_twin_is_not_paired(db_session):
+    from pipeline.generate_predictions import variant_model_version_for
+
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m)
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=m.kickoff_utc - timedelta(hours=1),
+          probs={"home": 0.55, "draw": 0.25, "away": 0.20})
+    db_session.add(Prediction(
+        match_id=m.id,
+        model_version=variant_model_version_for("poisson-elo-club-v0.2", "cal_q3"),
+        is_shadow=True, prob_home_win=0.70, prob_draw=0.18, prob_away_win=0.12,
+        created_at=m.kickoff_utc + timedelta(minutes=5)))
+    db_session.commit()
+
+    bench = secondary_market_benchmark(db_session)
+    assert bench["by_source"]["the_odds_api"]["n_matches"] == 1
+    assert bench["by_source"]["the_odds_api"]["variant"] is None
+    assert bench["distinct_matches_with_variant"] == 0
+
+
+def test_a_twin_for_another_production_version_is_not_paired(db_session):
+    m = _fixture_db(db_session, score=(2, 0), status="finished")
+    _prod_pred(db_session, m, version="poisson-elo-club-v0.2")
+    _snap(db_session, m, source="the_odds_api", book="pin", market="mk",
+          captured=m.kickoff_utc - timedelta(hours=1),
+          probs={"home": 0.55, "draw": 0.25, "away": 0.20})
+    db_session.add(Prediction(
+        match_id=m.id, model_version="poisson-elo-v0.5+cal_q3", is_shadow=True,
+        prob_home_win=0.70, prob_draw=0.18, prob_away_win=0.12,
+        created_at=m.kickoff_utc - timedelta(hours=3)))
+    db_session.commit()
+    assert secondary_market_benchmark(db_session)[
+        "by_source"]["the_odds_api"]["variant"] is None
