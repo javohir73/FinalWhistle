@@ -627,6 +627,12 @@ Raw inputs are pinned in `pipeline/data/club_data_manifest.json` (sha256 for
 all 30 season files, captured 2026-07-28). football-data.co.uk revises files in
 place, so verify before citing any number above as reproduced.
 
+**Two verification scopes.** This audit and the #202 reproduction use the full
+30-file set — that program consumed the 2025-26 season, so re-reading it
+changes nothing. Any POST-confirmation experiment must instead use
+`--pre-confirmation-only` (27 files), because hashing a capture opens it and
+that would itself be a holdout read. T1.6 uses the 27-file scope.
+
 ## T1.6 — club calibrator recut (2026-07-28). SHADOW-ONLY, nothing promoted
 
 The pre-registered candidate that #202 skipped. Run after the audit showed the
@@ -639,6 +645,24 @@ degrading Bundesliga calibration ~3×.
   2025-26 holdout is dropped **at load**; `assert_holdout_absent` is a backstop
   that raises if one row of it reaches any fit/score path. Six regression tests
   pin this, including one proving the loader drops it before the guard runs.
+- **Manifest scope — the holdout is never opened.** Verification *hashes*
+  files, i.e. opens and reads them, so this is a distinct exposure from the
+  season filter above. Two scopes exist and must not be confused:
+
+  | Scope | Files | Used by |
+  |---|---|---|
+  | `expected_keys()` | **30** (2016-17…2025-26) | #202 reproduction — may read the holdout, that program consumed it |
+  | `pre_confirmation_keys()` | **27** (2016-17…2024-25) | **T1.6** — the three `*_2526` captures are never opened |
+
+  Found in mentor review of the first cut of this branch, where the T1.6
+  runner verified all 30 keys and therefore hashed the holdout bytes at its
+  entry point, *before* the season filter ran. Now scoped, and pinned by a
+  regression test that replaces each `*_2526` capture with a directory (so any
+  `read_bytes()` raises regardless of permissions or test user), proves the
+  27-file path completes cleanly, asserts `expected == matched == 27`, and
+  separately proves the poison is real by showing the unscoped call still
+  raises. Correcting the manifest scope changed **no result**: the re-run is
+  byte-identical to the pre-fix output.
 - **Outer** — for each scored season S, the training block is every season
   strictly before S. Every candidate's bucket **edges** and per-bucket `(t, b)`
   are fitted on that block alone, then scored on S. Calibration is never fitted

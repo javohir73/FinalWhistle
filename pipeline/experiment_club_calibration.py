@@ -60,7 +60,7 @@ from ml.evaluation.club_walkforward import ClubMatch, EloConfig, replay
 from ml.evaluation.market_benchmark import devig
 from ml.models.params import load_params
 from ml.models.poisson import expected_goals_from_elo, outcome_probabilities, score_matrix
-from pipeline.club_data_manifest import verify
+from pipeline.club_data_manifest import pre_confirmation_keys, verify
 from pipeline.ingest.club_results import clean_club_results_df
 
 P = load_params()
@@ -280,9 +280,15 @@ def main() -> int:
     args = ap.parse_args()
 
     if not args.skip_manifest_check:
-        v = verify(args.csv_dir)
-        print(f"raw-data manifest: matched={v['matched']} drifted={len(v['drifted'])} "
-              f"missing={len(v['missing'])} reproducible={v['reproducible']}")
+        # Scoped to the 27 pre-confirmation captures ON PURPOSE. Verification
+        # hashes files, i.e. opens and reads them, so verifying all 30 would be
+        # a holdout read at the runner's entry point — before load_league's
+        # season filter ever runs. The three *_2526 captures stay unopened.
+        v = verify(args.csv_dir, keys=pre_confirmation_keys())
+        print(f"raw-data manifest [pre-confirmation scope, {v['expected']} files; "
+              f"{CONFIRM_SEASON} not opened]: matched={v['matched']} "
+              f"drifted={len(v['drifted'])} missing={len(v['missing'])} "
+              f"reproducible={v['reproducible']}")
         if v["drifted"]:
             print("  !! upstream files changed since the recorded capture; "
                   "results are not comparable to the ledger")

@@ -31,6 +31,15 @@ DIVISIONS = ("E0", "SP1", "D1")
 SEASONS = ("1617", "1718", "1819", "1920", "2021",
            "2122", "2223", "2324", "2425", "2526")
 
+#: The season the #202 confirmation run consumed. Mirrors
+#: ml.evaluation.club_calibration.CONFIRM_SEASON and
+#: pipeline.ingest.club_results.HOLDOUT_SEASON_CODE — a consistency test pins
+#: all three together rather than having a data module import an evaluation one.
+CONFIRM_SEASON = "2526"
+
+#: The nine seasons a post-confirmation experiment may legitimately touch.
+PRE_CONFIRMATION_SEASONS = tuple(s for s in SEASONS if s != CONFIRM_SEASON)
+
 
 def load_manifest(path: Path | None = None) -> dict:
     return json.loads((path or MANIFEST_PATH).read_text())
@@ -40,12 +49,31 @@ def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def expected_keys() -> list[str]:
-    return [f"{d}_{s}" for d in DIVISIONS for s in SEASONS]
+def expected_keys(seasons: tuple[str, ...] = SEASONS) -> list[str]:
+    """Manifest keys for ``seasons`` (all ten by default)."""
+    return [f"{d}_{s}" for d in DIVISIONS for s in seasons]
 
 
-def verify(directory: Path, manifest: dict | None = None) -> dict:
+def pre_confirmation_keys() -> list[str]:
+    """The 27 keys a post-confirmation experiment may verify.
+
+    Verification HASHES files, which means opening and reading them. For an
+    experiment that must not read the consumed holdout at all, verifying the
+    full 30-file set would itself be a holdout read — before any season filter
+    downstream ever runs. T1.6 therefore verifies this subset, and the three
+    ``*_2526`` captures are never opened.
+    """
+    return expected_keys(PRE_CONFIRMATION_SEASONS)
+
+
+def verify(directory: Path, manifest: dict | None = None,
+           keys: list[str] | None = None) -> dict:
     """Compare ``directory``'s {DIV}_{SEASON}.csv captures against the manifest.
+
+    ``keys`` restricts which captures are opened; None means all 30 (the #202
+    reproduction scope). Files outside ``keys`` are neither opened nor hashed
+    nor stat-ed — that is the property T1.6 depends on, so it is asserted by a
+    test that poisons the excluded files.
 
     Returns counts plus the per-file verdicts. ``drifted`` means the upstream
     publisher changed a file that a recorded experiment was fitted on — the
@@ -54,8 +82,12 @@ def verify(directory: Path, manifest: dict | None = None) -> dict:
     """
     man = manifest or load_manifest()
     files = man["files"]
+    scope = list(keys) if keys is not None else expected_keys()
+    unknown = [k for k in scope if k not in files]
+    if unknown:
+        raise KeyError(f"keys absent from the manifest: {sorted(unknown)}")
     matched, drifted, missing = [], [], []
-    for key in expected_keys():
+    for key in scope:
         p = directory / f"{key}.csv"
         if not p.exists():
             missing.append(key)
@@ -68,6 +100,8 @@ def verify(directory: Path, manifest: dict | None = None) -> dict:
                             "actual": actual})
     return {
         "manifest_files": len(files),
+        "expected": len(scope),
+        "scope": scope,
         "matched": len(matched),
         "drifted": drifted,
         "missing": missing,
@@ -78,6 +112,7 @@ def verify(directory: Path, manifest: dict | None = None) -> dict:
 def format_report(result: dict) -> str:
     lines = [
         f"manifest files : {result['manifest_files']}",
+        f"verified scope : {result['expected']} files",
         f"matched        : {result['matched']}",
         f"drifted        : {len(result['drifted'])}",
         f"missing        : {len(result['missing'])}",
@@ -100,8 +135,12 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--dir", type=Path, required=True,
                     help="directory of {DIV}_{SEASON}.csv captures to verify")
+    ap.add_argument("--pre-confirmation-only", action="store_true",
+                    help=f"verify the 27 pre-confirmation captures only, leaving "
+                         f"the {CONFIRM_SEASON} holdout unopened")
     args = ap.parse_args()
-    result = verify(args.dir)
+    result = verify(args.dir,
+                    keys=pre_confirmation_keys() if args.pre_confirmation_only else None)
     print(format_report(result))
     return 0 if result["reproducible"] else 1
 
