@@ -1453,3 +1453,125 @@ __all__ = [
     "NrlLiveState",
     "NrlLiveEvent",
 ]
+
+
+# --- Independent validation data sources -------------------------------------
+# Redundant fixture/result and market observations from providers OTHER than
+# the one the served engine uses. Deliberately SEPARATE tables:
+#
+#   - `odds` is the pre-registered API-Football baseline the q3 confirmation
+#     benchmark reads. Writing another provider there would silently change a
+#     merged, pre-registered comparison, so nothing here ever touches it.
+#   - `market_odds_snapshots` is the intel PRODUCT surface, replaced hourly and
+#     swept by a retention prune. Evidence must not live behind a delete cycle.
+#   - `venue_market`/`entity_source_map` have an unmerged resolver in flight;
+#     a second writer with different conventions would collide.
+#
+# Both tables are APPEND-ONLY: a changed payload appends a new row rather than
+# mutating one, so provenance is immutable and reruns are idempotent via the
+# uniqueness keys. There is no retention sweep.
+
+
+class ValidationFixtureObservation(Base):
+    """One fixture/result as a single external provider reported it.
+
+    Reconciliation input only. Never feeds ratings, predictions, or any served
+    surface. One row per (source, event, payload) -- re-observing an unchanged
+    fixture is a no-op; a corrected score appends a new row and leaves the
+    original readable.
+    """
+
+    __tablename__ = "validation_fixture_observation"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "source_event_id", "payload_sha256",
+            name="uq_validation_fixture_obs",
+        ),
+        Index("ix_validation_fixture_match", "match_id"),
+        Index("ix_validation_fixture_kickoff", "competition_code", "kickoff_utc"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: football_data_org | openligadb
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    source_event_id: Mapped[str] = mapped_column(String(120))
+    competition_code: Mapped[str] = mapped_column(String(20))
+    season: Mapped[str | None] = mapped_column(String(20))
+    kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: Exactly as the provider spelled them, before any normalization.
+    raw_home_label: Mapped[str] = mapped_column(String(160))
+    raw_away_label: Mapped[str] = mapped_column(String(160))
+    #: After this module's own alias mapping. NULL = could not be resolved.
+    canonical_home: Mapped[str | None] = mapped_column(String(160))
+    canonical_away: Mapped[str | None] = mapped_column(String(160))
+    #: Nullable link to our Match. NULL is a normal, reportable state.
+    match_id: Mapped[int | None] = mapped_column(ForeignKey("matches.id"))
+    status: Mapped[str | None] = mapped_column(String(20))
+    score_home: Mapped[int | None] = mapped_column(Integer)
+    score_away: Mapped[int | None] = mapped_column(Integer)
+    #: The provider's own last-updated stamp, when it publishes one.
+    source_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    #: When WE retrieved it. Always set.
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    #: unmatched | matched | conflict
+    reconciliation_status: Mapped[str] = mapped_column(String(20), default="unmatched")
+    reconciliation_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
+class ValidationMarketSnapshot(Base):
+    """One market price as a single external source reported it.
+
+    SECONDARY benchmark evidence, reported per source and never merged into the
+    pre-registered API-Football baseline. One finished match remains n=1 no
+    matter how many sources, bookmakers or snapshots describe it.
+    """
+
+    __tablename__ = "validation_market_snapshot"
+    __table_args__ = (
+        UniqueConstraint(
+            "source", "source_market_id", "outcome", "captured_at", "bookmaker_key",
+            name="uq_validation_market_snapshot",
+        ),
+        Index("ix_validation_market_match", "match_id"),
+        Index("ix_validation_market_captured", "source", "captured_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: the_odds_api | betfair_historical
+    source: Mapped[str] = mapped_column(String(40), index=True)
+    source_market_id: Mapped[str] = mapped_column(String(160))
+    source_event_id: Mapped[str | None] = mapped_column(String(120))
+    competition_code: Mapped[str] = mapped_column(String(20))
+    kickoff_utc: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    raw_home_label: Mapped[str] = mapped_column(String(160))
+    raw_away_label: Mapped[str] = mapped_column(String(160))
+    canonical_home: Mapped[str | None] = mapped_column(String(160))
+    canonical_away: Mapped[str | None] = mapped_column(String(160))
+    match_id: Mapped[int | None] = mapped_column(ForeignKey("matches.id"))
+    #: Empty string (never NULL) so the uniqueness key stays effective -- SQL
+    #: treats NULLs as distinct, which would silently defeat idempotency.
+    bookmaker_key: Mapped[str] = mapped_column(String(60), default="", server_default="")
+    outcome: Mapped[str] = mapped_column(String(10))  # home | draw | away
+    price_decimal: Mapped[float | None] = mapped_column(Float)
+    implied_prob_raw: Mapped[float | None] = mapped_column(Float)
+    #: De-vigged WITHIN this source+market group only. Never blended across
+    #: sources: a cross-source consensus would be a new predictor, not evidence.
+    implied_prob_devig: Mapped[float | None] = mapped_column(Float)
+    #: The source's own timestamp for this price. Admissibility is judged on
+    #: THIS, never on retrieved_at.
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    retrieved_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload_sha256: Mapped[str] = mapped_column(String(64))
+    #: Betfair only: digest of the operator-supplied archive, plus their note on
+    #: where it came from. An importer-only source must still be citable.
+    archive_sha256: Mapped[str | None] = mapped_column(String(64))
+    acquisition_note: Mapped[str | None] = mapped_column(Text)
+    reconciliation_status: Mapped[str] = mapped_column(String(20), default="unmatched")
+    reconciliation_note: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
