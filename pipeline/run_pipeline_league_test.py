@@ -9,6 +9,7 @@ import pytest
 from app.config import settings
 from app.models import HistoricalMatch, LeagueScorePrediction, Match, Prediction, Team, TipPlayer, Tournament
 from pipeline import leagues as leagues_mod
+from pipeline.leagues import CLUB_MODEL_VERSION
 from pipeline.ingest import league_structure as ls_mod
 from pipeline.run_pipeline import run_pipeline
 
@@ -96,7 +97,7 @@ def test_league_path_runs_the_epl_steps_and_skips_wc_only_ones(db_session, monke
     assert arsenal.elo_rating is not None
 
     scheduled_match_pred = db_session.query(Prediction).filter_by(is_shadow=False).one()
-    assert scheduled_match_pred.model_version == "poisson-elo-club-v0.1"
+    assert scheduled_match_pred.model_version == CLUB_MODEL_VERSION
 
     history_row = db_session.query(HistoricalMatch).one()
     assert history_row.competition == "Premier League"

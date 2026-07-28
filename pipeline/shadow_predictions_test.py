@@ -353,3 +353,111 @@ def test_end_to_end_club_and_wc26_shadow_scoring_never_cross(db_session, monkeyp
                               shadow_version="poisson-elo-club-v0.1-shadow") is not None
     assert _frozen_prediction(db_session, epl_match, shadow=True,
                               shadow_version=SHADOW_MODEL_VERSION) is None
+
+
+# ---------------------------------------------------------------------------
+# +baseline twin (club program, docs/MODEL-EXPERIMENTS.md).
+#
+# Unlike every other twin here, this one is not a feature variant: it is the
+# same engine run with the parameters production served BEFORE a params-only
+# promotion. The club v0.1 -> v0.2 per-league refit rests on ONE offline
+# confirmation season; this twin is what accrues the live A/B behind it.
+# ---------------------------------------------------------------------------
+
+def test_baseline_version_tag_is_scoped_to_its_production_family():
+    from pipeline.generate_predictions import baseline_model_version_for
+
+    assert baseline_model_version_for("poisson-elo-club-v0.2") == (
+        "poisson-elo-club-v0.2+baseline"
+    )
+    # Must not collide with any other twin's tag for the same production model.
+    club = "poisson-elo-club-v0.2"
+    tags = {
+        baseline_model_version_for(club),
+        shadow_model_version_for(club),
+        f"{club}+avail",
+    }
+    assert len(tags) == 3
+
+
+def test_no_baseline_twin_is_written_when_none_is_requested(db_session):
+    """Default behaviour: WC26 and every pre-existing call site unchanged."""
+    _seed(db_session)
+    tagged = [
+        p for p in db_session.query(Prediction).all()
+        if "+baseline" in p.model_version
+    ]
+    assert tagged == []
+
+
+def test_baseline_twin_is_written_as_shadow_and_differs_from_production(db_session):
+    """The twin has to actually differ, or it measures nothing.
+
+    `base` moves the lambda scale, which is exactly the club refit's confirmed
+    change (Bundesliga 1.20 -> 1.44), so the twin's numbers must diverge from
+    production rather than logging a null copy.
+    """
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    served = replace(DEFAULT_PARAMS, version=MV, base=1.44)
+    baseline = replace(DEFAULT_PARAMS, version=MV, base=1.20)
+    generate_predictions(
+        db_session, MV, n_sims=120, tournament_sims=50,
+        params=served, baseline_params=baseline,
+    )
+
+    twins = db_session.query(Prediction).filter_by(
+        model_version=f"{MV}+baseline"
+    ).all()
+    assert twins, "no +baseline twin written"
+    assert all(p.is_shadow for p in twins), "baseline twin must never be served"
+
+    production = {
+        p.match_id: p for p in db_session.query(Prediction).filter_by(
+            model_version=MV, is_shadow=False
+        ).all()
+    }
+    assert len(twins) == len(production)
+
+    # Lambdas must differ everywhere: base scales both sides on every match.
+    differing = sum(
+        1 for t in twins
+        if t.lambda_home != production[t.match_id].lambda_home
+    )
+    assert differing == len(twins), (
+        f"only {differing}/{len(twins)} baseline twins diverge from production"
+    )
+
+
+def test_baseline_twin_does_not_disturb_the_production_row(db_session):
+    """Adding the twin must not change what production serves."""
+    load_structure(db_session)
+    _set_elos(db_session)
+    served = replace(DEFAULT_PARAMS, version=MV, base=1.44)
+
+    generate_predictions(db_session, MV, n_sims=120, tournament_sims=50, params=served)
+    before = {
+        p.match_id: (p.prob_home_win, p.prob_draw, p.prob_away_win,
+                     p.lambda_home, p.lambda_away)
+        for p in db_session.query(Prediction).filter_by(
+            model_version=MV, is_shadow=False
+        ).all()
+    }
+
+    for row in db_session.query(Prediction).all():
+        db_session.delete(row)
+    db_session.commit()
+
+    generate_predictions(
+        db_session, MV, n_sims=120, tournament_sims=50,
+        params=served, baseline_params=replace(DEFAULT_PARAMS, version=MV, base=1.20),
+    )
+    after = {
+        p.match_id: (p.prob_home_win, p.prob_draw, p.prob_away_win,
+                     p.lambda_home, p.lambda_away)
+        for p in db_session.query(Prediction).filter_by(
+            model_version=MV, is_shadow=False
+        ).all()
+    }
+    assert before == after

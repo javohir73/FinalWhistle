@@ -64,7 +64,13 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     from pipeline.ingest.club_results import sync_finished_matches_to_history
     from pipeline.ingest.league_structure import load_league_structure
     from pipeline.league_activation import ensure_club_history
-    from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES
+    from pipeline.leagues import (
+        ACTIVE_LEAGUES,
+        CLUB_MODEL_VERSION,
+        LEAGUES,
+        club_baseline_params_for,
+        club_params_for,
+    )
     from pipeline.learning_loop import run_learning_loop
 
     configured: list[tuple[str, dict]] = []
@@ -173,16 +179,20 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     for code, tournament in prediction_ready:
         step(
             f"{_prefix(code)}predictions",
-            lambda t=tournament: generate_predictions(
-                db, model_version="poisson-elo-club-v0.1",
+            lambda t=tournament, code=code: generate_predictions(
+                db, model_version=CLUB_MODEL_VERSION,
                 n_sims=n_sims, tournament_id=t.id,
+                params=club_params_for(code),
+                # v0.1 twin: the per-league refit's live A/B. Offline evidence
+                # for it is one confirmation season; this accrues the real one.
+                baseline_params=club_baseline_params_for(code),
             ),
         )
 
     # Also not tournament-scoped (learning_loop._finished_matches has no
     # tournament filter) -- one call evaluates every league's finished
     # matches against the model's own frozen predictions.
-    step("learning_loop", lambda: run_learning_loop(db, "poisson-elo-club-v0.1"))
+    step("learning_loop", lambda: run_learning_loop(db, CLUB_MODEL_VERSION))
 
     # New: score-prediction grading pass (League Score Predictions design
     # doc) -- grades HUMAN picks, a separate table/module from the model's
