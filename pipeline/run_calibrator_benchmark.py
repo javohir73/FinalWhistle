@@ -8,12 +8,16 @@ schema change. This module instead pairs the FROZEN Prediction rows directly
 against realized results and computes on read — the same shape as
 run_availability_benchmark / run_baseline_benchmark, and no migration.
 
-Time validity:
+Time validity — BOTH predictions and odds are filtered, not just odds:
   - Only `status='finished'` matches with both scores present.
-  - Only the frozen pre-kickoff rows already written by the pipeline.
-  - Market comparison joins ONLY `snapshot_phase='closing'` odds captured
-    strictly BEFORE kickoff. A closing row stamped after kickoff is dropped,
-    not clamped.
+  - PREDICTIONS: production and variant rows must each carry a non-null
+    `created_at` strictly BEFORE `kickoff_utc`; the latest admissible row on
+    each side is used. The writer only guards on `status='scheduled'`, so a
+    delayed status refresh can append a post-kickoff row -- which sorts
+    newest-first and would otherwise be selected. If either side has no
+    admissible row the pair is OMITTED.
+  - ODDS: only `snapshot_phase='closing'` captured strictly BEFORE kickoff.
+  - Nothing is clamped or repaired. Inadmissible rows are dropped.
   - Market is a BENCHMARK. It is never a label and never a feature.
 
 Isolation: every pairing is scoped to one production model_version, so a club
@@ -67,10 +71,26 @@ def _probs(p: Prediction):
     return (p.prob_home_win, p.prob_draw, p.prob_away_win)
 
 
-def _frozen(db, match_id: int, *, version: str | None = None) -> Prediction | None:
-    q = db.query(Prediction).filter_by(match_id=match_id)
+def _frozen(db, match: Match, *, version: str | None = None) -> Prediction | None:
+    """Latest ADMISSIBLE frozen row for ``match``, or None.
+
+    Admissible means ``created_at`` is present and strictly BEFORE kickoff.
+    The writer only guards on ``status == 'scheduled'``, and a delayed status
+    refresh leaves a finished match in that state -- so a row appended after
+    kickoff would otherwise be selected here (it sorts newest-first) and
+    silently contaminate the comparison with post-hoc information.
+
+    Rows are not repaired or clamped: an inadmissible row is skipped, and if
+    that leaves no admissible row the caller omits the pair entirely. A
+    missing comparison is honest; a post-kickoff one is not.
+    """
+    if match.kickoff_utc is None:
+        return None
+    q = db.query(Prediction).filter_by(match_id=match.id)
     q = (q.filter(Prediction.model_version == version) if version is not None
          else q.filter(Prediction.is_shadow.is_(False)))
+    q = q.filter(Prediction.created_at.isnot(None),
+                 Prediction.created_at < match.kickoff_utc)
     return q.order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()
 
 
@@ -154,12 +174,12 @@ def calibrator_record(db, variant: str) -> dict:
         label = _label(m)
         if label is None or m.kickoff_utc is None:
             continue
-        prod = _frozen(db, m.id)
+        prod = _frozen(db, m)
         if prod is None:
-            continue
-        var = _frozen(db, m.id, version=variant_model_version_for(prod.model_version, variant))
+            continue  # no admissible pre-kickoff production row
+        var = _frozen(db, m, version=variant_model_version_for(prod.model_version, variant))
         if var is None:
-            continue  # no pair, no comparison
+            continue  # no admissible pre-kickoff twin -> no pair, no comparison
 
         b = buckets[prod.model_version]
         b["n"] += 1
@@ -251,7 +271,9 @@ def format_record(rec: dict) -> str:
                 f"'+{rec['variant']}' twin. Nothing to compare — the expected state "
                 "until league matches finish with the variant enabled.")
     L = [f"Calibrator variant '{rec['variant']}' vs production "
-         f"(negative delta = variant better)", ""]
+         f"(negative delta = variant better)",
+         "  time filter: predictions AND odds must be stamped strictly before "
+         "kickoff; inadmissible rows are dropped, pairs omitted", ""]
     for version, e in rec["by_production_version"].items():
         ci = e["ci95"]
         L += [

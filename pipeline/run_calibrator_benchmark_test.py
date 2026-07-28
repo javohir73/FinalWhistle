@@ -282,3 +282,105 @@ def test_all_reported_metrics_are_present(db_session):
     e = calibrator_record(db_session, VARIANT)["by_production_version"][PROD]
     for side in ("production", "variant"):
         assert set(e[side]) == {"log_loss", "brier", "rps", "ece", "sharpness"}
+
+
+# ---------------------------------------------------------------------------
+# Prediction time-validity (independent diff review).
+#
+# The writer only guards on status='scheduled'. A delayed status refresh leaves
+# a finished match in that state, so a row appended AFTER kickoff would sort
+# newest-first and be selected — contaminating the comparison with information
+# that did not exist pre-kickoff. Both sides must be stamped before kickoff.
+# ---------------------------------------------------------------------------
+
+def _stamp(db, match, version, when):
+    db.query(Prediction).filter_by(match_id=match.id, model_version=version).one(
+    ).created_at = when
+
+
+def _pair(db, idx, *, score=(2, 0), prod_probs=(0.60, 0.25, 0.15),
+          var_probs=(0.70, 0.20, 0.10)):
+    return _mk(db, idx, score, prod_probs=prod_probs, var_probs=var_probs)
+
+
+def test_a_post_kickoff_production_row_is_not_used(db_session):
+    m = _pair(db_session, 0)
+    _stamp(db_session, m, PROD, m.kickoff_utc + timedelta(minutes=5))
+    _stamp(db_session, m, TAG, m.kickoff_utc - timedelta(hours=2))
+    db_session.commit()
+    assert calibrator_record(db_session, VARIANT)["n_pairs"] == 0
+
+
+def test_a_post_kickoff_variant_row_is_not_used(db_session):
+    m = _pair(db_session, 0)
+    _stamp(db_session, m, PROD, m.kickoff_utc - timedelta(hours=2))
+    _stamp(db_session, m, TAG, m.kickoff_utc + timedelta(minutes=5))
+    db_session.commit()
+    assert calibrator_record(db_session, VARIANT)["n_pairs"] == 0
+
+
+def test_a_row_stamped_exactly_at_kickoff_is_excluded(db_session):
+    """Strictly before, not on."""
+    m = _pair(db_session, 0)
+    _stamp(db_session, m, PROD, m.kickoff_utc)
+    _stamp(db_session, m, TAG, m.kickoff_utc - timedelta(hours=2))
+    db_session.commit()
+    assert calibrator_record(db_session, VARIANT)["n_pairs"] == 0
+
+
+def test_predictions_cannot_be_unstamped_at_the_schema_level(db_session):
+    """The query still guards `created_at IS NOT NULL`, but the column is NOT
+    NULL, so an unstamped prediction is unreachable -- unlike Odds.captured_at,
+    which IS nullable and where the guard does real work. Documented so nobody
+    later "simplifies" the defensive check on the wrong assumption."""
+    import pytest
+    from sqlalchemy.exc import IntegrityError
+
+    m = _pair(db_session, 0)
+    with pytest.raises(IntegrityError):
+        _stamp(db_session, m, PROD, None)
+        db_session.flush()
+    db_session.rollback()
+
+
+def test_an_earlier_admissible_row_is_used_when_the_latest_is_post_kickoff(db_session):
+    """The contamination path: newest-first selection would grab the late row."""
+    m = _pair(db_session, 0, prod_probs=(0.60, 0.25, 0.15))
+    _stamp(db_session, m, PROD, m.kickoff_utc - timedelta(hours=3))
+    _stamp(db_session, m, TAG, m.kickoff_utc - timedelta(hours=3))
+    # A post-kickoff append on BOTH sides, with give-away probabilities.
+    for version, probs in ((PROD, (0.99, 0.005, 0.005)), (TAG, (0.99, 0.005, 0.005))):
+        db_session.add(Prediction(
+            match_id=m.id, model_version=version, is_shadow=version != PROD,
+            prob_home_win=probs[0], prob_draw=probs[1], prob_away_win=probs[2],
+            lambda_home=1.5, lambda_away=1.1, rho=-0.06,
+            predicted_score_home=1, predicted_score_away=1,
+            created_at=m.kickoff_utc + timedelta(hours=2)))
+    db_session.commit()
+
+    e = calibrator_record(db_session, VARIANT)["by_production_version"][PROD]
+    assert e["n_pairs"] == 1
+    # Home won. Had the post-kickoff 0.99 rows been used, LL would be ~0.01.
+    assert e["production"]["log_loss"] > 0.4
+    assert e["variant"]["log_loss"] > 0.3
+
+
+def test_both_sides_admissible_still_pairs_normally(db_session):
+    m = _pair(db_session, 0)
+    _stamp(db_session, m, PROD, m.kickoff_utc - timedelta(hours=6))
+    _stamp(db_session, m, TAG, m.kickoff_utc - timedelta(hours=6))
+    db_session.commit()
+    assert calibrator_record(db_session, VARIANT)["n_pairs"] == 1
+
+
+def test_a_match_without_a_kickoff_time_is_skipped(db_session):
+    m = _pair(db_session, 0)
+    m.kickoff_utc = None
+    db_session.commit()
+    assert calibrator_record(db_session, VARIANT)["n_pairs"] == 0
+
+
+def test_the_report_states_that_predictions_are_time_filtered(db_session):
+    _seed(db_session, 3, prod_probs=(0.5, 0.25, 0.25), var_probs=(0.6, 0.22, 0.18))
+    out = format_record(calibrator_record(db_session, VARIANT))
+    assert "predictions AND odds" in out

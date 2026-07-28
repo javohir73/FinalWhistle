@@ -138,11 +138,26 @@ de-vigged closing odds where captured, as a reference only.
 - Headline scoreline: report the **flip rate** vs production. Expected non-zero;
   a rate above ~15% is a promotion-blocking product concern.
 
-### Data validity
+### Data validity — BOTH sides are time-filtered
 
-Frozen pre-kickoff rows only, matched to `Odds` at `snapshot_phase='closing'`
-with `captured_at < kickoff_utc`. No post-kickoff data, no restatement — the
-prediction log is append-only and frozen at kickoff.
+**Predictions.** Production and variant rows must each carry a non-null
+`created_at` **strictly before** `kickoff_utc`; the latest admissible row on
+each side is used, and if either side has none the pair is **omitted**.
+
+This is not belt-and-braces. The writer guards only on `status == 'scheduled'`,
+and a delayed status refresh leaves a finished match in that state — so a row
+appended after kickoff is possible, and since selection is newest-first it
+would have been the one chosen. Found in independent diff review; the earlier
+cut filtered odds by time but not predictions.
+
+**Odds.** Only `snapshot_phase='closing'` with `captured_at < kickoff_utc`.
+`Odds.captured_at` is nullable, so the null guard does real work there; on
+`Prediction` the column is `NOT NULL`, so the equivalent guard is defensive
+only — a test documents that distinction so it is not "simplified" away.
+
+Nothing is clamped or repaired. An inadmissible row is dropped and the
+comparison shrinks. A missing comparison is honest; a post-kickoff one is not.
+The run output states the filter on every report.
 
 **The consumed 2025-26 holdout is never read.** T1.6's 27-file manifest scope
 (`pre_confirmation_keys()`) applies to any offline re-fit.
