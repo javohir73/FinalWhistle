@@ -94,6 +94,23 @@ def shadow_model_version_for(production_version: str) -> str:
     return f"{production_version}-shadow"
 
 
+def baseline_model_version_for(production_version: str) -> str:
+    """The PREVIOUS-PARAMS twin's tag.
+
+    Unlike the other twins, this one is not a feature variant — it is the same
+    engine run with the parameters production served BEFORE a params-only
+    promotion, so the promotion is measurable live rather than only offline.
+    Introduced for the club v0.1 -> v0.2 per-league refit
+    (docs/MODEL-EXPERIMENTS.md, "Club program"), whose evidence is otherwise
+    entirely retrospective.
+
+    Scoped to its own production family for the same reason every other twin
+    is (see shadow_model_version_for): a club baseline row must never pool
+    into a WC26 comparison.
+    """
+    return f"{production_version}+baseline"
+
+
 def availability_model_version_for(production_version: str) -> str:
     """The availability twin's tag, scoped to its OWN production model's
     ledger — the same leak shadow_model_version_for closes (league pivot:
@@ -861,6 +878,29 @@ def _write_scaled_twin(
     _write_prediction(db, match, twin, version, is_shadow=True)
 
 
+def write_baseline_prediction(
+    db: Session, match: Match, version: str,
+    strengths: dict[int, float], baseline_params: ModelParams,
+    booster: "WdlBoost | None" = None,
+) -> None:
+    """+baseline twin: the SAME engine run with the previous parameters.
+
+    Rebuilt through build_payload rather than scaled off the production
+    payload, because a params-only promotion can move `base` (the lambda
+    scale) and `rho` (the grid shape) — neither is expressible as a lambda
+    multiplier the way the +bans/+rest offsets are. Running the real path with
+    the old params is exact by construction.
+
+    Never served — is_shadow=True. Writes nothing if the match has no teams,
+    matching build_payload's own guard.
+    """
+    payload = build_payload(db, match, version, strengths=strengths,
+                            params=baseline_params, booster=booster)
+    if payload is None:
+        return
+    _write_prediction(db, match, payload, version, is_shadow=True)
+
+
 def write_suspension_prediction(
     db: Session, match: Match, payload: dict,
     strengths: dict[int, float], params: ModelParams,
@@ -1052,6 +1092,8 @@ def generate_predictions(
     n_sims: int = 5000,
     tournament_sims: int = 2000,
     tournament_id: int | None = None,
+    params: ModelParams | None = None,
+    baseline_params: ModelParams | None = None,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1067,13 +1109,28 @@ def generate_predictions(
     so its behavior is unchanged; pipeline/run_pipeline.py's league branch
     passes the EPL tournament's id so a shared DB never mixes the two
     tournaments' matches/groups into one prediction/simulation pass.
+
+    ``params`` overrides the loaded engine parameters. None (the default)
+    keeps load_params(), so every existing call site is bit-identical. The
+    league branch passes per-league params because model_params.json is fitted
+    on INTERNATIONAL football and its goal rate does not transfer -- see
+    pipeline/leagues.py's ``model_params`` field and the club program in
+    docs/MODEL-EXPERIMENTS.md.
+
+    ``baseline_params``, when given, additionally logs a "+baseline" is_shadow
+    twin per match: the same engine run with the parameters production served
+    BEFORE the promotion, so a params-only change is measurable in live
+    conditions instead of resting on offline evidence alone. None (the
+    default) writes no such twin, so WC26 and every existing call site is
+    unchanged -- and a promotion with no meaningful predecessor does not log a
+    pointless exact copy of itself.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
     # learning loop has run. Falls back to base ratings when no state exists.
     from pipeline.learning_loop import effective_elos
 
-    params = load_params()
+    params = params or load_params()
     active_model_version = model_version or params.version
     strengths = effective_elos(db)
 
@@ -1115,6 +1172,11 @@ def generate_predictions(
         write_offsets_prediction(db, match, payload, strengths, params)
         write_suspension_prediction(db, match, payload, strengths, params)
         write_rest_prediction(db, match, payload, strengths, params)
+        if baseline_params is not None:
+            write_baseline_prediction(
+                db, match, baseline_model_version_for(active_model_version),
+                strengths, baseline_params, booster,
+            )
         predicted += 1
 
     groups_q = db.query(Group)

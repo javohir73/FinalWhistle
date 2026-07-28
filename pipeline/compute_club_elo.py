@@ -37,6 +37,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Group, GroupTeam, HistoricalMatch, Team, Tournament
 from ml.evaluation.backtest import compute_metrics, model_probs
+from ml.models.params import ModelParams, load_params
 from ml.ratings.elo import MatchInput, replay_with_prematch, run_elo
 from pipeline.ingest.club_results import (
     CLUB_COMPETITION,
@@ -167,10 +168,20 @@ def unrated_roster_teams(db: Session, tournament_name: str, group_name: str) -> 
 
 
 def _evaluate_holdout(
-    rows: list[dict], holdout_season: str, home_advantage: float, competition: str = CLUB_COMPETITION
+    rows: list[dict], holdout_season: str, home_advantage: float,
+    competition: str = CLUB_COMPETITION, params: ModelParams | None = None,
 ) -> dict:
     """Replay leak-free across every row (any season), then score the
-    Poisson-Elo log loss against holdout_season's rows alone."""
+    Poisson-Elo log loss against holdout_season's rows alone.
+
+    ``params`` defaults to the SERVED model. Passing them explicitly matters:
+    model_probs' own defaults are the v0.1 constants (base=1.35, beta=0.0019,
+    rho=0.0), so an earlier version of this function -- which passed only
+    home_adv -- scored candidates under a model with Dixon-Coles disabled,
+    i.e. not the model production serves. Measured 1X2 impact was small
+    (~0.002 nats) but it invalidated the fit's provenance.
+    """
+    params = params or load_params()
     team_ids: dict[str, int] = {}
 
     def _id(name: str) -> int:
@@ -194,7 +205,11 @@ def _evaluate_holdout(
         if rec["season_code"] != holdout_season:
             continue
         probs_list.append(
-            model_probs(rep["pre_home"], rep["pre_away"], False, home_adv=home_advantage)
+            model_probs(
+                rep["pre_home"], rep["pre_away"], False,
+                base=params.base, beta=params.beta, home_adv=home_advantage,
+                rho=params.rho, temperature=params.temperature,
+            )
         )
         sh, sa = rec["FTHG"], rec["FTAG"]
         labels.append("H" if sh > sa else ("A" if sh < sa else "D"))
@@ -206,6 +221,7 @@ def fit_home_advantage(
     holdout_season: str = HOLDOUT_SEASON_CODE,
     *,
     competition: str = CLUB_COMPETITION,
+    params: ModelParams | None = None,
 ) -> dict:
     """Try each candidate home-advantage value on a leak-free replay,
     scoring log loss on ``holdout_season`` alone. ``df`` is the cleaned,
@@ -220,7 +236,9 @@ def fit_home_advantage(
     every league."""
     rows = df.sort_values("match_date").to_dict("records")
     results = {
-        c: _evaluate_holdout(rows, holdout_season, c, competition=competition)["log_loss"]
+        c: _evaluate_holdout(
+            rows, holdout_season, c, competition=competition, params=params
+        )["log_loss"]
         for c in candidates
     }
     winner = min(results, key=results.get)

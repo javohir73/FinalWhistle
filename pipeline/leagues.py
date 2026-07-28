@@ -26,11 +26,14 @@ by the repository stop gate: this registry change does not switch
 """
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from pipeline.ingest import league_structure as _epl
 from pipeline.ingest.club_results import CLUB_COMPETITION as _epl_club_competition
 from pipeline.ingest.club_results import DEFAULT_DIVISION as _epl_club_division
+
+if TYPE_CHECKING:  # avoids a cycle: ml.models.params is imported lazily below
+    from ml.models.params import ModelParams
 
 
 class LeagueConfig(TypedDict):
@@ -59,6 +62,17 @@ class LeagueConfig(TypedDict):
     history_min_matches: int
     # League-specific value selected by the held-out fit documented below.
     home_advantage: float
+    # Per-league engine-parameter overrides applied on top of the global
+    # ml/models/model_params.json, which is fitted on INTERNATIONAL football.
+    # Empty dict = serve the global values unchanged.
+    #
+    # Every entry here cleared the club gate in docs/MODEL-EXPERIMENTS.md
+    # ("Club program"): selected walk-forward over 2016-17..2024-25 clustered
+    # by season, then confirmed once on the quarantined 2025-26 season. A
+    # parameter that was only selected, and failed to replicate on the
+    # confirmation season, is NOT here -- see that document's post-confirmation
+    # ship list before adding one.
+    model_params: dict[str, float]
     # Current-roster clubs with no top-flight row in the ten-season source
     # window. They intentionally use the model's documented cold start.
     cold_start_teams: tuple[str, ...]
@@ -81,6 +95,10 @@ LEAGUES: dict[str, LeagueConfig] = {
         "club_division": _epl_club_division,
         "history_min_matches": 3_000,
         "home_advantage": 60.0,
+        # base 1.20 -> 1.30. Defect-fix bar: the served internationals base
+        # left EPL's O/U 2.5 book LOSING to a constant (LL 0.6955 vs 0.6893).
+        # Held-out direction favourable (-0.0094, CI [-0.0202, +0.0013]).
+        "model_params": {"base": 1.30},
         # Coventry have no Premier League row in the ten-season E0 window.
         # Hull City are not a cold start: football-data.co.uk calls them
         # "Hull", reconciled in team_mapping.py.
@@ -103,6 +121,12 @@ LEAGUES: dict[str, LeagueConfig] = {
         "club_division": "SP1",
         "history_min_matches": 3_000,
         "home_advantage": 80.0,
+        # Deliberately empty. La Liga's `base` refit came back CREDIBLY WORSE
+        # in selection (+0.0043, CI [+0.0015, +0.0076]) -- the served 1.20 is
+        # already right and refitting it only adds variance. Its `home_adv`
+        # 80->60 candidate won selection but failed to replicate on the
+        # confirmation season (+0.0002, CI [-0.0056, +0.0057]), so 80 stands.
+        "model_params": {},
         "cold_start_teams": ("Racing Santander",),
     },
     "bundesliga": {
@@ -115,6 +139,12 @@ LEAGUES: dict[str, LeagueConfig] = {
         "club_division": "D1",
         "history_min_matches": 2_500,
         "home_advantage": 60.0,
+        # base 1.20 -> 1.44, the one change CONFIRMED on held-out data
+        # (-0.0447 O/U 2.5, CI [-0.0756, -0.0126], n=306 unseen matches).
+        # The served internationals base implied 2.579 goals/match against
+        # Bundesliga's realized 3.096 -- a -16.7% totals bias that left the
+        # O/U book losing to a constant (LL 0.7001 vs 0.6738).
+        "model_params": {"base": 1.44},
         "cold_start_teams": ("SV Elversberg",),
     },
 }
@@ -153,6 +183,50 @@ PHASE_2_ACTIVATION_CHECKLIST: tuple[str, ...] = (
     "4. Founder API-Football-quota check (design doc Phasing section): "
     "verified that three active leagues fit the configured daily allowance.",
 )
+
+
+# Served club model version. v0.1 = the global internationals-fitted params
+# applied unchanged to every league. v0.2 = per-league fitted params, from the
+# club program in docs/MODEL-EXPERIMENTS.md (pre-registered candidates,
+# walk-forward selection clustered by season, one confirmation run on a
+# quarantined season).
+#
+# All three leagues carry the v0.2 tag even though La Liga's fitted result was
+# "no change from the global values" -- v0.2 names the PROCESS (per-league
+# fitting) rather than a specific delta, and a single version across the three
+# keeps one ledger on the record page. Safe to renumber wholesale because no
+# league match has been played yet: first kickoff is 2026-08-15.
+CLUB_MODEL_VERSION = "poisson-elo-club-v0.2"
+
+# The previous version, retained as the shadow twin so the promotion is
+# measurable in live conditions rather than only offline.
+CLUB_SHADOW_BASELINE_VERSION = "poisson-elo-club-v0.1"
+
+
+def club_params_for(code: str) -> "ModelParams":
+    """Global engine params with ``code``'s fitted overrides applied.
+
+    model_params.json is fitted on INTERNATIONAL football; its goal rate does
+    not transfer to club leagues (Bundesliga's served base implied 2.579
+    goals/match against a realized 3.096). Each league's own gated overrides
+    live in its LEAGUES entry; a league with none gets the global values
+    unchanged, which is a real fitted outcome and not an oversight.
+    """
+    from dataclasses import replace
+
+    from ml.models.params import load_params
+
+    overrides = LEAGUES[code]["model_params"]
+    return replace(load_params(), version=CLUB_MODEL_VERSION, **overrides)
+
+
+def club_baseline_params_for(code: str) -> "ModelParams":
+    """The v0.1 shadow twin: global params, no per-league overrides."""
+    from dataclasses import replace
+
+    from ml.models.params import load_params
+
+    return replace(load_params(), version=CLUB_SHADOW_BASELINE_VERSION)
 
 
 def club_competitions() -> frozenset[str]:

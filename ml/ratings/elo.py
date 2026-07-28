@@ -62,8 +62,17 @@ def update_ratings(
     competition: str | None = None,
     is_neutral: bool = False,
     home_advantage: float = HOME_ADVANTAGE,
+    k: float | None = None,
 ) -> tuple[float, float]:
-    """Return updated (home, away) ratings after one match. Pure."""
+    """Return updated (home, away) ratings after one match. Pure.
+
+    ``k`` overrides the competition-derived K factor. None (the default) keeps
+    the k_factor() lookup, so every existing caller is bit-identical. The
+    override exists because k_factor() has no club branch — every club match
+    falls through to the catch-all 30.0, a value inherited from the
+    internationals convention and never fitted (candidate T1.7,
+    docs/MODEL-EXPERIMENTS.md).
+    """
     adv = 0.0 if is_neutral else home_advantage
     exp_home = expected_score(rating_home, rating_away, adv)
 
@@ -74,7 +83,7 @@ def update_ratings(
     else:
         w_home = 0.0
 
-    k = k_factor(competition)
+    k = k_factor(competition) if k is None else k
     g = goal_diff_multiplier(score_home - score_away)
     delta = k * g * (w_home - exp_home)
     # Elo is zero-sum: what home gains, away loses.
