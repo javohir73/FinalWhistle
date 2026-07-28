@@ -1,0 +1,113 @@
+/* ============================================================
+   BASE — body atmosphere, selection, scrollbar, reusable
+   helper classes, and keyframes. Consumers get the signature
+   FinalWhistle canvas (atmospheric glow + film grain) by
+   linking styles.css; opt into helpers with the .fw-* classes.
+   ============================================================ */
+
+body {
+  margin: 0;
+  color: var(--text-body);
+  background-color: var(--surface-canvas);
+  font-family: var(--font-body);
+  font-feature-settings: "ss01", "cv01", "tnum";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Layered atmosphere — fixed so it doesn't scroll with content. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: var(--atmosphere);
+}
+/* Fine film grain over the atmosphere. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+body > * { position: relative; z-index: 1; }
+
+/* ---- Helper: glass card ---- */
+.fw-glass {
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+}
+
+/* ---- Helper: hover-lift card ---- */
+.fw-card-hover {
+  transition: transform var(--dur-base) var(--ease-out-expo),
+    border-color var(--dur-base) ease, box-shadow var(--dur-base) ease;
+}
+.fw-card-hover:hover {
+  transform: translateY(-3px);
+  border-color: var(--border-accent);
+  box-shadow: var(--shadow-hover);
+}
+
+/* ---- Helper: chip ---- */
+.fw-chip {
+  border: 1px solid var(--border-hairline);
+  background: hsl(var(--c-surface-2) / 0.6);
+}
+
+/* ---- Helper: lime text gradient ---- */
+.fw-text-gradient {
+  background: var(--gradient-text);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Eyebrow / label ---- */
+.fw-eyebrow {
+  font-family: var(--font-display);
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-eyebrow);
+  color: var(--text-muted);
+}
+
+/* ---- Focus ring ---- */
+:focus-visible {
+  outline: 2px solid hsl(var(--c-win));
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ---- Selection + scrollbar ---- */
+::selection { background: hsl(var(--c-win) / 0.25); color: var(--text-strong); }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--surface-canvas); }
+::-webkit-scrollbar-thumb { background: var(--border-hairline); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--c-muted) / 0.5); }
+
+/* ---- Motion ---- */
+@keyframes fwFadeUp {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fw-fade-up { animation: fwFadeUp var(--dur-slow) var(--ease-out-expo) both; }
+
+@keyframes fwPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.fw-pulse { animation: fwPulse 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fw-fade-up, .fw-pulse { animation: none; }
+  .fw-card-hover { transition: none; }
+  .fw-card-hover:hover { transform: none; }
+}

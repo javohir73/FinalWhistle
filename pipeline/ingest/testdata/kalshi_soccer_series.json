@@ -1,0 +1,25 @@
+{
+  "series": [
+    {
+      "ticker": "KXEPLGAME",
+      "title": "English Premier League Game",
+      "category": "Sports",
+      "tags": ["Soccer"],
+      "product_metadata": {"scope": "Game"}
+    },
+    {
+      "ticker": "KXLIGAMXBTTS",
+      "title": "Liga MX BTTS",
+      "category": "Sports",
+      "tags": ["Soccer"],
+      "product_metadata": {"scope": "BTTS"}
+    },
+    {
+      "ticker": "KXNFLGAME",
+      "title": "Pro Football Game",
+      "category": "Sports",
+      "tags": ["Football"],
+      "product_metadata": {"scope": "Game"}
+    }
+  ]
+}

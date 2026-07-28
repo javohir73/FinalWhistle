@@ -1,0 +1,40 @@
+/* ============================================================
+   TYPOGRAPHY TOKENS
+   Two grotesques. Display = Bricolage (tight tracking, heavy
+   weights, used for headlines, team names, scores, numbers).
+   Body = Hanken (relaxed, readable). Tabular figures on for all
+   stats so columns of numbers align.
+   ============================================================ */
+:root {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-body: "Hanken Grotesk", system-ui, sans-serif;
+
+  /* Type scale (rem) — display-led, tight at the top */
+  --text-display: 3.5rem;   /* hero headline */
+  --text-h1: 2.5rem;        /* page title */
+  --text-h2: 1.75rem;       /* section heading */
+  --text-h3: 1.25rem;       /* card heading */
+  --text-lg: 1.125rem;      /* lead / sub-paragraph */
+  --text-base: 1rem;        /* body */
+  --text-sm: 0.875rem;      /* secondary */
+  --text-xs: 0.75rem;       /* meta */
+  --text-2xs: 0.6875rem;    /* eyebrow / pill text */
+
+  /* Weights */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extra: 800;
+
+  /* Line heights */
+  --leading-tight: 1.05;    /* big display */
+  --leading-snug: 1.25;     /* headings */
+  --leading-normal: 1.55;   /* body copy */
+
+  /* Tracking */
+  --tracking-tight: -0.02em;   /* display headlines */
+  --tracking-normal: 0;
+  --tracking-wide: 0.02em;
+  --tracking-eyebrow: 0.08em;  /* uppercase eyebrows / labels */
+}

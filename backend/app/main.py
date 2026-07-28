@@ -84,6 +84,7 @@ async def cache_control(request: Request, call_next):
     path = request.url.path
     if (
         path.startswith("/api/auth")
+        or path.startswith("/api/internal")
         or path.startswith("/api/brackets")
         or path.startswith("/api/match-picks")
         # Beat-the-AI loop (Slice 2): device-keyed, per-caller like the routes

@@ -1,0 +1,38 @@
+/* ============================================================
+   EFFECTS — shadows, glass, glows, gradients, motion.
+   The signature look: glassy translucent cards over a layered
+   atmospheric radial glow + a faint film grain. Accent glows
+   are lime; hover lifts cards 3px with a lime-tinted shadow.
+   ============================================================ */
+:root {
+  /* Elevation shadows */
+  --shadow-sm: 0 1px 2px hsl(0 0% 0% / 0.4);
+  --shadow-md: 0 8px 24px -8px hsl(0 0% 0% / 0.5);
+  --shadow-lg: 0 18px 50px -12px hsl(0 0% 0% / 0.6);
+  --shadow-hover: 0 0 0 1px hsl(var(--c-win) / 0.2),
+                  0 18px 50px -12px hsl(84 78% 30% / 0.45);
+
+  /* Accent glows */
+  --glow-win: 0 0 8px hsl(var(--c-win));
+  --glow-soft-win: 0 0 24px hsl(var(--c-win) / 0.35);
+
+  /* Glass card surface (translucent + blur) */
+  --glass-bg: linear-gradient(160deg, hsl(var(--c-surface) / 0.9), hsl(var(--c-surface-2) / 0.75)); /* @kind other */
+  --glass-border: 1px solid hsl(var(--c-border) / 0.8); /* @kind other */
+  --glass-blur: 12px;
+
+  /* Atmospheric backdrop — fixed radial glows behind everything */
+  --atmosphere:
+    radial-gradient(60rem 40rem at 80% -10%, hsl(84 78% 55% / 0.10), transparent 60%),
+    radial-gradient(50rem 40rem at -10% 10%, hsl(43 74% 62% / 0.06), transparent 55%),
+    radial-gradient(40rem 30rem at 50% 120%, hsl(156 40% 20% / 0.5), transparent 60%); /* @kind other */
+
+  /* Lime text gradient (used on headline emphasis words) */
+  --gradient-text: linear-gradient(120deg, hsl(var(--c-foreground)), hsl(var(--c-win))); /* @kind other */
+
+  /* Motion */
+  --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1); /* @kind other */
+  --dur-fast: 0.15s; /* @kind other */
+  --dur-base: 0.25s; /* @kind other */
+  --dur-slow: 0.55s; /* @kind other */
+}

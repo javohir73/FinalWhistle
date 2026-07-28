@@ -92,20 +92,21 @@ def test_title_rows_map_by_team_and_skip_unknown():
     assert out[0].implied_prob == pytest.approx(0.31)
 
 
-def test_run_idempotent_per_hour_and_prunes(monkeypatch):
+def test_run_idempotent_per_hour_and_preserves_history(monkeypatch):
     db = _session()
     _seed_football(db)
     monkeypatch.setattr(market_intel, "CONFIGS", [
         market_intel.SourceConfig("football", "polymarket", lambda: _match_rows()),
     ])
-    db.add(MarketOddsSnapshot(  # 15 days old -> pruned
+    db.add(MarketOddsSnapshot(  # Historical observations are permanent.
         sport="football", source="polymarket", market_type="title_winner",
         team_id=1, outcome="win", implied_prob=0.5, external_id="old",
         fetched_at=NOW - timedelta(days=15)))
     db.commit()
     assert market_intel.run(db, NOW) == 3
     assert market_intel.run(db, NOW) == 3  # same hour re-run: replaced, not duped
-    assert db.query(MarketOddsSnapshot).count() == 3  # old row pruned
+    assert db.query(MarketOddsSnapshot).count() == 4
+    assert db.query(MarketOddsSnapshot).filter_by(external_id="old").one()
 
 
 def test_kalshi_leg_failure_does_not_drop_the_other_leg(monkeypatch):

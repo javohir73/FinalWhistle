@@ -4,7 +4,7 @@ from ml.models.params import DEFAULT_PARAMS
 from pipeline.promote_blend import promoted_params
 
 
-def test_promoted_params_sets_capped_w_odds_and_version():
+def test_promoted_params_sets_w_odds_and_version():
     out = promoted_params(DEFAULT_PARAMS, w_odds=0.35, use_availability=False,
                           version="poisson-elo-v0.6")
     assert out.w_odds == 0.35
@@ -12,10 +12,17 @@ def test_promoted_params_sets_capped_w_odds_and_version():
     assert out.use_availability is False
 
 
-def test_promoted_params_rejects_weight_above_cap():
+@pytest.mark.parametrize("weight", [-0.01, 1.01])
+def test_promoted_params_rejects_weight_outside_probability_range(weight):
     with pytest.raises(ValueError):
-        promoted_params(DEFAULT_PARAMS, w_odds=0.51, use_availability=False,
+        promoted_params(DEFAULT_PARAMS, w_odds=weight, use_availability=False,
                         version="poisson-elo-v0.6")
+
+
+def test_promoted_params_accepts_market_only_endpoint():
+    out = promoted_params(DEFAULT_PARAMS, w_odds=1.0, use_availability=False,
+                          version="poisson-elo-v0.6")
+    assert out.w_odds == 1.0
 
 
 def test_promoted_params_rejects_nonpositive_weight_without_availability():

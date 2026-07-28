@@ -1,0 +1,37 @@
+{
+  "events": [
+    {
+      "id": "event-101",
+      "slug": "arsenal-vs-chelsea-2026-08-01",
+      "title": "Arsenal vs Chelsea",
+      "markets": [
+        {
+          "id": "market-501",
+          "conditionId": "0xaaa",
+          "question": "Will Arsenal win on 2026-08-01?",
+          "active": true,
+          "closed": false,
+          "sportsMarketType": "Moneyline"
+        }
+      ]
+    },
+    {
+      "id": "event-103",
+      "slug": "ballon-dor-winner-2026",
+      "title": "Ballon d'Or Winner 2026",
+      "markets": [
+        {
+          "id": "market-503",
+          "conditionId": "0xccc",
+          "question": "Will Example Player win the 2026 Ballon d'Or?",
+          "active": false,
+          "closed": true,
+          "sportsMarketType": "Award Winner",
+          "startDateIso": "2025-09-22T23:39:02Z",
+          "endDateIso": "2026-10-31T00:00:00Z",
+          "clobTokenIds": "[\"yes-ccc\", \"no-ccc\"]"
+        }
+      ]
+    }
+  ]
+}

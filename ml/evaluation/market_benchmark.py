@@ -13,7 +13,8 @@ from __future__ import annotations
 import math
 import random
 from dataclasses import dataclass
-from datetime import date as date_type
+from datetime import date as date_type, datetime
+from collections import Counter, defaultdict
 
 from ml.evaluation.backtest import compute_metrics
 from ml.evaluation.naive_baseline import Probs
@@ -291,3 +292,180 @@ def format_report(result: dict, title: str) -> str:
         f"  verdict: {verdict}",
     ]
     return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class InPlayObservation:
+    """One already-normalized pure-model/venue observation pair."""
+
+    match_id: int
+    venue: str
+    market_type: str
+    minute: float | None
+    period: str
+    model_probs: tuple[float, ...]
+    venue_probs: tuple[float, ...]
+    label: int
+    tick_ts: datetime
+    model_state_ts: datetime
+    quote_source_ts: datetime | None
+    model_score: tuple[int, int]
+    venue_score: tuple[int, int]
+    mapping_status: str = "mapped"
+    supported: bool = True
+    settled_at: datetime | None = None
+    competition: str = "unknown"
+    model_cards: tuple[int, int] = (0, 0)
+    venue_cards: tuple[int, int] = (0, 0)
+
+
+def inplay_horizon(minute: float | None, period: str) -> str | None:
+    """Precommitted left-closed buckets; 90 is included in the final bucket."""
+    if period == "half_time":
+        return "halftime"
+    if minute is None or minute < 0 or minute > 90:
+        return None
+    bounds = [(15, "0-15"), (30, "15-30"), (45, "30-45"), (60, "45-60"), (75, "60-75")]
+    for end, label in bounds:
+        if minute < end:
+            return label
+    return "75-90"
+
+
+def _generic_metrics(rows: list[tuple[tuple[float, ...], int]]) -> dict:
+    losses = []
+    briers = []
+    correct = 0
+    bins = defaultdict(list)
+    for probs, label in rows:
+        p = max(_EPS, min(1 - _EPS, probs[label]))
+        losses.append(-math.log(p))
+        briers.append(sum((value - (index == label)) ** 2 for index, value in enumerate(probs)))
+        prediction = max(range(len(probs)), key=probs.__getitem__)
+        correct += prediction == label
+        confidence = max(probs)
+        bins[min(9, int(confidence * 10))].append((confidence, prediction == label))
+    n = len(rows)
+    ece = sum(
+        len(values) / n * abs(sum(conf for conf, _ in values) / len(values) - sum(ok for _, ok in values) / len(values))
+        for values in bins.values()
+    )
+    return {"log_loss": sum(losses) / n, "brier": sum(briers) / n, "accuracy": correct / n, "ece10": ece}
+
+
+def _clustered_ci(diffs_by_match: dict[int, list[float]], *, n_bootstrap: int, seed: int) -> tuple[float, float]:
+    match_ids = sorted(diffs_by_match)
+    rng = random.Random(seed)
+    means = []
+    for _ in range(n_bootstrap):
+        sampled = [match_ids[rng.randrange(len(match_ids))] for _ in match_ids]
+        values = [value for match_id in sampled for value in diffs_by_match[match_id]]
+        means.append(sum(values) / len(values))
+    means.sort()
+    return means[int(.025 * n_bootstrap)], means[min(n_bootstrap - 1, int(.975 * n_bootstrap))]
+
+
+def benchmark_inplay(
+    observations: list[InPlayObservation],
+    *,
+    held_out_cutoff: datetime,
+    max_alignment_seconds: float = 10,
+    max_quote_age_seconds: float = 30,
+    minimum_matches: int = 5,
+    n_bootstrap: int = 2000,
+    seed: int = 20260727,
+) -> dict:
+    """Score comparable observations, separated by venue/type/horizon.
+
+    Bootstrap samples match IDs and carries every selected tick from each sampled
+    match. Exclusions are reported and never silently pooled.
+    """
+    exclusions = Counter()
+    selected = []
+    for row in observations:
+        horizon = inplay_horizon(row.minute, row.period)
+        if row.tick_ts < held_out_cutoff:
+            exclusions["before_held_out_cutoff"] += 1
+        elif row.mapping_status != "mapped":
+            exclusions["unresolved_mapping"] += 1
+        elif not row.supported:
+            exclusions["unsupported_outcome"] += 1
+        elif row.model_score != row.venue_score:
+            exclusions["score_state_mismatch"] += 1
+        elif row.model_cards != row.venue_cards:
+            exclusions["card_state_mismatch"] += 1
+        elif abs((row.tick_ts - row.model_state_ts).total_seconds()) > max_alignment_seconds:
+            exclusions["model_state_misaligned"] += 1
+        elif row.quote_source_ts is None or (row.tick_ts - row.quote_source_ts).total_seconds() > max_quote_age_seconds:
+            exclusions["stale_or_missing_quote_time"] += 1
+        elif row.settled_at is not None and row.tick_ts >= row.settled_at:
+            exclusions["post_settlement_tick"] += 1
+        elif horizon is None:
+            exclusions["outside_regulation_horizon"] += 1
+        elif len(row.model_probs) != len(row.venue_probs) or row.label >= len(row.model_probs):
+            exclusions["outcome_shape_mismatch"] += 1
+        elif any(value < 0 or value > 1 for value in (*row.model_probs, *row.venue_probs)):
+            exclusions["invalid_probability"] += 1
+        else:
+            model_total, venue_total = sum(row.model_probs), sum(row.venue_probs)
+            if model_total <= 0 or venue_total <= 0:
+                exclusions["invalid_probability"] += 1
+            else:
+                selected.append((row, horizon, tuple(v / model_total for v in row.model_probs), tuple(v / venue_total for v in row.venue_probs)))
+
+    groups = defaultdict(list)
+    for item in selected:
+        row, horizon, _model, _venue = item
+        groups[(row.venue, row.market_type, horizon)].append(item)
+    input_group_counts = Counter(
+        (row.venue, row.market_type, horizon)
+        for row in observations
+        if (horizon := inplay_horizon(row.minute, row.period)) is not None
+    )
+    results = []
+    for (venue, market_type, horizon), rows in sorted(groups.items()):
+        model_rows = [(model, row.label) for row, _h, model, _venue in rows]
+        venue_rows = [(venue_probs, row.label) for row, _h, _model, venue_probs in rows]
+        diffs_by_match = defaultdict(list)
+        for row, _h, model, venue_probs in rows:
+            diffs_by_match[row.match_id].append(-math.log(max(model[row.label], _EPS)) + math.log(max(venue_probs[row.label], _EPS)))
+        n_matches = len(diffs_by_match)
+        diff = sum(value for values in diffs_by_match.values() for value in values) / len(rows)
+        ci = _clustered_ci(diffs_by_match, n_bootstrap=n_bootstrap, seed=seed) if n_matches >= 2 else None
+        status = "ready" if n_matches >= minimum_matches else "insufficient"
+        verdict = "insufficient"
+        if status == "ready" and ci is not None:
+            verdict = "beating" if ci[1] < 0 else ("beaten" if ci[0] > 0 else "inconclusive")
+        results.append({
+            "venue": venue,
+            "market_type": market_type,
+            "horizon": horizon,
+            "status": status,
+            "verdict": verdict,
+            "sample_matches": n_matches,
+            "paired_ticks": len(rows),
+            "coverage": len(rows) / input_group_counts[(venue, market_type, horizon)],
+            "competition_counts": dict(sorted(Counter(row.competition for row, *_rest in rows).items())),
+            "model": _generic_metrics(model_rows),
+            "venue_metrics": _generic_metrics(venue_rows),
+            "diff_log_loss": diff,
+            "diff_ci95": list(ci) if ci is not None else None,
+            "model_match_win_rate": sum(
+                sum(values) / len(values) < 0 for values in diffs_by_match.values()
+            ) / n_matches,
+            "model_tick_win_rate": sum(value < 0 for values in diffs_by_match.values() for value in values) / len(rows),
+        })
+    return {
+        "precommit": {
+            "held_out_cutoff": held_out_cutoff.isoformat(),
+            "max_alignment_seconds": max_alignment_seconds,
+            "max_quote_age_seconds": max_quote_age_seconds,
+            "minimum_matches": minimum_matches,
+            "bootstrap_unit": "match",
+            "bootstrap_seed": seed,
+            "bootstrap_samples": n_bootstrap,
+            "horizons": ["0-15", "15-30", "30-45", "halftime", "45-60", "60-75", "75-90"],
+        },
+        "population": {"input_observations": len(observations), "included_observations": len(selected), "excluded_observations": sum(exclusions.values()), "exclusions": dict(sorted(exclusions.items()))},
+        "groups": results,
+    }

@@ -1,0 +1,85 @@
+{
+  "cross_venue": {
+    "diverging_at_least_3c": 0,
+    "favorite_disagreements": 0,
+    "log_loss": {
+      "consensus": 0.8045180696033994,
+      "kalshi": 0.8029148525033223,
+      "model": 0.8458948478710296,
+      "polymarket": 0.8062228480601329
+    },
+    "max_outcome_divergence": 0.02164911836225758,
+    "median_max_outcome_divergence": 0.0059216114549204835,
+    "n_matches": 93,
+    "p90_max_outcome_divergence": 0.013702062450113727
+  },
+  "generated_from": "docs/experiments/2026-07-23-wc26-postmortem/exchange-prices-n104.json",
+  "input_sha256": "d1aa8ed140830dd5f1a73759ba90ce580ad53e927bcf0c66392af41f237edb42",
+  "method": {
+    "bootstrap": {
+      "note": "Recomputed interval; historical published CI is retained separately because its original seed was not recorded.",
+      "samples": 10000,
+      "seed": 20260727,
+      "unit": "match"
+    },
+    "devigging": "Proportional normalization to sum each three-outcome vector to one.",
+    "grading": "Regulation-time home/draw/away result.",
+    "limitations": [
+      "Historical prices were reconstructed post-hoc at different fidelities.",
+      "The audit measures pre-kickoff 1X2 only, not in-play or derived markets.",
+      "The original CI seed was not recorded; its published intervals are frozen evidence values.",
+      "Consensus is evaluated as robustness context, not claimed as an accuracy improvement."
+    ],
+    "population": "All 104 WC26 matches; venue rows require all three 1X2 outcomes.",
+    "snapshots": "Last reconstructed pre-kickoff observation; not simultaneous across venues."
+  },
+  "study": "2026 World Cup pre-kickoff 1X2 venue calibration",
+  "venues": {
+    "kalshi": {
+      "diff_ci95": [
+        0.0173,
+        0.1105
+      ],
+      "diff_log_loss": 0.06396831728002872,
+      "model": {
+        "brier": 0.5326557059718771,
+        "favorite_hit_rate": 0.6153846153846154,
+        "log_loss": 0.9042090094919453
+      },
+      "n_matches": 104,
+      "recomputed_diff_ci95": [
+        0.0184447386256302,
+        0.11047159683937093
+      ],
+      "venue": {
+        "brier": 0.496650606365525,
+        "favorite_hit_rate": 0.6346153846153846,
+        "log_loss": 0.8402406922119166
+      },
+      "verdict": "beaten"
+    },
+    "polymarket": {
+      "diff_ci95": [
+        -0.0059,
+        0.0878
+      ],
+      "diff_log_loss": 0.03967199981089675,
+      "model": {
+        "brier": 0.49533081005352025,
+        "favorite_hit_rate": 0.6344086021505376,
+        "log_loss": 0.8458948478710296
+      },
+      "n_matches": 93,
+      "recomputed_diff_ci95": [
+        -0.006284910160033323,
+        0.08736533582223326
+      ],
+      "venue": {
+        "brier": 0.47319242142750373,
+        "favorite_hit_rate": 0.6559139784946236,
+        "log_loss": 0.8062228480601329
+      },
+      "verdict": "inconclusive"
+    }
+  }
+}

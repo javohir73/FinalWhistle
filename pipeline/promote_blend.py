@@ -1,6 +1,6 @@
 """Promote the market-odds blend / availability adjustment (spec §4.2).
 
-Params-only: flips ``w_odds`` (hard cap 0.5 — the market is never primary)
+Params-only: flips ``w_odds`` across the full inclusive probability range
 and/or ``use_availability`` on model_params.json and bumps the version.
 Dry-run by default; --ship writes the file. Merge + deploy stay human-gated.
 
@@ -21,19 +21,14 @@ from ml.models.params import ModelParams, load_params, save_params
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
 
-W_ODDS_CAP = 0.5
-
-
 def promoted_params(params: ModelParams, w_odds: float, use_availability: bool,
                     version: str, *, use_odds: bool = False) -> ModelParams:
     """The promoted engine: same params with the blend legs flipped on.
 
     ``use_odds`` flips the PRODUCTION serving path (generate_predictions
     _odds_anchored) — w_odds alone only arms the shadow twin."""
-    if w_odds > W_ODDS_CAP:
-        raise ValueError(f"w_odds {w_odds} exceeds cap {W_ODDS_CAP} (market is never primary)")
-    if w_odds < 0:
-        raise ValueError(f"w_odds must be >= 0, got {w_odds}")
+    if not 0 <= w_odds <= 1:
+        raise ValueError(f"w_odds must be within [0, 1], got {w_odds}")
     if use_odds and w_odds <= 0:
         raise ValueError("--use-odds requires w_odds > 0 (nothing to serve)")
     if w_odds == 0 and not use_availability:

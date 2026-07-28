@@ -19,6 +19,7 @@ Production baseline section below).
 
 | Date | Candidate | Holdout | Metric deltas (vs control) | Bootstrap CI / uncertainty | Verdict |
 |---|---|---|---|---|---|
+| 2026-07-27 | Prediction-market P4 in-play gate precommit | Held-out capture begins 2026-10-01; no observations yet | insufficient | N/A | **NO BRANCH SELECTED** — P5A/P5B remain blocked until a frozen P3 group is classified; see `docs/experiments/2026-07-27-p4-gate-status/EVIDENCE-CARD.md` |
 | 2026-07-02 | Unrestricted grid argmax (drop DRAW_HEADLINE_BAND outcome restriction) | 1,843 major-finals matches, 2004+, v0.2 params | top1 14.70% vs 14.76% (−0.05pp) | [−1.66, +1.53] | **REFUTED** — no gain; restriction is not costing hits |
 | 2026-07-02 | Re-tune base/beta/rho on top-1 (base 1.00–1.35 × rho −0.25–0.0 sweep) | same | best in-sample +0.22pp (base=1.0, rho=−0.25) | Exploratory in-sample screen; no bootstrap CI; within ±0.8pp binomial SE | **REFUTED** — in-sample upper bound below noise; v0.2 params stand |
 | 2026-07-02 | KO lambda multiplier 0.85× (`run_ko_multiplier_gate`, FR-4.7) | 480 knockout matches / 53 editions, 2004+, v0.2 params (KO inferred structurally; base top1 13.96%) | exactNLL +0.0336, top1 −0.63pp, logloss +0.0047 | exactNLL [+0.0050, +0.0626] (worse, significant) | **REFUTED** — grids get significantly worse |

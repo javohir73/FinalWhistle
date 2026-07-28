@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Callable
 
 from sqlalchemy.orm import Session
@@ -22,7 +22,6 @@ from pipeline.ingest.market_names import build_team_index, normalize
 
 log = logging.getLogger(__name__)
 
-RETENTION_DAYS = 14
 #: Title groups whose mapped outcomes sum below this keep raw prices —
 #: rescaling an incomplete outcome set would inflate every probability.
 _DEVIG_FLOOR = 0.9
@@ -167,13 +166,6 @@ def _replace_hour(db: Session, sport: str, source: str, hour: datetime,
     return len(rows)
 
 
-def _prune(db: Session, now: datetime) -> None:
-    cutoff = now - timedelta(days=RETENTION_DAYS)
-    db.query(MarketOddsSnapshot).filter(
-        MarketOddsSnapshot.fetched_at < cutoff).delete(synchronize_session=False)
-    db.commit()
-
-
 def run(db: Session, now: datetime) -> int:
     hour = now.replace(minute=0, second=0, microsecond=0)
     total = 0
@@ -187,7 +179,6 @@ def run(db: Session, now: datetime) -> int:
         except Exception:
             db.rollback()
             log.exception("market intel: %s/%s failed", cfg.source, cfg.sport)
-    _prune(db, now)
     if succeeded == 0:
         raise RuntimeError("market intel: every source failed")
     if total == 0:
