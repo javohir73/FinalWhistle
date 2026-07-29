@@ -120,6 +120,46 @@ def test_stream_identity_ignores_a_scheduled_cycle():
     assert identity.observation_key == "event:seq-3"
 
 
+def test_streaming_and_recovery_delivery_of_one_event_share_identity():
+    """One venue event is one observation, whichever path delivered it.
+
+    Gap recovery re-fetches events the stream may already have delivered. If
+    transport were part of the key the two deliveries would take two rows and
+    no uniqueness constraint could tell -- one event counted twice, in a table
+    whose whole purpose is counting.
+    """
+    streamed = _quote(transport="streaming", observed_at=NOW,
+                      source_ts=NOW, source_event_id="seq-9001")
+    recovered = _quote(transport="recovery",
+                       observed_at=NOW + timedelta(minutes=30),
+                       source_ts=NOW, source_event_id="seq-9001")
+
+    assert tick_identity(streamed) == tick_identity(recovered)
+    assert hash(tick_identity(streamed)) == hash(tick_identity(recovered))
+
+
+def test_transport_is_carried_as_provenance_but_never_compared():
+    streamed = tick_identity(_quote(transport="streaming", source_ts=NOW,
+                                    source_event_id="seq-1"))
+    recovered = tick_identity(_quote(transport="recovery", source_ts=NOW,
+                                     source_event_id="seq-1"))
+
+    assert streamed.transport == "streaming"
+    assert recovered.transport == "recovery"
+    assert streamed == recovered  # provenance differs, identity does not
+
+
+def test_polling_and_stream_families_cannot_collide():
+    """The cycle:/event: prefix is what separates them, not transport."""
+    polling = tick_identity(_quote(), scheduled_cycle_at=NOW)
+    streamed = tick_identity(_quote(transport="streaming", source_ts=NOW,
+                                    source_event_id="seq-1"))
+
+    assert polling != streamed
+    assert polling.observation_key.startswith("cycle:")
+    assert streamed.observation_key.startswith("event:")
+
+
 def test_distinct_stream_events_keep_distinct_identities():
     one = tick_identity(_quote(transport="streaming", source_ts=NOW,
                                source_event_id="seq-1"))

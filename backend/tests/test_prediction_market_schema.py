@@ -51,9 +51,11 @@ def _tick(market_id, **overrides):
     values = {
         "venue_market_id": market_id,
         "ts": NOW,
+        "observed_at": NOW,
         "transport": "polling",
         "observation_key": "cycle:2026-07-26T05:00:00+00:00",
         "scheduled_cycle_at": NOW,
+        "in_play_state_supported": False,
         "yes_bid": 0.44,
         "yes_ask": 0.48,
         "last": 0.46,
@@ -374,6 +376,117 @@ def test_heartbeat_cannot_complete_before_its_cycle():
             cycle_duration_ms=0,
         )
     )
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_recovery_redelivery_of_a_streamed_event_is_one_row():
+    """The same venue event over two transports must not be counted twice."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, transport="streaming", observation_key="event:seq-9001",
+                 source_event_id="seq-9001", source_ts=NOW, scheduled_cycle_at=None))
+    db.commit()
+
+    db.add(_tick(market.id, transport="recovery", observation_key="event:seq-9001",
+                 source_event_id="seq-9001", source_ts=NOW, scheduled_cycle_at=None,
+                 observed_at=NOW + timedelta(minutes=30), mid=0.47))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+    assert db.query(VenuePriceTick).count() == 1
+    assert db.query(VenuePriceTick).one().transport == "streaming"
+
+
+def test_transport_records_which_events_only_recovery_saw():
+    """First-delivery provenance survives: recovery-only rows stay labelled."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add_all([
+        _tick(market.id, transport="streaming", observation_key="event:seq-1",
+              source_event_id="seq-1", source_ts=NOW, scheduled_cycle_at=None),
+        _tick(market.id, transport="recovery", observation_key="event:seq-2",
+              source_event_id="seq-2", source_ts=NOW, scheduled_cycle_at=None),
+    ])
+    db.commit()
+
+    missed = db.query(VenuePriceTick).filter_by(transport="recovery").all()
+    assert [row.observation_key for row in missed] == ["event:seq-2"]
+
+
+def test_transport_is_not_part_of_the_primary_key():
+    assert [column.name for column in VenuePriceTick.__table__.primary_key] == [
+        "venue_market_id", "ts", "observation_key"]
+
+
+def test_source_to_arrival_latency_survives_persistence():
+    """A stream tick's ts IS its source_ts, so latency needs its own column.
+
+    Computing it as `ts - source_ts` -- as the stream-control report in the
+    original branch did -- yields exactly zero for every stream tick, forever.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    arrived = NOW + timedelta(milliseconds=2500)
+    db.add(_tick(market.id, transport="streaming", observation_key="event:seq-1",
+                 source_event_id="seq-1", source_ts=NOW, ts=NOW,
+                 scheduled_cycle_at=None, observed_at=arrived))
+    db.commit()
+
+    row = db.query(VenuePriceTick).one()
+    assert (row.ts - row.source_ts).total_seconds() == 0
+    assert (row.observed_at - row.source_ts).total_seconds() == 2.5
+
+
+@pytest.mark.parametrize("missing", ["observed_at", "in_play_state_supported"])
+def test_arrival_time_and_in_play_capability_must_be_stated(missing):
+    """Both are NOT NULL, so a writer that omits them fails loudly.
+
+    in_play_state_supported especially: a nullable capability would defeat its
+    own guard, since a CHECK that evaluates UNKNOWN passes.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    values = {"venue_market_id": market.id, "ts": NOW, "transport": "polling",
+              "observation_key": "cycle:a", "observed_at": NOW,
+              "in_play_state_supported": False,
+              "raw_payload_ref": "raw/kalshi/KX-1/x.json"}
+    del values[missing]
+    db.add(VenuePriceTick(**values))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+@pytest.mark.parametrize("detail", [
+    {},                                # ambiguous silence
+    {"home_score": 1, "away_score": 0},  # detail the guard would have let past
+    {"clock_state": "63'"},
+])
+def test_a_null_capability_stores_nothing_at_all(detail):
+    """NULL is not a third answer, for silence or for detail.
+
+    The negated guard `NOT (supported = false AND ...)` evaluates UNKNOWN when
+    the capability is NULL, and a CHECK that evaluates UNKNOWN passes -- so a
+    row could carry a score no venue ever published simply by declining to say
+    whether the venue publishes scores. NOT NULL closes it at the column, and
+    the guard is now written positively so it never depends on that.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, in_play_state_supported=None, **detail))
 
     with pytest.raises(IntegrityError):
         db.commit()

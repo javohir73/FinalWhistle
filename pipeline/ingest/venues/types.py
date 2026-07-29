@@ -271,8 +271,12 @@ class VenueMarket:
 class Quote:
     """One full order-book observation returned by a venue adapter.
 
-    ``observed_at`` is OUR arrival time. It is diagnostic only and is never
-    part of a persistence key -- see :func:`tick_identity`.
+    ``observed_at`` is OUR arrival time. It is never part of a persistence key
+    -- see :func:`tick_identity` -- but it IS persisted, in its own
+    ``venue_price_tick.observed_at`` column. It has to be: a stream tick's
+    ``ts`` is its ``source_ts``, so source-to-arrival latency cannot be
+    recovered from the key, and the row's ``created_at`` is insert time, which
+    drifts from arrival under buffering or replay.
     """
 
     venue: str
@@ -375,13 +379,22 @@ class TickIdentity:
     logical observation time -- the scheduled cycle for polling, the venue's
     own event time for a stream -- and is stable across replay. A caller that
     substituted arrival time would give a redelivered event a fresh key.
+
+    ``transport`` rides along for the provenance column but is deliberately
+    excluded from equality and hashing, because it is NOT identity. One venue
+    event delivered over the stream and then redelivered by gap recovery is a
+    single observation; if transport keyed it, the two deliveries would take
+    two rows and no uniqueness constraint could tell. The ``cycle:`` /
+    ``event:`` prefix on ``observation_key`` already keeps the polling and
+    stream families apart, so the key needs nothing further.
     """
 
     venue: str
     venue_key: str
     ts: datetime
-    transport: Transport
     observation_key: str
+    #: First-delivery path, recorded but never compared.
+    transport: Transport = field(compare=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,9 +411,11 @@ def tick_identity(
 ) -> TickIdentity:
     """Return the stable logical key for one captured tick.
 
-    Transport alone decides the shape of the key, so a polling cycle that
-    happens to carry a venue event id still resolves to its cycle and a
-    retried cycle collapses onto the same row.
+    Transport decides the *shape* of the key without being *part* of it. A
+    polling cycle that happens to carry a venue event id still resolves to its
+    cycle, so a retried cycle collapses onto the same row; and one stream event
+    resolves to the same key whether it arrived by stream or by gap recovery,
+    so a redelivery collapses too.
 
     A stream event without a venue event id, or without the venue's own
     timestamp, has no stable identity. It is rejected rather than given one
@@ -433,8 +448,8 @@ def tick_identity(
         venue=quote.venue,
         venue_key=quote.venue_key,
         ts=ts,
-        transport=quote.transport,
         observation_key=observation_key,
+        transport=quote.transport,
     )
 
 

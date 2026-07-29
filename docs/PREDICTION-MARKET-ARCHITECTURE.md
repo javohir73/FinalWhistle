@@ -60,6 +60,24 @@ mints a fresh id per poll turns one retried cycle into two rows. And a stream
 event with no venue event id is rejected, not hashed: #203 hashed the payload,
 which gives redelivery a brand-new identity by construction.
 
+**Transport was in the key, so one event could be counted twice.** The
+original key was `(venue_market_id, ts, transport, observation_key)`. Gap
+recovery re-fetches events the stream may already have delivered; the same
+venue event arriving first as `streaming` and later as `recovery` took two
+different keys, and no constraint could see it. The `cycle:` / `event:` prefix
+on `observation_key` already separates the polling and stream families, so the
+key does not need transport at all — it drops to `(venue_market_id, ts,
+observation_key)` and transport becomes first-delivery provenance. Rows
+reading `recovery` are then exactly the events the stream missed, which is the
+signal worth keeping.
+
+**Arrival time had nowhere to live.** `ts` is a logical time; for a stream
+tick it *is* `source_ts`, so `ts - source_ts` is identically zero — and that
+is precisely how #203's `report_stream_control` computed latency, which would
+have reported zero for every stream tick forever. `venue_price_tick` now
+carries `observed_at` (NOT NULL). `created_at` is not a substitute: it is
+database insert time and separates from arrival under buffering or replay.
+
 **Live match state was a free-text string.** #203 stored `score:1-0;cards:2-0`
 in an 80-character column and regex-parsed it back out in the benchmark,
 returning `(-1, -1)` when absent. Those sentinels then failed an equality check
@@ -69,6 +87,13 @@ coverage, reported as disagreement — true about the rows, false about the
 cause. `InPlayState` separates *venue does not report* from *reported nothing
 here* from *reported and disagrees*, and the columns and check constraints hold
 that distinction at the table.
+
+The capability column is `NOT NULL`, and its guard is written positively
+(`supported = true OR all detail IS NULL`) rather than as a negation. That is
+not style: with a nullable capability, `NOT (supported = false AND …)`
+evaluates UNKNOWN, and **a CHECK constraint that evaluates UNKNOWN passes**. A
+row could carry a score no venue ever published, purely by declining to say
+whether the venue publishes scores.
 
 **Two live safeguards were quietly dropped.** #203 removed the 14-day
 retention sweep on `market_odds_snapshots` and the `W_ODDS_CAP = 0.5` ceiling

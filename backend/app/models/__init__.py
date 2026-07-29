@@ -1221,12 +1221,18 @@ class VenuePriceTick(Base):
         # A venue that does not publish live match state may not imply any.
         # Without this, "unreported" and "reported as 0-0" share a row shape,
         # and a state-matched benchmark cannot say which it excluded.
+        #
+        # Stated positively, never as `NOT (supported = false AND ...)`: with a
+        # nullable capability that form evaluates UNKNOWN, and a CHECK that
+        # evaluates UNKNOWN passes. `in_play_state_supported` is therefore NOT
+        # NULL and this expression is total -- a writer must declare the
+        # capability, and cannot slip detail past the guard by omitting it.
         CheckConstraint(
-            "NOT (in_play_state_supported = false AND ("
-            "is_in_play IS NOT NULL OR clock_state IS NOT NULL"
-            " OR period IS NOT NULL OR minute IS NOT NULL"
-            " OR home_score IS NOT NULL OR away_score IS NOT NULL"
-            " OR home_cards IS NOT NULL OR away_cards IS NOT NULL))",
+            "in_play_state_supported = true OR ("
+            "is_in_play IS NULL AND clock_state IS NULL"
+            " AND period IS NULL AND minute IS NULL"
+            " AND home_score IS NULL AND away_score IS NULL"
+            " AND home_cards IS NULL AND away_cards IS NULL)",
             name="ck_venue_price_tick_unsupported_state_is_empty",
         ),
         CheckConstraint(
@@ -1264,8 +1270,22 @@ class VenuePriceTick(Base):
     # natural primary key permits PostgreSQL RANGE partitioning on this column.
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     source_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    transport: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # OUR arrival time, kept because ts is a logical time and cannot carry it:
+    # for a stream tick ts IS source_ts, so `ts - source_ts` is identically
+    # zero and any latency computed that way is a fiction. Never identity.
+    # Distinct from created_at, which is database insert time and drifts from
+    # arrival under buffering, batching or replay.
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    # First-delivery provenance, NOT part of the key. A single venue event
+    # redelivered as `recovery` after arriving via `streaming` is one
+    # observation; keying on transport would file it twice. Rows that read
+    # `recovery` are exactly the events the stream missed.
+    transport: Mapped[str] = mapped_column(String(20), nullable=False)
     # `event:<venue id>` or `cycle:<scheduled UTC timestamp>` from CONTRACTS.md.
+    # The prefix already separates the polling and stream families, so the key
+    # needs no transport component.
     observation_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     source_event_id: Mapped[str | None] = mapped_column(String(255))
     scheduled_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1280,8 +1300,8 @@ class VenuePriceTick(Base):
     # `in_play_state_supported` is the venue's capability, not this tick's
     # luck: False means the venue never publishes match state, so downstream
     # comparisons exclude the tick and name the venue instead of reporting it
-    # as a state disagreement. NULL is only pre-capability legacy data.
-    in_play_state_supported: Mapped[bool | None] = mapped_column(Boolean)
+    # as a state disagreement. NOT NULL, so silence is never a third answer.
+    in_play_state_supported: Mapped[bool] = mapped_column(Boolean, nullable=False)
     is_in_play: Mapped[bool | None] = mapped_column(Boolean)
     clock_state: Mapped[str | None] = mapped_column(String(80))
     period: Mapped[str | None] = mapped_column(String(40))
