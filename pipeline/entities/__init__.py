@@ -13,6 +13,7 @@ from pipeline.entities.resolver import (
     Resolution,
     normalize_outcome,
     resolve_market,
+    valid_verification,
 )
 
 __all__ = [
@@ -28,4 +29,5 @@ __all__ = [
     "Resolution",
     "normalize_outcome",
     "resolve_market",
+    "valid_verification",
 ]

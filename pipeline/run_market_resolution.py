@@ -68,6 +68,13 @@ def _print_report(report) -> None:
             target = f" -> match {outcome.match_id} ({outcome.outcome})"
         print(f"  [{outcome.action:>9}] {outcome.venue}:{outcome.venue_key}"
               f"{target}\n              {outcome.reason}")
+    # Data gaps are report content the operator must act on -- a fixture that
+    # cannot be a candidate names its owed link-entity rows here, instead of
+    # every market for it just reading "no fixture shares this pairing".
+    if report.data_gaps:
+        print(f"data gaps ({len(report.data_gaps)}):")
+        for gap in sorted(report.data_gaps):
+            print(f"  ! {gap}")
     print("summary:", json.dumps(report.counts()))
 
 

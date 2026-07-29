@@ -79,11 +79,28 @@ touch a manually-corrected row, which stays `locked` under replay.
 
 ## Evidence
 
-`resolution_context` records: resolver version, decision timestamp, extractor
-grammar and its raw fields, every candidate with every check and its result,
-rejections by name, the proposal target, missing keys. `mapping_history` is
-append-only and records **transitions** (`resolution`, `manual_correction`,
-`conflict_detected`) — replay with unchanged inputs appends nothing.
+`resolution_context` records the CURRENT decision: resolver version,
+timestamp, extractor grammar, verification (who signed the facts), every
+candidate with every check, rejections by name, the proposal target, missing
+keys.
+
+`mapping_history` is append-only, records **transitions** (`resolution`,
+`manual_correction`, `conflict_detected`) — and each entry carries the
+evidence itself, because `resolution_context` is replaced on the next
+transition and history is where provenance must survive:
+
+- `resolution` entries embed the full context snapshot (`evidence`);
+- `conflict_detected` entries embed the replay's full evidence
+  (`replay_evidence`, timestamp-free so an identical conflict still records
+  once);
+- `manual_correction` entries embed the context they replaced
+  (`previous_context`) — a correction never destroys the resolver's original
+  evidence.
+
+Replay with unchanged inputs appends nothing. A verification is only usable
+when both `by` and `note` are non-blank — `{}`, a missing note, or whitespace
+is verification theater and caps at `proposed` **in the resolver core**, so
+no direct caller can bypass it.
 
 ## Dry runs touch nothing
 
@@ -110,7 +127,8 @@ now pins the fixed behavior on every dry-run and idempotent path.)
 ## Commands
 
 ```bash
-# read-only report (default)
+# read-only report (default); prints decisions, counts, AND data gaps
+# (every owed link-entity row), sorted deterministically
 PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_resolution resolve
 
 # write decisions

@@ -576,3 +576,86 @@ def test_deterministic_report_ordering(db):
 
     keys = [(o.venue, o.venue_key) for o in report.outcomes]
     assert keys == sorted(keys)
+
+
+# --- provenance survives every transition ------------------------------------
+
+
+def test_resolution_history_carries_the_full_evidence_snapshot(db):
+    """resolution_context is CURRENT state and is replaced on the next
+    transition; the history entry must carry the evidence itself."""
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
+
+    entry = db.query(VenueMarket).one().mapping_history[0]
+    evidence = entry["evidence"]
+    assert evidence["verification"] == {"by": "pete",
+                                        "note": "checked the venue market page"}
+    assert evidence["grammar"]["extractor"] == "operator-metadata-v1"
+    assert evidence["candidates"][0]["match_id"] == match.id
+    assert evidence["candidates"][0]["accepted"] is True
+
+
+def test_original_evidence_survives_conflict_and_later_correction(db):
+    """The full chain: map with evidence -> replay disagrees (conflict) ->
+    human corrects. At every step the earlier provenance must still be
+    readable from history -- nothing is overwritten away."""
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
+
+    db.query(Match).filter_by(id=match.id).update(
+        {"kickoff_utc": KICKOFF + timedelta(days=5)})
+    db.commit()
+    reconcile_markets(db, apply=True, now=NOW + timedelta(days=1),
+                      metadata_by_key=VERIFIED_METADATA)
+    apply_correction(db, venue="kalshi", venue_key=TICKER, match_id=match.id,
+                     outcome="home", verified_by="pete",
+                     note="venue confirmed the reschedule", apply=True,
+                     now=NOW + timedelta(days=2))
+
+    history = db.query(VenueMarket).one().mapping_history
+    assert [entry["kind"] for entry in history] == [
+        "resolution", "conflict_detected", "manual_correction"]
+
+    original = history[0]["evidence"]
+    assert original["verification"]["by"] == "pete", "original evidence intact"
+    assert original["candidates"][0]["accepted"] is True
+
+    conflict = history[1]
+    replay_evidence = conflict["replay_evidence"]
+    assert replay_evidence["verification"]["by"] == "pete"
+    assert replay_evidence["proposed_match_id"] == match.id
+    assert replay_evidence["candidates"], "assessments travel with the conflict"
+    assert "decided_at" not in replay_evidence, "fingerprint keeps conflict-once"
+
+    correction = history[2]
+    previous = correction["previous_context"]
+    assert previous["conflict"]["stored"]["match_id"] == match.id
+    assert previous["verification"]["by"] == "pete", (
+        "the context the correction replaced is snapshotted, not destroyed")
+
+    # And the current row state reflects the correction.
+    row = db.query(VenueMarket).one()
+    assert row.resolution_context["verified"]["by"] == "pete"
+    assert row.canonical_event_id == match.id
+
+
+def test_clear_also_snapshots_the_context_it_removes(db):
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+    apply_correction(db, venue="kalshi", venue_key=TICKER, match_id=match.id,
+                     outcome="home", verified_by="pete", note="initial",
+                     apply=True, now=NOW)
+
+    apply_correction(db, venue="kalshi", venue_key=TICKER, clear=True,
+                     verified_by="pete", note="rolled back", apply=True,
+                     now=NOW + timedelta(hours=1))
+
+    history = db.query(VenueMarket).one().mapping_history
+    assert history[1]["previous_context"]["verified"]["by"] == "pete"

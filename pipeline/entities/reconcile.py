@@ -290,6 +290,13 @@ def reconcile_markets(
                                "match_id": resolution.match_id,
                                "outcome": resolution.canonical_outcome,
                                "reason": resolution.reason},
+                    # The full newly-computed evidence -- verifier/note,
+                    # proposed target, every candidate assessment. Without it
+                    # the conflict record says THAT replay disagreed but not
+                    # WHY, which is the half a human needs. Timestamp-free
+                    # (fingerprint) so an identical conflict still records
+                    # once, not once per replay.
+                    "replay_evidence": _fingerprint(context),
                 }
                 existing = (row.resolution_context or {}).get("conflict")
                 if apply and existing != conflict:
@@ -335,6 +342,11 @@ def reconcile_markets(
                            "match_id": resolution.match_id,
                            "outcome": resolution.canonical_outcome},
                     "reason": resolution.reason,
+                    # Full evidence snapshot: resolution_context is CURRENT
+                    # state and gets replaced by the next transition; history
+                    # is where provenance must survive. Verifier/note,
+                    # grammar, proposed target, candidate assessments.
+                    "evidence": context,
                 })
                 row.mapping_history = history
                 row.mapping_status = resolution.status
@@ -406,6 +418,11 @@ def apply_correction(
         "to": ({"status": UNMAPPED, "match_id": None, "outcome": None}
                if clear else
                {"status": MAPPED, "match_id": match_id, "outcome": outcome}),
+        # The context this correction replaces. resolution_context is CURRENT
+        # state; without this snapshot a correction destroys the resolver's
+        # original evidence -- who verified what, which candidates were
+        # assessed -- and "append-only" would be a claim, not a property.
+        "previous_context": row.resolution_context,
     }
     result = MarketOutcome(
         venue=venue, venue_key=venue_key,

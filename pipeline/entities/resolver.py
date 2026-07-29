@@ -137,6 +137,21 @@ class Resolution:
         )
 
 
+def valid_verification(verification: Mapping[str, str] | None) -> bool:
+    """Is this a usable verification: a non-blank person AND a non-blank note?
+
+    The cap is only as strong as this check. Testing ``is None`` alone lets a
+    direct caller reach MAPPED with ``{}``, ``{"by": ""}``, a missing note, or
+    whitespace -- verification theater, not verification. Anything short of
+    both fields non-blank is treated as unverified.
+    """
+    if verification is None:
+        return False
+    by = str(verification.get("by") or "").strip()
+    note = str(verification.get("note") or "").strip()
+    return bool(by) and bool(note)
+
+
 def _utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
@@ -321,21 +336,32 @@ def resolve_market(
                 ),
                 assessments=evidence,
             )
-        if descriptor.verification is None:
+        if not valid_verification(descriptor.verification):
             # Grammar-derived facts are hints, not labels. Kalshi documents
             # ticker exceptions and advises against parsing tickers to infer
             # relationships; a recorded assumption does not make a training
-            # label safe. Review, then verify via metadata or correction.
+            # label safe. And a PRESENT-but-blank verification is the same
+            # thing wearing a costume: {} or a whitespace name verifies
+            # nothing. Review, then verify via metadata or correction.
             extractor = str(descriptor.grammar.get("extractor", "unknown"))
+            if descriptor.verification is None:
+                why = (
+                    f"the descriptor is grammar-derived ({extractor}) with no "
+                    "named verification; the venue documents exceptions to "
+                    "its naming conventions"
+                )
+            else:
+                why = (
+                    "the descriptor's verification is malformed (blank or "
+                    "missing 'by'/'note'); an unsigned assertion verifies "
+                    "nothing"
+                )
             return Resolution(
                 status=PROPOSED,
                 proposed_match_id=accepted[0].match_id,
                 reason=(
-                    "every dimension is consistent, but the descriptor is "
-                    f"grammar-derived ({extractor}) with no named "
-                    "verification; the venue documents exceptions to its "
-                    "naming conventions, so this is a review hint, never an "
-                    "auto-link"
+                    "every dimension is consistent, but " + why +
+                    ", so this is a review hint, never an auto-link"
                 ),
                 assessments=evidence,
             )

@@ -395,3 +395,23 @@ def test_season_gate_is_stated_honestly_in_the_evidence():
 
     checks = dict(resolution.assessments[0].checks)
     assert checks["season"] == "gated_by_kickoff_and_competition"
+
+
+def test_malformed_verification_is_verification_theater():
+    """`is None` alone was bypassable: a direct caller could pass {} or a
+    whitespace name and reach MAPPED. Both fields must be non-blank."""
+    malformed = [
+        {},
+        {"by": ""},
+        {"by": "pete"},                      # missing note
+        {"note": "checked"},                 # missing by
+        {"by": "   ", "note": "checked"},
+        {"by": "pete", "note": "   "},
+        {"by": "", "note": ""},
+        {"by": None, "note": None},
+    ]
+    for verification in malformed:
+        resolution = _resolve(_descriptor(verification=verification), [_fixture()])
+        assert resolution.status == PROPOSED, verification
+        assert resolution.match_id is None, verification
+        assert "malformed" in resolution.reason, verification
