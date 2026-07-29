@@ -11,16 +11,30 @@ from ml.features.schedule_context import (
     coverage,
     schedule_contexts,
 )
-from pipeline.ingest.venue_coordinates import ClubVenue
+from pipeline.ingest.venue_coordinates import (
+    STATUS_DATED,
+    STATUS_SINGLE_UNDATED,
+    ClubVenueHistory,
+    VenueInterval,
+)
 
 
-def _venues(**kw) -> dict[tuple[str, str], ClubVenue]:
-    # Two grounds ~111 km apart (1 degree of latitude), one unresolved club.
+def _iv(qid, lat, lon, frm="2000-01-01", to=None):
+    return VenueInterval(
+        qid, qid, lat, lon, 30000,
+        date.fromisoformat(frm), date.fromisoformat(to) if to else None, "NormalRank",
+    )
+
+
+def _venues(override: dict | None = None) -> dict[tuple[str, str], ClubVenueHistory]:
+    # Two grounds ~111 km apart (1 degree of latitude), both temporally dated.
     base = {
-        ("E0", "Alpha"): ClubVenue("Alpha", "E0", "Alpha F.C.", "Q1", "Alpha Park", 51.0, 0.0, 30000),
-        ("E0", "Beta"): ClubVenue("Beta", "E0", "Beta F.C.", "Q2", "Beta Park", 52.0, 0.0, 25000),
+        ("E0", "Alpha"): ClubVenueHistory(
+            "Alpha", "E0", "Alpha F.C.", (_iv("Q1", 51.0, 0.0),), STATUS_DATED),
+        ("E0", "Beta"): ClubVenueHistory(
+            "Beta", "E0", "Beta F.C.", (_iv("Q2", 52.0, 0.0),), STATUS_DATED),
     }
-    base.update(kw)
+    base.update(override or {})
     return base
 
 
@@ -93,11 +107,39 @@ def test_travel_is_none_when_a_club_has_no_verified_coordinate():
     fx = [Fixture(date(2023, 8, 5), "E0", "Alpha", "Ghost")]
     ctx = schedule_contexts(fx, _venues())[0]
     assert ctx.travel_km is None and ctx.travel_log is None
+    assert ctx.travel_excluded_because == "club_absent_from_snapshot"
+
+
+def test_travel_abstains_for_a_club_whose_venue_history_is_undated():
+    undated = _venues({("E0", "Beta"): ClubVenueHistory(
+        "Beta", "E0", "Beta F.C.", (_iv("Q2", 52.0, 0.0),), STATUS_SINGLE_UNDATED)})
+    ctx = schedule_contexts(_season()[:1], undated)[0]
+    assert ctx.travel_km is None
+    assert ctx.travel_excluded_because == STATUS_SINGLE_UNDATED
+
+
+def test_travel_abstains_before_a_venue_interval_opens():
+    """The defect this rewrite removes: a later ground answering an earlier date."""
+    late = _venues({("E0", "Beta"): ClubVenueHistory(
+        "Beta", "E0", "Beta F.C.", (_iv("Q2", 52.0, 0.0, "2019-04-03"),), STATUS_DATED)})
+    early = schedule_contexts([Fixture(date(2016, 9, 10), "E0", "Alpha", "Beta")], late)[0]
+    later = schedule_contexts([Fixture(date(2023, 8, 5), "E0", "Alpha", "Beta")], late)[0]
+    assert early.travel_km is None
+    assert early.travel_excluded_because == "interval_gap"
+    assert later.travel_km is not None
+
+
+def test_travel_abstains_in_a_relocation_risk_season():
+    ctx = schedule_contexts([Fixture(date(2021, 2, 3), "E0", "Alpha", "Beta")], _venues())[0]
+    assert ctx.travel_km is None
+    assert ctx.travel_excluded_because == "relocation_risk_season"
 
 
 def test_travel_is_none_rather_than_zero_when_no_table_is_supplied():
     # Zero would read as "no journey", which is a claim. None is the absence.
-    assert schedule_contexts(_season())[0].travel_km is None
+    ctx = schedule_contexts(_season())[0]
+    assert ctx.travel_km is None
+    assert ctx.travel_excluded_because == "no_venue_table"
 
 
 def test_reversing_the_fixture_swaps_who_travels():
@@ -142,14 +184,28 @@ def test_M2_no_outcome_can_reach_a_feature():
     )
 
 
-def test_M3_a_clubs_coordinate_does_not_vary_by_season():
-    # One row per club in the snapshot; a season-varying venue would let a
-    # later stadium move leak backwards into earlier fixtures.
-    from pipeline.ingest.venue_coordinates import load_snapshot
+def test_M3_no_future_venue_state_reaches_an_earlier_fixture():
+    """M3 restated. The first cut asserted one coordinate per club and called
+    that PASS; uniqueness does not prevent a 2019 ground answering a 2016
+    fixture, which is exactly what it was doing.
 
-    snap = load_snapshot()
-    keys = [(v.division, v.club) for v in snap.values()]
-    assert len(keys) == len(set(keys))
+    The real property is temporal: a venue whose interval opens later must not
+    contribute to any earlier fixture, at any distance.
+    """
+    moved = _venues({("E0", "Beta"): ClubVenueHistory(
+        "Beta", "E0", "Beta F.C.",
+        (_iv("Q_OLD", 51.1, 0.0, "2000-01-01", "2017-05-14"),
+         _iv("Q_NEW", 55.0, 0.0, "2019-04-03")), STATUS_DATED)})
+    before = schedule_contexts([Fixture(date(2016, 9, 10), "E0", "Alpha", "Beta")], moved)[0]
+    during = schedule_contexts([Fixture(date(2018, 3, 4), "E0", "Alpha", "Beta")], moved)[0]
+    after = schedule_contexts([Fixture(date(2023, 8, 5), "E0", "Alpha", "Beta")], moved)[0]
+
+    # Before the move: the OLD ground, ~11 km away — not the new one at ~445 km.
+    assert before.travel_km == pytest.approx(11.12, abs=0.5)
+    # In the gap between intervals: abstain, never a neighbouring guess.
+    assert during.travel_km is None and during.travel_excluded_because == "interval_gap"
+    # After: the new ground.
+    assert after.travel_km == pytest.approx(445.0, abs=1.0)
 
 
 # ---------------------------------------------------------- coverage
@@ -167,5 +223,6 @@ def test_coverage_reports_denominators_for_every_candidate():
 def test_coverage_counts_unresolved_coordinates_separately_from_openers():
     fx = _season() + [Fixture(date(2023, 9, 2), "E0", "Alpha", "Ghost")]
     cov = coverage(schedule_contexts(fx, _venues()))
-    assert cov["travel_undefined_no_coordinate"] == 1
+    assert cov["travel_excluded"] == 1
     assert cov["travel_defined"] == 4
+    assert cov["travel_exclusions_by_reason"] == {"club_absent_from_snapshot": 1}

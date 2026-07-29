@@ -1,3 +1,108 @@
+# CORRECTION ROUND, appended 2026-07-29 — read this before anything below
+
+A review of the first D1 cut found four defects. Three of them invalidate
+headline claims in the original card, which is left below **unaltered** so the
+correction is auditable rather than cosmetic.
+
+## C1 — the pre-registration chronology is not verifiable
+
+`PRE-REGISTRATION.md`, the implementation, the coverage numbers and the
+original evidence card **all landed in one commit, `6b7c875`**. The claim
+"committed before any run" therefore has no support in this repository's
+history, and is withdrawn. The commit is not rewritten; see the correction at
+the head of `PRE-REGISTRATION.md`.
+
+The selection phase now has its own standalone, separately-committed
+[`SELECTION-PRE-REGISTRATION.md`](SELECTION-PRE-REGISTRATION.md) so that *its*
+chronology is verifiable.
+
+For contrast, D0's pre-registration **is** verifiable: `8ea3edf` contains only
+the pre-registration, and the implementation landed later in `86f8c8b`.
+
+## C2 — M3 was recorded PASS and was false
+
+The original card asserted M3 as *"one coordinate per club — a season-varying
+venue would let a later stadium move leak backwards"*. That reasoning is
+backwards. Uniqueness does not **prevent** future venue state reaching earlier
+fixtures; for a club that moved, it **guarantees** it.
+
+Three in-scope clubs moved, and the first snapshot was wrong for all three:
+
+| Club | First snapshot resolved | Actually played at | Wrong for |
+|---|---|---|---|
+| **Brentford** | Griffin Park | Brentford Community Stadium | **every** in-scope season (2021-22→); Wikidata has no statement for the new ground at all |
+| **Tottenham** | Tottenham Hotspur Stadium | White Hart Lane (→2017), **Wembley** (2017-19), new stadium (2019→) | 2016-17 through 2018-19; Wembley is ~10 km away and Wikidata records nothing for it |
+| **Freiburg** | Europa-Park-Stadion | Dreisamstadion until Oct 2021 | 2016-17 through most of 2021-22 |
+
+Venue is now modelled as an **interval** with `valid_from`/`valid_to`, looked
+up **at the fixture date**, and abstaining whenever the answer is not
+established. M3 is restated as a temporal property and tested as one.
+
+## C3 — travel coverage was 100%; it is actually 2.17%
+
+Requiring the venue in force *on the fixture date* for both clubs, and
+excluding what cannot be established:
+
+| Division | Fixtures | Travel defined | Coverage |
+|---|---|---|---|
+| E0 | 3,420 | 14 | **0.41%** |
+| SP1 | 3,420 | 180 | **5.26%** |
+| D1 | 2,754 | 14 | **0.51%** |
+| **All** | **9,594** | **208** | **2.17%** |
+
+Exclusions, all named and summing exactly to the shortfall:
+
+| Reason | E0 | SP1 | D1 |
+|---|---|---|---|
+| `single_undated` — one venue, no date qualifier, unverifiable | 2,415 | 1,989 | 1,596 |
+| `ambiguous_undated` — several venues, none dated | — | 344 | 532 |
+| `relocation_risk_season` — COVID-era 2019-20 / 2020-21 | 760 | 760 | 612 |
+| `excluded_declared` — Brentford, Tottenham | 231 | — | — |
+| `interval_gap` — date falls between known intervals | — | 147 | — |
+
+**Root cause: Wikidata cannot date these clubs.** Measured across all 94:
+
+| `P115` temporal quality | Clubs |
+|---|---|
+| single venue, **no dates** | 73 |
+| multiple venues, **no dates** | 8 |
+| **dated** | 11 |
+| declared exclusion | 2 |
+
+**Verdict: the travel candidates D1.1 / D1.2 / D1.4 are BLOCKED**, not merely
+unrun. 208 fixtures spread across three leagues is not a sample any of the
+pre-registered grids could be fitted on. D1.3 (congestion) needs no coordinate
+and is unaffected.
+
+Unblocking travel requires a venue-history source with effective dates and
+primary-source provenance. That is a data-acquisition decision, and it is not
+made here.
+
+## C4 — the reproducibility receipt was not auditable
+
+`club_venues.json` held derived rows plus a query hash. Nothing in it could
+show what Wikidata actually returned, so a resolver change and a provider
+change were indistinguishable after the fact — the same failure D0-2 records
+for football-data.co.uk, reproduced in a phase that had the licence to avoid it.
+
+Now: `pipeline/data/club_venues_raw.json` holds the **raw SPARQL bindings**
+with retrieval time, the exact query, a digest over the bindings, provider
+QIDs, ranks and `P580`/`P582` qualifiers, the CC0 licence source, and the WDQS
+usage and rate-limit notes an operator needs to re-run it. `club_venues.json`
+is **derived from that file and nothing else**, and a test rebuilds it
+byte-for-byte offline. A test also proves the digest catches an edited receipt.
+
+## What still holds from the original card
+
+- 94/94 clubs resolve to *a* venue with a checkable QID.
+- The capacity rule still separates stadiums from training grounds.
+- Rest and congestion coverage (99.2–99.4%) is unchanged — neither needs a
+  coordinate.
+- Licensing: Wikidata is CC0, so both snapshots ship as bytes.
+- Nothing is promoted, and nothing can be.
+
+---
+
 # D1 — Rest and travel: EVIDENCE CARD
 
 Run 2026-07-29. Pre-registration: [`PRE-REGISTRATION.md`](PRE-REGISTRATION.md),

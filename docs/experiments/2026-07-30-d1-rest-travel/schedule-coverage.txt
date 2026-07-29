@@ -1,12 +1,37 @@
 === D1 schedule-context coverage (27 pre-confirmation captures) ===
 scope: 2016-17..2024-25; the *_2526 confirmation captures are not opened
+travel requires the venue in force ON THE FIXTURE DATE for both clubs
 
-div    fixtures  rest def  openers  travel def  no coord  median km   p95 km   max km
-E0         3420      3396       24        3420         0      174.1    378.4    471.7
-SP1        3420      3400       20        3420         0      428.5    954.4   2259.7
-D1         2754      2733       21        2754         0      304.2    513.7    721.4
+E0: 3420 fixtures
+   rest defined    3396 / 3420  (99.3%)   openers 24
+   travel defined    14 / 3420  (0.41%)
+   travel excluded, by named reason (sums to 3406):
+      excluded_declared            231
+      relocation_risk_season       760
+      single_undated              2415
+   travel km: median 17.5  max 17.5
 
-congestion differential (matches in trailing 14d, home - away):
-  E0    sd=0.547
-  SP1   sd=0.545
-  D1    sd=0.435
+SP1: 3420 fixtures
+   rest defined    3400 / 3420  (99.4%)   openers 20
+   travel defined   180 / 3420  (5.26%)
+   travel excluded, by named reason (sums to 3240):
+      ambiguous_undated            344
+      interval_gap                 147
+      relocation_risk_season       760
+      single_undated              1989
+   travel km: median 398.6  max 618.9
+
+D1: 2754 fixtures
+   rest defined    2733 / 2754  (99.2%)   openers 21
+   travel defined    14 / 2754  (0.51%)
+   travel excluded, by named reason (sums to 2740):
+      ambiguous_undated            532
+      relocation_risk_season       612
+      single_undated              1596
+   travel km: median 298.8  max 298.8
+
+ALL: travel defined 208 / 9594 (2.17%)
+
+VERDICT: Wikidata cannot date most of these clubs, so the travel
+candidates (D1.1/D1.2/D1.4) have no usable sample. Congestion (D1.3)
+needs no coordinates and is unaffected.

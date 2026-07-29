@@ -32,7 +32,11 @@ from bisect import bisect_left
 from dataclasses import dataclass
 from datetime import date as date_type
 
-from pipeline.ingest.venue_coordinates import ClubVenue, UnresolvedVenue, travel_km
+from pipeline.ingest.venue_coordinates import (
+    ClubVenueHistory,
+    travel_exclusion_reason,
+    travel_km_on,
+)
 
 #: Congestion window, fixed before the run. Two weeks spans a
 #: midweek-plus-weekend cluster without reaching back into the previous month.
@@ -62,7 +66,13 @@ class ScheduleContext:
     rest_away_days: int | None
     congestion_home: int
     congestion_away: int
-    travel_km: float | None  # None when either club has no verified coordinate
+    #: None whenever the venue in force on this date is not established for
+    #: BOTH clubs, or the fixture falls in a relocation-risk season.
+    travel_km: float | None
+    #: Why ``travel_km`` is None, or None when it is present. Every abstention
+    #: is attributable, or the coverage table is a smaller number with no
+    #: explanation attached.
+    travel_excluded_because: str | None = None
 
     @property
     def rest_diff(self) -> int | None:
@@ -92,7 +102,7 @@ def _prior_dates(history: list[date_type], today: date_type) -> list[date_type]:
 
 def schedule_contexts(
     fixtures: list[Fixture],
-    venues: dict[tuple[str, str], ClubVenue] | None = None,
+    venues: dict[tuple[str, str], ClubVenueHistory] | None = None,
     congestion_window_days: int = CONGESTION_WINDOW_DAYS,
 ) -> list[ScheduleContext]:
     """Context for every fixture, using only fixtures strictly earlier than it.
@@ -126,12 +136,18 @@ def schedule_contexts(
                 1 for d in prior if 0 < (f.date - d).days <= congestion_window_days
             )
 
+        # Travel is looked up AT THE FIXTURE DATE. The first cut applied one
+        # current venue backwards across nine seasons, which let a ground a
+        # club moved into in 2019 determine its 2016 distances.
         km: float | None = None
+        why: str | None = "no_venue_table"
         if venues is not None:
-            try:
-                km = travel_km(venues, f.division, f.home, f.away)
-            except UnresolvedVenue:
-                km = None
+            km = travel_km_on(venues, f.division, f.home, f.away, f.date)
+            why = (
+                None
+                if km is not None
+                else travel_exclusion_reason(venues, f.division, f.home, f.away, f.date)
+            )
 
         out.append(
             ScheduleContext(
@@ -140,6 +156,7 @@ def schedule_contexts(
                 congestion_home=ctx["cong_home"],
                 congestion_away=ctx["cong_away"],
                 travel_km=km,
+                travel_excluded_because=why,
             )
         )
     return out
@@ -149,19 +166,26 @@ def coverage(contexts: list[ScheduleContext]) -> dict:
     """Denominators for every candidate, in the D0 house style.
 
     A candidate's usable count is reported against the full fixture count, so a
-    feature that is only defined for two thirds of matches cannot be read as if
-    it were defined for all of them.
+    feature that is only defined for a fraction of matches cannot be read as if
+    it were defined for all of them. Every travel abstention is attributed to a
+    named reason, and those reasons sum exactly to the shortfall.
     """
     n = len(contexts)
     rest = sum(1 for c in contexts if c.rest_diff is not None)
     travel = sum(1 for c in contexts if c.travel_km is not None)
+    reasons: dict[str, int] = {}
+    for c in contexts:
+        if c.travel_km is None:
+            key = c.travel_excluded_because or "unattributed"
+            reasons[key] = reasons.get(key, 0) + 1
     return {
         "n_fixtures": n,
         "rest_defined": rest,
         "rest_undefined_openers": n - rest,
         "rest_coverage": round(rest / n, 4) if n else None,
         "travel_defined": travel,
-        "travel_undefined_no_coordinate": n - travel,
+        "travel_excluded": n - travel,
         "travel_coverage": round(travel / n, 4) if n else None,
+        "travel_exclusions_by_reason": dict(sorted(reasons.items())),
         "congestion_defined": n,  # always defined; zero is a real count
     }

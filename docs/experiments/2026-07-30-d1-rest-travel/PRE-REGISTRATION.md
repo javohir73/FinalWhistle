@@ -1,3 +1,37 @@
+# CORRECTION, appended 2026-07-29 — read this first
+
+**Everything below was committed in a single commit, `6b7c875`, together with
+the implementation, the measured coverage and the evidence card.**
+
+So the claim in the original header — *"Written 2026-07-29, before any D1
+run"* — is **not verifiable from this repository**, and must not be relied on.
+A pre-registration whose commit also contains the results it governs provides
+no chronological guarantee at all: nothing in the history distinguishes
+"written first" from "written afterwards to match".
+
+The original text is left below **unaltered**, and the commit is not rewritten.
+Correcting the record by editing it would destroy the very evidence this
+correction is about.
+
+Two further corrections to the content below, both from the same review:
+
+1. **M3 was recorded PASS and was not.** The original design resolved one
+   *current* venue per club and applied it backwards across nine seasons.
+   Uniqueness of a club's coordinate does not prevent future venue state
+   reaching an earlier fixture — it guarantees it, for any club that moved.
+   Three in-scope clubs did: Tottenham, Brentford and Freiburg. See the
+   evidence card's "Correction round" section.
+2. **The travel candidates are blocked, not merely unrun.** Once venue must be
+   established *on the fixture date*, coverage is **2.17%** (208 of 9,594),
+   not the 100% originally reported. D1.1 / D1.2 / D1.4 have no usable sample.
+
+**For the selection phase, this document is superseded** by
+[`SELECTION-PRE-REGISTRATION.md`](SELECTION-PRE-REGISTRATION.md), which is
+committed on its own, before any selection or effect measurement, precisely so
+that its chronology *is* verifiable.
+
+---
+
 # D1 — Rest and travel: PRE-REGISTRATION
 
 **Written 2026-07-29, before any D1 run.** Appended to afterwards; not edited in

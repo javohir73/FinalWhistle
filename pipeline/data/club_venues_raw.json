@@ -1,0 +1,4589 @@
+{
+  "provider": {
+    "provider": "Wikidata",
+    "endpoint": "https://query.wikidata.org/sparql",
+    "properties": {
+      "P115": "home venue",
+      "P625": "coordinate location",
+      "P1083": "maximum capacity",
+      "P580": "start time (qualifier — opens the interval)",
+      "P582": "end time (qualifier — closes the interval)"
+    },
+    "cost": "free — no key, no account, no quota tier",
+    "licence": "CC0 1.0 Universal (public domain dedication)",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "licence_source": "https://www.wikidata.org/wiki/Wikidata:Licensing — Wikidata's structured data is released under CC0 1.0",
+    "redistribution": "GRANTED — the raw response snapshot and the derived table are both committed, bytes included",
+    "attribution": "Data from Wikidata, CC0 1.0",
+    "wdqs_usage": {
+      "policy": "https://www.mediawiki.org/wiki/Wikidata_Query_Service/User_Manual#Query_limits",
+      "query_timeout_s": 60,
+      "user_agent_required": true,
+      "user_agent_sent": "finalwhistle-research/0.1 (club venue coordinates; CC0)",
+      "client_throttle": "batched 24 labels per query, 1.0s sleep between batches, single-threaded — well inside the service's concurrency limits",
+      "anonymous_rate_limit": "shared per-IP budget; a throttled response would look like missing data, which is why the raw snapshot records the binding count"
+    }
+  },
+  "retrieved_utc": "2026-07-29T12:41:00Z",
+  "query": "SELECT ?name ?venue ?venueLabel ?coord ?cap ?start ?end ?rank WHERE {\n  VALUES ?name { \"1. FC Heidenheim 1846\"@en \"1. FC Köln\"@en \"1. FC Nürnberg\"@en \"1. FC Union Berlin\"@en \"1. FSV Mainz 05\"@en \"AFC Bournemouth\"@en \"Arminia Bielefeld\"@en \"Arsenal F.C.\"@en \"Aston Villa F.C.\"@en \"Athletic Bilbao\"@en \"Atlético Madrid\"@en \"Bayer 04 Leverkusen\"@en \"Borussia Dortmund\"@en \"Borussia Mönchengladbach\"@en \"Brentford F.C.\"@en \"Brighton & Hove Albion F.C.\"@en \"Burnley F.C.\"@en \"CA Osasuna\"@en \"CD Leganés\"@en \"Cardiff City F.C.\"@en \"Chelsea F.C.\"@en \"Crystal Palace F.C.\"@en \"Cádiz Club de Fútbol\"@en \"Deportivo Alavés\"@en \"Eintracht Frankfurt\"@en \"Elche CF\"@en \"Everton F.C.\"@en \"FC Augsburg\"@en \"FC Barcelona\"@en \"FC Bayern Munich\"@en \"FC Ingolstadt 04\"@en \"FC Schalke 04\"@en \"FC St. Pauli\"@en \"Fortuna Düsseldorf\"@en \"Fulham F.C.\"@en \"Getafe CF\"@en \"Girona FC\"@en \"Granada CF\"@en \"Hamburger SV\"@en \"Hannover 96\"@en \"Hertha BSC\"@en \"Holstein Kiel\"@en \"Huddersfield Town A.F.C.\"@en \"Hull City A.F.C.\"@en \"Ipswich Town F.C.\"@en \"Leeds United F.C.\"@en \"Leicester City F.C.\"@en \"Levante UD\"@en \"Liverpool F.C.\"@en \"Luton Town F.C.\"@en \"Manchester City F.C.\"@en \"Manchester United F.C.\"@en \"Middlesbrough F.C.\"@en \"Málaga CF\"@en \"Newcastle United F.C.\"@en \"Norwich City F.C.\"@en \"Nottingham Forest F.C.\"@en \"RB Leipzig\"@en \"RC Celta de Vigo\"@en \"RCD Espanyol\"@en \"RCD Mallorca\"@en \"Rayo Vallecano\"@en \"Real Betis\"@en \"Real Club Deportivo de La Coruña\"@en \"Real Madrid C.F.\"@en \"Real Sociedad\"@en \"Real Valladolid\"@en \"SC Freiburg\"@en \"SC Paderborn 07\"@en \"SD Eibar\"@en \"SV Darmstadt 98\"@en \"SV Werder Bremen\"@en \"Sevilla FC\"@en \"Sheffield United F.C.\"@en \"Sociedad Deportiva Huesca\"@en \"Southampton F.C.\"@en \"SpVgg Greuther Fürth\"@en \"Sporting de Gijón\"@en \"Stoke City F.C.\"@en \"Sunderland A.F.C.\"@en \"Swansea City A.F.C.\"@en \"TSG 1899 Hoffenheim\"@en \"Tottenham Hotspur F.C.\"@en \"UD Las Palmas\"@en \"Unión Deportiva Almería\"@en \"Valencia CF\"@en \"VfB Stuttgart\"@en \"VfL Bochum\"@en \"VfL Wolfsburg\"@en \"Villarreal CF\"@en \"Watford F.C.\"@en \"West Bromwich Albion F.C.\"@en \"West Ham United F.C.\"@en \"Wolverhampton Wanderers F.C.\"@en }\n  ?club rdfs:label|skos:altLabel ?name .\n  ?club p:P115 ?statement .\n  ?statement ps:P115 ?venue .\n  ?statement wikibase:rank ?rank .\n  OPTIONAL { ?statement pq:P580 ?start }\n  OPTIONAL { ?statement pq:P582 ?end }\n  ?venue wdt:P625 ?coord .\n  ?venue wdt:P1083 ?cap .\n  SERVICE wikibase:label { bd:serviceParam wikibase:language \"en\". }\n}",
+  "query_sha256": "a6ad55b86fc82e7f8427eebf71d934cebf1a2b6c55e9c28bbadc97a178c6d8b8",
+  "requested_labels": [
+    "1. FC Heidenheim 1846",
+    "1. FC Köln",
+    "1. FC Nürnberg",
+    "1. FC Union Berlin",
+    "1. FSV Mainz 05",
+    "AFC Bournemouth",
+    "Arminia Bielefeld",
+    "Arsenal F.C.",
+    "Aston Villa F.C.",
+    "Athletic Bilbao",
+    "Atlético Madrid",
+    "Bayer 04 Leverkusen",
+    "Borussia Dortmund",
+    "Borussia Mönchengladbach",
+    "Brentford F.C.",
+    "Brighton & Hove Albion F.C.",
+    "Burnley F.C.",
+    "CA Osasuna",
+    "CD Leganés",
+    "Cardiff City F.C.",
+    "Chelsea F.C.",
+    "Crystal Palace F.C.",
+    "Cádiz Club de Fútbol",
+    "Deportivo Alavés",
+    "Eintracht Frankfurt",
+    "Elche CF",
+    "Everton F.C.",
+    "FC Augsburg",
+    "FC Barcelona",
+    "FC Bayern Munich",
+    "FC Ingolstadt 04",
+    "FC Schalke 04",
+    "FC St. Pauli",
+    "Fortuna Düsseldorf",
+    "Fulham F.C.",
+    "Getafe CF",
+    "Girona FC",
+    "Granada CF",
+    "Hamburger SV",
+    "Hannover 96",
+    "Hertha BSC",
+    "Holstein Kiel",
+    "Huddersfield Town A.F.C.",
+    "Hull City A.F.C.",
+    "Ipswich Town F.C.",
+    "Leeds United F.C.",
+    "Leicester City F.C.",
+    "Levante UD",
+    "Liverpool F.C.",
+    "Luton Town F.C.",
+    "Manchester City F.C.",
+    "Manchester United F.C.",
+    "Middlesbrough F.C.",
+    "Málaga CF",
+    "Newcastle United F.C.",
+    "Norwich City F.C.",
+    "Nottingham Forest F.C.",
+    "RB Leipzig",
+    "RC Celta de Vigo",
+    "RCD Espanyol",
+    "RCD Mallorca",
+    "Rayo Vallecano",
+    "Real Betis",
+    "Real Club Deportivo de La Coruña",
+    "Real Madrid C.F.",
+    "Real Sociedad",
+    "Real Valladolid",
+    "SC Freiburg",
+    "SC Paderborn 07",
+    "SD Eibar",
+    "SV Darmstadt 98",
+    "SV Werder Bremen",
+    "Sevilla FC",
+    "Sheffield United F.C.",
+    "Sociedad Deportiva Huesca",
+    "Southampton F.C.",
+    "SpVgg Greuther Fürth",
+    "Sporting de Gijón",
+    "Stoke City F.C.",
+    "Sunderland A.F.C.",
+    "Swansea City A.F.C.",
+    "TSG 1899 Hoffenheim",
+    "Tottenham Hotspur F.C.",
+    "UD Las Palmas",
+    "Unión Deportiva Almería",
+    "Valencia CF",
+    "VfB Stuttgart",
+    "VfL Bochum",
+    "VfL Wolfsburg",
+    "Villarreal CF",
+    "Watford F.C.",
+    "West Bromwich Albion F.C.",
+    "West Ham United F.C.",
+    "Wolverhampton Wanderers F.C."
+  ],
+  "n_bindings": 142,
+  "bindings_sha256": "1705ff235ff14a10451d85561557d03393d4ad1d23416bc0e5e6caef0fabd063",
+  "bindings": [
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Leeds United F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q619505"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "37792"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.572222222 53.777777777)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Elland Road"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Liverpool F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q45671"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "61276"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.960833333 53.430833333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Anfield"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Luton Town F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1613767"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "10356"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.431666666 51.884166666)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Kenilworth Road"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Manchester United F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q83457"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "75731"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.291388888 53.463055555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Old Trafford"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Middlesbrough F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q822886"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "34742"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.216944444 54.578333333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Riverside Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Cardiff City F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q867902"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "33260"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.203056 51.472778)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Cardiff City Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Fulham F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q318043"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "25700"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.221666666 51.475)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Craven Cottage"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Aston Villa F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q175339"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "42640"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.884722222 52.509166666)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Villa Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Newcastle United F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q191774"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "52305"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.621666666 54.975555555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "St James’ Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Norwich City F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q123017"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "27244"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(1.309166666 52.622222222)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Carrow Road"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Brighton & Hove Albion F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q619409"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "31800"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.083277777 50.861822222)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Brighton Community Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Burnley F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q683112"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "22546"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.230225 53.789064)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Turf Moor"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Crystal Palace F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1066373"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "26255"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.085555555 51.398333333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Selhurst Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1924-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Huddersfield Town A.F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q619407"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "24500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.768333333 53.654166666)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Kirklees Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hull City A.F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q630160"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "25400"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.367777777 53.746111111)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "MKM Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Leicester City F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q620031"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "32261"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.142222222 52.620277777)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Leicester City Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Nottingham Forest F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q593446"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30404"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.132778 52.94)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "City Ground"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "AFC Bournemouth"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q619094"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "12000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.838333 50.735278)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Dean Court"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Brentford F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1546623"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "14863"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.302639 51.488167)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Griffin Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Manchester City F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q48159"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "52900"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.200277777 53.483055555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Etihad Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Everton F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q29347805"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "52769"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.0027851 53.4250789)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hill Dickinson Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Chelsea F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q171458"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "41875"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.191111111 51.481666666)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Stamford Bridge"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Arsenal F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q163995"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "60338"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.108333333 51.555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Emirates Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2006-07-22T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Arsenal F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q205309"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "38419"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.102966 51.557696)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Arsenal Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1913-09-06T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2006-05-07T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ipswich Town F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q619558"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30311"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(1.145277777 52.055)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Portman Road"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Unión Deportiva Almería"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1130617"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "22000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.435278 36.84)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio de los Juegos Mediterraneos"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Elche CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q953600"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "31388"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.663333 38.266944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Manuel Martínez Valero"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Girona FC"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q2097709"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "14624"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.828611 41.961389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Montilivi Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Granada CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5848495"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "2000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-6.13889 36.6728)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Pedro S. Garrido football stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Granada CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5848495"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "5000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-6.13889 36.6728)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Pedro S. Garrido football stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Granada CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5848495"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6060"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-6.13889 36.6728)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Pedro S. Garrido football stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Granada CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5848495"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "8000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-6.13889 36.6728)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Pedro S. Garrido football stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Swansea City A.F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q580480"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "20750"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.9351 51.6422)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Liberty Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Southampton F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q567339"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "32589"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.39111111 50.90583333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "St Mary's Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Stoke City F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q500922"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "27740"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.175555555 52.988333333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Britannia Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sunderland A.F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q31969"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "48339"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.388172971 54.914429068)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Stadium of Light"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Tottenham Hotspur F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q55074091"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "62850"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.066388888 51.604444444)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Tottenham Hotspur Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2019-04-03T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Tottenham Hotspur F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q186425"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "36284"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.065833333 51.603333333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "White Hart Lane"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1899-09-04T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2017-05-14T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "West Bromwich Albion F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q31678"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "26445"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.963888888 52.509166666)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "The Hawthorns"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "West Ham United F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q172190"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "62500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.016388888 51.538611111)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "London Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Wolverhampton Wanderers F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q380823"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30852"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.130277777 52.590277777)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Molineux Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sheffield United F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q897533"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "32702"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.470833333 53.370277777)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Bramall Lane"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Deportivo Alavés"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1369390"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "19840"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.688044 42.837111)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Mendizorrotza Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Watford F.C."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q10626"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "22000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.401606 51.649928)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Vicarage Road"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q918580"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "60000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.135556 41.385833)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp de Les Corts"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q630630"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "17960"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.152556 41.363389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Palau Sant Jordi"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q275715"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "55926"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.155556 41.364722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Lluís Companys Olympic Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q930832"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "7585"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.12005 41.380081)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Palau Blaugrana"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q159848"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "105000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.122777777 41.380833333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp Nou"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q21154992"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "1500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.15430556 41.36078333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadi Pau Negre"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q29043488"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.050506 41.374224)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Johan Cruijff Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1030045"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.1483 41.3903)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp del Carrer Indústria"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q725581"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "15276"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.118056 41.379722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Miniestadi"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Cádiz Club de Fútbol"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q2301915"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "26000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-6.273056 36.502778)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Nuevo Mirandilla"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q275715"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "55926"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.155556 41.364722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Lluís Companys Olympic Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2023-08-08T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-08-09T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q159848"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "105000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.122777777 41.380833333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp Nou"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1957-09-24T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2023-08-07T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1030045"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.1483 41.3903)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp del Carrer Indústria"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1909-05-14T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1922-05-19T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q918580"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "60000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.135556 41.385833)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp de Les Corts"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1922-05-20T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1957-09-23T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SD Eibar"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q3320428"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "8164"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.475803 43.181706)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ipurúa Municipal Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Athletic Bilbao"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q9008639"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "3250"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.83932 43.2775)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Lezama Facilities"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Athletic Bilbao"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q182864"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "53289"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-2.949369 43.264205)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "San Mamés Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2013-09-16T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Atlético Madrid"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1857355"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "35800"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.716147 40.447527)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Metropolitano de Madrid"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1923-01-01T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1966-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Atlético Madrid"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1369687"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "70692"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.599444 40.436111)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Metropolitano Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2017-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Atlético Madrid"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q207626"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "54960"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.720556 40.401667)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Vicente Calderón Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1966-01-01T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2017-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Betis"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q126844"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "60721"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-5.981611 37.356403)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Benito Villamarín"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RC Celta de Vigo"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1326578"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "22803"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-8.740328 42.211861)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Abanca Balaídos Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RCD Espanyol"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1325234"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "43667"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.133333333 41.393055555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadi de Sarrià"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1923-01-01T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1997-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RCD Espanyol"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q473223"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "40500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.075667 41.347861)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RCDE Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Getafe CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q929109"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "16500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.714722 40.325556)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Coliseum"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Granada CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q574565"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "19436"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.595736 37.152967)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Nuevo Los Cármeness"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q29043488"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.050506 41.374224)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Johan Cruijff Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-08-10T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-09-27T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q275715"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "55926"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.155556 41.364722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Lluís Companys Olympic Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-09-28T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-11-21T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Barcelona"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q159848"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "105000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.122777777 41.380833333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Camp Nou"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2025-11-22T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "CA Osasuna"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q735783"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "23576"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.636944 42.796667)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "El Sadar Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Rayo Vallecano"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q983806"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "14708"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.658961 40.391944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Campo de Fútbol de Vallecas"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Sociedad"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q917845"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "40000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-1.973617 43.301378)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Anoeta Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1993-08-13T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Valladolid"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q151816"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "26512"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-4.761111 41.644444)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Nuevo José Zorrilla"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sevilla FC"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q275429"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "42714"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-5.970467 37.383878)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ramón Sánchez Pizjuán Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Valencia CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q202762"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "49430"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.358333 39.474722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Mestalla Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1923-05-20T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "1. FC Köln"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q151893"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "46195"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.875 50.933611)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RheinEnergie Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Arminia Bielefeld"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q706435"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "27300"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.516944 52.031389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Bielefelder Alm"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL Bochum"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q373769"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "29299"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.236489 51.489944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ruhrstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Villarreal CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q2438875"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "5000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.11501 39.94046)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ciudad Deportiva Villarreal CF"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sociedad Deportiva Huesca"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1369197"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "9000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.424444 42.131944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio El Alcoraz"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "UD Las Palmas"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q991419"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "32392"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-15.456667 28.1)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Gran Canaria Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sporting de Gijón"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q929315"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "29371"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-5.637222 43.536111)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "El Molinón-Enrique Castro Quini"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Villarreal CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q741157"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "24891"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.103611 39.944167)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio de la Cerámica"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Augsburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q167418"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30660"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.8859261 48.3233205)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "WWK Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Bayern Munich"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q127429"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "75024"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.624752777 48.218775)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Allianz Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2005-07-26T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Bayern Munich"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q254903"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "15000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.574444 48.110833)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Grünwalder Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/.well-known/genid/8c843f603c5d8acf1320e64a49fbee62"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1972-09-20T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Bayern Munich"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q131610"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "63118"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.546666666 48.173055555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Munich Olympic Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1972-09-30T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2005-05-14T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sporting de Gijón"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5839304"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "3000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-5.68056 43.4981)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Escuela de Fútbol de Mareo"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Sporting de Gijón"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q5839304"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "3000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-5.68056 43.4981)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Escuela de Fútbol de Mareo"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Eintracht Frankfurt"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q157273"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "51500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.645278 50.068611)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Waldstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1925-05-21T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Borussia Dortmund"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150928"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "81359"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.451667 51.4925)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Westfalenstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SV Darmstadt 98"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q878622"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "19000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.672222 49.857778)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Stadion am Böllenfalltor"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Bayern Munich"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q328464"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6700"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.52535 48.12605)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "BMW Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Bayern Munich"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q328464"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6731"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.52535 48.12605)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "BMW Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Valladolid"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q8199533"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "1500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-4.76333332 41.64444351)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ciudad Deportiva del Real Valladolid"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "CD Leganés"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1369462"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "11454"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.7607 40.3404)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Municipal de Butarque"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Madrid C.F."
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q164027"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "83186"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-3.68835 40.45306)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Bernabéu"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Real Club Deportivo de La Coruña"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q22130"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "32490"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-8.417372 43.368667)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadio Municipal de Abanca Riazor"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Levante UD"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1122715"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "26354"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-0.364167 39.494722)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadi Ciutat de València"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RCD Mallorca"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q276163"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "25736"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.63 39.59)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Estadi Mallorca Son Moix"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1999-06-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RCD Mallorca"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q3813479"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "18000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(2.6407 39.5808)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Lluís Sitjar stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "start": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1945-01-01T00:00:00Z"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "1999-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Málaga CF"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q695879"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30044"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(-4.426422 36.734092)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "La Rosaleda Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Augsburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q167418"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30660"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.8859261 48.3233205)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "WWK Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL Wolfsburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q323718"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "17600"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.799417 52.425306)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL-Stadion am Elsterweg"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      },
+      "end": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#dateTime",
+        "type": "literal",
+        "value": "2002-01-01T00:00:00Z"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL Wolfsburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q155603"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.803889 52.431944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Volkswagen Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#PreferredRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Borussia Mönchengladbach"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q154074"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "59749"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.385463888 51.174583333)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "ista-Borussia-Park"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hertha BSC"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q151374"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "74475"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(13.239444444 52.514722222)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Berlin Olympic Stadium"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Bayer 04 Leverkusen"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q156630"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30210"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.002205555 51.038255555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "BayArena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "1. FSV Mainz 05"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q392494"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "34034"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.224167 49.984167)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Mewa Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SC Freiburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q64586775"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "34700"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.830006 48.021536)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Europa-Park-Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SC Freiburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q311458"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "24000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.893056 47.988889)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Dreisamstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "1. FC Union Berlin"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q749172"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "21704"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(13.568056 52.457222)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Stadion An der Alten Försterei"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Fortuna Düsseldorf"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q155351"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "9917"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.733083 51.261539)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Merkur Spiel-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Fortuna Düsseldorf"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q155351"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "51500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.733083 51.261539)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Merkur Spiel-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Fortuna Düsseldorf"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q155351"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "54600"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.733083 51.261539)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Merkur Spiel-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Fortuna Düsseldorf"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q155351"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "66500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(6.733083 51.261539)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Merkur Spiel-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SpVgg Greuther Fürth"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q684301"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "18500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.999167 49.486944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Trolli Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Holstein Kiel"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q872915"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "15034"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.123611 54.349167)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Holstein-Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "1. FC Nürnberg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q152599"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "50000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.125617009 49.426240624)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Max-Morlock-Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "TSG 1899 Hoffenheim"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q470396"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "6350"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.84212 49.2783)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Dietmar-Hopp-Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SC Paderborn 07"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q567402"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "15000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.710833 51.731389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Home Deluxe Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "1. FC Heidenheim 1846"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q548138"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "10001"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.1393 48.6685)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Voith-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Ingolstadt 04"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q479619"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "15000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(11.485 48.745555555)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Audi-Sportpark"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "TSG 1899 Hoffenheim"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q129870"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "30150"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.888278 49.239)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SNP Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SV Werder Bremen"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q154475"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "42500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.8375 53.066389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Weserstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL Wolfsburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q323718"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "17600"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(10.799417 52.425306)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfL-Stadion am Elsterweg"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC Schalke 04"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150961"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "62271"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.067588888 51.554502777)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Arena AufSchalke"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hannover 96"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q152633"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "49000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.731111 52.36)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Niedersachsenstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "VfB Stuttgart"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q152349"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "60058"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.231944 48.792222)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "MHPArena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hamburger SV"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150933"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "51500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.898611 53.586944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Volksparkstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hamburger SV"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150933"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "57000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.898611 53.586944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Volksparkstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SV Werder Bremen"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q154475"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "42500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(8.8375 53.066389)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Weserstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "FC St. Pauli"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q339572"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "29546"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.967778 53.554444)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Millerntor-Stadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "RB Leipzig"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q210466"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "42000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(12.348056 51.345833)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Red Bull Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "SC Freiburg"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q1958177"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "18000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.881192 47.983942)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Möslestadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hamburger SV"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150933"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "51500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.898611 53.586944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Volksparkstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Hamburger SV"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q150933"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "57000"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(9.898611 53.586944)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Volksparkstadion"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    },
+    {
+      "name": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Bayer 04 Leverkusen"
+      },
+      "venue": {
+        "type": "uri",
+        "value": "http://www.wikidata.org/entity/Q871510"
+      },
+      "cap": {
+        "datatype": "http://www.w3.org/2001/XMLSchema#decimal",
+        "type": "literal",
+        "value": "3500"
+      },
+      "coord": {
+        "datatype": "http://www.opengis.net/ont/geosparql#wktLiteral",
+        "type": "literal",
+        "value": "Point(7.004058 51.039463)"
+      },
+      "venueLabel": {
+        "xml:lang": "en",
+        "type": "literal",
+        "value": "Ostermann-Arena"
+      },
+      "rank": {
+        "type": "uri",
+        "value": "http://wikiba.se/ontology#NormalRank"
+      }
+    }
+  ]
+}
