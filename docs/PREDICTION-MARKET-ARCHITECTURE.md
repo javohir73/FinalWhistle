@@ -16,8 +16,8 @@ map. It is written from what has landed, not from what is planned.
 | Structured in-play state on `venue_price_tick` | landed dormant, migration `b1c2d3e4f5a6` |
 | Adapter contracts `pipeline/ingest/venues` | landed |
 | Capture worker, venue adapters, raw store | landed (#208), **default off** |
-| Fixture resolution / reconciliation | this PR — operator-run, dry-run default |
-| Benchmark, gating, reporting, research UI | **not landed** |
+| Fixture resolution / reconciliation | landed (#209), operator-run, dry-run default |
+| Benchmark, gating, reporting, research UI | this PR — shadow, operator-run, artifact-served |
 
 Nothing schedules the worker: no cron, no Render service, no GitHub Action.
 It runs only when a person runs it, with `MARKET_CAPTURE_ENABLED=true` and a

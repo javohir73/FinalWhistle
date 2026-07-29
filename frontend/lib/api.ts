@@ -1,6 +1,7 @@
 /** Typed client for the FastAPI backend.
  *  Base URL comes from NEXT_PUBLIC_API_URL so dev/prod point at the right host. */
 import type {
+  MarketBenchmarkResponse,
   ActiveTournament,
   Goalscorers,
   Group,
@@ -271,6 +272,13 @@ export const getOriginRecordServer = () =>
  *  ~10 minutes, so a short ISR revalidate here just avoids hammering it. */
 export const getRetentionServer = () =>
   getServer<RetentionStats>("/api/retention", 300);
+
+/** EXPERIMENTAL/SHADOW research artifact: the venue market benchmark
+ *  (backend/app/api/research.py). Operator-generated, served verbatim with
+ *  its lineage and exclusions; `status: "no_data"` until someone runs the
+ *  report. Short revalidate — the backend already refuses shared caching. */
+export const getMarketBenchmarkServer = () =>
+  getServer<MarketBenchmarkResponse>("/api/research/market-benchmark", 60);
 
 /** Public share-card data for /tips/share/[league]/[matchweek]/[handle] and
  *  its opengraph-image (design doc: League Score Predictions, 2026-07-24) --

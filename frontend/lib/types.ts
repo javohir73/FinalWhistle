@@ -1150,3 +1150,44 @@ export interface LeagueTipsShareResponse {
   matchweek_complete: boolean;
   disclaimer: string;
 }
+
+/** EXPERIMENTAL/SHADOW venue market benchmark (backend/app/api/research.py).
+ *  Research data only — readiness in it is never a deployment signal. */
+export interface MarketBenchmarkGroup {
+  venue: string;
+  n_matches: number;
+  status: "READY" | "NOT_READY";
+  min_matches: number;
+  reason?: string;
+  capture_window?: { first_kickoff: string; last_kickoff: string };
+  model?: { log_loss: number; brier: number; n: number };
+  venue_normalized?: { log_loss: number; brier: number; n: number };
+  baseline_uniform?: { log_loss: number; brier: number; n: number };
+  delta_log_loss_model_minus_venue?: number;
+  delta_ci95_match_clustered?: [number, number] | null;
+  verdict?: string;
+}
+
+export interface MarketBenchmarkArtifact {
+  experimental: boolean;
+  generated_at: string;
+  coverage: Record<string, number>;
+  exclusions: Record<string, number>;
+  benchmark: {
+    groups: MarketBenchmarkGroup[];
+    split?: { train_matches: number; holdout_matches: number };
+  };
+  health?: {
+    heartbeat_freshness_by_venue_worker?: Record<
+      string,
+      { age_seconds: number; last_completed_at: string }
+    >;
+  };
+}
+
+export interface MarketBenchmarkResponse {
+  experimental: boolean;
+  status: "ok" | "no_data" | "unreadable";
+  detail?: string;
+  artifact?: MarketBenchmarkArtifact;
+}

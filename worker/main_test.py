@@ -26,6 +26,10 @@ MODULES = [
     "pipeline.entities.descriptors",
     "pipeline.entities.reconcile",
     "pipeline.run_market_resolution",
+    "ml.evaluation.venue_benchmark",
+    "pipeline.market_benchmark_data",
+    "pipeline.report_market_health",
+    "pipeline.run_market_benchmark_report",
 ]
 
 #: Bans the CONNECTION, not the class. Replacing socket.socket outright breaks
