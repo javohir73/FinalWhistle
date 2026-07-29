@@ -51,9 +51,11 @@ def _tick(market_id, **overrides):
     values = {
         "venue_market_id": market_id,
         "ts": NOW,
+        "observed_at": NOW,
         "transport": "polling",
         "observation_key": "cycle:2026-07-26T05:00:00+00:00",
         "scheduled_cycle_at": NOW,
+        "in_play_state_supported": False,
         "yes_bid": 0.44,
         "yes_ask": 0.48,
         "last": 0.46,
@@ -377,6 +379,200 @@ def test_heartbeat_cannot_complete_before_its_cycle():
 
     with pytest.raises(IntegrityError):
         db.commit()
+
+
+def test_recovery_redelivery_of_a_streamed_event_is_one_row():
+    """The same venue event over two transports must not be counted twice."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, transport="streaming", observation_key="event:seq-9001",
+                 source_event_id="seq-9001", source_ts=NOW, scheduled_cycle_at=None))
+    db.commit()
+
+    db.add(_tick(market.id, transport="recovery", observation_key="event:seq-9001",
+                 source_event_id="seq-9001", source_ts=NOW, scheduled_cycle_at=None,
+                 observed_at=NOW + timedelta(minutes=30), mid=0.47))
+    with pytest.raises(IntegrityError):
+        db.commit()
+    db.rollback()
+
+    assert db.query(VenuePriceTick).count() == 1
+    assert db.query(VenuePriceTick).one().transport == "streaming"
+
+
+def test_transport_records_which_events_only_recovery_saw():
+    """First-delivery provenance survives: recovery-only rows stay labelled."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add_all([
+        _tick(market.id, transport="streaming", observation_key="event:seq-1",
+              source_event_id="seq-1", source_ts=NOW, scheduled_cycle_at=None),
+        _tick(market.id, transport="recovery", observation_key="event:seq-2",
+              source_event_id="seq-2", source_ts=NOW, scheduled_cycle_at=None),
+    ])
+    db.commit()
+
+    missed = db.query(VenuePriceTick).filter_by(transport="recovery").all()
+    assert [row.observation_key for row in missed] == ["event:seq-2"]
+
+
+def test_transport_is_not_part_of_the_primary_key():
+    assert [column.name for column in VenuePriceTick.__table__.primary_key] == [
+        "venue_market_id", "ts", "observation_key"]
+
+
+def test_source_to_arrival_latency_survives_persistence():
+    """A stream tick's ts IS its source_ts, so latency needs its own column.
+
+    Computing it as `ts - source_ts` -- as the stream-control report in the
+    original branch did -- yields exactly zero for every stream tick, forever.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    arrived = NOW + timedelta(milliseconds=2500)
+    db.add(_tick(market.id, transport="streaming", observation_key="event:seq-1",
+                 source_event_id="seq-1", source_ts=NOW, ts=NOW,
+                 scheduled_cycle_at=None, observed_at=arrived))
+    db.commit()
+
+    row = db.query(VenuePriceTick).one()
+    assert (row.ts - row.source_ts).total_seconds() == 0
+    assert (row.observed_at - row.source_ts).total_seconds() == 2.5
+
+
+@pytest.mark.parametrize("missing", ["observed_at", "in_play_state_supported"])
+def test_arrival_time_and_in_play_capability_must_be_stated(missing):
+    """Both are NOT NULL, so a writer that omits them fails loudly.
+
+    in_play_state_supported especially: a nullable capability would defeat its
+    own guard, since a CHECK that evaluates UNKNOWN passes.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    values = {"venue_market_id": market.id, "ts": NOW, "transport": "polling",
+              "observation_key": "cycle:a", "observed_at": NOW,
+              "in_play_state_supported": False,
+              "raw_payload_ref": "raw/kalshi/KX-1/x.json"}
+    del values[missing]
+    db.add(VenuePriceTick(**values))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+@pytest.mark.parametrize("detail", [
+    {},                                # ambiguous silence
+    {"home_score": 1, "away_score": 0},  # detail the guard would have let past
+    {"clock_state": "63'"},
+])
+def test_a_null_capability_stores_nothing_at_all(detail):
+    """NULL is not a third answer, for silence or for detail.
+
+    The negated guard `NOT (supported = false AND ...)` evaluates UNKNOWN when
+    the capability is NULL, and a CHECK that evaluates UNKNOWN passes -- so a
+    row could carry a score no venue ever published simply by declining to say
+    whether the venue publishes scores. NOT NULL closes it at the column, and
+    the guard is now written positively so it never depends on that.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, in_play_state_supported=None, **detail))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_unsupported_in_play_state_cannot_carry_match_detail():
+    """A venue that reports no live state may not imply one at the row level.
+
+    The contract refuses this too, but the constraint is what makes it true of
+    every writer, including one that assembles columns by hand.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, in_play_state_supported=False, home_score=0, away_score=0))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"in_play_state_supported": True, "home_score": 1},
+        {"in_play_state_supported": True, "away_cards": 1},
+        {"in_play_state_supported": True, "home_score": -1, "away_score": 0},
+        {"in_play_state_supported": True, "home_cards": 0, "away_cards": -1},
+        {"in_play_state_supported": True, "minute": -1.0},
+        {"in_play_state_supported": False, "clock_state": "63'"},
+        {"in_play_state_supported": False, "is_in_play": True},
+    ],
+)
+def test_tick_rejects_incoherent_in_play_state(overrides):
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, **overrides))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_supported_but_unreported_state_is_storable_and_distinct():
+    """Three cases, three rows: unsupported, supported-and-silent, reported."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add_all([
+        _tick(market.id, observation_key="cycle:a", in_play_state_supported=False),
+        _tick(market.id, observation_key="cycle:b", in_play_state_supported=True),
+        _tick(market.id, observation_key="cycle:c", in_play_state_supported=True,
+              is_in_play=True, clock_state="63'", period="second_half",
+              minute=63.0, home_score=1, away_score=1, home_cards=2, away_cards=0),
+    ])
+    db.commit()
+
+    rows = {row.observation_key: row for row in db.query(VenuePriceTick)}
+    assert rows["cycle:a"].in_play_state_supported is False
+    assert rows["cycle:b"].in_play_state_supported is True
+    assert rows["cycle:b"].home_score is None
+    assert rows["cycle:c"].home_score == 1 and rows["cycle:c"].away_cards == 0
+
+
+def test_in_play_contract_maps_onto_the_tick_columns_exactly():
+    """The contract's column mapping and the table cannot drift apart."""
+    from pipeline.ingest.venues import InPlayState
+
+    state = InPlayState(supported=True, is_in_play=True, clock_label="63'",
+                        period="second_half", minute=63, score=(1, 1), cards=(2, 0))
+    columns = state.as_columns()
+    assert set(columns) <= set(VenuePriceTick.__table__.c.keys())
+
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, **columns))
+    db.commit()
+
+    stored = db.query(VenuePriceTick).one()
+    assert (stored.home_score, stored.away_score) == (1, 1)
+    assert (stored.home_cards, stored.away_cards) == (2, 0)
+    assert stored.minute == 63.0
 
 
 def test_legacy_market_snapshot_still_roundtrips_unchanged():

@@ -1218,6 +1218,42 @@ class VenuePriceTick(Base):
             "ask_size IS NULL OR ask_size > 0",
             name="ck_venue_price_tick_ask_size",
         ),
+        # A venue that does not publish live match state may not imply any.
+        # Without this, "unreported" and "reported as 0-0" share a row shape,
+        # and a state-matched benchmark cannot say which it excluded.
+        #
+        # Stated positively, never as `NOT (supported = false AND ...)`: with a
+        # nullable capability that form evaluates UNKNOWN, and a CHECK that
+        # evaluates UNKNOWN passes. `in_play_state_supported` is therefore NOT
+        # NULL and this expression is total -- a writer must declare the
+        # capability, and cannot slip detail past the guard by omitting it.
+        CheckConstraint(
+            "in_play_state_supported = true OR ("
+            "is_in_play IS NULL AND clock_state IS NULL"
+            " AND period IS NULL AND minute IS NULL"
+            " AND home_score IS NULL AND away_score IS NULL"
+            " AND home_cards IS NULL AND away_cards IS NULL)",
+            name="ck_venue_price_tick_unsupported_state_is_empty",
+        ),
+        CheckConstraint(
+            "(home_score IS NULL) = (away_score IS NULL)",
+            name="ck_venue_price_tick_score_pair",
+        ),
+        CheckConstraint(
+            "(home_cards IS NULL) = (away_cards IS NULL)",
+            name="ck_venue_price_tick_cards_pair",
+        ),
+        CheckConstraint(
+            "(home_score IS NULL OR home_score >= 0)"
+            " AND (away_score IS NULL OR away_score >= 0)"
+            " AND (home_cards IS NULL OR home_cards >= 0)"
+            " AND (away_cards IS NULL OR away_cards >= 0)",
+            name="ck_venue_price_tick_counts_non_negative",
+        ),
+        CheckConstraint(
+            "minute IS NULL OR minute >= 0",
+            name="ck_venue_price_tick_minute",
+        ),
         Index("ix_venue_price_tick_market_ts", "venue_market_id", "ts"),
         Index("ix_venue_price_tick_transport_ts", "transport", "ts"),
         # SQLite drops timezone information from returned datetime values, so
@@ -1234,8 +1270,22 @@ class VenuePriceTick(Base):
     # natural primary key permits PostgreSQL RANGE partitioning on this column.
     ts: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     source_ts: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    transport: Mapped[str] = mapped_column(String(20), primary_key=True)
+    # OUR arrival time, kept because ts is a logical time and cannot carry it:
+    # for a stream tick ts IS source_ts, so `ts - source_ts` is identically
+    # zero and any latency computed that way is a fiction. Never identity.
+    # Distinct from created_at, which is database insert time and drifts from
+    # arrival under buffering, batching or replay.
+    observed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False
+    )
+    # First-delivery provenance, NOT part of the key. A single venue event
+    # redelivered as `recovery` after arriving via `streaming` is one
+    # observation; keying on transport would file it twice. Rows that read
+    # `recovery` are exactly the events the stream missed.
+    transport: Mapped[str] = mapped_column(String(20), nullable=False)
     # `event:<venue id>` or `cycle:<scheduled UTC timestamp>` from CONTRACTS.md.
+    # The prefix already separates the polling and stream families, so the key
+    # needs no transport component.
     observation_key: Mapped[str] = mapped_column(String(255), primary_key=True)
     source_event_id: Mapped[str | None] = mapped_column(String(255))
     scheduled_cycle_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1246,8 +1296,20 @@ class VenuePriceTick(Base):
     bid_size: Mapped[float | None] = mapped_column(Float)
     ask_size: Mapped[float | None] = mapped_column(Float)
     book_top_n: Mapped[dict | None] = mapped_column(JSON)
+    # Live match state, written as one block from InPlayState.as_columns().
+    # `in_play_state_supported` is the venue's capability, not this tick's
+    # luck: False means the venue never publishes match state, so downstream
+    # comparisons exclude the tick and name the venue instead of reporting it
+    # as a state disagreement. NOT NULL, so silence is never a third answer.
+    in_play_state_supported: Mapped[bool] = mapped_column(Boolean, nullable=False)
     is_in_play: Mapped[bool | None] = mapped_column(Boolean)
     clock_state: Mapped[str | None] = mapped_column(String(80))
+    period: Mapped[str | None] = mapped_column(String(40))
+    minute: Mapped[float | None] = mapped_column(Float)
+    home_score: Mapped[int | None] = mapped_column(Integer)
+    away_score: Mapped[int | None] = mapped_column(Integer)
+    home_cards: Mapped[int | None] = mapped_column(Integer)
+    away_cards: Mapped[int | None] = mapped_column(Integer)
     raw_payload_ref: Mapped[str] = mapped_column(String(500))
     validation_flags: Mapped[list | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
