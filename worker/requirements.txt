@@ -1,0 +1,5 @@
+# Capture-worker dependencies. Kept OUT of backend/requirements.txt so the API
+# image never carries an S3 client it does not use.
+-r ../backend/requirements.txt
+
+boto3==1.40.18

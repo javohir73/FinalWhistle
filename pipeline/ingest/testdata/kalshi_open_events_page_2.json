@@ -1,0 +1,31 @@
+{
+  "events": [
+    {
+      "event_ticker": "KXLIGAMXBTTS-26AUG02AMEPAC",
+      "series_ticker": "KXLIGAMXBTTS",
+      "title": "Club America vs Pachuca",
+      "markets": [
+        {
+          "ticker": "KXLIGAMXBTTS-26AUG02AMEPAC-YES",
+          "event_ticker": "KXLIGAMXBTTS-26AUG02AMEPAC",
+          "title": "Will both teams score?",
+          "status": "open",
+          "open_time": "2026-08-01T00:00:00-06:00",
+          "close_time": "2026-08-03T03:00:00Z"
+        }
+      ]
+    },
+    {
+      "event_ticker": "KXEPLGAME-26AUG01ARSCHE",
+      "series_ticker": "KXEPLGAME",
+      "title": "Arsenal vs Chelsea Winner?",
+      "markets": [
+        {
+          "ticker": "KXEPLGAME-26AUG01ARSCHE-ARS",
+          "status": "open"
+        }
+      ]
+    }
+  ],
+  "cursor": ""
+}

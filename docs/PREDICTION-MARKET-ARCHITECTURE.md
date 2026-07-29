@@ -1,7 +1,8 @@
 # Prediction-market intelligence layer
 
-**Status: FOUNDATION ONLY. No capture exists. Nothing runs, nothing is
-scheduled, no credentials, no serving change.**
+**Status: DEFAULT OFF. Capture code exists and runs nowhere. The worker
+refuses to start without an explicit opt-in AND an explicit market list. No
+schedule, no credentials, no serving change.**
 
 Capturing prediction-market (Kalshi / Polymarket) order books to benchmark the
 engine against a liquid market — pre-match and in-play. This document is the
@@ -12,13 +13,16 @@ map. It is written from what has landed, not from what is planned.
 | Layer | State |
 |---|---|
 | Tables `canonical_entity`, `entity_source_map`, `venue_market`, `venue_price_tick`, `capture_heartbeat` | landed dormant, migration `e1f2a3b4c5d6` |
-| Structured in-play state on `venue_price_tick` | this PR, migration `b1c2d3e4f5a6` |
-| Adapter contracts `pipeline/ingest/venues` | this PR |
-| Capture worker, venue adapters, raw store | **not landed** |
+| Structured in-play state on `venue_price_tick` | landed dormant, migration `b1c2d3e4f5a6` |
+| Adapter contracts `pipeline/ingest/venues` | landed |
+| Capture worker, venue adapters, raw store | this PR — **default off** |
 | Fixture resolution / reconciliation | **not landed** |
 | Benchmark, gating, reporting, research UI | **not landed** |
 
-No code on `main` queries any of these tables. The whole layer is inert.
+Nothing schedules the worker: no cron, no Render service, no GitHub Action.
+It runs only when a person runs it, with `MARKET_CAPTURE_ENABLED=true` and a
+non-empty `MARKET_CAPTURE_MARKET_KEYS`. See
+[PREDICTION-MARKET-CAPTURE.md](PREDICTION-MARKET-CAPTURE.md).
 
 ## Why it is being landed in pieces
 

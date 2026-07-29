@@ -1,0 +1,20 @@
+{
+  "market": "0xaaa",
+  "asset_id": "yes-token-aaa",
+  "timestamp": "1785124770000",
+  "hash": "book-hash-42",
+  "bids": [
+    {"price": "0.4100", "size": "10.00"},
+    {"price": "0.4205", "size": "13.25"},
+    {"price": "0.1500", "size": "100.00"}
+  ],
+  "asks": [
+    {"price": "0.5500", "size": "20.00"},
+    {"price": "0.4400", "size": "17.50"},
+    {"price": "0.9900", "size": "100.00"}
+  ],
+  "last_trade_price": "0.4301",
+  "min_order_size": "5",
+  "tick_size": "0.001",
+  "neg_risk": false
+}
