@@ -328,8 +328,17 @@ def test_a_database_outage_is_reported_not_papered_over(db_app, tmp_path, monkey
     monkeypatch.setattr(research, "ARTIFACT_PATH", path)
 
     def _refused(*_args, **_kwargs):
-        raise OperationalError("SELECT research_artifact", {},
-                               ConnectionError("connection refused"))
+        # Shaped like what psycopg2 actually raises, because the thin version
+        # of this test could not have noticed the endpoint echoing any of it.
+        raise OperationalError(
+            "SELECT research_artifact.id, research_artifact.payload "
+            "FROM research_artifact ORDER BY research_artifact.generated_at DESC",
+            {},
+            ConnectionError(
+                'connection to server at "db.internal.example" (10.0.0.7), '
+                'port 5432 failed: FATAL:  password authentication failed '
+                'for user "wc26_reader"'),
+        )
 
     monkeypatch.setattr(db_app, "query", _refused)
 
@@ -340,6 +349,15 @@ def test_a_database_outage_is_reported_not_papered_over(db_app, tmp_path, monkey
     assert body["status"] == "unreadable"
     assert "cannot be read" in body["detail"]
     assert "no benchmark artifact has been published" not in body["detail"]
+    # The status is public; the driver's account of WHY is not. Connect-time
+    # failures name the host, port and role, mid-query failures name the
+    # statement and its columns -- none of it belongs in an anonymous
+    # response from an endpoint whose whole design is an allowlist.
+    whole_body = json.dumps(body)
+    for internal in ["db.internal.example", "10.0.0.7", "5432", "wc26_reader",
+                     "password authentication", "SELECT", "research_artifact",
+                     "psycopg2", "OperationalError"]:
+        assert internal not in whole_body, internal
 
 
 def test_the_table_not_existing_yet_still_falls_back_to_the_file(
