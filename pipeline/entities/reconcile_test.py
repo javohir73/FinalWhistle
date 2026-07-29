@@ -21,6 +21,17 @@ NOW = datetime(2026, 7, 29, 9, 0, tzinfo=timezone.utc)
 KICKOFF = datetime(2026, 8, 1, 16, 0, tzinfo=timezone.utc)
 TICKER = "KXEPLGAME-26AUG01ARSCHE-ARS"
 
+#: Operator-verified facts for TICKER's market: mapping requires these --
+#: the ticker grammar alone is a review hint and can never auto-map.
+VERIFIED_METADATA = {
+    ("kalshi", TICKER): {
+        "home_source_key": "ARS", "away_source_key": "CHE",
+        "outcome_source_key": "ARS", "competition_source_key": "KXEPLGAME",
+        "kickoff_utc": KICKOFF.isoformat(),
+        "verified_by": "pete", "note": "checked the venue market page",
+    }
+}
+
 
 @pytest.fixture
 def db():
@@ -82,7 +93,7 @@ def test_dry_run_is_the_default_and_writes_nothing(db):
     _verify_keys(db, *_seed_fixtures(db)[:3])
     _market(db)
 
-    report = reconcile_markets(db, now=NOW)
+    report = reconcile_markets(db, now=NOW, metadata_by_key=VERIFIED_METADATA)
 
     assert report.dry_run is True
     assert report.counts() == {"map": 1}
@@ -92,12 +103,69 @@ def test_dry_run_is_the_default_and_writes_nothing(db):
     assert row.mapping_history is None
 
 
-def test_apply_writes_the_mapping_with_full_evidence(db):
+def test_dry_run_preserves_unrelated_pending_caller_work(db):
+    """A dry run must not alter the caller's transaction state. The old code
+    called db.rollback(), which silently destroyed whatever the caller had
+    pending; autoflush during our reads must not emit it early either."""
+    _verify_keys(db, *_seed_fixtures(db)[:3])
+    _market(db)
+    sentinel = Team(name="Sentinel FC")
+    db.add(sentinel)  # pending, unflushed
+
+    reconcile_markets(db, now=NOW, metadata_by_key=VERIFIED_METADATA)
+    apply_correction(db, venue="kalshi", venue_key=TICKER, match_id=1,
+                     outcome="home", verified_by="pete", note="dry", now=NOW)
+    link_entity(db, kind="team", canonical_name="Someone", source="kalshi",
+                source_key="SOM", verified_by="pete", now=NOW)
+
+    assert sentinel in db.new, "dry runs discarded the caller's pending work"
+    db.commit()
+    assert db.query(Team).filter_by(name="Sentinel FC").count() == 1
+
+
+def test_idempotent_replay_also_preserves_pending_caller_work(db):
+    _verify_keys(db, *_seed_fixtures(db)[:3])
+    _market(db)
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
+    sentinel = Team(name="Sentinel FC")
+    db.add(sentinel)
+
+    link_entity(db, kind="team", canonical_name="Arsenal", source="kalshi",
+                source_key="ARS", verified_by="pete", apply=True, now=NOW)
+
+    assert sentinel in db.new
+    db.commit()
+    assert db.query(Team).filter_by(name="Sentinel FC").count() == 1
+
+
+def test_ticker_grammar_alone_proposes_and_never_maps(db):
+    """Kalshi documents ticker exceptions and says not to parse tickers to
+    infer relationships. A fully-consistent grammar hint is a PROPOSAL with
+    canonical columns NULL -- mapping needs verified metadata or a manual
+    correction."""
     tournament, arsenal, chelsea, match = _seed_fixtures(db)
     _verify_keys(db, tournament, arsenal, chelsea)
     _market(db)
 
     report = reconcile_markets(db, apply=True, now=NOW)
+
+    assert report.counts() == {"proposed": 1}
+    row = db.query(VenueMarket).one()
+    assert row.mapping_status == "proposed"
+    assert row.canonical_event_id is None
+    assert row.canonical_outcome is None
+    assert row.resolution_context["proposed_match_id"] == match.id
+    assert "grammar-derived" in row.resolution_context["reason"]
+    assert row.resolution_context["verification"] is None
+
+
+def test_apply_writes_the_mapping_with_full_evidence(db):
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+
+    report = reconcile_markets(db, apply=True, now=NOW,
+                               metadata_by_key=VERIFIED_METADATA)
 
     assert report.counts() == {"map": 1}
     row = db.query(VenueMarket).one()
@@ -107,10 +175,53 @@ def test_apply_writes_the_mapping_with_full_evidence(db):
     context = row.resolution_context
     assert context["resolver_version"] == "market-fixture-resolver-v1"
     assert context["decided_at"] == NOW.isoformat()
-    assert context["grammar"]["extractor"] == "kalshi-ticker-v1"
+    assert context["grammar"]["extractor"] == "operator-metadata-v1"
+    assert context["verification"] == {"by": "pete",
+                                       "note": "checked the venue market page"}
     assert context["candidates"][0]["accepted"] is True
     assert row.mapping_history[0]["kind"] == "resolution"
     assert row.mapping_history[0]["from"]["status"] == "unmapped"
+
+
+def test_anonymous_metadata_fails_closed_in_reconciliation(db):
+    """Tampered/anonymous metadata: no verified_by, no mapping, no proposal
+    built from asserted facts nobody signed."""
+    tournament, arsenal, chelsea, _match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+    tampered = {("kalshi", TICKER): {
+        "home_source_key": "CHE", "away_source_key": "ARS",
+        "outcome_source_key": "CHE", "competition_source_key": "KXEPLGAME",
+        "kickoff_utc": KICKOFF.isoformat(),
+    }}
+
+    report = reconcile_markets(db, apply=True, now=NOW,
+                               metadata_by_key=tampered)
+
+    assert report.counts() == {"unmapped": 1}
+    row = db.query(VenueMarket).one()
+    assert row.canonical_event_id is None
+    assert "verified_by" in row.resolution_context["reason"]
+
+
+def test_metadata_cannot_override_a_manual_correction(db):
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _market(db)
+    apply_correction(db, venue="kalshi", venue_key=TICKER, match_id=match.id,
+                     outcome="draw", verified_by="pete",
+                     note="manual review", apply=True, now=NOW)
+    hostile = {("kalshi", TICKER): {
+        **VERIFIED_METADATA[("kalshi", TICKER)],
+        "outcome_source_key": "CHE", "verified_by": "someone-else",
+        "note": "trying to flip it"}}
+
+    report = reconcile_markets(db, apply=True, now=NOW + timedelta(days=1),
+                               metadata_by_key=hostile)
+
+    assert report.counts() == {"locked": 1}
+    row = db.query(VenueMarket).one()
+    assert row.canonical_outcome == "draw", "manual correction stands"
 
 
 # --- idempotent replay -------------------------------------------------------
@@ -119,9 +230,10 @@ def test_apply_writes_the_mapping_with_full_evidence(db):
 def test_replay_with_unchanged_inputs_rewrites_nothing(db):
     _verify_keys(db, *_seed_fixtures(db)[:3])
     _market(db)
-    reconcile_markets(db, apply=True, now=NOW)
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
 
-    again = reconcile_markets(db, apply=True, now=NOW + timedelta(hours=6))
+    again = reconcile_markets(db, apply=True, now=NOW + timedelta(hours=6),
+                              metadata_by_key=VERIFIED_METADATA)
 
     assert again.counts() == {"unchanged": 1}
     row = db.query(VenueMarket).one()
@@ -192,29 +304,120 @@ def test_a_venue_with_no_structured_metadata_stays_unmapped_honestly(db):
     assert report.counts() == {"unmapped": 1}
 
 
-def test_operator_metadata_resolves_a_structureless_venue(db):
-    tournament, arsenal, chelsea, match = _seed_fixtures(db)
-    _verify_keys(db, tournament, arsenal, chelsea)
+def _polymarket_keys(db):
     for name, key in [("Arsenal", "arsenal"), ("Chelsea", "chelsea")]:
         link_entity(db, kind="team", canonical_name=name, source="polymarket",
                     source_key=key, verified_by="pete", apply=True, now=NOW)
     link_entity(db, kind="competition", canonical_name="Premier League",
                 source="polymarket", source_key="premier-league",
                 verified_by="pete", apply=True, now=NOW)
+
+
+def _polymarket_metadata(**overrides):
+    values = {
+        "home_source_key": "arsenal", "away_source_key": "chelsea",
+        "outcome_source_key": "arsenal",
+        "competition_source_key": "premier-league",
+        "kickoff_utc": KICKOFF.isoformat(),
+        "verified_by": "pete", "note": "checked the venue event page",
+    }
+    values.update(overrides)
+    return {("polymarket", "0xaaa"): values}
+
+
+def test_operator_metadata_resolves_a_structureless_venue(db):
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _polymarket_keys(db)
     _market(db, venue="polymarket", venue_key="0xaaa")
 
-    report = reconcile_markets(db, apply=True, now=NOW, metadata_by_key={
-        ("polymarket", "0xaaa"): {
-            "home_source_key": "arsenal", "away_source_key": "chelsea",
-            "outcome_source_key": "arsenal",
-            "competition_source_key": "premier-league",
-            "kickoff_utc": KICKOFF.isoformat(),
-        }})
+    report = reconcile_markets(db, apply=True, now=NOW,
+                               metadata_by_key=_polymarket_metadata())
 
     assert report.counts() == {"map": 1}
     row = db.query(VenueMarket).one()
     assert row.canonical_event_id == match.id
     assert row.resolution_context["grammar"]["extractor"] == "operator-metadata-v1"
+    assert row.resolution_context["verification"]["by"] == "pete"
+
+
+def test_january_fixtures_belong_to_the_starting_year_season(db):
+    """Season boundary: a 2026-27 season's January fixture has season token
+    '2026'. Metadata declaring '2027' is a mismatch and abstains; '2026'
+    maps; the display form '2026-27' is refused at extraction."""
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    _polymarket_keys(db)
+    january = datetime(2027, 1, 17, 15, 0, tzinfo=timezone.utc)
+    db.query(Match).filter_by(id=match.id).update({"kickoff_utc": january})
+    db.commit()
+    _market(db, venue="polymarket", venue_key="0xaaa")
+
+    right = reconcile_markets(db, now=NOW, metadata_by_key=_polymarket_metadata(
+        kickoff_utc=january.isoformat(), season_label="2026"))
+    wrong_year = reconcile_markets(db, now=NOW, metadata_by_key=_polymarket_metadata(
+        kickoff_utc=january.isoformat(), season_label="2027"))
+    display_form = reconcile_markets(db, now=NOW, metadata_by_key=_polymarket_metadata(
+        kickoff_utc=january.isoformat(), season_label="2026-27"))
+
+    assert right.counts() == {"map": 1}
+    assert wrong_year.counts() == {"proposed": 1}
+    assert "season" in wrong_year.outcomes[0].reason
+    assert display_form.counts() == {"unmapped": 1}
+    assert "four-digit" in display_form.outcomes[0].reason
+
+
+def test_missing_internal_entities_are_reported_as_data_gaps(db):
+    """A fixture that cannot enter entity space must not vanish silently:
+    the report names exactly which link-entity rows are owed."""
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    # Verify only the venue-side and Arsenal; Chelsea's internal key is owed.
+    for kind, name, source, key in [
+        ("team", "Arsenal", "kalshi", "ARS"),
+        ("team", "Chelsea", "kalshi", "CHE"),
+        ("competition", "Premier League", "kalshi", "KXEPLGAME"),
+        ("team", "Arsenal", "internal", internal_team_key(arsenal.id)),
+    ]:
+        link_entity(db, kind=kind, canonical_name=name, source=source,
+                    source_key=key, verified_by="pete", apply=True, now=NOW)
+    _market(db)
+
+    report = reconcile_markets(db, now=NOW)
+
+    assert len(report.data_gaps) == 1
+    assert f"match {match.id}" in report.data_gaps[0]
+    assert internal_team_key(chelsea.id) in report.data_gaps[0]
+    assert report.counts() == {"unmapped": 1}
+
+
+def test_stopped_provider_statuses_never_reach_candidates_today(db):
+    """THE HONESTY TEST for the stopped-fixture guard: production ingestion
+    normalizes every stopped provider status to internal 'scheduled', so the
+    resolver's postponed/cancelled guard cannot fire on real data. The guard
+    is a core contract awaiting a provider-status column -- a recorded data
+    gap, not a live protection."""
+    from pipeline.ingest.league_structure import _STATUS
+    from pipeline.ingest.live_scores import _STATUS_MAP
+
+    for provider_status in ("SUSP", "PST", "CANC", "ABD"):
+        assert _STATUS[provider_status] == "scheduled"
+    for provider_status in ("SUSPENDED", "POSTPONED", "CANCELLED"):
+        assert _STATUS_MAP[provider_status] == "scheduled"
+
+    # And therefore a postponed match, ingested today, still auto-maps: the
+    # information that would stop it does not survive ingestion.
+    tournament, arsenal, chelsea, match = _seed_fixtures(db)
+    _verify_keys(db, tournament, arsenal, chelsea)
+    db.query(Match).filter_by(id=match.id).update(
+        {"status": _STATUS["PST"]})
+    db.commit()
+    _market(db)
+
+    report = reconcile_markets(db, now=NOW, metadata_by_key=VERIFIED_METADATA)
+
+    assert report.counts() == {"map": 1}, (
+        "documents the gap: a postponed fixture is indistinguishable from a "
+        "scheduled one after today's ingest")
 
 
 # --- manual corrections and locks --------------------------------------------
@@ -302,13 +505,14 @@ def test_replay_that_disagrees_flags_a_conflict_and_keeps_the_mapping(db):
     tournament, arsenal, chelsea, match = _seed_fixtures(db)
     _verify_keys(db, tournament, arsenal, chelsea)
     _market(db)
-    reconcile_markets(db, apply=True, now=NOW)
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
 
     # The fixture is rescheduled out of the window after mapping.
     db.query(Match).filter_by(id=match.id).update(
         {"kickoff_utc": KICKOFF + timedelta(days=5)})
     db.commit()
-    report = reconcile_markets(db, apply=True, now=NOW + timedelta(days=1))
+    report = reconcile_markets(db, apply=True, now=NOW + timedelta(days=1),
+                               metadata_by_key=VERIFIED_METADATA)
 
     assert report.counts() == {"conflict": 1}
     row = db.query(VenueMarket).one()
@@ -324,13 +528,15 @@ def test_the_same_conflict_is_recorded_once_not_per_replay(db):
     tournament, arsenal, chelsea, match = _seed_fixtures(db)
     _verify_keys(db, tournament, arsenal, chelsea)
     _market(db)
-    reconcile_markets(db, apply=True, now=NOW)
+    reconcile_markets(db, apply=True, now=NOW, metadata_by_key=VERIFIED_METADATA)
     db.query(Match).filter_by(id=match.id).update(
         {"kickoff_utc": KICKOFF + timedelta(days=5)})
     db.commit()
 
-    reconcile_markets(db, apply=True, now=NOW + timedelta(days=1))
-    reconcile_markets(db, apply=True, now=NOW + timedelta(days=2))
+    reconcile_markets(db, apply=True, now=NOW + timedelta(days=1),
+                      metadata_by_key=VERIFIED_METADATA)
+    reconcile_markets(db, apply=True, now=NOW + timedelta(days=2),
+                      metadata_by_key=VERIFIED_METADATA)
 
     row = db.query(VenueMarket).one()
     kinds = [entry["kind"] for entry in row.mapping_history]

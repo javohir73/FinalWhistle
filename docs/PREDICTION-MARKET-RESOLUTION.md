@@ -18,7 +18,16 @@ that abstains out loud.** Five dimensions must be positively consistent:
 | orientation | descriptor home **is** fixture home, away is away — a reversed pairing is a *different fixture* (the other leg) |
 | competition | market's competition key resolves to the fixture's competition entity |
 | kickoff | within a bounded window (36h) of the fixture kickoff |
-| season | declared-and-equal, or implied by the kickoff window |
+| season | declared-and-equal when the descriptor carries one; otherwise **kickoff-within-window plus competition IS the season gate**, and the evidence records exactly that (`gated_by_kickoff_and_competition`) rather than pretending a fifth check ran |
+
+**And consistency is necessary, not sufficient.** The descriptor's *facts* —
+orientation, kickoff, competition — must themselves be verified by a named
+person before anything maps. A grammar-derived descriptor caps at `proposed`
+however consistent it is.
+
+The canonical season token is the tournament's **starting year**, four digits
+(`Tournament.year`): a 2026-27 season is `"2026"`, January fixtures included.
+Metadata seasons in any other format are refused at extraction.
 
 Missing metadata is not consistency — it caps the outcome at `proposed`. Two
 fixtures surviving every constraint is `ambiguous`, never a coin flip. The
@@ -36,8 +45,10 @@ tests.
 | `ambiguous` | several survivors, or several different near-misses, or an ambiguous ticker split | NULL |
 | `unmapped` | unverified keys, no pairing, unsupported market type, no structured metadata | NULL |
 
-Migration `c2d3e4f5a6b7` adds `proposed` to the check constraint (empty table,
-verified round-trip on Postgres).
+Migration `c2d3e4f5a6b7` adds `proposed` to the check constraint. Verified on
+Postgres **with a populated `proposed` row**: the downgrade folds it back to
+`unmapped` before the old constraint returns, evidence intact (see the
+migration note under Known data gaps).
 
 ## No similarity, anywhere
 
@@ -47,13 +58,24 @@ exact keys**: `entity_source_map` rows written by `link-entity` with a named
 "team:<id>")`, `("internal", "tournament:<id>")` — so the resolver compares
 entity ids only. An unverified key fails closed naming exactly the row to add.
 
-Kalshi descriptors parse the ticker grammar
-(`KXEPLGAME-26AUG01ARSCHE-ARS`): the team block splits **only where both
-halves are already verified keys** — the registry disambiguates, not string
-heuristics — and a block that splits validly two ways abstains. The grammar's
-one assumption (home side listed first) is recorded on every descriptor so a
-venue convention change is auditable, and any reversed-orientation candidate
-is `proposed`, never auto-linked, which also covers neutral-venue listings.
+**Kalshi ticker parsing is a review-hint generator, never a mapping.**
+Kalshi's own documentation ([ticker conventions](https://docs.kalshi.com/getting_started/terms))
+says tickers have occasional exceptions and explicitly advises against parsing
+ticker strings to infer relationships. So the ticker grammar
+(`KXEPLGAME-26AUG01ARSCHE-ARS`) produces an **unverified** descriptor: the
+team block splits only where both halves are already verified keys, a block
+that splits two ways abstains at extraction — and even full five-dimension
+consistency caps at `proposed`, with the grammar and its usual-convention
+reading (home listed first) recorded in the evidence. **Mapping requires
+operator-verified metadata or a manual correction.** Reversed-orientation
+candidates are likewise `proposed`, which also covers neutral-venue listings.
+
+**Operator metadata is an assertion, and an assertion needs an asserter.**
+Every `--venue-metadata` record must carry `verified_by` (a named person) and
+`note` (the evidence source); both persist into `resolution_context` and the
+history. Anonymous metadata fails closed — verifying the entity keys does not
+verify the orientation someone typed into a file — and metadata can never
+touch a manually-corrected row, which stays `locked` under replay.
 
 ## Evidence
 
@@ -62,6 +84,14 @@ grammar and its raw fields, every candidate with every check and its result,
 rejections by name, the proposal target, missing keys. `mapping_history` is
 append-only and records **transitions** (`resolution`, `manual_correction`,
 `conflict_detected`) — replay with unchanged inputs appends nothing.
+
+## Dry runs touch nothing
+
+`resolve`, `correct` and `link-entity` without `--apply` neither commit nor
+roll back, and read under `no_autoflush` — a dry run in a shared session
+leaves the caller's unrelated pending work exactly where it was. (The first
+revision called `db.rollback()`, which silently destroyed it; a sentinel test
+now pins the fixed behavior on every dry-run and idempotent path.)
 
 ## Protection
 
@@ -97,11 +127,25 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_resolution resolve
     --verified-by "pete" --note "wrong market" --apply
 ```
 
-## Known data gap
+## Known data gaps
 
-Polymarket's stored rows carry an opaque `conditionId` and a display question
-only — the structured slug lives in the raw discovery payload, not the
-database. Polymarket resolution therefore requires operator-supplied
-`--venue-metadata` (asserted venue facts, recorded verbatim in the evidence)
-until capture persists structured participants. Kalshi resolves fully from
-stored rows.
+1. **No venue delivers auto-mappable structure today.** Polymarket's stored
+   rows carry an opaque `conditionId` and a display question; Kalshi's ticker
+   is parseable but its own docs bar treating that parse as authoritative.
+   **Every mapping therefore passes through a named human** — verified
+   metadata or a correction — until capture persists venue-structured
+   participant fields with verified semantics.
+2. **Stopped fixtures are invisible after ingestion.** `league_structure._STATUS`
+   and `live_scores._STATUS_MAP` normalize SUSP/PST/CANC/ABD to internal
+   `"scheduled"`, so the resolver's postponed/cancelled guard — while tested
+   as a core contract — **cannot fire on production data**. A through-ingest
+   test documents this; closing it needs a provider-status column carried
+   through ingestion.
+3. **Fixtures missing internal entity mappings** cannot be candidates; the
+   reconcile report's `data_gaps` names each owed `link-entity` row instead
+   of letting the fixture vanish silently.
+
+Migration note: downgrading `c2d3e4f5a6b7` folds `proposed` rows back to
+`unmapped` (canonical columns are NULL by construction; evidence in
+`resolution_context`/`mapping_history` is untouched) — verified against a
+populated table, not an empty one.

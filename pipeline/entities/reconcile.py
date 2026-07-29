@@ -73,16 +73,23 @@ def entity_kind_index(db: Session) -> dict[int, str]:
     return {row.id: row.kind for row in db.query(CanonicalEntity).all()}
 
 
-def fixture_candidates(db: Session) -> list[FixtureCandidate]:
-    """Every Match with both sides mapped into entity space.
+def fixture_candidates(db: Session) -> tuple[list[FixtureCandidate], list[str]]:
+    """Every Match liftable into entity space, plus the ones that are NOT.
 
     A match whose team or tournament has no verified internal entity mapping
-    is simply not a candidate -- it cannot be compared, so it cannot be
-    matched, so markets that belong to it resolve to unmapped with the
-    missing keys named. Fail closed, loudly.
+    cannot be compared, so it cannot be matched -- and that absence must be
+    visible, not silent: a market for a missing fixture would otherwise
+    resolve to a bland "no fixture shares this pairing". The second return
+    value names every missing internal key so the report can say exactly
+    which ``link-entity`` rows are owed.
+
+    Season is the tournament's starting year as a four-digit token (a 2026-27
+    season is "2026", January fixtures included) -- Tournament.year, never
+    the display name.
     """
     index = source_entity_index(db)
     candidates = []
+    gaps: list[str] = []
     rows = (
         db.query(Match, Tournament)
         .join(Tournament, Tournament.id == Match.tournament_id)
@@ -95,8 +102,22 @@ def fixture_candidates(db: Session) -> list[FixtureCandidate]:
         away = index.get((INTERNAL_SOURCE, internal_team_key(match.team_away_id)))
         competition = index.get(
             (INTERNAL_SOURCE, internal_competition_key(tournament.id)))
+        missing = [
+            key for key, entity in (
+                (internal_team_key(match.team_home_id), home),
+                (internal_team_key(match.team_away_id), away),
+                (internal_competition_key(tournament.id), competition),
+            ) if entity is None
+        ]
         if home is None or away is None:
+            gaps.append(
+                f"match {match.id} is not a candidate: no internal entity for "
+                + ", ".join(missing))
             continue
+        if competition is None:
+            gaps.append(
+                f"match {match.id}: no internal entity for {missing[0]} "
+                "(candidate kept; competition checks will reject it)")
         candidates.append(FixtureCandidate(
             match_id=match.id,
             home_entity_id=home,
@@ -104,9 +125,9 @@ def fixture_candidates(db: Session) -> list[FixtureCandidate]:
             competition_entity_id=competition,
             kickoff_utc=match.kickoff_utc,
             status=match.status or "scheduled",
-            season_label=tournament.name,
+            season_label=str(tournament.year) if tournament.year else None,
         ))
-    return candidates
+    return candidates, gaps
 
 
 @dataclass
@@ -127,6 +148,9 @@ class ReconcileReport:
     dry_run: bool
     resolver_version: str = RESOLVER_VERSION
     outcomes: list[MarketOutcome] = field(default_factory=list)
+    #: Fixtures that could not become candidates, with the missing internal
+    #: keys named. Data gaps are report content, not log noise.
+    data_gaps: list[str] = field(default_factory=list)
 
     def counts(self) -> dict[str, int]:
         tally: dict[str, int] = {}
@@ -141,7 +165,8 @@ def _is_verified(row: VenueMarket) -> bool:
 
 
 def _resolution_context(
-    resolution: Resolution, descriptor_grammar: dict | None, now: datetime
+    resolution: Resolution, descriptor_grammar: dict | None, now: datetime,
+    verification: dict | None = None,
 ) -> dict:
     return {
         "resolver_version": RESOLVER_VERSION,
@@ -149,6 +174,7 @@ def _resolution_context(
         "status": resolution.status,
         "reason": resolution.reason,
         "grammar": descriptor_grammar,
+        "verification": verification,
         "proposed_match_id": resolution.proposed_match_id,
         "missing": list(resolution.missing),
         "candidates": [
@@ -195,129 +221,137 @@ def reconcile_markets(
     now: datetime | None = None,
     metadata_by_key: dict[tuple[str, str], dict] | None = None,
 ) -> ReconcileReport:
-    """Resolve every venue market. Writes nothing unless ``apply=True``."""
+    """Resolve every venue market. Writes nothing unless ``apply=True``.
+
+    A dry run must not alter the caller's transaction state: no commit, no
+    rollback, and reads run under ``no_autoflush`` so the caller's unrelated
+    pending work is neither flushed early nor discarded. Rolling back here --
+    the old behavior -- silently destroyed whatever the caller had pending.
+    """
     now = now or datetime.now(timezone.utc)
-    index = source_entity_index(db)
-    kinds = entity_kind_index(db)
-    fixtures = fixture_candidates(db)
-    report = ReconcileReport(dry_run=not apply)
+    with db.no_autoflush:
+        index = source_entity_index(db)
+        kinds = entity_kind_index(db)
+        fixtures, gaps = fixture_candidates(db)
+        report = ReconcileReport(dry_run=not apply, data_gaps=gaps)
 
-    rows = (
-        db.query(VenueMarket)
-        .order_by(VenueMarket.venue, VenueMarket.venue_key)
-        .all()
-    )
-    for row in rows:
-        if _is_verified(row):
-            report.outcomes.append(MarketOutcome(
-                venue=row.venue, venue_key=row.venue_key, action="locked",
-                status=row.mapping_status,
-                reason="operator-verified mapping; replay never touches it",
-                match_id=row.canonical_event_id, outcome=row.canonical_outcome))
-            continue
-
-        descriptor = _descriptor_for(row, index, metadata_by_key)
-        if isinstance(descriptor, ExtractionFailure):
-            resolution = Resolution(
-                status=AMBIGUOUS if descriptor.ambiguous else UNMAPPED,
-                reason=descriptor.reason)
-            grammar = None
-        else:
-            resolution = resolve_market(
-                descriptor, source_entities=index, entity_kinds=kinds,
-                fixtures=fixtures)
-            grammar = dict(descriptor.grammar)
-
-        context = _resolution_context(resolution, grammar, now)
-
-        if row.mapping_status == MAPPED and row.canonical_event_id is not None:
-            same = (
-                resolution.status == MAPPED
-                and resolution.match_id == row.canonical_event_id
-                and resolution.canonical_outcome == row.canonical_outcome
-            )
-            if same:
+        rows = (
+            db.query(VenueMarket)
+            .order_by(VenueMarket.venue, VenueMarket.venue_key)
+            .all()
+        )
+        for row in rows:
+            if _is_verified(row):
                 report.outcomes.append(MarketOutcome(
-                    venue=row.venue, venue_key=row.venue_key,
-                    action="unchanged", status=MAPPED,
-                    reason="replay agrees with the stored mapping",
-                    match_id=row.canonical_event_id,
-                    outcome=row.canonical_outcome))
+                    venue=row.venue, venue_key=row.venue_key, action="locked",
+                    status=row.mapping_status,
+                    reason="operator-verified mapping; replay never touches it",
+                    match_id=row.canonical_event_id, outcome=row.canonical_outcome))
                 continue
-            # No silent remap: the stored mapping stands, the disagreement is
-            # recorded once, and a human resolves it via apply_correction.
-            conflict = {
-                "resolver_version": RESOLVER_VERSION,
-                "stored": {"match_id": row.canonical_event_id,
-                           "outcome": row.canonical_outcome},
-                "replay": {"status": resolution.status,
-                           "match_id": resolution.match_id,
-                           "outcome": resolution.canonical_outcome,
-                           "reason": resolution.reason},
-            }
-            existing = (row.resolution_context or {}).get("conflict")
-            if apply and existing != conflict:
+
+            descriptor = _descriptor_for(row, index, metadata_by_key)
+            if isinstance(descriptor, ExtractionFailure):
+                resolution = Resolution(
+                    status=AMBIGUOUS if descriptor.ambiguous else UNMAPPED,
+                    reason=descriptor.reason)
+                grammar = None
+                verification = None
+            else:
+                resolution = resolve_market(
+                    descriptor, source_entities=index, entity_kinds=kinds,
+                    fixtures=fixtures)
+                grammar = dict(descriptor.grammar)
+                verification = (dict(descriptor.verification)
+                                if descriptor.verification else None)
+
+            context = _resolution_context(resolution, grammar, now, verification)
+
+            if row.mapping_status == MAPPED and row.canonical_event_id is not None:
+                same = (
+                    resolution.status == MAPPED
+                    and resolution.match_id == row.canonical_event_id
+                    and resolution.canonical_outcome == row.canonical_outcome
+                )
+                if same:
+                    report.outcomes.append(MarketOutcome(
+                        venue=row.venue, venue_key=row.venue_key,
+                        action="unchanged", status=MAPPED,
+                        reason="replay agrees with the stored mapping",
+                        match_id=row.canonical_event_id,
+                        outcome=row.canonical_outcome))
+                    continue
+                # No silent remap: the stored mapping stands, the disagreement is
+                # recorded once, and a human resolves it via apply_correction.
+                conflict = {
+                    "resolver_version": RESOLVER_VERSION,
+                    "stored": {"match_id": row.canonical_event_id,
+                               "outcome": row.canonical_outcome},
+                    "replay": {"status": resolution.status,
+                               "match_id": resolution.match_id,
+                               "outcome": resolution.canonical_outcome,
+                               "reason": resolution.reason},
+                }
+                existing = (row.resolution_context or {}).get("conflict")
+                if apply and existing != conflict:
+                    history = list(row.mapping_history or [])
+                    history.append({
+                        "kind": "conflict_detected", "at": now.isoformat(),
+                        **conflict,
+                    })
+                    row.mapping_history = history
+                    row.resolution_context = {
+                        **(row.resolution_context or {}), "conflict": conflict}
+                report.outcomes.append(MarketOutcome(
+                    venue=row.venue, venue_key=row.venue_key, action="conflict",
+                    status=MAPPED,
+                    reason="replay disagrees with the stored mapping; kept stored, "
+                           "flagged for correction",
+                    match_id=row.canonical_event_id, outcome=row.canonical_outcome))
+                continue
+
+            previous_context = row.resolution_context or {}
+            unchanged = (
+                row.mapping_status == resolution.status
+                and _fingerprint(previous_context) == _fingerprint(context)
+            )
+            if unchanged:
+                report.outcomes.append(MarketOutcome(
+                    venue=row.venue, venue_key=row.venue_key, action="unchanged",
+                    status=resolution.status, reason=resolution.reason,
+                    match_id=resolution.match_id,
+                    outcome=resolution.canonical_outcome))
+                continue
+
+            action = "map" if resolution.status == MAPPED else resolution.status
+            if apply:
                 history = list(row.mapping_history or [])
                 history.append({
-                    "kind": "conflict_detected", "at": now.isoformat(),
-                    **conflict,
+                    "kind": "resolution", "at": now.isoformat(),
+                    "resolver_version": RESOLVER_VERSION,
+                    "from": {"status": row.mapping_status,
+                             "match_id": row.canonical_event_id,
+                             "outcome": row.canonical_outcome},
+                    "to": {"status": resolution.status,
+                           "match_id": resolution.match_id,
+                           "outcome": resolution.canonical_outcome},
+                    "reason": resolution.reason,
                 })
                 row.mapping_history = history
-                row.resolution_context = {
-                    **(row.resolution_context or {}), "conflict": conflict}
+                row.mapping_status = resolution.status
+                row.resolution_context = context
+                if resolution.status == MAPPED:
+                    row.canonical_event_id = resolution.match_id
+                    row.canonical_outcome = resolution.canonical_outcome
+                else:
+                    row.canonical_event_id = None
+                    row.canonical_outcome = None
             report.outcomes.append(MarketOutcome(
-                venue=row.venue, venue_key=row.venue_key, action="conflict",
-                status=MAPPED,
-                reason="replay disagrees with the stored mapping; kept stored, "
-                       "flagged for correction",
-                match_id=row.canonical_event_id, outcome=row.canonical_outcome))
-            continue
-
-        previous_context = row.resolution_context or {}
-        unchanged = (
-            row.mapping_status == resolution.status
-            and _fingerprint(previous_context) == _fingerprint(context)
-        )
-        if unchanged:
-            report.outcomes.append(MarketOutcome(
-                venue=row.venue, venue_key=row.venue_key, action="unchanged",
+                venue=row.venue, venue_key=row.venue_key, action=action,
                 status=resolution.status, reason=resolution.reason,
-                match_id=resolution.match_id,
-                outcome=resolution.canonical_outcome))
-            continue
-
-        action = "map" if resolution.status == MAPPED else resolution.status
-        if apply:
-            history = list(row.mapping_history or [])
-            history.append({
-                "kind": "resolution", "at": now.isoformat(),
-                "resolver_version": RESOLVER_VERSION,
-                "from": {"status": row.mapping_status,
-                         "match_id": row.canonical_event_id,
-                         "outcome": row.canonical_outcome},
-                "to": {"status": resolution.status,
-                       "match_id": resolution.match_id,
-                       "outcome": resolution.canonical_outcome},
-                "reason": resolution.reason,
-            })
-            row.mapping_history = history
-            row.mapping_status = resolution.status
-            row.resolution_context = context
-            if resolution.status == MAPPED:
-                row.canonical_event_id = resolution.match_id
-                row.canonical_outcome = resolution.canonical_outcome
-            else:
-                row.canonical_event_id = None
-                row.canonical_outcome = None
-        report.outcomes.append(MarketOutcome(
-            venue=row.venue, venue_key=row.venue_key, action=action,
-            status=resolution.status, reason=resolution.reason,
-            match_id=resolution.match_id, outcome=resolution.canonical_outcome))
+                match_id=resolution.match_id, outcome=resolution.canonical_outcome))
 
     if apply:
         db.commit()
-    else:
-        db.rollback()
     return report
 
 
@@ -345,21 +379,23 @@ def apply_correction(
         raise ValueError("verified_by must name a person")
     if not note.strip():
         raise ValueError("a correction requires a note explaining the evidence")
-    row = (
-        db.query(VenueMarket)
-        .filter_by(venue=venue, venue_key=venue_key)
-        .one_or_none()
-    )
-    if row is None:
-        raise ValueError(f"no venue market ({venue!r}, {venue_key!r})")
-    if not clear:
-        if match_id is None or not (outcome or "").strip():
-            raise ValueError("a correction requires --match-id and --outcome, "
-                             "or --clear")
-        if outcome not in {"home", "draw", "away"}:
-            raise ValueError(f"outcome must be home/draw/away, got {outcome!r}")
-        if db.get(Match, match_id) is None:
-            raise ValueError(f"match {match_id} does not exist")
+    with db.no_autoflush:
+        row = (
+            db.query(VenueMarket)
+            .filter_by(venue=venue, venue_key=venue_key)
+            .one_or_none()
+        )
+        if row is None:
+            raise ValueError(f"no venue market ({venue!r}, {venue_key!r})")
+        if not clear:
+            if match_id is None or not (outcome or "").strip():
+                raise ValueError("a correction requires --match-id and "
+                                 "--outcome, or --clear")
+            if outcome not in {"home", "draw", "away"}:
+                raise ValueError(
+                    f"outcome must be home/draw/away, got {outcome!r}")
+            if db.get(Match, match_id) is None:
+                raise ValueError(f"match {match_id} does not exist")
 
     entry = {
         "kind": "manual_correction", "at": now.isoformat(),
@@ -379,7 +415,8 @@ def apply_correction(
         match_id=None if clear else match_id,
         outcome=None if clear else outcome)
     if not apply:
-        db.rollback()
+        # Dry run: the caller's transaction state is untouched -- no commit,
+        # no rollback, nothing flushed.
         return result
 
     history = list(row.mapping_history or [])
@@ -430,19 +467,19 @@ def link_entity(
         raise ValueError("kind must be team or competition")
     if not verified_by.strip():
         raise ValueError("verified_by must name a person")
-    entity = (
-        db.query(CanonicalEntity)
-        .filter_by(sport=sport, kind=kind, canonical_name=canonical_name)
-        .one_or_none()
-    )
-    existing = (
-        db.query(EntitySourceMap)
-        .filter_by(source=source, source_key=source_key)
-        .one_or_none()
-    )
+    with db.no_autoflush:
+        entity = (
+            db.query(CanonicalEntity)
+            .filter_by(sport=sport, kind=kind, canonical_name=canonical_name)
+            .one_or_none()
+        )
+        existing = (
+            db.query(EntitySourceMap)
+            .filter_by(source=source, source_key=source_key)
+            .one_or_none()
+        )
     if existing is not None:
         if entity is not None and existing.entity_id == entity.id:
-            db.rollback()
             return f"already linked: ({source}, {source_key}) -> entity {entity.id}"
         raise ValueError(
             f"({source!r}, {source_key!r}) is already linked to entity "
@@ -453,7 +490,6 @@ def link_entity(
         + ("" if entity is not None else " (new entity)")
     )
     if not apply:
-        db.rollback()
         return f"DRY RUN: {message}"
     if entity is None:
         entity = CanonicalEntity(

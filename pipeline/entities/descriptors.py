@@ -17,6 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import re
 from typing import Mapping
 
 from pipeline.entities.resolver import MarketDescriptor
@@ -74,10 +75,15 @@ def kalshi_descriptor(
     the disambiguation. Zero valid splits fails closed; two valid splits is a
     genuine ambiguity and abstains.
 
-    The grammar assumes the venue lists the home side first. That assumption
-    is recorded on the descriptor, because the resolver's orientation check
-    is only as trustworthy as this line, and if the venue ever changes
-    conventions the evidence must show which grammar made the claim.
+    **A ticker descriptor is a REVIEW HINT, never a mapping.** Kalshi's own
+    documentation (docs.kalshi.com/getting_started/terms) says tickers have
+    occasional exceptions and explicitly advises against parsing ticker
+    strings to infer relationships. So this descriptor carries no
+    ``verification`` and the resolver caps it at ``proposed`` even when every
+    dimension is consistent. Mapping requires operator-verified metadata or a
+    manual correction. The reading recorded here (home side listed first) is
+    the venue's usual convention, kept in the evidence so a reviewer can see
+    exactly what the hint was built from.
     """
     parts = venue_key.strip().split("-")
     if len(parts) != 3:
@@ -130,15 +136,25 @@ def kalshi_descriptor(
         kickoff_utc=kickoff,
         grammar={
             "extractor": KALSHI_GRAMMAR_VERSION,
-            "assumption": "venue lists the home side first in the team block",
+            "assumption": (
+                "venue usually lists the home side first in the team block; "
+                "Kalshi documents ticker exceptions, so this is a review "
+                "hint only and can never auto-map"
+            ),
             "ticker": venue_key,
             "date_token": event_part[:7],
             "team_block": block,
         },
+        verification=None,
     )
 
 
-_REQUIRED_METADATA = ("home_source_key", "away_source_key", "outcome_source_key")
+_REQUIRED_METADATA = ("home_source_key", "away_source_key", "outcome_source_key",
+                      "verified_by", "note")
+
+#: Canonical season token: the tournament's starting year, four digits. A
+#: European 2026-27 season is "2026" and covers its January fixtures.
+_SEASON_FORMAT = re.compile(r"^\d{4}$")
 
 
 def descriptor_from_metadata(
@@ -151,14 +167,25 @@ def descriptor_from_metadata(
     """Build a descriptor from explicit operator-supplied metadata.
 
     The escape hatch for venues whose stored rows carry no structure
-    (Polymarket). Every field is taken verbatim -- the operator is asserting
-    venue facts, not similarity -- and the metadata travels into the evidence
-    so the assertion is auditable.
+    (Polymarket). The operator is asserting venue facts -- orientation,
+    kickoff, competition -- and an assertion needs an asserter: every record
+    must carry ``verified_by`` (a named person) and ``note`` (the evidence
+    source), which travel into ``resolution_context`` and the history.
+    Anonymous metadata fails closed; verifying the entity keys does not
+    verify the orientation someone typed into a file.
     """
     missing = [key for key in _REQUIRED_METADATA if not str(metadata.get(key) or "").strip()]
     if missing:
         return ExtractionFailure(
             reason="metadata missing required fields: " + ", ".join(missing)
+        )
+    season = metadata.get("season_label")
+    if season is not None and not _SEASON_FORMAT.fullmatch(str(season)):
+        return ExtractionFailure(
+            reason=(
+                f"metadata season_label {season!r} is not a four-digit "
+                "starting year (a 2026-27 season is '2026')"
+            )
         )
     kickoff_raw = metadata.get("kickoff_utc")
     kickoff = None
@@ -174,7 +201,6 @@ def descriptor_from_metadata(
                 reason="metadata kickoff_utc must be timezone-aware"
             )
     competition = metadata.get("competition_source_key")
-    season = metadata.get("season_label")
     return MarketDescriptor(
         venue=venue,
         venue_key=venue_key,
@@ -189,5 +215,9 @@ def descriptor_from_metadata(
             "extractor": METADATA_GRAMMAR_VERSION,
             "assumption": "operator-supplied venue facts, audited verbatim",
             "metadata": {key: str(value) for key, value in sorted(metadata.items())},
+        },
+        verification={
+            "by": str(metadata["verified_by"]),
+            "note": str(metadata["note"]),
         },
     )

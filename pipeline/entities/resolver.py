@@ -18,8 +18,9 @@ Five dimensions must be POSITIVELY consistent before an auto-link:
    competition entity;
 4. **kickoff window** -- the venue's declared date/time within a bounded
    tolerance of the fixture kickoff;
-5. **season** -- either declared and equal, or implied by the kickoff window
-   (a window match inside one season's fixture is that season's evidence).
+5. **season** -- declared and equal when the descriptor carries one;
+   otherwise kickoff-within-window plus competition IS the season gate, and
+   the evidence says so rather than pretending a fifth check ran.
 
 Missing metadata is not consistency. It downgrades the best possible outcome
 to ``proposed`` -- a review candidate with its explanation attached -- and a
@@ -42,6 +43,14 @@ DEFAULT_KICKOFF_TOLERANCE = timedelta(hours=36)
 
 #: Fixture statuses that must never be auto-linked: the venue may still be
 #: quoting a match our data says is not happening as scheduled.
+#:
+#: HONESTY NOTE: today's ingestion (league_structure._STATUS,
+#: live_scores._STATUS_MAP) normalizes SUSP/PST/CANC/ABD to internal
+#: "scheduled", so these values never reach a fixture candidate and this
+#: guard is INERT in production. It is a contract for the resolver core, kept
+#: so the day a provider-status column lands the behavior already exists --
+#: not a claim that stopped fixtures are currently detected. The gap is
+#: recorded in docs/PREDICTION-MARKET-RESOLUTION.md.
 _UNLINKABLE_FIXTURE_STATUSES = frozenset({"postponed", "cancelled", "abandoned"})
 
 _DRAW_KEYS = frozenset({"draw", "tie", "x"})
@@ -74,6 +83,14 @@ class MarketDescriptor:
     #: because grammar assumptions (e.g. "home team listed first") must be
     #: auditable when a venue changes conventions.
     grammar: Mapping[str, object] = field(default_factory=dict)
+    #: Named human verification of the ASSERTED FACTS (orientation, kickoff,
+    #: competition): ``{"by": ..., "note": ...}``. None means the descriptor
+    #: was derived by grammar from venue strings -- and Kalshi's own docs say
+    #: tickers have exceptions and must not be parsed to infer relationships
+    #: (docs.kalshi.com/getting_started/terms). An unverified descriptor can
+    #: therefore NEVER produce a mapping, only a review hint: full consistency
+    #: caps at ``proposed``.
+    verification: Mapping[str, str] | None = None
 
 
 @dataclass(frozen=True)
@@ -258,7 +275,10 @@ def resolve_market(
                 checks.append(("season", "mismatch"))
                 rejections.append("season_mismatch")
         else:
-            checks.append(("season", "implied_by_kickoff_window"))
+            # Stated honestly: with no declared season, kickoff-within-window
+            # plus competition IS the season gate. A fixture matched inside
+            # the window belongs to exactly one tournament season.
+            checks.append(("season", "gated_by_kickoff_and_competition"))
 
         status = fixture.status.strip().casefold()
         if status in _UNLINKABLE_FIXTURE_STATUSES:
@@ -301,11 +321,31 @@ def resolve_market(
                 ),
                 assessments=evidence,
             )
+        if descriptor.verification is None:
+            # Grammar-derived facts are hints, not labels. Kalshi documents
+            # ticker exceptions and advises against parsing tickers to infer
+            # relationships; a recorded assumption does not make a training
+            # label safe. Review, then verify via metadata or correction.
+            extractor = str(descriptor.grammar.get("extractor", "unknown"))
+            return Resolution(
+                status=PROPOSED,
+                proposed_match_id=accepted[0].match_id,
+                reason=(
+                    "every dimension is consistent, but the descriptor is "
+                    f"grammar-derived ({extractor}) with no named "
+                    "verification; the venue documents exceptions to its "
+                    "naming conventions, so this is a review hint, never an "
+                    "auto-link"
+                ),
+                assessments=evidence,
+            )
         return Resolution(
             status=MAPPED,
             match_id=accepted[0].match_id,
             canonical_outcome=outcome,
-            reason="single fixture consistent on every dimension",
+            reason="single fixture consistent on every dimension, "
+                   "descriptor facts verified by "
+                   + str(descriptor.verification.get("by", "?")),
             assessments=evidence,
         )
 

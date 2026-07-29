@@ -38,13 +38,16 @@ def _descriptor(**overrides):
         "outcome_source_key": "ARS",
         "competition_source_key": "KXEPLGAME",
         "kickoff_utc": SAT,
+        # Dimension tests run with verified facts; the unverified cap has its
+        # own tests below.
+        "verification": {"by": "test-reviewer", "note": "fixture"},
     }
     values.update(overrides)
     return MarketDescriptor(**values)
 
 
 def _fixture(match_id=41, *, home=ARSENAL, away=CHELSEA, competition=LEAGUE,
-             kickoff=SAT, status="scheduled", season="Premier League 2026-27"):
+             kickoff=SAT, status="scheduled", season="2026"):
     return FixtureCandidate(
         match_id=match_id, home_entity_id=home, away_entity_id=away,
         competition_entity_id=competition, kickoff_utc=kickoff,
@@ -150,7 +153,7 @@ def test_cup_and_league_meetings_in_one_week_resolve_by_competition():
     league = _fixture(match_id=41, competition=LEAGUE, kickoff=SAT)
     cup = _fixture(match_id=55, competition=CUP,
                    kickoff=SAT + timedelta(days=4),
-                   season="FA Cup 2026-27")
+                   season="2026")
 
     league_market = _resolve(_descriptor(kickoff_utc=SAT), [league, cup])
     cup_market = _resolve(
@@ -180,7 +183,7 @@ def test_a_market_without_competition_cannot_cross_the_cup_league_gap():
     two near-misses have the same single failure -- abstain."""
     league = _fixture(match_id=41, competition=LEAGUE, kickoff=SAT)
     cup = _fixture(match_id=55, competition=CUP, kickoff=SAT,
-                   season="FA Cup 2026-27")
+                   season="2026")
 
     resolution = _resolve(
         _descriptor(competition_source_key=None), [league, cup])
@@ -201,7 +204,7 @@ def test_a_market_without_competition_and_one_candidate_is_only_proposed():
 def test_adjacent_seasons_are_separated_by_the_window():
     this_season = _fixture(match_id=41, kickoff=SAT)
     last_season = _fixture(match_id=12, kickoff=SAT - timedelta(days=364),
-                           season="Premier League 2025-26")
+                           season="2025")
 
     resolution = _resolve(_descriptor(), [this_season, last_season])
 
@@ -209,10 +212,10 @@ def test_adjacent_seasons_are_separated_by_the_window():
 
 
 def test_a_declared_season_mismatch_rejects_even_inside_the_window():
-    fixture = _fixture(season="Premier League 2026-27")
+    fixture = _fixture(season="2026")
 
     resolution = _resolve(
-        _descriptor(season_label="Premier League 2025-26"), [fixture])
+        _descriptor(season_label="2025"), [fixture])
 
     assert resolution.status == PROPOSED
     assert "season" in resolution.reason
@@ -230,6 +233,11 @@ def test_a_rescheduled_fixture_is_proposed_not_mapped():
 
 
 def test_a_postponed_fixture_is_never_auto_linked():
+    """CORE CONTRACT, currently inert in production: today's ingestion
+    normalizes PST/SUSP to internal "scheduled" (see the through-ingest test
+    in reconcile_test), so this status cannot yet reach a candidate. The
+    behavior exists for the day a provider-status signal lands; it is not a
+    claim that stopped fixtures are detected today."""
     postponed = _fixture(status="postponed")
 
     resolution = _resolve(_descriptor(), [postponed])
@@ -239,6 +247,7 @@ def test_a_postponed_fixture_is_never_auto_linked():
 
 
 def test_a_cancelled_fixture_is_never_auto_linked():
+    """Same honesty note as the postponed test: core contract, inert today."""
     resolution = _resolve(_descriptor(), [_fixture(status="cancelled")])
 
     assert resolution.status == PROPOSED
@@ -249,7 +258,7 @@ def test_stale_metadata_with_no_nearby_fixture_stays_out_of_reach():
     """Kickoff a month off AND the wrong competition: two failures is not a
     reviewable story, it is noise."""
     fixture = _fixture(competition=CUP, kickoff=SAT + timedelta(days=30),
-                       season="FA Cup 2026-27")
+                       season="2026")
 
     resolution = _resolve(_descriptor(), [fixture])
 
@@ -306,7 +315,7 @@ def test_resolution_is_order_independent():
     fixtures = [
         _fixture(match_id=41, kickoff=SAT),
         _fixture(match_id=12, kickoff=SAT - timedelta(days=364),
-                 season="Premier League 2025-26"),
+                 season="2025"),
         _fixture(match_id=77, home=CHELSEA, away=ARSENAL,
                  kickoff=SAT + timedelta(days=14)),
     ]
@@ -321,7 +330,7 @@ def test_resolution_is_order_independent():
 def test_every_candidate_leaves_its_assessment_in_the_evidence():
     fixtures = [
         _fixture(match_id=41),
-        _fixture(match_id=55, competition=CUP, season="FA Cup 2026-27"),
+        _fixture(match_id=55, competition=CUP, season="2026"),
         _fixture(match_id=90, home=SPURS, away=CHELSEA),  # different pairing
     ]
 
@@ -332,3 +341,57 @@ def test_every_candidate_leaves_its_assessment_in_the_evidence():
     assert assessed[41].accepted is True
     assert assessed[55].rejections == ("competition_mismatch",)
     assert ("orientation", "exact") in assessed[41].checks
+
+
+# --- the unverified-descriptor cap -------------------------------------------
+
+
+def test_a_grammar_descriptor_never_maps_even_when_fully_consistent():
+    """Kalshi documents ticker exceptions and says not to parse tickers to
+    infer relationships. A recorded assumption is not a safe training label:
+    full consistency from an unverified descriptor is a REVIEW HINT."""
+    hint = _descriptor(verification=None,
+                       grammar={"extractor": "kalshi-ticker-v1"})
+
+    resolution = _resolve(hint, [_fixture()])
+
+    assert resolution.status == PROPOSED
+    assert resolution.match_id is None
+    assert resolution.canonical_outcome is None
+    assert resolution.proposed_match_id == 41
+    assert "grammar-derived" in resolution.reason
+    assert "kalshi-ticker-v1" in resolution.reason
+
+
+def test_verification_lifts_the_same_descriptor_to_mapped():
+    hint = _descriptor(verification=None)
+    verified = _descriptor()
+
+    assert _resolve(hint, [_fixture()]).status == PROPOSED
+    mapped = _resolve(verified, [_fixture()])
+    assert mapped.status == MAPPED
+    assert "test-reviewer" in mapped.reason
+
+
+def test_the_cap_does_not_loosen_any_other_dimension():
+    """Unverified AND ambiguous is still ambiguous; unverified AND reversed
+    is still the reversed-orientation proposal, not a mapping."""
+    hint = _descriptor(verification=None)
+
+    two = _resolve(hint, [_fixture(match_id=41),
+                          _fixture(match_id=43,
+                                   kickoff=SAT + timedelta(hours=20))])
+    reversed_only = _resolve(hint, [_fixture(home=CHELSEA, away=ARSENAL)])
+
+    assert two.status == AMBIGUOUS
+    assert reversed_only.status == PROPOSED
+    assert "REVERSED" in reversed_only.reason
+
+
+def test_season_gate_is_stated_honestly_in_the_evidence():
+    """No declared season: the check records that kickoff+competition IS the
+    season gate, rather than pretending a fifth comparison ran."""
+    resolution = _resolve(_descriptor(), [_fixture()])
+
+    checks = dict(resolution.assessments[0].checks)
+    assert checks["season"] == "gated_by_kickoff_and_competition"

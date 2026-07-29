@@ -68,6 +68,9 @@ def test_malformed_tickers_are_refused_with_the_reason():
         assert fragment in failure.reason
 
 
+VERIFIED_FIELDS = {"verified_by": "pete", "note": "checked the venue listing"}
+
+
 def test_metadata_descriptors_take_operator_facts_verbatim():
     descriptor = descriptor_from_metadata(
         venue="polymarket", venue_key="0xaaa", market_type="match_winner",
@@ -76,27 +79,75 @@ def test_metadata_descriptors_take_operator_facts_verbatim():
             "outcome_source_key": "arsenal",
             "competition_source_key": "premier-league",
             "kickoff_utc": "2026-08-01T16:00:00+00:00",
+            **VERIFIED_FIELDS,
         })
 
     assert descriptor.home_source_key == "arsenal"
     assert descriptor.kickoff_utc == datetime(2026, 8, 1, 16, tzinfo=timezone.utc)
     assert descriptor.grammar["extractor"] == "operator-metadata-v1"
     assert descriptor.grammar["metadata"]["home_source_key"] == "arsenal"
+    assert descriptor.verification == {"by": "pete",
+                                       "note": "checked the venue listing"}
+
+
+def test_anonymous_metadata_fails_closed():
+    """Verifying entity keys does not verify the orientation someone typed
+    into a file. An assertion needs a named asserter and its evidence."""
+    anonymous = descriptor_from_metadata(
+        venue="polymarket", venue_key="0xaaa", market_type="match_winner",
+        metadata={"home_source_key": "arsenal", "away_source_key": "chelsea",
+                  "outcome_source_key": "arsenal"})
+    unexplained = descriptor_from_metadata(
+        venue="polymarket", venue_key="0xaaa", market_type="match_winner",
+        metadata={"home_source_key": "arsenal", "away_source_key": "chelsea",
+                  "outcome_source_key": "arsenal", "verified_by": "pete",
+                  "note": "   "})
+
+    assert isinstance(anonymous, ExtractionFailure)
+    assert "verified_by" in anonymous.reason
+    assert isinstance(unexplained, ExtractionFailure)
+    assert "note" in unexplained.reason
+
+
+def test_a_kalshi_descriptor_is_never_verified():
+    """The whole point of the cap: ticker grammar cannot self-verify."""
+    descriptor = _kalshi("KXEPLGAME-26AUG01ARSCHE-ARS")
+
+    assert descriptor.verification is None
+    assert "review hint" in descriptor.grammar["assumption"]
+
+
+def test_metadata_season_must_be_a_four_digit_starting_year():
+    display_form = descriptor_from_metadata(
+        venue="polymarket", venue_key="0xaaa", market_type="match_winner",
+        metadata={"home_source_key": "a", "away_source_key": "b",
+                  "outcome_source_key": "a", "season_label": "2026-27",
+                  **VERIFIED_FIELDS})
+    canonical = descriptor_from_metadata(
+        venue="polymarket", venue_key="0xaaa", market_type="match_winner",
+        metadata={"home_source_key": "a", "away_source_key": "b",
+                  "outcome_source_key": "a", "season_label": "2026",
+                  **VERIFIED_FIELDS})
+
+    assert isinstance(display_form, ExtractionFailure)
+    assert "four-digit" in display_form.reason
+    assert canonical.season_label == "2026"
 
 
 def test_metadata_missing_fields_or_bad_kickoff_is_refused():
     missing = descriptor_from_metadata(
         venue="polymarket", venue_key="0xaaa", market_type="match_winner",
-        metadata={"home_source_key": "arsenal"})
+        metadata={"home_source_key": "arsenal", **VERIFIED_FIELDS})
     naive = descriptor_from_metadata(
         venue="polymarket", venue_key="0xaaa", market_type="match_winner",
         metadata={"home_source_key": "a", "away_source_key": "b",
                   "outcome_source_key": "a",
-                  "kickoff_utc": "2026-08-01T16:00:00"})
+                  "kickoff_utc": "2026-08-01T16:00:00", **VERIFIED_FIELDS})
     junk = descriptor_from_metadata(
         venue="polymarket", venue_key="0xaaa", market_type="match_winner",
         metadata={"home_source_key": "a", "away_source_key": "b",
-                  "outcome_source_key": "a", "kickoff_utc": "yesterday"})
+                  "outcome_source_key": "a", "kickoff_utc": "yesterday",
+                  **VERIFIED_FIELDS})
 
     assert isinstance(missing, ExtractionFailure)
     assert "away_source_key" in missing.reason

@@ -12,8 +12,16 @@ Usage::
     # actually write the decisions
     ... resolve --apply
 
-    # operator-supplied structured metadata for venues whose stored rows have
-    # none (Polymarket): {"polymarket": {"0xaaa": {"home_source_key": ...}}}
+    # operator-supplied structured metadata. Each record asserts venue facts
+    # and MUST name its asserter and evidence -- anonymous records fail
+    # closed:
+    #   {"polymarket": {"0xaaa": {"home_source_key": "arsenal",
+    #                             "away_source_key": "chelsea",
+    #                             "outcome_source_key": "arsenal",
+    #                             "competition_source_key": "premier-league",
+    #                             "kickoff_utc": "2026-08-01T16:00:00+00:00",
+    #                             "verified_by": "pete",
+    #                             "note": "checked the venue event page"}}}
     ... resolve --venue-metadata metadata.json
 
     # verify one exact source key (the only way keys become trusted)
