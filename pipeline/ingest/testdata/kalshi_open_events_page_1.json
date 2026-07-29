@@ -1,0 +1,39 @@
+{
+  "events": [
+    {
+      "event_ticker": "KXEPLGAME-26AUG01ARSCHE",
+      "series_ticker": "KXEPLGAME",
+      "title": "Arsenal vs Chelsea Winner?",
+      "markets": [
+        {
+          "ticker": "KXEPLGAME-26AUG01ARSCHE-ARS",
+          "event_ticker": "KXEPLGAME-26AUG01ARSCHE",
+          "title": "Arsenal vs Chelsea Winner?",
+          "status": "open",
+          "open_time": "2026-07-30T02:00:00Z",
+          "close_time": "2026-08-01T14:00:00Z"
+        },
+        {
+          "ticker": "KXEPLGAME-26AUG01ARSCHE-DRAW",
+          "event_ticker": "KXEPLGAME-26AUG01ARSCHE",
+          "title": "Arsenal vs Chelsea Winner?",
+          "status": "paused",
+          "open_time": "2026-07-30T02:00:00Z",
+          "close_time": "2026-08-01T14:00:00Z"
+        }
+      ]
+    },
+    {
+      "event_ticker": "KXNFLGAME-26AUG01NYBUF",
+      "series_ticker": "KXNFLGAME",
+      "title": "New York vs Buffalo",
+      "markets": [
+        {
+          "ticker": "KXNFLGAME-26AUG01NYBUF-NY",
+          "status": "open"
+        }
+      ]
+    }
+  ],
+  "cursor": "page-2"
+}
