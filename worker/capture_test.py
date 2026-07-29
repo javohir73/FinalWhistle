@@ -981,3 +981,135 @@ def test_an_all_invalid_catalogue_still_keeps_every_rejected_body(db_session):
     assert result["error_count"] == 3
     assert db_session.query(VenuePriceTick).count() == 0
     assert db_session.query(CaptureHeartbeat).count() == 1
+
+
+# --- round 4: all-invalid discovery keeps the exact pages -------------------
+
+
+AWKWARD_PAGE = (b'{\n  "series": [],\n  "n": "0.4300",\n  "n": "0.4301",\n'
+                b'  "unicode": "M\xc3\xbcnchen"\n}\n')
+
+
+class AllInvalidAdapter(FixtureAdapter):
+    """A catalogue whose every market failed normalization."""
+
+    def discover_markets(self, sport):
+        self.discover_calls += 1
+        return DiscoveryResult(
+            markets=(),
+            rejected=tuple(
+                RejectedPayload(reason=f"bad {n}", identifier=f"m{n}",
+                                payload={"n": n})
+                for n in range(2)),
+            documents=(RawDocument(name="series", body=AWKWARD_PAGE),),
+        )
+
+
+def test_an_all_invalid_catalogue_stores_the_exact_pages_and_links_them(db_session):
+    """The lazy shared-reference path only fired inside the good-markets loop.
+    With zero good markets the exact page bytes were never stored -- only the
+    parsed rejects -- which is the wrong half of the evidence. And with no
+    market rows to carry the reference, the heartbeat must."""
+    adapter = AllInvalidAdapter()
+    store = MemoryRawStore()
+
+    result = _worker(db_session, adapter, store).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    pages = [obj for obj in store.objects if obj["kind"] == "discovery"]
+    assert [obj["body"] for obj in pages] == [AWKWARD_PAGE], "byte-exact page"
+    assert result["rejected_payloads_stored"] == 2
+    assert result["rejected_payloads_dropped"] == 0
+    assert result["error_count"] == 2
+    assert db_session.query(VenuePriceTick).count() == 0
+
+    heartbeat = db_session.query(CaptureHeartbeat).one()
+    provenance = [entry for entry in heartbeat.errors
+                  if entry.get("category") == "discovery_provenance"]
+    assert len(provenance) == 1
+    assert provenance[0]["reference"].startswith("mem://kalshi/_catalogue/discovery")
+    expected_sha = RawDocument(name="series", body=AWKWARD_PAGE).sha256
+    assert provenance[0]["documents"] == [{"name": "series",
+                                           "sha256": expected_sha}]
+
+
+def test_all_invalid_page_storage_respects_the_reject_bound(db_session):
+    """The page itself is not a reject and is always stored once; the bounded
+    counter applies to the per-item diagnostics."""
+    class ManyRejects(AllInvalidAdapter):
+        def discover_markets(self, sport):
+            result = super().discover_markets(sport)
+            return DiscoveryResult(
+                markets=(), documents=result.documents,
+                rejected=tuple(
+                    RejectedPayload(reason=f"bad {n}", identifier=f"m{n}",
+                                    payload={"n": n})
+                    for n in range(5)))
+
+    store = MemoryRawStore()
+    settings = _settings(max_rejected_payloads_per_cycle=2)
+
+    result = _worker(db_session, ManyRejects(), store,
+                     settings=settings).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    assert len([o for o in store.objects if o["kind"] == "discovery"]) == 1
+    assert result["rejected_payloads_stored"] == 2
+    assert result["rejected_payloads_dropped"] == 3
+
+
+# --- round 4: settlement failures keep their evidence -----------------------
+
+
+def test_a_malformed_settlement_keeps_its_exact_bytes(db_session):
+    """The settlement exception handlers recorded the error and threw away
+    the evidence -- neither handler called _store_rejected_evidence at all."""
+    body = b'{"market": {"status": "finalized"}}\n'
+    error = VenuePayloadError(
+        "kalshi finalized market is missing settlement_ts",
+        raw_documents=(RawDocument(name="market", body=body),))
+
+    class BadSettlement(FixtureAdapter):
+        def fetch_settlement(self, venue_key):
+            self.settlement_calls.append(venue_key)
+            raise error
+
+    adapter = BadSettlement(markets=[_market(status="finalized")])
+    store = MemoryRawStore()
+
+    result = _worker(db_session, adapter, store).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    rejected = [obj for obj in store.objects if obj["kind"] == "rejected"]
+    assert [obj["body"] for obj in rejected] == [body]
+    assert result["rejected_payloads_stored"] == 1
+    assert result["error_count"] == 1
+    counts = [entry for entry in db_session.query(CaptureHeartbeat).one().errors
+              if entry.get("category") == "raw_retention"]
+    assert counts == [{"category": "raw_retention",
+                       "rejected_payloads_stored": 1,
+                       "rejected_payloads_dropped": 0}]
+
+
+def test_a_two_document_failure_stores_both_and_counts_once(db_session):
+    """A quote error raised after the second response carries both documents;
+    both are stored with a manifest, and the failure counts once against the
+    per-cycle bound."""
+    book_body = b'{"orderbook_fp": {}}\n'
+    market_body = b'{"market": "not-an-object"}\n'
+    error = VenuePayloadError(
+        "kalshi market response must contain a market object",
+        raw_documents=(RawDocument(name="orderbook", body=book_body),
+                       RawDocument(name="market", body=market_body)))
+    adapter = FixtureAdapter(quote_error={"KX-1": error})
+    store = MemoryRawStore()
+
+    result = _worker(db_session, adapter, store).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    rejected = [obj for obj in store.objects if obj["kind"] == "rejected"]
+    assert [obj["body"] for obj in rejected] == [book_body, market_body]
+    manifests = [obj for obj in store.objects
+                 if obj["kind"] == "rejected-manifest"]
+    assert len(manifests) == 1
+    assert result["rejected_payloads_stored"] == 1, "one failure, one count"

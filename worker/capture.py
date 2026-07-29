@@ -82,21 +82,25 @@ def _distinct_documents(markets) -> tuple:
     return tuple(seen.values())
 
 
-def _with_retention_counts(errors: list[dict], stored: int, dropped: int):
+def _with_retention_counts(errors: list[dict], stored: int, dropped: int,
+                           provenance: dict | None = None):
     """Attach the bounded-retention outcome to the heartbeat.
 
     Overflow used to be implicit -- the cap silently stopped writing and
     nothing recorded that it had. A dropped diagnostic you cannot count is a
-    diagnostic you will not miss.
+    diagnostic you will not miss. ``provenance`` points an all-invalid cycle's
+    heartbeat at the stored catalogue pages: with no market rows there is
+    nothing else that can reference them.
     """
-    if not errors and not stored and not dropped:
+    if not errors and not stored and not dropped and provenance is None:
         return None
     entry = {
         "category": "raw_retention",
         "rejected_payloads_stored": stored,
         "rejected_payloads_dropped": dropped,
     }
-    return [*errors, entry]
+    extra = [provenance] if provenance else []
+    return [*errors, *extra, entry]
 
 
 def _error_category(exc: Exception) -> str:
@@ -277,33 +281,37 @@ class CaptureWorker:
     def _store_rejected_evidence(
         self, venue: str, venue_key: str, exc: Exception, captured_at: datetime
     ) -> bool:
-        """Keep whatever the failure carried: original bytes first.
+        """Keep whatever evidence the failure carried: original bytes first.
 
-        A response that would not parse is exactly the one whose bytes matter,
-        so `raw_document` wins over the parsed `raw_payload` when both exist.
+        An error raised after several venue responses carries ALL of them
+        (``raw_documents``) -- a settlement or quote failure on the second
+        response keeps the first too, since the pair is the evidence. Each
+        document is written verbatim, with a manifest when there is more than
+        one; the parsed payload is only the fallback for failures with no
+        response behind them. One failure counts once against the per-cycle
+        bound however many documents it carried.
         """
-        document = getattr(exc, "raw_document", None)
-        if document is not None:
-            if self._rejected_stored >= self.settings.max_rejected_payloads_per_cycle:
-                self._rejected_dropped += 1
-                return False
-            try:
-                self._retry(
-                    lambda: self.raw_store.put_document(
-                        venue=venue, venue_key=venue_key or "unparsed",
-                        kind="rejected", captured_at=captured_at,
-                        document=document,
-                    )
-                )
-            except RetryExhausted:
-                self._rejected_dropped += 1
-                return False
-            self._rejected_stored += 1
-            return True
+        documents = tuple(getattr(exc, "raw_documents", ()) or ())
         raw = getattr(exc, "raw_payload", None)
-        if isinstance(raw, Mapping):
-            return self._store_rejected_payload(venue, venue_key, raw, captured_at)
-        return False
+        if not documents and not isinstance(raw, Mapping):
+            return False
+        if self._rejected_stored >= self.settings.max_rejected_payloads_per_cycle:
+            self._rejected_dropped += 1
+            return False
+        try:
+            self._store_documents(
+                venue=venue,
+                venue_key=venue_key or "unparsed",
+                kind="rejected",
+                captured_at=captured_at,
+                documents=documents,
+                fallback_payload=raw if isinstance(raw, Mapping) else {},
+            )
+        except RetryExhausted:
+            self._rejected_dropped += 1
+            return False
+        self._rejected_stored += 1
+        return True
 
     def _store_rejected_payload(
         self, venue: str, venue_key: str, payload: Mapping[str, object],
@@ -737,6 +745,35 @@ class CaptureWorker:
                                           scheduled_cycle_at)
 
         # Rejected discovery items are evidence, not noise: a venue quietly
+        # The catalogue pages are stored the moment discovery ran, not lazily
+        # when the first good market needs a reference. An all-invalid page is
+        # the page most worth keeping, and with zero good markets the lazy
+        # path never fired -- the exact bytes vanished while their parsed
+        # rejects were kept, which is the wrong half of the evidence.
+        discovery_pages_ref: str | None = None
+        discovery_digests: list[dict[str, str]] = []
+        if discovery_documents:
+            try:
+                discovery_pages_ref, retries, rate_limits = self._store_documents(
+                    venue=venue, venue_key="_catalogue", kind="discovery",
+                    captured_at=scheduled_cycle_at,
+                    documents=discovery_documents, fallback_payload={},
+                )
+                retry_count += retries
+                rate_limit_count += rate_limits
+                discovery_digests = [
+                    {"name": document.name, "sha256": document.sha256}
+                    for document in discovery_documents
+                ]
+            except RetryExhausted as exc:
+                retry_count += exc.retries
+                rate_limit_count += exc.rate_limits
+                error_count += 1
+                errors.append(
+                    {"category": _error_category(exc.cause),
+                     "message": str(exc.cause)}
+                )
+
         # breaking half its catalogue is indistinguishable from a smaller
         # catalogue unless the rejects are stored and counted.
         for reject in discovery_rejects:
@@ -759,7 +796,7 @@ class CaptureWorker:
         # bytes for every market on them, so storing them per market would
         # multiply identical blobs; the manifest gives each row one reference
         # that still resolves to the exact responses.
-        shared_discovery_ref: str | None = None
+        shared_discovery_ref: str | None = discovery_pages_ref
         discovery_ref_failed = False
 
         def discovery_reference() -> str | None:
@@ -918,6 +955,8 @@ class CaptureWorker:
                             "message": str(exc.cause),
                         }
                     )
+                    self._store_rejected_evidence(
+                        venue, market.venue_key, exc.cause, scheduled_cycle_at)
                 except Exception as exc:
                     error_count += 1
                     errors.append(
@@ -927,6 +966,8 @@ class CaptureWorker:
                             "message": str(exc),
                         }
                     )
+                    self._store_rejected_evidence(
+                        venue, market.venue_key, exc, scheduled_cycle_at)
 
         completed_at = max(_utc(self.now(), "completed_at"), scheduled_cycle_at)
         duration_ms = max(0, round((self.monotonic() - started) * 1000))
@@ -947,6 +988,13 @@ class CaptureWorker:
             if any_in_play
             else self.settings.prematch_seconds
         )
+        provenance = None
+        if discovery_pages_ref is not None and discovery_rejects:
+            provenance = {
+                "category": "discovery_provenance",
+                "reference": discovery_pages_ref,
+                "documents": discovery_digests,
+            }
         heartbeat = (
             self.db.query(CaptureHeartbeat)
             .filter_by(
@@ -970,7 +1018,8 @@ class CaptureWorker:
                 rate_limit_count=rate_limit_count,
                 cycle_duration_ms=duration_ms,
                 errors=_with_retention_counts(
-                    errors, self._rejected_stored, self._rejected_dropped),
+                    errors, self._rejected_stored, self._rejected_dropped,
+                    provenance),
             )
             self.db.add(heartbeat)
         else:
@@ -983,7 +1032,8 @@ class CaptureWorker:
             heartbeat.cycle_duration_ms += duration_ms
             heartbeat.errors = list(heartbeat.errors or []) + (
                 _with_retention_counts(
-                    errors, self._rejected_stored, self._rejected_dropped) or [])
+                    errors, self._rejected_stored, self._rejected_dropped,
+                    provenance) or [])
         self.db.commit()
         return {
             "venue": venue,

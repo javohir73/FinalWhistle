@@ -38,17 +38,26 @@ class VenuePayloadError(ValueError):
     """A venue response cannot be represented by the normalized contract.
 
     Carries whatever evidence exists: the parsed payload when there is one,
-    and ``raw_document`` when the failure happened at or before parsing. A
-    response that fails to decode is exactly the one whose original bytes are
-    worth keeping, so the bytes travel with the error rather than being lost
-    at the raise site.
+    and the ORIGINAL BYTES of every response received before the failure
+    (``raw_documents``). A quote or settlement error raised after the second
+    response must keep both -- the earlier response is part of the evidence
+    for why the pair could not be normalized -- so the tuple travels with the
+    error rather than being reconstructed (or lost) at the raise site.
     """
 
     def __init__(self, message: str, *, raw_payload: JsonObject | None = None,
-                 raw_document=None) -> None:
+                 raw_document=None, raw_documents: tuple = ()) -> None:
         super().__init__(message)
         self.raw_payload = raw_payload
-        self.raw_document = raw_document
+        documents = tuple(raw_documents)
+        if raw_document is not None:
+            documents = (raw_document, *documents)
+        self.raw_documents = documents
+
+    @property
+    def raw_document(self):
+        """First (often only) document, for callers that expect one."""
+        return self.raw_documents[0] if self.raw_documents else None
 
 
 def _required_text(value: str, field_name: str) -> str:

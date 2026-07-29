@@ -98,10 +98,23 @@ are stored **once per cycle** rather than once per market — the same two
 responses back every market on them — and every market row points at that one
 shared manifest.
 
-A response that fails to decode or fails its schema check carries its bytes
-out on the exception (`VenuePayloadError.raw_document`) and is stored under
-the bounded reject policy. That is the body most worth keeping, and it was the
-one being dropped.
+A response that fails to decode or fails ANY later validation carries its
+bytes out on the exception (`VenuePayloadError.raw_documents` — a tuple), and
+is stored under the bounded reject policy. An error raised after the second
+response of a pair keeps both: the good orderbook is part of the evidence for
+why the malformed market response could not be normalized. Settlement failures
+keep their bytes the same way. One failure counts once against the per-cycle
+bound however many documents it carried.
+
+Discovery pages are stored eagerly, the moment discovery ran — not lazily when
+the first good market needs a reference. An all-invalid catalogue is the one
+most worth keeping, and with zero good markets there is no market row to carry
+the reference, so the heartbeat carries it instead
+(`category: discovery_provenance`, with the reference and per-page digests).
+
+Each document records the **finalized** request URL — query string included,
+passed through the shared credential redaction — because the pre-params URL
+loses the cursor, tag_id, limit and token_id that make a response auditable.
 
 `put()` — which re-serializes — is used only for payloads we authored
 ourselves: rejected-item diagnostics with no original response, the manifest,
@@ -130,7 +143,10 @@ else caps the total:
   rule is the only enforcement: it is **read and verified at construction**,
   and a missing, disabled, non-covering or longer-than-configured rule is a
   refusal to write. `Filter.And.Prefix` is parsed as the string AWS sends,
-  not iterated character by character.
+  not iterated character by character — and a rule conditioned on tags or
+  object size does not count at all: `And` means **all** of its conditions,
+  the worker writes objects with no Tagging, so a Prefix+Tag rule expires
+  none of them, ever.
 
 Malformed discovery items are evidence too. Adapters return them alongside the
 good markets rather than logging and dropping them, so the payload is retained

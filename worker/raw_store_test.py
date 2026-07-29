@@ -339,10 +339,9 @@ def test_plain_but_credential_looking_keys_get_no_readable_path(tmp_path, venue_
 
 # --- round 3: And-prefix is a string, and prune fails loudly ----------------
 
-def _and_rule(prefix, days=30):
+def _and_rule(prefix, days=30, **conditions):
     return {"Rules": [{"Status": "Enabled",
-                       "Filter": {"And": {"Prefix": prefix,
-                                          "Tag": {"Key": "k", "Value": "v"}}},
+                       "Filter": {"And": {"Prefix": prefix, **conditions}},
                        "Expiration": {"Days": days}}]}
 
 
@@ -370,6 +369,41 @@ def test_a_broader_and_prefix_still_covers_us():
                               client=_FakeS3(_and_rule("market-intel")))
 
     assert store.prefix == "market-intel/kalshi"
+
+
+def test_a_tag_conditioned_rule_is_rejected_even_with_a_matching_prefix():
+    """`And` means ALL of its conditions. The worker writes objects with no
+    Tagging, so a Prefix+Tag rule matches -- and expires -- none of them. An
+    earlier revision of this file expected acceptance here; that expectation
+    was the bug."""
+    tagged = _and_rule("market-intel", Tags=[{"Key": "k", "Value": "v"}])
+
+    with pytest.raises(RawStoreError, match="no enabled expiration rule"):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          prefix="market-intel", retention_days=90,
+                          client=_FakeS3(tagged))
+
+
+def test_a_single_tag_filter_rule_is_rejected():
+    lifecycle = {"Rules": [{"Status": "Enabled",
+                            "Filter": {"Tag": {"Key": "k", "Value": "v"}},
+                            "Expiration": {"Days": 30}}]}
+
+    with pytest.raises(RawStoreError, match="no enabled expiration rule"):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          prefix="market-intel", retention_days=90,
+                          client=_FakeS3(lifecycle))
+
+
+def test_a_size_conditioned_and_rule_is_rejected():
+    """Same logic as tags: any extra And condition means some objects the
+    worker writes will never expire under this rule."""
+    sized = _and_rule("market-intel", ObjectSizeGreaterThan=1024)
+
+    with pytest.raises(RawStoreError, match="no enabled expiration rule"):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          prefix="market-intel", retention_days=90,
+                          client=_FakeS3(sized))
 
 
 def test_a_prune_permission_failure_is_raised_not_swallowed(tmp_path):

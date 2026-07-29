@@ -50,7 +50,12 @@ class FakeSession:
 
     def get(self, url, *, params, timeout):
         self.calls.append((url, params, timeout))
-        return _as_response(self.responses.pop(0))
+        response = _as_response(self.responses.pop(0))
+        # requests exposes the FINALIZED url, params applied. Mimic it so the
+        # provenance tests exercise what production records.
+        query = "&".join(f"{key}={value}" for key, value in params.items())
+        response.url = url + (f"?{query}" if query else "")
+        return response
 
 
 def _adapter(*responses):
@@ -444,3 +449,67 @@ def test_discovered_markets_carry_the_pages_they_came_from():
     assert result.documents
     for market in result.markets:
         assert market.raw_documents == result.documents
+
+
+# --- round 4: bytes on every failure, finalized URLs ------------------------
+
+
+def test_a_valid_json_catalogue_with_a_bad_schema_keeps_its_bytes():
+    body = b'{"id": "not-a-number", "slug": "soccer"}\n'
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="numeric id") as excinfo:
+        adapter.discover_markets("football")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_a_first_response_quote_failure_carries_its_bytes():
+    body = b'{"tokens": "gone"}\n'
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="missing tokens") as excinfo:
+        adapter.fetch_quote("0xaaa")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_a_second_response_quote_failure_preserves_both_exact_documents():
+    market_body = b'{"tokens": [{"outcome": "Yes", "token_id": "yes-1"}]}\n'
+    book_body = b'{"bids": [{"price": "1.4000", "size": "10"}]}\n'
+    adapter, _session = _adapter(
+        FakeResponse(json.loads(market_body), body=market_body),
+        FakeResponse(json.loads(book_body), body=book_body),
+    )
+
+    with pytest.raises(VenuePayloadError, match="between 0 and 1") as excinfo:
+        adapter.fetch_quote("0xaaa")
+
+    documents = excinfo.value.raw_documents
+    assert [d.name for d in documents] == ["clob-market", "book"]
+    assert [d.body for d in documents] == [market_body, book_body]
+
+
+def test_a_malformed_settlement_response_carries_its_bytes():
+    body = (b'[{"conditionId": "0xaaa", "umaResolutionStatus": "resolved",'
+            b' "outcomes": "[\\"Yes\\"]", "outcomePrices": "[\\"1\\", \\"0\\"]"}]\n')
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="must align") as excinfo:
+        adapter.fetch_settlement("0xaaa")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_document_urls_record_the_finalized_request():
+    adapter, _session = _adapter(
+        _fixture("polymarket_soccer_tag.json"),
+        _fixture("polymarket_active_events_page_1.json"),
+        _fixture("polymarket_active_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    events = next(d for d in result.documents if d.name == "events-1")
+    assert "tag_id=" in events.url
+    assert "limit=100" in events.url

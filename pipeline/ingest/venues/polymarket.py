@@ -55,8 +55,13 @@ def _response_bytes(response) -> bytes:
 
 
 def _document(response, name: str, url: str) -> RawDocument:
+    # Provenance records the FINALIZED request URL -- the one the client
+    # actually sent, query string included -- passed through the shared
+    # credential policy. The pre-params URL loses the cursor, tag_id, limit
+    # and token_id that make a response auditable.
     return RawDocument(
-        name=name, body=_response_bytes(response), url=url,
+        name=name, body=_response_bytes(response),
+        url=redact(str(getattr(response, "url", "") or url)),
         content_type=str(getattr(response, "headers", {}).get(
             "Content-Type", "application/json")),
     )
@@ -267,14 +272,16 @@ class PolymarketAdapter:
             parsed_id = int(str(tag_id))
         except (TypeError, ValueError):
             raise VenuePayloadError(
-                "polymarket soccer tag must have a numeric id"
+                "polymarket soccer tag must have a numeric id",
+                raw_payload=payload, raw_document=document,
             ) from None
         if (
             parsed_id <= 0
             or not isinstance(slug, str)
             or slug.casefold() != SOCCER_TAG_SLUG
         ):
-            raise VenuePayloadError("polymarket soccer tag response is inconsistent")
+            raise VenuePayloadError("polymarket soccer tag response is inconsistent",
+                                    raw_payload=payload, raw_document=document)
         return payload, document
 
     def _active_events(
@@ -301,7 +308,8 @@ class PolymarketAdapter:
             page = payload.get("events")
             if not isinstance(page, list):
                 raise VenuePayloadError(
-                    "polymarket keyset response must contain an events list"
+                    "polymarket keyset response must contain an events list",
+                    raw_payload=payload, raw_documents=tuple(documents),
                 )
             for event in page:
                 if isinstance(event, dict):
@@ -313,10 +321,12 @@ class PolymarketAdapter:
             if not next_cursor:
                 return events, documents
             if not isinstance(next_cursor, str):
-                raise VenuePayloadError("polymarket event cursor must be a string")
+                raise VenuePayloadError("polymarket event cursor must be a string",
+                                        raw_documents=tuple(documents))
             if next_cursor in seen_cursors:
                 raise VenuePayloadError(
-                    "polymarket event pagination repeated a cursor"
+                    "polymarket event pagination repeated a cursor",
+                    raw_documents=tuple(documents),
                 )
             seen_cursors.add(next_cursor)
             cursor = next_cursor
@@ -418,7 +428,8 @@ class PolymarketAdapter:
         raw_tokens = market_info.get("t") or market_info.get("tokens")
         if not isinstance(raw_tokens, list):
             raise VenuePayloadError(
-                "polymarket CLOB market is missing tokens", raw_payload=market_info
+                "polymarket CLOB market is missing tokens", raw_payload=market_info,
+                raw_documents=(market_document,),
             )
         yes_tokens = []
         for token in raw_tokens:
@@ -436,7 +447,7 @@ class PolymarketAdapter:
         if len(yes_tokens) != 1:
             raise VenuePayloadError(
                 "polymarket CLOB market must contain exactly one Yes token",
-                raw_payload=market_info,
+                raw_payload=market_info, raw_documents=(market_document,),
             )
 
         book_payload, book_document = self._get_clob(
@@ -446,6 +457,7 @@ class PolymarketAdapter:
             raise VenuePayloadError(
                 "polymarket order book condition id does not match venue_key",
                 raw_payload=raw_payload,
+                raw_documents=(market_document, book_document),
             )
         try:
             book = OrderBook(
@@ -457,12 +469,15 @@ class PolymarketAdapter:
             )
             source_ts = _source_timestamp(book_payload.get("timestamp"))
         except VenuePayloadError as exc:
-            raise VenuePayloadError(str(exc), raw_payload=raw_payload) from exc
+            raise VenuePayloadError(
+                str(exc), raw_payload=raw_payload,
+                raw_documents=(market_document, book_document)) from exc
         observed_at = self.now()
         if source_ts is not None and source_ts > observed_at:
             raise VenuePayloadError(
                 "polymarket book timestamp is in the future",
                 raw_payload=raw_payload,
+                raw_documents=(market_document, book_document),
             )
         return Quote(
             venue=self.venue,
@@ -492,7 +507,7 @@ class PolymarketAdapter:
         if len(matching) != 1:
             raise VenuePayloadError(
                 "polymarket settlement lookup returned duplicate condition ids",
-                raw_payload={"markets": matching},
+                raw_payload={"markets": matching}, raw_documents=(document,),
             )
         market = matching[0]
         resolution_status = str(
@@ -515,16 +530,17 @@ class PolymarketAdapter:
             except (InvalidOperation, VenuePayloadError) as exc:
                 if isinstance(exc, VenuePayloadError):
                     raise VenuePayloadError(
-                        str(exc), raw_payload={"market": market}
+                        str(exc), raw_payload={"market": market},
+                        raw_documents=(document,),
                     ) from exc
                 raise VenuePayloadError(
                     "polymarket outcomePrices contains a non-numeric value",
-                    raw_payload={"market": market},
+                    raw_payload={"market": market}, raw_documents=(document,),
                 ) from exc
             if len(outcomes) != len(prices) or not outcomes:
                 raise VenuePayloadError(
                     "polymarket outcomes and outcomePrices must align",
-                    raw_payload={"market": market},
+                    raw_payload={"market": market}, raw_documents=(document,),
                 )
             if all(price == Decimal("0.5") for price in prices):
                 status, outcome = "void", None
@@ -540,7 +556,7 @@ class PolymarketAdapter:
         if settled_at is None:
             raise VenuePayloadError(
                 "polymarket resolved market is missing a settlement timestamp",
-                raw_payload={"market": market},
+                raw_payload={"market": market}, raw_documents=(document,),
             )
         return Settlement(
             venue=self.venue,

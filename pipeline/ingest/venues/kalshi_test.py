@@ -51,12 +51,20 @@ class FakeSession:
     def get(self, url, *, params, timeout):
         self.calls.append((url, params, timeout))
         if "/markets/" in url and not url.endswith("/orderbook"):
-            if self.responses and isinstance(self.responses[0], dict) and "market" in self.responses[0]:
-                return _as_response(self.responses.pop(0))
-            return FakeResponse(
-                {"market": {"last_price_dollars": "0.4300"}}
-            )
-        return _as_response(self.responses.pop(0))
+            head = self.responses[0] if self.responses else None
+            head_payload = head.payload if isinstance(head, FakeResponse) else head
+            if isinstance(head_payload, dict) and "market" in head_payload:
+                response = _as_response(self.responses.pop(0))
+            else:
+                response = _as_response(
+                    {"market": {"last_price_dollars": "0.4300"}})
+        else:
+            response = _as_response(self.responses.pop(0))
+        # requests exposes the FINALIZED url, params applied. Mimic it so the
+        # provenance tests exercise what production records.
+        query = "&".join(f"{key}={value}" for key, value in params.items())
+        response.url = url + (f"?{query}" if query else "")
+        return response
 
 
 def _adapter(*responses):
@@ -447,3 +455,95 @@ def test_discovered_markets_carry_the_pages_they_came_from():
     assert result.documents
     for market in result.markets:
         assert market.raw_documents == result.documents
+
+
+# --- round 4: bytes on every failure, finalized URLs ------------------------
+
+
+def test_a_valid_json_catalogue_with_a_bad_schema_keeps_its_bytes():
+    """_decode only covered decode failures. A response that parses fine but
+    fails the schema check is equally worth keeping, and was being dropped."""
+    body = b'{"series": "nope",  "n": "0.4300"}\n'
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="must contain a list") as excinfo:
+        adapter.discover_markets("football")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_a_first_response_quote_failure_carries_its_bytes():
+    body = b'{"no_orderbook_here": true}\n'
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="orderbook_fp") as excinfo:
+        adapter.fetch_quote("KX-1")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_a_second_response_quote_failure_preserves_both_exact_documents():
+    """The failure is a property of the PAIR: a good orderbook plus a
+    malformed market response. Keeping only the second half discards the
+    context that makes the first half evidence."""
+    book_body = b'{"orderbook_fp": {"yes_dollars": [["0.4300", "10"]]}}\n'
+    market_body = b'{"market": "not-an-object"}\n'
+    adapter, _session = _adapter(
+        FakeResponse(json.loads(book_body), body=book_body),
+        FakeResponse(json.loads(market_body), body=market_body),
+    )
+
+    with pytest.raises(VenuePayloadError, match="market object") as excinfo:
+        adapter.fetch_quote("KX-1")
+
+    documents = excinfo.value.raw_documents
+    assert [d.name for d in documents] == ["orderbook", "market"]
+    assert [d.body for d in documents] == [book_body, market_body]
+
+
+def test_a_malformed_settlement_response_carries_its_bytes():
+    body = b'{"market": {"status": "finalized", "result": "yes"}}\n'
+    adapter, _session = _adapter(FakeResponse(json.loads(body), body=body))
+
+    with pytest.raises(VenuePayloadError, match="settlement_ts") as excinfo:
+        adapter.fetch_settlement("KX-1")
+
+    assert [d.body for d in excinfo.value.raw_documents] == [body]
+
+
+def test_document_urls_record_the_finalized_request():
+    """The pre-params URL loses the query that makes a page auditable."""
+    adapter, _session = _adapter(
+        _fixture("kalshi_soccer_series.json"),
+        _fixture("kalshi_open_events_page_1.json"),
+        _fixture("kalshi_open_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    series = next(d for d in result.documents if d.name == "series")
+    assert "tags=Soccer" in series.url
+    assert "category=Sports" in series.url
+
+
+def test_document_urls_never_carry_a_credential():
+    class LeakySession(FakeSession):
+        def get(self, url, *, params, timeout):
+            response = super().get(url, params=params, timeout=timeout)
+            joiner = "&" if "?" in response.url else "?"
+            response.url += f"{joiner}api_key=sk-live-9f3a"
+            return response
+
+    session = LeakySession([
+        _fixture("kalshi_soccer_series.json"),
+        _fixture("kalshi_open_events_page_1.json"),
+        _fixture("kalshi_open_events_page_2.json"),
+    ])
+    adapter = KalshiAdapter(session=session, now=lambda: NOW)
+
+    result = adapter.discover_markets("football")
+
+    for document in result.documents:
+        assert "sk-live-9f3a" not in document.url
+        assert "api_key=[REDACTED]" in document.url
+        assert "limit=200" in document.url or "tags=Soccer" in document.url

@@ -330,19 +330,29 @@ class S3RawPayloadStore:
     def _rule_covers_prefix(self, rule: Mapping) -> bool:
         """Does this rule expire everything we write?
 
-        The rule's prefix must be a prefix OF OURS, compared as whole strings.
-        AWS supplies `Filter.And.Prefix` as a single string; iterating it
-        yields characters, and a one-character candidate makes any sibling
-        prefix look covered -- a rule for `market-other` would have been
-        accepted as covering `market-intel` on the strength of a shared "m".
+        Two ways a rule can look right and delete nothing:
+
+        * The rule's prefix must be a prefix OF OURS, compared as whole
+          strings. AWS supplies `Filter.And.Prefix` as a single string;
+          iterating it yields characters, and a one-character candidate makes
+          any sibling prefix look covered -- a rule for `market-other` would
+          have been accepted as covering `market-intel` on a shared "m".
+        * `And` means ALL of its conditions. This worker writes objects with
+          no Tagging, so a rule scoped by Prefix AND a tag matches none of
+          them -- ever. Any condition beyond Prefix (tags, object size) is
+          therefore a rule we cannot rely on, and it does not count.
         """
         candidates: list[object] = [rule.get("Prefix")]
         rule_filter = rule.get("Filter")
         if isinstance(rule_filter, Mapping):
-            candidates.append(rule_filter.get("Prefix"))
+            if any(key in rule_filter for key in ("Tag", "Tags")):
+                return False
             nested = rule_filter.get("And")
             if isinstance(nested, Mapping):
+                if set(nested) - {"Prefix"}:
+                    return False
                 candidates.append(nested.get("Prefix"))
+            candidates.append(rule_filter.get("Prefix"))
         for candidate in candidates:
             if candidate is None:
                 continue

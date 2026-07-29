@@ -176,8 +176,13 @@ class KalshiAdapter:
         url = f"{self.base_url}{path}"
         response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
+        # Provenance records the FINALIZED request URL -- the one the client
+        # actually sent, query string included -- passed through the shared
+        # credential policy. The pre-params URL loses the cursor, limit and
+        # status that make a page auditable.
         document = RawDocument(
-            name=name, body=_response_bytes(response), url=url,
+            name=name, body=_response_bytes(response),
+            url=redact(str(getattr(response, "url", "") or url)),
             content_type=str(getattr(response, "headers", {}).get(
                 "Content-Type", "application/json")),
         )
@@ -199,7 +204,8 @@ class KalshiAdapter:
         )
         rows = payload.get("series")
         if not isinstance(rows, list):
-            raise VenuePayloadError("kalshi series response must contain a list")
+            raise VenuePayloadError("kalshi series response must contain a list",
+                                    raw_payload=payload, raw_document=document)
         result: dict[str, dict[str, Any]] = {}
         for row in rows:
             if not isinstance(row, dict):
@@ -236,7 +242,9 @@ class KalshiAdapter:
             documents.append(document)
             rows = payload.get("events")
             if not isinstance(rows, list):
-                raise VenuePayloadError("kalshi events response must contain a list")
+                raise VenuePayloadError("kalshi events response must contain a list",
+                                        raw_payload=payload,
+                                        raw_documents=tuple(documents))
             for event in rows:
                 if isinstance(event, dict):
                     events.append(event)
@@ -246,9 +254,11 @@ class KalshiAdapter:
             if not next_cursor:
                 return events, documents
             if not isinstance(next_cursor, str):
-                raise VenuePayloadError("kalshi event cursor must be a string")
+                raise VenuePayloadError("kalshi event cursor must be a string",
+                                        raw_documents=tuple(documents))
             if next_cursor in seen_cursors:
-                raise VenuePayloadError("kalshi event pagination repeated a cursor")
+                raise VenuePayloadError("kalshi event pagination repeated a cursor",
+                                        raw_documents=tuple(documents))
             seen_cursors.add(next_cursor)
             cursor = next_cursor
 
@@ -349,7 +359,8 @@ class KalshiAdapter:
         raw_book = payload.get("orderbook_fp")
         if not isinstance(raw_book, dict):
             raise VenuePayloadError(
-                "kalshi orderbook response must contain an orderbook_fp object"
+                "kalshi orderbook response must contain an orderbook_fp object",
+                raw_payload=payload, raw_documents=(book_document,),
             )
 
         try:
@@ -362,7 +373,8 @@ class KalshiAdapter:
                 ),
             )
         except VenuePayloadError as exc:
-            raise VenuePayloadError(str(exc), raw_payload=payload) from exc
+            raise VenuePayloadError(str(exc), raw_payload=payload,
+                                    raw_documents=(book_document,)) from exc
         market_payload, market_document = self._get(
             f"/markets/{url_quote(venue_key, safe='')}", {}, name="market"
         )
@@ -371,6 +383,7 @@ class KalshiAdapter:
             raise VenuePayloadError(
                 "kalshi market response must contain a market object",
                 raw_payload={"orderbook": payload, "market": market_payload},
+                raw_documents=(book_document, market_document),
             )
         raw_payload = {"orderbook": payload, "market": market_payload}
         try:
@@ -378,7 +391,9 @@ class KalshiAdapter:
                 raw_market.get("last_price_dollars"), field="last_price_dollars"
             )
         except VenuePayloadError as exc:
-            raise VenuePayloadError(str(exc), raw_payload=raw_payload) from exc
+            raise VenuePayloadError(
+                str(exc), raw_payload=raw_payload,
+                raw_documents=(book_document, market_document)) from exc
         return Quote(
             venue=self.venue,
             venue_key=venue_key,
@@ -401,7 +416,7 @@ class KalshiAdapter:
         if not isinstance(market, dict):
             raise VenuePayloadError(
                 "kalshi market response must contain a market object",
-                raw_payload=payload,
+                raw_payload=payload, raw_documents=(document,),
             )
         status = str(market.get("status") or "").casefold()
         result = str(market.get("result") or "").casefold()
@@ -411,7 +426,7 @@ class KalshiAdapter:
         if settled_at is None:
             raise VenuePayloadError(
                 "kalshi finalized market is missing settlement_ts",
-                raw_payload=payload,
+                raw_payload=payload, raw_documents=(document,),
             )
         if result in {"void", "voided"}:
             settlement_status = "void"
@@ -425,7 +440,7 @@ class KalshiAdapter:
         else:
             raise VenuePayloadError(
                 "kalshi finalized market is missing a result",
-                raw_payload=payload,
+                raw_payload=payload, raw_documents=(document,),
             )
         return Settlement(
             venue=self.venue,
