@@ -16,6 +16,7 @@ crash. `noindex` on the page is politeness; this allowlist is the boundary.
 from __future__ import annotations
 
 from datetime import datetime
+import logging
 import math
 from pathlib import Path
 
@@ -28,6 +29,8 @@ from app.research_store import (
     ArtifactStoreError,
     load_latest,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
@@ -291,10 +294,23 @@ def market_benchmark(db: Session = Depends(get_db)) -> dict:
         artifact, source = load_latest(db, ARTIFACT_PATH,
                                        kind=MARKET_BENCHMARK_KIND)
     except ArtifactStoreError as exc:
+        # The status is the part the caller needs: `unreadable` is a
+        # server-side fault and is distinguishable from `no_data`. The cause
+        # is NOT echoed. A driver exception names the database host and port
+        # when it breaks at connect time, or the failing statement and its
+        # columns when it breaks mid-query, and this endpoint is deliberately
+        # public -- the allowlist above is the boundary for the success path,
+        # and this is the same boundary for the failure path. Operators read
+        # the cause in the server log.
+        logger.exception("research artifact could not be read: %s", exc)
         return {
             "experimental": True,
             "status": "unreadable",
-            "detail": f"the benchmark artifact cannot be read: {exc}",
+            "detail": (
+                "the benchmark artifact cannot be read; this is a server-side "
+                "fault, not an absence of data, and the cause is in the "
+                "server log"
+            ),
         }
     if artifact is None:
         return {

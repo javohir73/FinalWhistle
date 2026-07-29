@@ -116,9 +116,61 @@ it("shows an honest empty state when no artifact exists", async () => {
   ).toBeInTheDocument();
 });
 
-it("degrades to the empty state when the fetch fails", async () => {
+/* A failure is not an absence. The API distinguishes `unreadable` (a
+   server-side fault) from `no_data` (nothing published yet) precisely so an
+   outage cannot masquerade as an empty result -- this page has to preserve
+   that distinction or the backend work is undone at the only place anyone
+   looks. These previously all rendered "No benchmark data yet". */
+
+it.each(["unreadable", "invalid"] as const)(
+  "reports %s as a fault on our side, never as an empty result",
+  async (status) => {
+    mockGet.mockResolvedValue({
+      experimental: true,
+      status,
+      detail: "the benchmark artifact cannot be read",
+    });
+    render(await MarketBenchmarkPage());
+
+    expect(screen.getByTestId("unavailable")).toHaveTextContent(
+      /cannot be read right now/,
+    );
+    expect(screen.queryByTestId("no-data")).not.toBeInTheDocument();
+    expect(screen.queryByText(/No benchmark data yet/)).not.toBeInTheDocument();
+  },
+);
+
+it("treats an unreachable API as a fault too, not as an empty result", async () => {
   mockGet.mockRejectedValue(new Error("backend down"));
   render(await MarketBenchmarkPage());
 
-  expect(screen.getByTestId("no-data")).toBeInTheDocument();
+  expect(screen.getByTestId("unavailable")).toBeInTheDocument();
+  expect(screen.queryByTestId("no-data")).not.toBeInTheDocument();
+});
+
+it("treats an ok response carrying no artifact as a fault, not as emptiness", async () => {
+  /* A malformed success is the quietest failure of the three: the API said
+     everything worked and then handed over nothing. Reading that as "no data
+     yet" would be the same lie as the others, told by a bug on our own side
+     rather than by an outage. */
+  mockGet.mockResolvedValue({ experimental: true, status: "ok" });
+  render(await MarketBenchmarkPage());
+
+  expect(screen.getByTestId("unavailable")).toBeInTheDocument();
+  expect(screen.queryByTestId("no-data")).not.toBeInTheDocument();
+  expect(screen.queryByText(/No benchmark data yet/)).not.toBeInTheDocument();
+});
+
+it("still says 'no data yet' when that is genuinely true", async () => {
+  mockGet.mockResolvedValue({
+    experimental: true,
+    status: "no_data",
+    detail: "no benchmark artifact has been published",
+  });
+  render(await MarketBenchmarkPage());
+
+  expect(screen.getByTestId("no-data")).toHaveTextContent(
+    "No benchmark data yet",
+  );
+  expect(screen.queryByTestId("unavailable")).not.toBeInTheDocument();
 });
