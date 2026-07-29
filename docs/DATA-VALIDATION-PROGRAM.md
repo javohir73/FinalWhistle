@@ -28,6 +28,36 @@ Ordering is deliberate: market validation first, because until the yardstick is
 trustworthy every other number in the program is uninterpretable. Weather last,
 because it is the lowest-value and the most leak-prone join in the set.
 
+## Resume here
+
+For the next run. Do **not** re-audit what is already settled below.
+
+**Settled, do not redo:**
+
+- D0's coverage census. 100% of matches carry a closing line; the "~70%" in
+  `docs/MODEL-EXPERIMENTS.md` Finding 1 is `AvgC`-pinning, not missingness.
+  Independently replicated twice.
+- D0's two pre-registered hypotheses are **refuted** and recorded as such.
+- D1's coordinate layer. 94/94 clubs resolved, snapshot committed with QIDs.
+- T3.2 `rest_days` was refuted in #202 and is **not** to be re-run.
+
+**Open, in priority order:**
+
+1. **G1 — the licensing decision** (below). Everything about D0's long-term
+   reproducibility waits on it. It is the human's call, not the agent's.
+2. **D1 selection run** — candidates D1.1–D1.4 are pre-registered and the
+   features exist; the walk-forward has not been executed. Promotion is
+   blocked regardless, so this is information rather than a decision.
+3. **D2 / D3 / D4** — not started. Before starting **D3**, read
+   `docs/MODEL-EXPERIMENTS.md` "T4.1 — club xG coverage probe" first: a probe
+   already ran and carries a declared post-hoc correction. D3 must extend that,
+   not repeat it.
+
+**Recommended follow-up from D0, not yet done:** re-run the club market
+benchmark on best-available closing rather than `AvgC` only. It widens the
+evidence base ~43% and *raises* the bar, because the recovered seasons carry a
+sharper market.
+
 ## Standing rules for every phase
 
 1. **Pre-register before implementing.** Objective, baseline, acceptance
