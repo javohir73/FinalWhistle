@@ -20,20 +20,24 @@ the interval is not established.
 
 What the source can actually support
 ------------------------------------
-Measured across all 94 in-scope clubs, `P115` temporal qualifiers are sparse:
+Measured across all 94 in-scope clubs, `P115` temporal qualifiers are sparse.
+These are the module's OWN status labels, and the authoritative copy is
+`status_counts` in `pipeline/data/club_venues.json` — this table is a summary
+of that artifact, not a second independent count that could drift from it:
 
-| Wikidata temporal quality | Clubs |
+| status | clubs |
 |---|---|
-| single venue, **no dates** | 70 |
-| multiple venues, **no dates** | 11 |
-| multiple venues, some dates | 11 |
-| single venue, dated | 2 |
+| `single_undated` | 73 |
+| `dated` | 11 |
+| `ambiguous_undated` | 8 |
+| `excluded_declared` | 2 |
 
-**Only 13 of 94 clubs carry any date at all**, and even those are patchy —
-Tottenham's Wembley years are simply missing, and Bayern's start value is an
-"unknown value" node. Wikidata alone therefore **cannot** support a
-temporally-correct travel feature over this window. That is a finding, not a
-problem to route around, and it is why `venue_on` abstains as often as it does.
+**Only 11 of 94 clubs can answer a date query at all**, and even those are
+patchy — Tottenham's Wembley years are simply missing, Bayern's start value is
+an "unknown value" node, and eleven boundaries carry only year precision.
+Wikidata alone therefore **cannot** support a temporally-correct travel feature
+over this window. That is a finding, not a problem to route around, and it is
+why `venue_on` abstains as often as it does.
 
 Abstention is the whole design
 ------------------------------
@@ -64,6 +68,7 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from datetime import date as date_type
+from datetime import timedelta
 from pathlib import Path
 
 _DATA = Path(__file__).parent.parent / "data"
@@ -115,6 +120,12 @@ _EARTH_KM = 6371.0088
 _POINT = re.compile(r"^Point\(\s*(-?[\d.]+)\s+(-?[\d.]+)\s*\)$")
 _ISO_DATE = re.compile(r"^([+-]?\d{4})-(\d{2})-(\d{2})T")
 
+#: Mid-window probe used only to classify a history as `dated`: a club counts
+#: as dated when at least one interval can return a definite in/out for a date
+#: inside the D1 window. A boundary whose precision is missing or coarser than a
+#: year answers "unknown" everywhere, so it never qualifies.
+_PROBE_DATE = date_type(2020, 1, 1)
+
 # ---------------------------------------------------------------- statuses
 
 #: A club whose venue history is established well enough to answer a date.
@@ -164,9 +175,42 @@ class UnresolvedVenue(KeyError):
     """No verified coordinate for this club at this date. Never substituted."""
 
 
+#: Wikidata time precision codes. 11 = day, 10 = month, 9 = year; anything
+#: coarser (decade, century) cannot bound a football season at all.
+PRECISION_DAY = 11
+PRECISION_MONTH = 10
+PRECISION_YEAR = 9
+
+
+def precision_window(d: date_type, precision: int | None) -> tuple[date_type, date_type] | None:
+    """The range the true date could occupy, given Wikidata's stated precision.
+
+    A year-precision qualifier serialises as ``YYYY-01-01``, which is
+    indistinguishable from a real 1 January date unless the precision is
+    fetched alongside it. Reading one as the other is how Atlético Madrid's
+    Metropolitano interval came to open on 2017-01-01 — eight months before the
+    ground existed — and put the Vicente Calderón farewell match in the wrong
+    stadium.
+
+    Returns ``None`` when the precision is absent or too coarse to bound a
+    season, which makes the boundary unusable rather than approximate.
+    """
+    if precision is None or precision < PRECISION_YEAR:
+        return None
+    if precision >= PRECISION_DAY:
+        return (d, d)
+    if precision == PRECISION_MONTH:
+        if d.month == 12:
+            last = date_type(d.year, 12, 31)
+        else:
+            last = date_type(d.year, d.month + 1, 1) - timedelta(days=1)
+        return (date_type(d.year, d.month, 1), last)
+    return (date_type(d.year, 1, 1), date_type(d.year, 12, 31))
+
+
 @dataclass(frozen=True)
 class VenueInterval:
-    """One venue, valid over a half-open date interval.
+    """One venue, valid over a date interval whose bounds carry their precision.
 
     ``valid_from`` / ``valid_to`` are ``None`` when Wikidata gives no qualifier.
     An interval with no ``valid_from`` cannot answer a date query — see
@@ -182,13 +226,45 @@ class VenueInterval:
     valid_from: date_type | None
     valid_to: date_type | None
     rank: str
+    valid_from_precision: int | None = None
+    valid_to_precision: int | None = None
+
+    def status_on(self, on: date_type) -> str:
+        """``"in"``, ``"out"`` or ``"unknown"`` for ``on``.
+
+        Three-valued on purpose. A coarse boundary makes an interval genuinely
+        indeterminate near it, and collapsing that to a boolean is what
+        produced a confident wrong answer instead of an abstention.
+        """
+        if self.valid_from is None:
+            return "unknown"
+        start = precision_window(self.valid_from, self.valid_from_precision)
+        if start is None:
+            return "unknown"
+        # The true start lies somewhere in [s0, s1]. It has certainly happened
+        # once `on` reaches s1, and certainly not before s0. Between the two it
+        # is genuinely unknown — and for a day-precision boundary s0 == s1, so
+        # there is no unknown band at all and the exact date still answers.
+        if on < start[0]:
+            return "out"
+        if on < start[1]:
+            return "unknown"
+        if self.valid_to is None:
+            return "in"
+        end = precision_window(self.valid_to, self.valid_to_precision)
+        if end is None:
+            return "unknown"
+        # Symmetrically: certainly still open up to e0, certainly closed past
+        # e1. `valid_to` is inclusive, which is why the open test uses <=.
+        if on <= end[0]:
+            return "in"
+        if on > end[1]:
+            return "out"
+        return "unknown"
 
     def covers(self, on: date_type) -> bool:
-        if self.valid_from is None:
-            return False
-        if on < self.valid_from:
-            return False
-        return self.valid_to is None or on <= self.valid_to
+        """Certainly in force. Indeterminate reads as **not** covered."""
+        return self.status_on(on) == "in"
 
 
 @dataclass(frozen=True)
@@ -272,14 +348,29 @@ def required_clubs(aliases: dict[str, dict[str, str]] | None = None) -> list[tup
 
 # ------------------------------------------------------------------ query
 
-SPARQL_TEMPLATE = """SELECT ?name ?venue ?venueLabel ?coord ?cap ?start ?end ?rank WHERE {
+#: Projects the qualifier VALUE NODES (``pqv:``) rather than the plain
+#: qualifier, because ``wikibase:timePrecision`` only exists on the value node.
+#: Without it a year-precision qualifier is indistinguishable from a real
+#: 1 January date — the defect that put Atlético Madrid in a stadium four
+#: months before it opened. ``?club`` is projected too, so the receipt carries
+#: the club QID and not only the venue's.
+SPARQL_TEMPLATE = """SELECT ?name ?club ?venue ?venueLabel ?coord ?cap \
+?start ?startPrecision ?end ?endPrecision ?rank WHERE {
   VALUES ?name { %s }
   ?club rdfs:label|skos:altLabel ?name .
   ?club p:P115 ?statement .
   ?statement ps:P115 ?venue .
   ?statement wikibase:rank ?rank .
-  OPTIONAL { ?statement pq:P580 ?start }
-  OPTIONAL { ?statement pq:P582 ?end }
+  OPTIONAL {
+    ?statement pqv:P580 ?startNode .
+    ?startNode wikibase:timeValue ?start ;
+               wikibase:timePrecision ?startPrecision .
+  }
+  OPTIONAL {
+    ?statement pqv:P582 ?endNode .
+    ?endNode wikibase:timeValue ?end ;
+             wikibase:timePrecision ?endPrecision .
+  }
   ?venue wdt:P625 ?coord .
   ?venue wdt:P1083 ?cap .
   SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
@@ -293,6 +384,13 @@ def build_query(names: list[str]) -> str:
 
 def _qid(uri: str) -> str:
     return uri.rsplit("/", 1)[-1]
+
+
+def _int_or_none(v) -> int | None:
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
 
 
 # ------------------------------------------------------------- resolution
@@ -327,6 +425,8 @@ def resolve_histories(
                 (b.get("start") or {}).get("value"),
                 (b.get("end") or {}).get("value"),
                 _qid(b.get("rank", {}).get("value", "")),
+                _int_or_none((b.get("startPrecision") or {}).get("value")),
+                _int_or_none((b.get("endPrecision") or {}).get("value")),
             )
         )
 
@@ -345,6 +445,8 @@ def resolve_histories(
                 valid_from=parse_wikidata_date(r[5]),
                 valid_to=parse_wikidata_date(r[6]),
                 rank=r[7],
+                valid_from_precision=r[8],
+                valid_to_precision=r[9],
             )
             for r in rows
         )
@@ -353,7 +455,7 @@ def resolve_histories(
             status, note = STATUS_EXCLUDED, declared
         elif not intervals:
             status, note = STATUS_NO_VENUE, "no P115 venue with coordinates and capacity"
-        elif any(i.valid_from is not None for i in intervals):
+        elif any(i.status_on(_PROBE_DATE) != "unknown" for i in intervals):
             status, note = STATUS_DATED, ""
         elif len({i.venue_qid for i in intervals}) == 1:
             status, note = (
@@ -385,7 +487,13 @@ def venue_on(history: ClubVenueHistory, on: date_type) -> VenueInterval | None:
     """
     if history.status != STATUS_DATED:
         return None
-    covering = [i for i in history.intervals if i.covers(on)]
+    statuses = [i.status_on(on) for i in history.intervals]
+    # Any indeterminate interval poisons the whole answer: if one boundary
+    # might have moved past this date, "exactly one interval covers it" is not
+    # something we know.
+    if "unknown" in statuses:
+        return None
+    covering = [i for i, s in zip(history.intervals, statuses) if s == "in"]
     if len(covering) != 1:
         return None
     return covering[0]
@@ -431,8 +539,10 @@ def travel_exclusion_reason(
     Every excluded fixture has to be attributable to a named reason, or the
     coverage report is just a smaller number with no explanation.
     """
-    if is_relocation_risk(on):
-        return "relocation_risk_season"
+    # Venue status is tested BEFORE the season rule. Both can apply to the same
+    # fixture, and reporting the season first over-attributed thousands of
+    # fixtures to COVID when the binding constraint was actually an unusable
+    # venue history — which is the one an operator could fix.
     for club in (home_club, away_club):
         h = histories.get((division, club))
         if h is None:
@@ -440,8 +550,12 @@ def travel_exclusion_reason(
         if h.status != STATUS_DATED:
             return h.status
         if venue_on(h, on) is None:
-            covering = [i for i in h.intervals if i.covers(on)]
-            return "interval_gap" if not covering else "overlapping_intervals"
+            statuses = [i.status_on(on) for i in h.intervals]
+            if "unknown" in statuses:
+                return "boundary_precision_unknown"
+            return "interval_gap" if "in" not in statuses else "overlapping_intervals"
+    if is_relocation_risk(on):
+        return "relocation_risk_season"
     return None
 
 
@@ -458,25 +572,70 @@ def raw_snapshot_payload(
     provider actually returned, so a resolver change and a provider change were
     indistinguishable after the fact. This holds the bindings themselves.
     """
-    canonical = json.dumps(bindings, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-    return {
+    query = build_query(sorted(names))
+    payload = {
         "provider": PROVIDER,
         "retrieved_utc": retrieved_utc,
-        "query": build_query(sorted(names)),
-        "query_sha256": hashlib.sha256(build_query(sorted(names)).encode()).hexdigest(),
+        "query": query,
+        "query_sha256": hashlib.sha256(query.encode()).hexdigest(),
         "requested_labels": sorted(names),
         "n_bindings": len(bindings),
-        "bindings_sha256": hashlib.sha256(canonical.encode()).hexdigest(),
+        "bindings_sha256": _bindings_digest(bindings),
         "bindings": bindings,
     }
+    # A digest over everything EXCEPT itself, so tampering with the licence
+    # text, the retrieval time or the requested labels is caught too. The
+    # bindings digest alone left the whole provenance envelope unprotected —
+    # the query could be swapped for unrelated SPARQL and nothing noticed.
+    payload["envelope_sha256"] = _envelope_digest(payload)
+    return payload
+
+
+def _bindings_digest(bindings: list[dict]) -> str:
+    """Order-independent digest over the bindings.
+
+    The SPARQL has no ORDER BY, so the service may return rows in any order;
+    an order-sensitive digest would flag a re-fetch as tampering. Each binding
+    is canonicalised, then the canonical forms are sorted.
+    """
+    rows = sorted(
+        json.dumps(b, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+        for b in bindings
+    )
+    return hashlib.sha256("\n".join(rows).encode()).hexdigest()
+
+
+def _envelope_digest(payload: dict) -> str:
+    envelope = {k: v for k, v in payload.items() if k not in ("bindings", "envelope_sha256")}
+    return hashlib.sha256(
+        json.dumps(envelope, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 def load_raw_snapshot(path: Path | None = None) -> dict:
+    """Load the receipt, verifying every claim it makes about itself.
+
+    Three independent checks, because the first cut verified only the bindings:
+    the query really is the one whose digest is recorded, the provenance
+    envelope has not been edited, and the bindings match.
+    """
     raw = json.loads((path or RAW_SNAPSHOT_PATH).read_text(encoding="utf-8"))
-    canonical = json.dumps(
-        raw["bindings"], sort_keys=True, separators=(",", ":"), ensure_ascii=False
-    )
-    actual = hashlib.sha256(canonical.encode()).hexdigest()
+
+    actual_query = hashlib.sha256(raw["query"].encode()).hexdigest()
+    if actual_query != raw["query_sha256"]:
+        raise ValueError(
+            f"raw snapshot query digest mismatch: recorded {raw['query_sha256']}, "
+            f"computed {actual_query}. The recorded query is not the one that ran."
+        )
+    if "envelope_sha256" in raw:
+        actual_env = _envelope_digest(raw)
+        if actual_env != raw["envelope_sha256"]:
+            raise ValueError(
+                f"raw snapshot envelope digest mismatch: recorded "
+                f"{raw['envelope_sha256']}, computed {actual_env}. Provenance "
+                "metadata has been edited."
+            )
+    actual = _bindings_digest(raw["bindings"])
     if actual != raw["bindings_sha256"]:
         raise ValueError(
             f"raw snapshot digest mismatch: recorded {raw['bindings_sha256']}, "
@@ -502,7 +661,9 @@ def derive_snapshot(raw: dict, aliases: dict[str, dict[str, str]] | None = None)
             "bindings_sha256": raw["bindings_sha256"],
             "query_sha256": raw["query_sha256"],
         },
-        "provider": PROVIDER,
+        # The RECEIPT's provider block, not this module's constant: the derived
+        # table has to describe the fetch it came from, not the code that reads it.
+        "provider": raw.get("provider", PROVIDER),
         "seasons_in_scope": list(SEASONS_IN_SCOPE),
         "relocation_risk_seasons": sorted(RELOCATION_RISK_SEASONS),
         "relocation_risk_reason": RELOCATION_RISK_REASON,
@@ -523,7 +684,9 @@ def derive_snapshot(raw: dict, aliases: dict[str, dict[str, str]] | None = None)
                         "lon": i.lon,
                         "capacity": i.capacity,
                         "valid_from": i.valid_from.isoformat() if i.valid_from else None,
+                        "valid_from_precision": i.valid_from_precision,
                         "valid_to": i.valid_to.isoformat() if i.valid_to else None,
+                        "valid_to_precision": i.valid_to_precision,
                         "rank": i.rank,
                     }
                     for i in h.intervals
@@ -550,6 +713,8 @@ def load_histories(path: Path | None = None) -> dict[tuple[str, str], ClubVenueH
                 valid_from=date_type.fromisoformat(i["valid_from"]) if i["valid_from"] else None,
                 valid_to=date_type.fromisoformat(i["valid_to"]) if i["valid_to"] else None,
                 rank=i["rank"],
+                valid_from_precision=i.get("valid_from_precision"),
+                valid_to_precision=i.get("valid_to_precision"),
             )
             for i in c["intervals"]
         )
@@ -608,3 +773,65 @@ def format_coverage(payload: dict) -> str:
         f"{sorted(RELOCATION_RISK_SEASONS)}"
     )
     return "\n".join(lines)
+
+
+def refresh_snapshots(retrieved_utc: str) -> dict:
+    """Operator entry point: fetch, write the receipt, re-derive the table.
+
+    Exists because the evidence card's reproduction receipt used to name three
+    functions that a later refactor had renamed away, so the phase's only
+    documented rebuild command could not run at all. A receipt that is executed
+    by `python -m` cannot drift from the code the way a prose snippet can.
+    """
+    aliases = load_aliases()
+    names = [aliases[d][c] for d, c in required_clubs(aliases)]
+    bindings = fetch_raw_snapshot(names)
+    raw = raw_snapshot_payload(bindings, names, retrieved_utc)
+    RAW_SNAPSHOT_PATH.write_text(
+        json.dumps(raw, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    derived = derive_snapshot(load_raw_snapshot(), aliases)
+    SNAPSHOT_PATH.write_text(serialize_snapshot(derived), encoding="utf-8")
+    return derived
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    from datetime import datetime, timezone
+
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument(
+        "--refresh",
+        action="store_true",
+        help="re-fetch from Wikidata and rewrite both snapshots (network; free, CC0)",
+    )
+    ap.add_argument(
+        "--verify",
+        action="store_true",
+        help="offline: re-derive from the committed receipt and assert it is "
+        "byte-for-byte identical to the committed table",
+    )
+    args = ap.parse_args(argv)
+
+    if args.refresh:
+        derived = refresh_snapshots(
+            datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        )
+        print(format_coverage(derived))
+        return 0
+
+    raw = load_raw_snapshot()
+    rebuilt = serialize_snapshot(derive_snapshot(raw, load_aliases()))
+    on_disk = SNAPSHOT_PATH.read_text(encoding="utf-8")
+    print(format_coverage(json.loads(on_disk)))
+    if args.verify:
+        if rebuilt != on_disk:
+            print("\nREBUILD MISMATCH: the derived table is not what the "
+                  "receipt produces.", file=__import__("sys").stderr)
+            return 1
+        print("\nrebuild from receipt: byte-for-byte identical")
+    return 0
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

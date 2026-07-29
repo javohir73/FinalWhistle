@@ -19,10 +19,13 @@ from pipeline.ingest.venue_coordinates import (
 )
 
 
-def _iv(qid, lat, lon, frm="2000-01-01", to=None):
+def _iv(qid, lat, lon, frm="2000-01-01", to=None, prec=11):
+    # prec=11 is Wikidata day precision. A boundary with no precision is
+    # deliberately unusable, so fixtures must declare one.
     return VenueInterval(
         qid, qid, lat, lon, 30000,
         date.fromisoformat(frm), date.fromisoformat(to) if to else None, "NormalRank",
+        valid_from_precision=prec, valid_to_precision=prec if to else None,
     )
 
 
@@ -135,6 +138,18 @@ def test_travel_abstains_in_a_relocation_risk_season():
     assert ctx.travel_excluded_because == "relocation_risk_season"
 
 
+def test_an_unusable_venue_outranks_the_season_rule_in_the_reason():
+    """Both can apply; the reported reason must be the one an operator can fix.
+
+    Reporting the season first attributed thousands of fixtures to COVID whose
+    binding constraint was actually an unusable venue history.
+    """
+    undated = _venues({("E0", "Beta"): ClubVenueHistory(
+        "Beta", "E0", "Beta F.C.", (_iv("Q2", 52.0, 0.0),), STATUS_SINGLE_UNDATED)})
+    ctx = schedule_contexts([Fixture(date(2021, 2, 3), "E0", "Alpha", "Beta")], undated)[0]
+    assert ctx.travel_excluded_because == STATUS_SINGLE_UNDATED
+
+
 def test_travel_is_none_rather_than_zero_when_no_table_is_supplied():
     # Zero would read as "no journey", which is a claim. None is the absence.
     ctx = schedule_contexts(_season())[0]
@@ -182,6 +197,33 @@ def test_M2_no_outcome_can_reach_a_feature():
         set(Fixture.__dataclass_fields__)
         & {"score_home", "score_away", "result", "ftr", "goals"}
     )
+
+
+def test_M3_batched_fixtures_each_get_their_own_dates_venue():
+    """Kills the batch-resolution mutant.
+
+    Every other M-test calls `schedule_contexts` with a ONE-fixture list, where
+    "resolve at the fixture date" and "resolve once at the batch's latest date"
+    coincide — so an implementation that resolved the whole batch as-of its
+    newest fixture passed the entire suite. This one passes three fixtures for
+    the same clubs across a move in a single call, so the two implementations
+    cannot agree.
+    """
+    moved = _venues({("E0", "Beta"): ClubVenueHistory(
+        "Beta", "E0", "Beta F.C.",
+        (_iv("Q_OLD", 51.1, 0.0, "2000-01-01", "2017-05-14"),
+         _iv("Q_NEW", 55.0, 0.0, "2019-04-03")), STATUS_DATED)})
+    batch = [
+        Fixture(date(2016, 9, 10), "E0", "Alpha", "Beta"),   # old ground
+        Fixture(date(2018, 3, 4), "E0", "Alpha", "Beta"),    # gap -> abstain
+        Fixture(date(2023, 8, 5), "E0", "Alpha", "Beta"),    # new ground
+    ]
+    got = [c.travel_km for c in schedule_contexts(batch, moved)]
+    assert got[0] == pytest.approx(11.12, abs=0.5)
+    assert got[1] is None
+    assert got[2] == pytest.approx(445.0, abs=1.0)
+    # The mutant would return the newest venue for all three.
+    assert len({round(x, 1) for x in got if x is not None}) == 2
 
 
 def test_M3_no_future_venue_state_reaches_an_earlier_fixture():

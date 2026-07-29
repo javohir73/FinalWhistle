@@ -1,9 +1,9 @@
 {
   "derived_from": {
     "raw_snapshot": "club_venues_raw.json",
-    "retrieved_utc": "2026-07-29T12:41:00Z",
-    "bindings_sha256": "1705ff235ff14a10451d85561557d03393d4ad1d23416bc0e5e6caef0fabd063",
-    "query_sha256": "a6ad55b86fc82e7f8427eebf71d934cebf1a2b6c55e9c28bbadc97a178c6d8b8"
+    "retrieved_utc": "2026-07-29T13:39:50Z",
+    "bindings_sha256": "e220a05d5d1db50453b3c4f1b2f723fb19551efc35ce51c4df7f958e18f9985c",
+    "query_sha256": "01c8ddd8dc8ca165373a3abfc84877ca122707f3a5ebb05913cbf38d6971dd39"
   },
   "provider": {
     "provider": "Wikidata",
@@ -68,7 +68,9 @@
           "lon": 10.8859261,
           "capacity": 30660,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -87,7 +89,9 @@
           "lon": 11.624752777,
           "capacity": 75024,
           "valid_from": "2005-07-26",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -97,7 +101,9 @@
           "lon": 11.546666666,
           "capacity": 63118,
           "valid_from": "1972-09-30",
+          "valid_from_precision": 11,
           "valid_to": "2005-05-14",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -107,7 +113,9 @@
           "lon": 11.574444,
           "capacity": 15000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": "1972-09-20",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -117,7 +125,9 @@
           "lon": 11.52535,
           "capacity": 6700,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -127,7 +137,9 @@
           "lon": 11.52535,
           "capacity": 6731,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -146,7 +158,9 @@
           "lon": 8.516944,
           "capacity": 27300,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -165,7 +179,9 @@
           "lon": 7.236489,
           "capacity": 29299,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -184,7 +200,9 @@
           "lon": 8.672222,
           "capacity": 19000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -203,7 +221,9 @@
           "lon": 7.451667,
           "capacity": 81359,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -222,7 +242,9 @@
           "lon": 8.645278,
           "capacity": 51500,
           "valid_from": "1925-05-21",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -241,7 +263,9 @@
           "lon": 6.875,
           "capacity": 46195,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -260,7 +284,9 @@
           "lon": 6.733083,
           "capacity": 51500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -270,7 +296,9 @@
           "lon": 6.733083,
           "capacity": 54600,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -280,7 +308,9 @@
           "lon": 6.733083,
           "capacity": 66500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -290,7 +320,9 @@
           "lon": 6.733083,
           "capacity": 9917,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -309,7 +341,9 @@
           "lon": 7.881192,
           "capacity": 18000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -319,7 +353,9 @@
           "lon": 7.893056,
           "capacity": 24000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -329,7 +365,9 @@
           "lon": 7.830006,
           "capacity": 34700,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -348,7 +386,9 @@
           "lon": 10.999167,
           "capacity": 18500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -367,7 +407,9 @@
           "lon": 9.898611,
           "capacity": 51500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -377,7 +419,9 @@
           "lon": 9.898611,
           "capacity": 57000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -396,7 +440,9 @@
           "lon": 9.731111,
           "capacity": 49000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -415,7 +461,9 @@
           "lon": 10.1393,
           "capacity": 10001,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -434,7 +482,9 @@
           "lon": 13.239444444,
           "capacity": 74475,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -453,7 +503,9 @@
           "lon": 8.888278,
           "capacity": 30150,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -463,7 +515,9 @@
           "lon": 8.84212,
           "capacity": 6350,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -482,7 +536,9 @@
           "lon": 10.123611,
           "capacity": 15034,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -501,7 +557,9 @@
           "lon": 11.485,
           "capacity": 15000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -520,7 +578,9 @@
           "lon": 7.002205555,
           "capacity": 30210,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -530,7 +590,9 @@
           "lon": 7.004058,
           "capacity": 3500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -549,7 +611,9 @@
           "lon": 6.385463888,
           "capacity": 59749,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -568,7 +632,9 @@
           "lon": 8.224167,
           "capacity": 34034,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -587,7 +653,9 @@
           "lon": 11.125617009,
           "capacity": 50000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -606,7 +674,9 @@
           "lon": 8.710833,
           "capacity": 15000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -625,7 +695,9 @@
           "lon": 12.348056,
           "capacity": 42000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -644,7 +716,9 @@
           "lon": 7.067588888,
           "capacity": 62271,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -663,7 +737,9 @@
           "lon": 9.967778,
           "capacity": 29546,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -682,7 +758,9 @@
           "lon": 9.231944,
           "capacity": 60058,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -701,7 +779,9 @@
           "lon": 13.568056,
           "capacity": 21704,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -720,7 +800,9 @@
           "lon": 8.8375,
           "capacity": 42500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -739,7 +821,9 @@
           "lon": 10.803889,
           "capacity": 30000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -749,7 +833,9 @@
           "lon": 10.799417,
           "capacity": 17600,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -759,7 +845,9 @@
           "lon": 10.799417,
           "capacity": 17600,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": "2002-01-01",
+          "valid_to_precision": 9,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -778,7 +866,9 @@
           "lon": -0.108333333,
           "capacity": 60338,
           "valid_from": "2006-07-22",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -788,7 +878,9 @@
           "lon": -0.102966,
           "capacity": 38419,
           "valid_from": "1913-09-06",
+          "valid_from_precision": 11,
           "valid_to": "2006-05-07",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -807,7 +899,9 @@
           "lon": -1.884722222,
           "capacity": 42640,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -826,7 +920,9 @@
           "lon": -1.838333,
           "capacity": 12000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -845,7 +941,9 @@
           "lon": -0.302639,
           "capacity": 14863,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -864,7 +962,9 @@
           "lon": -0.083277777,
           "capacity": 31800,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -883,7 +983,9 @@
           "lon": -2.230225,
           "capacity": 22546,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -902,7 +1004,9 @@
           "lon": -3.203056,
           "capacity": 33260,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -921,7 +1025,9 @@
           "lon": -0.191111111,
           "capacity": 41875,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -940,7 +1046,9 @@
           "lon": -0.085555555,
           "capacity": 26255,
           "valid_from": "1924-01-01",
+          "valid_from_precision": 9,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -959,7 +1067,9 @@
           "lon": -3.0027851,
           "capacity": 52769,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -978,7 +1088,9 @@
           "lon": -0.221666666,
           "capacity": 25700,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -997,7 +1109,9 @@
           "lon": -1.768333333,
           "capacity": 24500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1016,7 +1130,9 @@
           "lon": -0.367777777,
           "capacity": 25400,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1035,7 +1151,9 @@
           "lon": 1.145277777,
           "capacity": 30311,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1054,7 +1172,9 @@
           "lon": -1.572222222,
           "capacity": 37792,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1073,7 +1193,9 @@
           "lon": -1.142222222,
           "capacity": 32261,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1092,7 +1214,9 @@
           "lon": -2.960833333,
           "capacity": 61276,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1111,7 +1235,9 @@
           "lon": -0.431666666,
           "capacity": 10356,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1130,7 +1256,9 @@
           "lon": -2.200277777,
           "capacity": 52900,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1149,7 +1277,9 @@
           "lon": -2.291388888,
           "capacity": 75731,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1168,7 +1298,9 @@
           "lon": -1.216944444,
           "capacity": 34742,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1187,7 +1319,9 @@
           "lon": -1.621666666,
           "capacity": 52305,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1206,7 +1340,9 @@
           "lon": 1.309166666,
           "capacity": 27244,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1225,7 +1361,9 @@
           "lon": -1.132778,
           "capacity": 30404,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1244,7 +1382,9 @@
           "lon": -1.470833333,
           "capacity": 32702,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1263,7 +1403,9 @@
           "lon": -1.39111111,
           "capacity": 32589,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1282,7 +1424,9 @@
           "lon": -2.175555555,
           "capacity": 27740,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1301,7 +1445,9 @@
           "lon": -1.388172971,
           "capacity": 48339,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1320,7 +1466,9 @@
           "lon": -3.9351,
           "capacity": 20750,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1339,7 +1487,9 @@
           "lon": -0.065833333,
           "capacity": 36284,
           "valid_from": "1899-09-04",
+          "valid_from_precision": 11,
           "valid_to": "2017-05-14",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1349,7 +1499,9 @@
           "lon": -0.066388888,
           "capacity": 62850,
           "valid_from": "2019-04-03",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         }
       ]
@@ -1368,7 +1520,9 @@
           "lon": -0.401606,
           "capacity": 22000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1387,7 +1541,9 @@
           "lon": -1.963888888,
           "capacity": 26445,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1406,7 +1562,9 @@
           "lon": -0.016388888,
           "capacity": 62500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1425,7 +1583,9 @@
           "lon": -2.130277777,
           "capacity": 30852,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1444,7 +1604,9 @@
           "lon": -2.688044,
           "capacity": 19840,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1463,7 +1625,9 @@
           "lon": -2.435278,
           "capacity": 22000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1482,7 +1646,9 @@
           "lon": -2.949369,
           "capacity": 53289,
           "valid_from": "2013-09-16",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -1492,7 +1658,9 @@
           "lon": -2.83932,
           "capacity": 3250,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1511,7 +1679,9 @@
           "lon": -3.599444,
           "capacity": 70692,
           "valid_from": "2017-01-01",
+          "valid_from_precision": 9,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -1521,7 +1691,9 @@
           "lon": -3.716147,
           "capacity": 35800,
           "valid_from": "1923-01-01",
+          "valid_from_precision": 9,
           "valid_to": "1966-01-01",
+          "valid_to_precision": 9,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1531,7 +1703,9 @@
           "lon": -3.720556,
           "capacity": 54960,
           "valid_from": "1966-01-01",
+          "valid_from_precision": 9,
           "valid_to": "2017-01-01",
+          "valid_to_precision": 9,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1550,7 +1724,9 @@
           "lon": 2.1483,
           "capacity": 6000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1560,7 +1736,9 @@
           "lon": 2.1483,
           "capacity": 6000,
           "valid_from": "1909-05-14",
+          "valid_from_precision": 11,
           "valid_to": "1922-05-19",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1570,7 +1748,9 @@
           "lon": 2.122777777,
           "capacity": 105000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -1580,7 +1760,9 @@
           "lon": 2.122777777,
           "capacity": 105000,
           "valid_from": "1957-09-24",
+          "valid_from_precision": 11,
           "valid_to": "2023-08-07",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1590,7 +1772,9 @@
           "lon": 2.122777777,
           "capacity": 105000,
           "valid_from": "2025-11-22",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -1600,7 +1784,9 @@
           "lon": 2.15430556,
           "capacity": 1500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1610,7 +1796,9 @@
           "lon": 2.155556,
           "capacity": 55926,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1620,7 +1808,9 @@
           "lon": 2.155556,
           "capacity": 55926,
           "valid_from": "2023-08-08",
+          "valid_from_precision": 11,
           "valid_to": "2025-08-09",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1630,7 +1820,9 @@
           "lon": 2.155556,
           "capacity": 55926,
           "valid_from": "2025-09-28",
+          "valid_from_precision": 11,
           "valid_to": "2025-11-21",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1640,7 +1832,9 @@
           "lon": 2.050506,
           "capacity": 6000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -1650,7 +1844,9 @@
           "lon": 2.050506,
           "capacity": 6000,
           "valid_from": "2025-08-10",
+          "valid_from_precision": 11,
           "valid_to": "2025-09-27",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1660,7 +1856,9 @@
           "lon": 2.152556,
           "capacity": 17960,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1670,7 +1868,9 @@
           "lon": 2.118056,
           "capacity": 15276,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1680,7 +1880,9 @@
           "lon": 2.135556,
           "capacity": 60000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1690,7 +1892,9 @@
           "lon": 2.135556,
           "capacity": 60000,
           "valid_from": "1922-05-20",
+          "valid_from_precision": 11,
           "valid_to": "1957-09-23",
+          "valid_to_precision": 11,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1700,7 +1904,9 @@
           "lon": 2.12005,
           "capacity": 7585,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         }
       ]
@@ -1719,7 +1925,9 @@
           "lon": -5.981611,
           "capacity": 60721,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1738,7 +1946,9 @@
           "lon": -6.273056,
           "capacity": 26000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1757,7 +1967,9 @@
           "lon": -8.740328,
           "capacity": 22803,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1776,7 +1988,9 @@
           "lon": -2.475803,
           "capacity": 8164,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1795,7 +2009,9 @@
           "lon": -0.663333,
           "capacity": 31388,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1814,7 +2030,9 @@
           "lon": 2.133333333,
           "capacity": 43667,
           "valid_from": "1923-01-01",
+          "valid_from_precision": 9,
           "valid_to": "1997-01-01",
+          "valid_to_precision": 9,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1824,7 +2042,9 @@
           "lon": 2.075667,
           "capacity": 40500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1843,7 +2063,9 @@
           "lon": -3.714722,
           "capacity": 16500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1862,7 +2084,9 @@
           "lon": 2.828611,
           "capacity": 14624,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1881,7 +2105,9 @@
           "lon": -3.595736,
           "capacity": 19436,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1891,7 +2117,9 @@
           "lon": -6.13889,
           "capacity": 2000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1901,7 +2129,9 @@
           "lon": -6.13889,
           "capacity": 5000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1911,7 +2141,9 @@
           "lon": -6.13889,
           "capacity": 6060,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -1921,7 +2153,9 @@
           "lon": -6.13889,
           "capacity": 8000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1940,7 +2174,9 @@
           "lon": -0.424444,
           "capacity": 9000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1959,7 +2195,9 @@
           "lon": -8.417372,
           "capacity": 32490,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1978,7 +2216,9 @@
           "lon": -15.456667,
           "capacity": 32392,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -1997,7 +2237,9 @@
           "lon": -3.7607,
           "capacity": 11454,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2016,7 +2258,9 @@
           "lon": -0.364167,
           "capacity": 26354,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2035,7 +2279,9 @@
           "lon": -4.426422,
           "capacity": 30044,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2054,7 +2300,9 @@
           "lon": 2.63,
           "capacity": 25736,
           "valid_from": "1999-06-01",
+          "valid_from_precision": 10,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#PreferredRank"
         },
         {
@@ -2064,7 +2312,9 @@
           "lon": 2.6407,
           "capacity": 18000,
           "valid_from": "1945-01-01",
+          "valid_from_precision": 9,
           "valid_to": "1999-01-01",
+          "valid_to_precision": 9,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2083,7 +2333,9 @@
           "lon": -1.636944,
           "capacity": 23576,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2102,7 +2354,9 @@
           "lon": -3.68835,
           "capacity": 83186,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2121,7 +2375,9 @@
           "lon": -5.970467,
           "capacity": 42714,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2140,7 +2396,9 @@
           "lon": -1.973617,
           "capacity": 40000,
           "valid_from": "1993-08-13",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2159,7 +2417,9 @@
           "lon": -5.68056,
           "capacity": 3000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -2169,7 +2429,9 @@
           "lon": -5.637222,
           "capacity": 29371,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2188,7 +2450,9 @@
           "lon": -0.358333,
           "capacity": 49430,
           "valid_from": "1923-05-20",
+          "valid_from_precision": 11,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2207,7 +2471,9 @@
           "lon": -4.761111,
           "capacity": 26512,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -2217,7 +2483,9 @@
           "lon": -4.76333332,
           "capacity": 1500,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2236,7 +2504,9 @@
           "lon": -3.658961,
           "capacity": 14708,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]
@@ -2255,7 +2525,9 @@
           "lon": -0.11501,
           "capacity": 5000,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         },
         {
@@ -2265,7 +2537,9 @@
           "lon": -0.103611,
           "capacity": 24891,
           "valid_from": null,
+          "valid_from_precision": null,
           "valid_to": null,
+          "valid_to_precision": null,
           "rank": "ontology#NormalRank"
         }
       ]

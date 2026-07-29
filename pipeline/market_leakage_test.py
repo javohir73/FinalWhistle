@@ -63,7 +63,14 @@ def _imported_modules(path: Path) -> set[str]:
     exactly how a leak would actually be written.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-    pkg = _module_name(path).rsplit(".", 1)[0] if "." in _module_name(path) else ""
+    # Relative imports anchor on __package__. For a regular module that is the
+    # parent of its dotted name; for a package's __init__.py it is the package
+    # ITSELF. Stripping a level unconditionally anchored ml/features/__init__.py
+    # on "ml", so a live `from ..evaluation.market_benchmark import devig` in an
+    # __init__.py resolved to "evaluation.market_benchmark" and the guard went
+    # green on a real leak.
+    me = _module_name(path)
+    pkg = me if path.name == "__init__.py" else (me.rsplit(".", 1)[0] if "." in me else "")
     names: set[str] = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -203,12 +210,19 @@ def test_the_guard_detects_every_spelling_of_a_planted_import(source):
     The relative forms are the ones that matter: inside `ml/features/`,
     `from ..evaluation.market_benchmark import devig` is a *working* import.
     """
-    planted = _ROOT / "ml" / "features" / "_leak_probe.py"
-    planted.write_text(source + "\n")
-    try:
-        assert _imported_modules(planted) & _BENCHMARK_MODULES
-    finally:
-        planted.unlink()
+    for name in ("_leak_probe.py", "__init__.py"):
+        # Both spellings matter: a package's __init__.py anchors relative
+        # imports one level higher than a module beside it.
+        planted = _ROOT / "ml" / "features" / name
+        original = planted.read_text() if planted.exists() else None
+        planted.write_text(source + "\n")
+        try:
+            assert _imported_modules(planted) & _BENCHMARK_MODULES, (name, source)
+        finally:
+            if original is None:
+                planted.unlink()
+            else:
+                planted.write_text(original)
 
 
 def test_coverage_module_is_not_imported_by_any_serving_path():

@@ -16,8 +16,9 @@ The selection phase now has its own standalone, separately-committed
 [`SELECTION-PRE-REGISTRATION.md`](SELECTION-PRE-REGISTRATION.md) so that *its*
 chronology is verifiable.
 
-For contrast, D0's pre-registration **is** verifiable: `8ea3edf` contains only
-the pre-registration, and the implementation landed later in `86f8c8b`.
+For contrast, D0's pre-registration **is** verifiable: `8ea3edf` contains the
+pre-registration and the program ledger — two documents, no code and no
+results — and the implementation landed later in `86f8c8b`.
 
 ## C2 — M3 was recorded PASS and was false
 
@@ -46,32 +47,41 @@ excluding what cannot be established:
 | Division | Fixtures | Travel defined | Coverage |
 |---|---|---|---|
 | E0 | 3,420 | 14 | **0.41%** |
-| SP1 | 3,420 | 180 | **5.26%** |
-| D1 | 2,754 | 14 | **0.51%** |
-| **All** | **9,594** | **208** | **2.17%** |
+| SP1 | 3,420 | 62 | **1.81%** |
+| D1 | 2,754 | 0 | **0.00%** |
+| **All** | **9,594** | **76** | **0.79%** |
 
 Exclusions, all named and summing exactly to the shortfall:
 
 | Reason | E0 | SP1 | D1 |
 |---|---|---|---|
-| `single_undated` — one venue, no date qualifier, unverifiable | 2,415 | 1,989 | 1,596 |
-| `ambiguous_undated` — several venues, none dated | — | 344 | 532 |
-| `relocation_risk_season` — COVID-era 2019-20 / 2020-21 | 760 | 760 | 612 |
-| `excluded_declared` — Brentford, Tottenham | 231 | — | — |
-| `interval_gap` — date falls between known intervals | — | 147 | — |
+| `single_undated` — one venue, no date qualifier, unverifiable | 3,129 | 2,311 | 1,944 |
+| `ambiguous_undated` — several venues, none dated | — | 449 | 648 |
+| `boundary_precision_unknown` — the date falls inside a coarse boundary's uncertainty | — | 580 | 162 |
+| `excluded_declared` — Brentford, Tottenham | 273 | — | — |
+| `relocation_risk_season` — COVID-era 2019-20 / 2020-21 | 4 | 18 | — |
+
+> **Revised after the second review round (C5–C6 below).** The first version of
+> this table reported 208 / 2.17% and attributed 2,132 fixtures to
+> `relocation_risk_season`. Both were wrong: date precision was not respected,
+> and the season rule was tested before the venue rule, so COVID absorbed
+> exclusions whose binding constraint was actually an unusable venue history.
 
 **Root cause: Wikidata cannot date these clubs.** Measured across all 94:
 
-| `P115` temporal quality | Clubs |
+| status | clubs |
 |---|---|
-| single venue, **no dates** | 73 |
-| multiple venues, **no dates** | 8 |
-| **dated** | 11 |
-| declared exclusion | 2 |
+| `single_undated` | 73 |
+| `dated` | 11 |
+| `ambiguous_undated` | 8 |
+| `excluded_declared` | 2 |
+
+(The authoritative copy is `status_counts` in `pipeline/data/club_venues.json`;
+this table summarises that artifact rather than counting independently.)
 
 **Verdict: the travel candidates D1.1 / D1.2 / D1.4 are BLOCKED**, not merely
-unrun. 208 fixtures spread across three leagues is not a sample any of the
-pre-registered grids could be fitted on. D1.3 (congestion) needs no coordinate
+unrun. 76 fixtures — 14 in England, 62 in Spain, **none at all in Germany** —
+is not a sample any of the pre-registered grids could be fitted on. D1.3 (congestion) needs no coordinate
 and is unaffected.
 
 Unblocking travel requires a venue-history source with effective dates and
@@ -91,6 +101,79 @@ QIDs, ranks and `P580`/`P582` qualifiers, the CC0 licence source, and the WDQS
 usage and rate-limit notes an operator needs to re-run it. `club_venues.json`
 is **derived from that file and nothing else**, and a test rebuilds it
 byte-for-byte offline. A test also proves the digest catches an edited receipt.
+
+## C5 — a year-precision date was read as 1 January (P1, second round)
+
+The C2 fix modelled venue as an interval but still read every `P580`/`P582`
+literal as a **day**. Wikidata serialises a *year*-precision qualifier as
+`YYYY-01-01`, and the precision lives on the value node, which the query did
+not fetch.
+
+So `venue_on` did not abstain — it answered **confidently and wrongly**:
+
+- Atlético Madrid's Metropolitano interval opened `2017-01-01`; the ground
+  opened **16 September 2017**.
+- `venue_on(2017-05-21)` returned Metropolitano. That fixture was the **Vicente
+  Calderón farewell match** — the last game ever played there, scored against a
+  stadium that did not yet exist, 10.94 km away.
+- Six of the then-208 travel-defined fixtures were affected; three more were
+  right only by luck.
+
+This is the same class of defect as C2 — future venue state reaching an earlier
+fixture — surviving the correction written to remove it. Eleven of the 39 date
+literals in the receipt fall on 1 January; under genuine day precision that has
+probability ~1e-19.
+
+**Fixed.** The query now projects `pqv:P580`/`pqv:P582` value nodes with
+`wikibase:timePrecision`. A boundary is `in`, `out`, or **`unknown`** — three
+valued, because collapsing an indeterminate boundary to a boolean is exactly
+what produced a confident wrong answer. A year-precision boundary makes its
+whole year unanswerable; a month-precision one, its month; a boundary with no
+precision at all is unusable everywhere. One indeterminate interval abstains
+the whole club, since "exactly one interval covers this" is not knowable while
+another might have opened.
+
+Atlético now abstains across the whole of 2017 and answers correctly on either
+side of it.
+
+## C6 — the exclusion table blamed COVID for venue problems
+
+`travel_exclusion_reason` tested the relocation-risk season **before** the venue
+status, so a fixture that was unusable for both reasons was attributed to COVID.
+That over-attributed **2,132** fixtures and hid the real constraint.
+
+**Fixed:** venue status is tested first, because it is the reason an operator
+could act on. `relocation_risk_season` falls from 2,132 to **22** — those are
+the only fixtures whose *sole* disqualification was the season.
+
+## C7 — the receipt verified only its bindings, and its rebuild command was dead
+
+Two auditability defects the second round found in the C4 fix itself:
+
+- `load_raw_snapshot` recomputed only `bindings_sha256`. The recorded `query`
+  could be swapped for unrelated SPARQL and nothing noticed — including the
+  test suite, which stayed green while `derived_from.query_sha256` still
+  reported the old digest. Now the query digest and an **envelope digest** over
+  all provenance metadata are both verified, so editing the licence text or the
+  retrieval time is caught too. The bindings digest is also order-independent,
+  because WDQS has no `ORDER BY` and a re-fetch legitimately returns rows in a
+  different order.
+- The §7 reproduction receipt named `fetch_bindings`, `resolve` and
+  `snapshot_payload` — all renamed away by the C4 commit, which did not update
+  the card. The phase's only documented rebuild command **could not run**. It is
+  now `python -m pipeline.ingest.venue_coordinates --refresh|--verify`, and
+  `--verify` is exercised by a test.
+
+Also fixed in this round: the derived table now records the **receipt's**
+provider block rather than the module constant; the module docstring's temporal
+census is derived from the artifact instead of being a hand-written second count
+that disagreed with it in all four cells; the query projects `?club` so club
+QIDs are in the receipt; the L1 leakage scanner anchored a package's
+`__init__.py` one level too high and went green on a live relative import;
+`_CONFIRMATION_SUFFIX` is derived from `CONFIRM_SEASON` and the test its comment
+promised now exists; and the D0 capture fetcher no longer sends a forged
+`curl/8` user agent to the one provider whose terms this program is careful
+about.
 
 ## What still holds from the original card
 
@@ -262,24 +345,24 @@ number would be information, not a decision.
 ## 7. Reproducibility receipt
 
 ```bash
-# Rebuild the coordinate snapshot from Wikidata (free, CC0, no key).
+# Re-fetch from Wikidata and rewrite both snapshots (free, CC0, no key).
 # Operator-run: nothing schedules this, and no test calls it for real.
-PYTHONPATH=backend:. .venv/bin/python -c "
-import hashlib, json
-from datetime import datetime, timezone
-from pipeline.ingest.venue_coordinates import *
-al = load_aliases(); names = [al[d][c] for d, c in required_clubs(al)]
-r, p = resolve(fetch_bindings(names), al)
-SNAPSHOT_PATH.write_text(json.dumps(snapshot_payload(
-    r, p, datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-    hashlib.sha256(build_query(sorted(names)).encode()).hexdigest()),
-    ensure_ascii=False, indent=2) + '\n')
-print(format_coverage(json.loads(SNAPSHOT_PATH.read_text())))"
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.ingest.venue_coordinates --refresh
+
+# Offline: re-derive the table from the committed receipt and assert the
+# rebuild is byte-for-byte identical. Exits 1 if it is not.
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.ingest.venue_coordinates --verify
 ```
+
+> **Corrected.** The first version of this receipt named three functions
+> (`fetch_bindings`, `resolve`, `snapshot_payload`) that a later refactor had
+> renamed away, so the phase's only documented rebuild command could not run at
+> all. It is now a `python -m` entry point, which cannot drift from the code the
+> way a prose snippet can, and `--verify` is exercised by a test.
 
 | | |
 |---|---|
-| snapshot retrieved | 2026-07-29T12:09:44Z (recorded in the snapshot itself) |
+| snapshot retrieved | 2026-07-29T13:39:50Z (recorded in the receipt, and re-read from it) |
 | provenance per row | Wikidata venue QID, label, capacity, canonical club name |
 | query fingerprint | `query_sha256` in the snapshot |
 | scope | 27 pre-confirmation captures; `*_2526` never opened |

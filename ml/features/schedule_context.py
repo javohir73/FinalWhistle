@@ -16,9 +16,15 @@ pre-registered a linear function of the rest differential, ran it, and refuted
 it in all three leagues. `ml/models/rest.py` already ships that machinery. This
 module does **not** re-run it.
 
-`congestion_14d` is a *different* hypothesis, declared as such before the run:
-T3.2 asked how long the gap was, this asks how much was played. A side on its
-third match in fourteen days is loaded even if its last gap was four days.
+`congestion_14d` is a *different* hypothesis: T3.2 asked how long the gap was,
+this asks how much was played. A side on its third match in fourteen days is
+loaded even if its last gap was four days.
+
+Its pre-registration is `docs/experiments/2026-07-30-d1-rest-travel/
+SELECTION-PRE-REGISTRATION.md`, committed alone in `9697a4f` before any
+selection existed. The earlier claim that this was "declared before the run"
+is **withdrawn** for the first D1 pre-registration, which landed in the same
+commit as its own results and therefore proved nothing about ordering.
 
 **Travel is genuinely new.** No coordinate existed in this repository before
 D1, so distance has never been a candidate here.
@@ -38,8 +44,10 @@ from pipeline.ingest.venue_coordinates import (
     travel_km_on,
 )
 
-#: Congestion window, fixed before the run. Two weeks spans a
-#: midweek-plus-weekend cluster without reaching back into the previous month.
+#: Congestion window. Two weeks spans a midweek-plus-weekend cluster without
+#: reaching back into the previous month. Fixed in the standalone selection
+#: pre-registration (`9697a4f`); the earlier "fixed before the run" claim rested
+#: on a document committed alongside its own results and is withdrawn.
 CONGESTION_WINDOW_DAYS = 14
 
 

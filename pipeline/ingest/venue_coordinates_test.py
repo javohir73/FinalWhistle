@@ -46,7 +46,8 @@ from pipeline.ingest.venue_coordinates import (
 )
 
 
-def _binding(name, qid, label, lon, lat, cap, start=None, end=None, rank="NormalRank"):
+def _binding(name, qid, label, lon, lat, cap, start=None, end=None, rank="NormalRank",
+             start_prec=11, end_prec=11):
     b = {
         "name": {"value": name},
         "venue": {"value": f"http://www.wikidata.org/entity/{qid}"},
@@ -57,8 +58,10 @@ def _binding(name, qid, label, lon, lat, cap, start=None, end=None, rank="Normal
     }
     if start:
         b["start"] = {"value": start}
+        b["startPrecision"] = {"value": str(start_prec)}
     if end:
         b["end"] = {"value": end}
+        b["endPrecision"] = {"value": str(end_prec)}
     return b
 
 
@@ -69,12 +72,21 @@ def _history(*intervals, status=STATUS_DATED):
     return ClubVenueHistory("Mover", "E0", "Mover F.C.", tuple(intervals), status)
 
 
-def _iv(qid, lat, lon, frm, to=None):
+def _iv(qid, lat, lon, frm, to=None, prec=11, to_prec=11):
+    """A day-precision interval unless told otherwise.
+
+    Precision is not optional in the model: a boundary whose precision is
+    absent or coarser than a year cannot bound a season, so it answers
+    "unknown" everywhere. `prec=9` builds the year-precision case that put
+    Atlético Madrid in a stadium four months before it opened.
+    """
     return VenueInterval(
         qid, qid, lat, lon, 30000,
         date.fromisoformat(frm) if frm else None,
         date.fromisoformat(to) if to else None,
         "NormalRank",
+        valid_from_precision=prec if frm else None,
+        valid_to_precision=to_prec if to else None,
     )
 
 
@@ -293,7 +305,10 @@ def test_raw_snapshot_records_everything_needed_to_re_run_it():
     raw = load_raw_snapshot()
     assert raw["retrieved_utc"].endswith("Z")
     assert raw["query"].strip().startswith("SELECT")
-    assert "pq:P580" in raw["query"] and "pq:P582" in raw["query"]
+    assert "pqv:P580" in raw["query"] and "pqv:P582" in raw["query"]
+    # Precision is the whole point of the value-node form.
+    assert "wikibase:timePrecision" in raw["query"]
+    assert raw["envelope_sha256"]
     assert raw["query_sha256"] and raw["bindings_sha256"]
     assert raw["requested_labels"] == sorted(raw["requested_labels"])
     prov = raw["provider"]
@@ -341,7 +356,8 @@ def test_derived_table_carries_no_timestamp_of_its_own():
 
 def test_query_pins_the_qualifiers_the_temporal_rule_depends_on():
     q = build_query(["Alpha F.C."])
-    for token in ("pq:P580", "pq:P582", "wikibase:rank", "wdt:P625", "wdt:P1083"):
+    for token in ("pqv:P580", "pqv:P582", "wikibase:timePrecision",
+                  "wikibase:rank", "wdt:P625", "wdt:P1083"):
         assert token in q, token
 
 
@@ -390,3 +406,128 @@ def test_provider_record_states_the_licence_that_permits_committing_bytes():
     assert PROVIDER["licence"].startswith("CC0")
     assert PROVIDER["redistribution"].startswith("GRANTED")
     assert PROVIDER["licence_source"].startswith("https://www.wikidata.org/")
+
+
+# --------------------------------------------- date precision (the P1 fix)
+
+
+def test_year_precision_boundary_makes_its_whole_year_indeterminate():
+    """Wikidata serialises a year-precision qualifier as ``YYYY-01-01``.
+
+    Read as a day, it put Atlético Madrid's Metropolitano interval eight months
+    before the ground opened, and scored the Vicente Calderón farewell match at
+    a stadium that did not exist. Inside the uncertainty year the answer is
+    unknown; outside it, it is still usable.
+    """
+    h = _history(_iv("Q_NEW", 51.0, 0.0, "2017-01-01", prec=9))
+    assert h.intervals[0].status_on(date(2016, 12, 31)) == "out"
+    assert h.intervals[0].status_on(date(2017, 5, 21)) == "unknown"
+    assert h.intervals[0].status_on(date(2018, 1, 1)) == "in"
+    assert venue_on(h, date(2017, 5, 21)) is None
+    assert venue_on(h, date(2018, 1, 1)) is not None
+
+
+def test_month_precision_is_indeterminate_only_within_its_month():
+    h = _history(_iv("Q", 51.0, 0.0, "2019-04-01", prec=10))
+    assert h.intervals[0].status_on(date(2019, 3, 31)) == "out"
+    assert h.intervals[0].status_on(date(2019, 4, 15)) == "unknown"
+    assert h.intervals[0].status_on(date(2019, 5, 1)) == "in"
+
+
+def test_a_boundary_with_no_precision_is_unusable_everywhere():
+    h = _history(_iv("Q", 51.0, 0.0, "2019-04-03", prec=None))
+    for d in (date(2015, 1, 1), date(2019, 4, 3), date(2024, 1, 1)):
+        assert h.intervals[0].status_on(d) == "unknown"
+    assert venue_on(h, date(2024, 1, 1)) is None
+
+
+def test_one_indeterminate_interval_poisons_the_whole_answer():
+    """Even if another interval definitely covers the date.
+
+    "Exactly one interval covers this" is not knowable while a second one might
+    have opened already.
+    """
+    h = _history(
+        _iv("Q_OLD", 51.0, 0.0, "2000-01-01", "2017-01-01", to_prec=9),
+        _iv("Q_NEW", 52.0, 0.0, "2017-01-01", prec=9),
+    )
+    assert venue_on(h, date(2017, 6, 1)) is None
+    assert venue_on(h, date(2016, 6, 1)) is not None   # before both boundaries
+    assert venue_on(h, date(2018, 6, 1)) is not None   # after both
+
+
+def test_the_real_atletico_history_abstains_across_its_ambiguous_year():
+    """The committed artifact, not a fixture: the P1 must be dead in the data."""
+    am = load_histories()[("SP1", "Ath Madrid")]
+    assert am.status == STATUS_DATED
+    assert venue_on(am, date(2016, 10, 1)).venue_label.startswith("Vicente")
+    for d in (date(2017, 1, 14), date(2017, 5, 21), date(2017, 9, 20)):
+        assert venue_on(am, d) is None, d
+    assert "Metropolitano" in venue_on(am, date(2018, 3, 1)).venue_label
+
+
+def test_precision_survives_the_snapshot_round_trip():
+    for h in load_histories().values():
+        for i in h.intervals:
+            if i.valid_from is not None:
+                assert i.valid_from_precision is None or isinstance(
+                    i.valid_from_precision, int
+                )
+    # At least one real year-precision boundary exists, or the guard is vacuous.
+    assert any(
+        i.valid_from_precision == 9
+        for h in load_histories().values()
+        for i in h.intervals
+    )
+
+
+# ------------------------------------------- receipt integrity, widened
+
+
+def test_a_swapped_query_is_caught(tmp_path):
+    """The bindings digest alone left the whole envelope unprotected."""
+    raw = json.loads(RAW_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    raw["query"] = "SELECT ?x WHERE { ?x pq:P580 ?y . pq:P582 }"
+    p = tmp_path / "swapped.json"
+    p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n")
+    with pytest.raises(ValueError, match="query digest mismatch"):
+        load_raw_snapshot(p)
+
+
+def test_edited_provenance_metadata_is_caught(tmp_path):
+    raw = json.loads(RAW_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    raw["provider"]["licence"] = "All Rights Reserved"
+    p = tmp_path / "relicensed.json"
+    p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n")
+    with pytest.raises(ValueError, match="envelope digest mismatch"):
+        load_raw_snapshot(p)
+
+
+def test_bindings_digest_is_order_independent(tmp_path):
+    """WDQS has no ORDER BY, so a re-fetch may return rows in a new order.
+
+    An order-sensitive digest would report that as tampering.
+    """
+    raw = json.loads(RAW_SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    raw["bindings"] = list(reversed(raw["bindings"]))
+    p = tmp_path / "reordered.json"
+    p.write_text(json.dumps(raw, ensure_ascii=False, indent=2) + "\n")
+    assert load_raw_snapshot(p)["n_bindings"] == len(raw["bindings"])
+
+
+def test_derived_table_records_the_receipts_provider_not_the_modules():
+    payload = json.loads(SNAPSHOT_PATH.read_text(encoding="utf-8"))
+    assert payload["provider"] == load_raw_snapshot()["provider"]
+
+
+def test_the_receipt_carries_club_qids_not_only_venue_qids():
+    raw = load_raw_snapshot()
+    assert any("club" in b for b in raw["bindings"])
+
+
+def test_verify_mode_rebuilds_and_agrees(capsys):
+    """The documented receipt command, executed."""
+    from pipeline.ingest.venue_coordinates import main
+
+    assert main(["--verify"]) == 0
+    assert "byte-for-byte identical" in capsys.readouterr().out

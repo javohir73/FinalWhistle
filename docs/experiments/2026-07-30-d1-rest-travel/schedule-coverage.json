@@ -8,9 +8,9 @@
     "travel_excluded": 3406,
     "travel_coverage": 0.0041,
     "travel_exclusions_by_reason": {
-      "excluded_declared": 231,
-      "relocation_risk_season": 760,
-      "single_undated": 2415
+      "excluded_declared": 273,
+      "relocation_risk_season": 4,
+      "single_undated": 3129
     },
     "congestion_defined": 3420,
     "travel_median_km": 17.5,
@@ -21,34 +21,34 @@
     "rest_defined": 3400,
     "rest_undefined_openers": 20,
     "rest_coverage": 0.9942,
-    "travel_defined": 180,
-    "travel_excluded": 3240,
-    "travel_coverage": 0.0526,
+    "travel_defined": 62,
+    "travel_excluded": 3358,
+    "travel_coverage": 0.0181,
     "travel_exclusions_by_reason": {
-      "ambiguous_undated": 344,
-      "interval_gap": 147,
-      "relocation_risk_season": 760,
-      "single_undated": 1989
+      "ambiguous_undated": 449,
+      "boundary_precision_unknown": 580,
+      "relocation_risk_season": 18,
+      "single_undated": 2311
     },
     "congestion_defined": 3420,
-    "travel_median_km": 398.6,
-    "travel_max_km": 618.9
+    "travel_median_km": 349.6,
+    "travel_max_km": 563.3
   },
   "D1": {
     "n_fixtures": 2754,
     "rest_defined": 2733,
     "rest_undefined_openers": 21,
     "rest_coverage": 0.9924,
-    "travel_defined": 14,
-    "travel_excluded": 2740,
-    "travel_coverage": 0.0051,
+    "travel_defined": 0,
+    "travel_excluded": 2754,
+    "travel_coverage": 0.0,
     "travel_exclusions_by_reason": {
-      "ambiguous_undated": 532,
-      "relocation_risk_season": 612,
-      "single_undated": 1596
+      "ambiguous_undated": 648,
+      "boundary_precision_unknown": 162,
+      "single_undated": 1944
     },
     "congestion_defined": 2754,
-    "travel_median_km": 298.8,
-    "travel_max_km": 298.8
+    "travel_median_km": null,
+    "travel_max_km": null
   }
 }
