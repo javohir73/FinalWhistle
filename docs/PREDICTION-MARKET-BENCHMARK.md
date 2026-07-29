@@ -10,8 +10,8 @@ This is NOT the pre-registered API-Football closing-line gate — that lives in
 | Side | Source | Rule |
 |---|---|---|
 | venue | `venue_price_tick` | **one coherent 1X2 snapshot**: each leg's quote must be genuinely two-sided (bid AND ask AND mid); the snapshot is the latest capture timestamp where **all three legs** were quoted in one polling cycle, else each leg's latest two-sided quote within a **15-minute cross-leg skew bound** — three fresh legs captured hours apart are a fictitious book and are excluded. All legs `ts ≤ kickoff`, oldest leg at most 48h before kickoff. Leg timestamps and skew persist on every observation and aggregate into the artifact. Raw mids retained; vig-normalization explicit |
-| model | `prediction_results` → `predictions` | the **exact frozen prediction the audited public record scored** (ledger `prediction_id`, `is_shadow=False`, validated pre-kickoff); only without a ledger row, the latest non-shadow pre-kickoff prediction |
-| outcome | `prediction_results` / `matches` | **regulation-time result**: ledger `outcome` when audited; else `score_home_90`/`score_away_90`; else full time **only** for non-knockout stages with no shootout (where FT *is* regulation). A knockout 1-1 at 90 finishing 2-1 in ET is a **draw** here; without a 90-minute basis it is excluded, not guessed |
+| model | `prediction_results` → `predictions` | the **exact frozen prediction the audited public record scored** (ledger `prediction_id`, `is_shadow=False`, validated pre-kickoff) — the ledger pins **the vector only**; without a ledger row, the latest non-shadow pre-kickoff prediction |
+| outcome | `matches` | **regulation-time result, always derived independently**: `score_home_90`/`score_away_90`, else full time **only** for non-knockout stages with no shootout (where FT *is* regulation). `PredictionResult.outcome` is **never** used as the label — the learning loop deliberately keeps the after-ET winner convention (`learning_loop._result_row`), so a 1-1 at 90 finishing 2-1 in ET is `home` there and a **draw** here. Without a 90-minute basis the match is excluded, not guessed |
 | baseline | none | uniform (1/3, 1/3, 1/3) — fit-free by construction, so it can leak nothing |
 
 **No in-play or score-matched comparison exists.** Neither captured venue
@@ -88,11 +88,15 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_benchmark_report be
 
 The artifact is written **atomically** (temp + rename) into
 `backend/app/research_data/` — gitignored, never committed. The API
-(`GET /api/research/market-benchmark`, no-store) validates the artifact
-version and shape before serving (valid JSON that is not a valid artifact is
-`invalid`, not a page crash) and is **deliberately public**: aggregate
-metrics, counts, public market tickers and timestamps only — no user data, no
-credentials. The page (`/research/market-benchmark`, noindex — politeness,
+(`GET /api/research/market-benchmark`, no-store) **reconstructs the response
+through a strict allowlist**: every rendered field is validated for type and
+domain (finite numbers, aware timestamps, enum statuses/verdicts, non-negative
+counts), any violation — including nested poison like `groups: [null]` — makes
+the whole response `invalid` with the reason, and fields not on the allowlist
+never leave the server. That construction, tested against the generator's own
+output, is what makes "deliberately public" enforced rather than asserted:
+aggregate metrics, counts, public market tickers and timestamps only — no
+user data, no credentials. The page (`/research/market-benchmark`, noindex — politeness,
 not protection) fetches with true `no-store` on both sides and renders the
 experimental banner, N, capture window, coverage, exclusions, mapping and
 quote coverage, quote/heartbeat freshness, CI, and explicit not-enough-data

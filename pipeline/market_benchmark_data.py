@@ -24,10 +24,11 @@ Eligibility, in order, all mandatory:
 Outcome basis: the model's 1X2 is a REGULATION-TIME distribution. A knockout
 match 1-1 after 90 that finishes 2-1 in extra time is a DRAW for this
 benchmark; using the full final would systematically mislabel every match
-that went long. The ledger outcome is used when present; otherwise the
-90-minute score columns; otherwise the full-time score ONLY for non-knockout
-stages with no shootout, where full time IS regulation. Anything else is
-excluded, not guessed.
+that went long. The label ALWAYS derives from the regulation basis --
+90-minute score columns, else full time only for non-knockout stages with no
+shootout, else excluded. The audited prediction_results ledger pins the
+frozen prediction VECTOR only; its outcome column keeps the learning loop's
+after-ET winner convention and is never used as a label here.
 
 No in-play or score-matched comparison exists here at all: neither venue
 publishes an authoritative score or clock (Phase-2 finding), and internal
@@ -203,14 +204,17 @@ def _coherent_snapshot(
 def _model_vector(
     db: Session, match: Match, kickoff: datetime, result: BuildResult,
     label: str, *, sqlite_naive_ok: bool,
-) -> tuple[tuple[float, float, float], str | None] | None:
-    """The exact frozen prediction, plus the ledger outcome when audited.
+) -> tuple[float, float, float] | None:
+    """The exact frozen prediction vector -- and ONLY the vector.
 
-    The audited prediction_results ledger (is_shadow=False) pins BOTH the
-    outcome and the precise prediction row the public record scored; when it
-    exists, this benchmark scores the same vector against the same result.
-    Without it, the latest pre-kickoff non-shadow prediction is used and the
-    outcome comes from the fixture's regulation-time score.
+    The audited prediction_results ledger (is_shadow=False) pins the precise
+    prediction row the public record scored, so when it exists this benchmark
+    scores the same frozen vector. Its ``outcome`` column is deliberately NOT
+    used: the learning loop keeps the AFTER-ET winner convention
+    (learning_loop._result_row evaluates score_home/score_away and says so),
+    while this benchmark labels on the regulation-time basis -- a 1-1 at 90
+    that finishes 2-1 in extra time is `home` in the ledger and `draw` here.
+    The label always comes from _regulation_outcome.
     """
     ledger = (
         db.query(PredictionResult)
@@ -233,13 +237,8 @@ def _model_vector(
                 f"{label}: the audited prediction is not a pre-kickoff "
                 "non-shadow row")
             return None
-        if ledger.outcome not in OUTCOMES:
-            result.exclude(
-                "ledger_outcome_invalid",
-                f"{label}: ledger outcome {ledger.outcome!r}")
-            return None
-        return ((prediction.prob_home_win, prediction.prob_draw,
-                 prediction.prob_away_win), ledger.outcome)
+        return (prediction.prob_home_win, prediction.prob_draw,
+                prediction.prob_away_win)
 
     rows = (
         db.query(Prediction)
@@ -262,8 +261,7 @@ def _model_vector(
             f"{label}: no non-shadow prediction created before kickoff")
         return None
     chosen = prekickoff[0]
-    return ((chosen.prob_home_win, chosen.prob_draw, chosen.prob_away_win),
-            None)
+    return (chosen.prob_home_win, chosen.prob_draw, chosen.prob_away_win)
 
 
 def build_observations(
@@ -341,12 +339,11 @@ def build_observations(
                            f"{label}: fixture has no kickoff")
             continue
 
-        vector = _model_vector(db, match, kickoff, result, label,
-                               sqlite_naive_ok=sqlite_naive_ok)
-        if vector is None:
+        model_probs = _model_vector(db, match, kickoff, result, label,
+                                    sqlite_naive_ok=sqlite_naive_ok)
+        if model_probs is None:
             continue
-        model_probs, ledger_outcome = vector
-        outcome = ledger_outcome or _regulation_outcome(match, result, label)
+        outcome = _regulation_outcome(match, result, label)
         if outcome is None:
             continue
 

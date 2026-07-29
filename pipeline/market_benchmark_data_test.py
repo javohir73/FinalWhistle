@@ -422,10 +422,9 @@ def test_a_shootout_without_90_minute_columns_is_excluded_even_in_league(db):
     assert result.exclusions == {"no_regulation_time_basis": 1}
 
 
-def test_the_audited_ledger_pins_both_outcome_and_exact_prediction(db):
+def test_the_audited_ledger_pins_the_exact_prediction_vector_only(db):
     """When prediction_results exists, this benchmark scores the SAME frozen
-    vector against the SAME outcome as the public record -- not whatever row
-    happens to be latest."""
+    vector as the public record -- not whatever row happens to be latest."""
     from app.models import PredictionResult
 
     match = _fixture(db)
@@ -438,18 +437,47 @@ def test_the_audited_ledger_pins_both_outcome_and_exact_prediction(db):
     db.add(PredictionResult(
         match_id=match.id, prediction_id=first.id,
         model_version="poisson-elo-v0.5", is_shadow=False,
-        actual_score_home=1, actual_score_away=1, outcome="draw",
-        winner_correct=False, exact_score_correct=False,
-        prob_assigned=0.2, brier=0.5, log_loss=1.6, goal_error=1))
+        actual_score_home=2, actual_score_away=1, outcome="home",
+        winner_correct=True, exact_score_correct=False,
+        prob_assigned=0.7, brier=0.3, log_loss=0.4, goal_error=0))
     db.commit()
 
     result = build_observations(db)
 
     assert len(result.observations) == 1
     observation = result.observations[0]
-    assert observation.outcome == "draw", "ledger outcome, not FT score"
     assert observation.model_probs[0] == pytest.approx(0.7), (
         "the exact audited prediction, not the latest row")
+
+
+def test_the_ledgers_after_et_outcome_is_never_the_benchmark_label(db):
+    """THE trap this round closes: learning_loop keeps the after-ET winner
+    convention in PredictionResult.outcome, while this benchmark labels on
+    the regulation basis. Ledger says home (2-1 after ET); 90-minute score is
+    1-1; the benchmark label must be DRAW."""
+    from app.models import PredictionResult
+
+    match = _fixture(db)
+    db.query(Match).filter_by(id=match.id).update({
+        "stage": "QF", "score_home": 2, "score_away": 1,
+        "score_home_90": 1, "score_away_90": 1})
+    db.commit()
+    _complete(db, match)
+    _prediction(db, match, probs=(0.3, 0.4, 0.3))
+    prediction = db.query(Prediction).order_by(Prediction.id).first()
+    db.add(PredictionResult(
+        match_id=match.id, prediction_id=prediction.id,
+        model_version="poisson-elo-v0.5", is_shadow=False,
+        actual_score_home=2, actual_score_away=1, outcome="home",
+        winner_correct=False, exact_score_correct=False,
+        prob_assigned=0.3, brier=0.5, log_loss=1.2, goal_error=1))
+    db.commit()
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    assert result.observations[0].outcome == "draw", (
+        "the ledger's after-ET 'home' must not leak into the regulation label")
 
 
 def test_a_ledger_pointing_at_a_post_kickoff_prediction_is_excluded(db):
