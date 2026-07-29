@@ -19,7 +19,7 @@ green.
 | Phase | Subject | State | Ledger | PR |
 |---|---|---|---|---|
 | **D0** | Independent market validation (football-data.co.uk closing odds) | **COMPLETE — draft PR green, G1 awaiting decision** | [`2026-07-29-d0-market-validation/`](experiments/2026-07-29-d0-market-validation/) | [#213](https://github.com/javohir73/FinalWhistle/pull/213) (draft) |
-| **D1** | Rest and travel | **DATA LAYER COMPLETE — selection run outstanding; promotion blocked by design** | [`2026-07-30-d1-rest-travel/`](experiments/2026-07-30-d1-rest-travel/) | draft |
+| **D1** | Rest and travel | **CORRECTED — travel BLOCKED (2.17% coverage); congestion eligible; selection pre-registered, not run** | [`2026-07-30-d1-rest-travel/`](experiments/2026-07-30-d1-rest-travel/) | [#214](https://github.com/javohir73/FinalWhistle/pull/214) (draft) |
 | D2 | Lineups, player minutes, injuries | NOT STARTED | — | — |
 | D3 | xG (StatsBomb Open Data) | NOT STARTED | — | — |
 | D4 | Weather | NOT STARTED | — | — |
@@ -38,20 +38,36 @@ For the next run. Do **not** re-audit what is already settled below.
   `docs/MODEL-EXPERIMENTS.md` Finding 1 is `AvgC`-pinning, not missingness.
   Independently replicated twice.
 - D0's two pre-registered hypotheses are **refuted** and recorded as such.
-- D1's coordinate layer. 94/94 clubs resolved, snapshot committed with QIDs.
 - T3.2 `rest_days` was refuted in #202 and is **not** to be re-run.
+- **D1 travel is BLOCKED at 2.17% coverage** and the reason is measured, not
+  guessed: Wikidata carries a `P115` date qualifier for only 11 of 94 clubs.
+  Do not re-derive this; do not re-scope the travel candidates onto the 208
+  surviving fixtures.
+- **D1's venue layer is temporally correct now.** Venue is an interval looked
+  up at the fixture date, and abstains when unestablished. The earlier
+  "94/94 resolved, 100% coverage, M3 PASS" result is **withdrawn** — it applied
+  one current venue backwards across nine seasons.
 
 **Open, in priority order:**
 
-1. **G1 — the licensing decision** (below). Everything about D0's long-term
-   reproducibility waits on it. It is the human's call, not the agent's.
-2. **D1 selection run** — candidates D1.1–D1.4 are pre-registered and the
-   features exist; the walk-forward has not been executed. Promotion is
-   blocked regardless, so this is information rather than a decision.
-3. **D2 / D3 / D4** — not started. Before starting **D3**, read
+1. **G1 — the licensing decision** (below). **Deferred by the user**: the CSVs
+   stay out unless explicit redistribution permission is obtained. It does not
+   block any current work.
+2. **A venue-history source with effective dates** would unblock D1 travel.
+   Wikidata alone cannot. This is a data-acquisition decision, not an
+   engineering one.
+3. **D1 selection run** — only **D1.3 (congestion)** is eligible; it is
+   pre-registered in its own commit and has not been run. Promotion is blocked
+   regardless, so a result would be information rather than a decision.
+4. **D2 / D3 / D4** — not started. Before starting **D3**, read
    `docs/MODEL-EXPERIMENTS.md` "T4.1 — club xG coverage probe" first: a probe
    already ran and carries a declared post-hoc correction. D3 must extend that,
    not repeat it.
+
+**Process lesson worth keeping:** a pre-registration committed in the same
+commit as its results proves nothing. D1's first one did exactly that
+(`6b7c875`) and the claim had to be withdrawn. Commit the pre-registration
+alone, push it, and only then run — as `9697a4f` does.
 
 **Recommended follow-up from D0, not yet done:** re-run the club market
 benchmark on best-available closing rather than `AvgC` only. It widens the
