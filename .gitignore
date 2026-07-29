@@ -61,3 +61,7 @@ Thumbs.db
 .claude/
 .context/
 .gstack/
+
+# Operator-generated research artifacts: served locally by the research API,
+# never committed. Regenerate with pipeline.run_market_benchmark_report.
+backend/app/research_data/*.json
