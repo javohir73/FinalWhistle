@@ -21,6 +21,11 @@ MODULES = [
     "pipeline.ingest.venues.types",
     "pipeline.ingest.venues.kalshi",
     "pipeline.ingest.venues.polymarket",
+    "pipeline.entities",
+    "pipeline.entities.resolver",
+    "pipeline.entities.descriptors",
+    "pipeline.entities.reconcile",
+    "pipeline.run_market_resolution",
 ]
 
 #: Bans the CONNECTION, not the class. Replacing socket.socket outright breaks

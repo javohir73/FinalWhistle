@@ -1123,8 +1123,10 @@ class VenueMarket(Base):
     __tablename__ = "venue_market"
     __table_args__ = (
         UniqueConstraint("venue", "venue_key", name="uq_venue_market_key"),
+        # 'proposed' is a review candidate with its explanation attached --
+        # never serveable, canonical_event_id stays NULL until verified.
         CheckConstraint(
-            "mapping_status IN ('mapped', 'unmapped', 'ambiguous')",
+            "mapping_status IN ('mapped', 'unmapped', 'ambiguous', 'proposed')",
             name="ck_venue_market_mapping_status",
         ),
         CheckConstraint(
