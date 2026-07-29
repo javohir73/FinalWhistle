@@ -575,6 +575,20 @@ def test_in_play_contract_maps_onto_the_tick_columns_exactly():
     assert stored.minute == 63.0
 
 
+def test_mapping_status_accepts_proposed_and_rejects_junk():
+    """'proposed' is a review candidate: resolver evidence attached, canonical
+    columns still NULL. Anything outside the four statuses is refused."""
+    _engine, db = _session()
+    db.add(_market(mapping_status="proposed", venue_key="KX-PROPOSED"))
+    db.commit()
+
+    assert db.query(VenueMarket).one().canonical_event_id is None
+
+    db.add(_market(mapping_status="suggested", venue_key="KX-JUNK"))
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
 def test_legacy_market_snapshot_still_roundtrips_unchanged():
     _engine, db = _session()
     db.add(

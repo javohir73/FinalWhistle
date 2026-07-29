@@ -15,8 +15,8 @@ map. It is written from what has landed, not from what is planned.
 | Tables `canonical_entity`, `entity_source_map`, `venue_market`, `venue_price_tick`, `capture_heartbeat` | landed dormant, migration `e1f2a3b4c5d6` |
 | Structured in-play state on `venue_price_tick` | landed dormant, migration `b1c2d3e4f5a6` |
 | Adapter contracts `pipeline/ingest/venues` | landed |
-| Capture worker, venue adapters, raw store | this PR — **default off** |
-| Fixture resolution / reconciliation | **not landed** |
+| Capture worker, venue adapters, raw store | landed (#208), **default off** |
+| Fixture resolution / reconciliation | this PR — operator-run, dry-run default |
 | Benchmark, gating, reporting, research UI | **not landed** |
 
 Nothing schedules the worker: no cron, no Render service, no GitHub Action.
