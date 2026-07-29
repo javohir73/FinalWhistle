@@ -9,9 +9,9 @@ This is NOT the pre-registered API-Football closing-line gate — that lives in
 
 | Side | Source | Rule |
 |---|---|---|
-| venue | `venue_price_tick` mids | latest tick with **logical `ts` ≤ kickoff**; two-sided (has a midpoint); at most 48h old at kickoff. Raw mids retained on the observation; vig-normalization is explicit and separate |
-| model | `predictions` | latest **non-shadow** row with `created_at` strictly before kickoff — the internal ledger, never recomputed after the fact |
-| outcome | `matches` | full-time score of a `finished` fixture; anything else is excluded |
+| venue | `venue_price_tick` | **one coherent 1X2 snapshot**: each leg's quote must be genuinely two-sided (bid AND ask AND mid); the snapshot is the latest capture timestamp where **all three legs** were quoted in one polling cycle, else each leg's latest two-sided quote within a **15-minute cross-leg skew bound** — three fresh legs captured hours apart are a fictitious book and are excluded. All legs `ts ≤ kickoff`, oldest leg at most 48h before kickoff. Leg timestamps and skew persist on every observation and aggregate into the artifact. Raw mids retained; vig-normalization explicit |
+| model | `prediction_results` → `predictions` | the **exact frozen prediction the audited public record scored** (ledger `prediction_id`, `is_shadow=False`, validated pre-kickoff); only without a ledger row, the latest non-shadow pre-kickoff prediction |
+| outcome | `prediction_results` / `matches` | **regulation-time result**: ledger `outcome` when audited; else `score_home_90`/`score_away_90`; else full time **only** for non-knockout stages with no shootout (where FT *is* regulation). A knockout 1-1 at 90 finishing 2-1 in ET is a **draw** here; without a 90-minute basis it is excluded, not guessed |
 | baseline | none | uniform (1/3, 1/3, 1/3) — fit-free by construction, so it can leak nothing |
 
 **No in-play or score-matched comparison exists.** Neither captured venue
@@ -27,8 +27,10 @@ duplicates); finished fixture with one known final; a fresh two-sided
 pre-kickoff quote for all three outcomes; a pre-kickoff non-shadow model
 prediction. Everything else is **excluded and counted** under a named reason
 (`incomplete_1x2_set`, `conflicting_duplicate_outcome`, `no_final_outcome`,
-`no_prekickoff_quote`, `no_two_sided_quote`, `stale_prekickoff_quote`,
-`no_prekickoff_prediction`, `invalid_observation`, …) with a per-group note.
+`no_regulation_time_basis`, `no_two_sided_prekickoff_quote`,
+`incoherent_market_snapshot`, `stale_prekickoff_quote`,
+`no_prekickoff_prediction`, `ledger_prediction_not_prekickoff`,
+`naive_timestamp`, `invalid_observation`, …) with a per-group note.
 The exclusion table ships inside the artifact — it is part of the result.
 
 Fail-closed validation at construction: non-finite or out-of-domain
@@ -40,8 +42,11 @@ outside [0.85, 1.30] are refused, never quietly normalized.
 
 The unit is the **canonical match**. The chronological split moves whole
 matches — every observation for a match (all venues) lands on one side, and
-every holdout match kicks off after every train match. Two kickoffs for one
-match is a hard error. Competition diagnostics flag holdout-only
+**whole kickoff cohorts move together**: the boundary must fall between
+distinct kickoff times, the boundary cohort goes to holdout, and a dataset
+with no valid boundary (all simultaneous) fails closed. Strict
+train-max < holdout-min is asserted. Two kickoffs for one match is a hard
+error. Competition diagnostics flag holdout-only
 competitions. Nothing is fitted anywhere in this phase; the train side exists
 so a *future* calibration fit has somewhere to live, and no metric reads it.
 Metrics are computed on the holdout only, which is what "no improvement claim
@@ -49,7 +54,9 @@ without holdout evidence" means in practice.
 
 ## Readiness
 
-Per venue, on identical eligible matches: log loss, multiclass Brier,
+The readiness floor is **not lowerable at artifact level** — `--min-matches`
+below 50 clamps UP, bootstrap has a 100-sample minimum, and a naive clock is
+refused. Per venue, on identical eligible matches: log loss, multiclass Brier,
 ten-bin reliability + ECE, match counts, capture window, and a
 **match-clustered bootstrap** 95% CI on the per-match log-loss delta
 (model − venue). Below `--min-matches` (default 50) the group is `NOT_READY`:
@@ -79,11 +86,17 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_benchmark_report be
 ... health
 ```
 
-The API (`GET /api/research/market-benchmark`, no-store) serves the artifact
-verbatim, or an honest `no_data` state; the research page
-(`/research/market-benchmark`, noindex) renders it with the experimental
-banner, N, capture window, coverage, exclusions, CI, and explicit
-not-enough-data states.
+The artifact is written **atomically** (temp + rename) into
+`backend/app/research_data/` — gitignored, never committed. The API
+(`GET /api/research/market-benchmark`, no-store) validates the artifact
+version and shape before serving (valid JSON that is not a valid artifact is
+`invalid`, not a page crash) and is **deliberately public**: aggregate
+metrics, counts, public market tickers and timestamps only — no user data, no
+credentials. The page (`/research/market-benchmark`, noindex — politeness,
+not protection) fetches with true `no-store` on both sides and renders the
+experimental banner, N, capture window, coverage, exclusions, mapping and
+quote coverage, quote/heartbeat freshness, CI, and explicit not-enough-data
+states.
 
 ## Known gaps and evidence still needed
 
@@ -94,7 +107,12 @@ not-enough-data states.
    linked, fixtures verified, and a season of finished matches.
 2. **Stopped fixtures are invisible after ingestion** (Phase-3 finding): a
    postponed fixture ingested today reads `scheduled`, so the "finished with
-   final score" gate is the only stopped-status protection this benchmark has.
-3. **Venue quote quality is unmodeled**: mids from thin books are taken at
+   a regulation-time result" gate is the only stopped-status protection this
+   benchmark has.
+3. **90-minute score columns may be sparsely populated** for knockout
+   fixtures ingested before `score_90` support: those matches are excluded
+   under `no_regulation_time_basis` rather than mislabeled, which shrinks
+   knockout coverage until the columns backfill.
+4. **Venue quote quality is unmodeled**: mids from thin books are taken at
    face value once two-sided and fresh; depth/liquidity weighting is future
    work and would need its own pre-registration.

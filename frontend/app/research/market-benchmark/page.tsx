@@ -133,6 +133,43 @@ export default async function MarketBenchmarkPage() {
               <Group key={group.venue} group={group} />
             ))
           )}
+          {data.artifact.health?.venues ? (
+            <details>
+              <summary>Mapping & quote coverage</summary>
+              {Object.entries(data.artifact.health.venues).map(([venue, health]) => (
+                <div key={venue} data-testid={`health-${venue}`}>
+                  <h3>{venue}</h3>
+                  <ul>
+                    <li>
+                      markets: {health.markets_total} · mapping:{" "}
+                      {Object.entries(health.mapping)
+                        .map(([status, count]) => `${status} ${count}`)
+                        .join(", ")}
+                    </li>
+                    <li>
+                      fixtures with complete 1X2: {health.fixtures_with_complete_1x2}{" "}
+                      of {health.mapped_fixtures} mapped
+                      {health.fixtures_incomplete_1x2.length > 0
+                        ? ` · incomplete: ${health.fixtures_incomplete_1x2.join(", ")}`
+                        : null}
+                    </li>
+                    <li>
+                      fixtures missing a pre-match quote:{" "}
+                      {health.fixtures_missing_prematch_quote.length}
+                    </li>
+                    {Object.entries(health.quote_freshness_by_transport).map(
+                      ([transport, freshness]) => (
+                        <li key={transport}>
+                          last {transport} quote:{" "}
+                          {Math.round(freshness.age_seconds / 60)} min ago
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </div>
+              ))}
+            </details>
+          ) : null}
           {data.artifact.health?.heartbeat_freshness_by_venue_worker ? (
             <details>
               <summary>Capture freshness</summary>

@@ -140,3 +140,44 @@ def test_health_is_deterministic(db):
         _tick(db, market, ts=KICKOFF - timedelta(hours=1))
 
     assert build_health(db, now=NOW) == build_health(db, now=NOW)
+
+
+# --- review round 2 ----------------------------------------------------------
+
+
+def test_a_post_kickoff_update_does_not_erase_the_prematch_quote(db):
+    """latest-ANY (freshness) and latest-PRE-KICKOFF (eligibility) are
+    separate aggregates; folding them made a valid closing quote look missing
+    the moment the market updated after kickoff."""
+    match = _match(db)
+    for outcome in ("home", "draw", "away"):
+        market = _market(db, f"KX-{outcome}", mapped_to=match.id, outcome=outcome)
+        _tick(db, market, ts=KICKOFF - timedelta(hours=2))
+        _tick(db, market, ts=KICKOFF + timedelta(hours=1))
+
+    health = build_health(db, now=NOW)
+
+    venue = health["venues"]["kalshi"]
+    assert venue["fixtures_missing_prematch_quote"] == []
+    # Freshness still reflects the truly latest tick.
+    assert venue["quote_freshness_by_transport"]["polling"]["age_seconds"] == \
+        int((NOW - (KICKOFF + timedelta(hours=1))).total_seconds())
+
+
+def test_an_extra_outcome_is_named_not_counted_as_complete(db):
+    match = _match(db)
+    for outcome in ("home", "draw", "away", "btts_yes"):
+        _market(db, f"KX-{outcome}", mapped_to=match.id, outcome=outcome)
+
+    health = build_health(db, now=NOW)
+
+    venue = health["venues"]["kalshi"]
+    assert venue["fixtures_with_complete_1x2"] == 0
+    assert venue["fixtures_with_unexpected_outcomes"] == {
+        str(match.id): ["btts_yes"]}
+    assert venue["fixtures_incomplete_1x2"] == []
+
+
+def test_a_naive_now_is_refused(db):
+    with pytest.raises(ValueError, match="timezone-aware"):
+        build_health(db, now=NOW.replace(tzinfo=None))

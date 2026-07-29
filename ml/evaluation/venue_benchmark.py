@@ -101,8 +101,13 @@ class MatchObservation:
     outcome: str
     model_probs: tuple[float, float, float]
     venue_probs_raw: tuple[float, float, float]
+    #: When each leg (home, draw, away) was quoted. A "snapshot" stitched
+    #: from legs captured far apart is a fictitious book, so the legs travel
+    #: with the observation and the skew between them is first-class data.
+    leg_captured_at: tuple[datetime, datetime, datetime] | None = None
     venue_probs: tuple[float, float, float] = field(init=False)
     book_sum: float = field(init=False)
+    cross_leg_skew_seconds: float = field(init=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "kickoff_utc", _aware(self.kickoff_utc, "kickoff_utc"))
@@ -135,6 +140,21 @@ class MatchObservation:
         object.__setattr__(self, "book_sum", book_sum)
         object.__setattr__(
             self, "venue_probs", tuple(v / book_sum for v in raw))
+        if self.leg_captured_at is not None:
+            legs = tuple(
+                _aware(leg, f"leg_captured_at[{i}]")
+                for i, leg in enumerate(self.leg_captured_at))
+            if len(legs) != 3:
+                raise BenchmarkInputError("leg_captured_at must have three legs")
+            for leg in legs:
+                if leg > self.kickoff_utc:
+                    raise BenchmarkInputError(
+                        "a leg captured after kickoff is not a pre-match quote")
+            object.__setattr__(self, "leg_captured_at", legs)
+            skew = (max(legs) - min(legs)).total_seconds()
+            object.__setattr__(self, "cross_leg_skew_seconds", skew)
+        else:
+            object.__setattr__(self, "cross_leg_skew_seconds", 0.0)
 
     @property
     def outcome_index(self) -> int:
@@ -170,9 +190,33 @@ def chronological_split(
         matches[observation.match_id] = observation.kickoff_utc
     ordered = sorted(matches.items(), key=lambda item: (item[1], item[0]))
     holdout_count = math.ceil(len(ordered) * holdout_fraction) if ordered else 0
-    holdout_ids = {match_id for match_id, _ in ordered[len(ordered) - holdout_count:]}
+    cut = len(ordered) - holdout_count
+    # The cut must fall BETWEEN kickoff times. Counting off rows can land it
+    # inside a cohort of simultaneous kickoffs -- a Saturday 15:00 round --
+    # putting half the cohort in train and half in holdout, which breaks
+    # strict train-before-holdout the moment anything is ever fitted. Move
+    # the whole boundary cohort into holdout; if no boundary between distinct
+    # kickoffs exists, there is no valid chronological split. Fail closed.
+    if ordered and 0 < cut:
+        boundary_kickoff = ordered[cut][1] if cut < len(ordered) else None
+        while cut > 0 and boundary_kickoff is not None and \
+                ordered[cut - 1][1] == boundary_kickoff:
+            cut -= 1
+        if cut == 0 and holdout_count < len(ordered):
+            raise BenchmarkInputError(
+                "no valid chronological boundary: every candidate cut splits "
+                "a cohort of simultaneous kickoffs; cannot split without "
+                "leaking concurrent matches"
+            )
+    holdout_ids = {match_id for match_id, _ in ordered[cut:]}
     train = [o for o in observations if o.match_id not in holdout_ids]
     holdout = [o for o in observations if o.match_id in holdout_ids]
+    if train and holdout:
+        train_max = max(o.kickoff_utc for o in train)
+        holdout_min = min(o.kickoff_utc for o in holdout)
+        if not train_max < holdout_min:  # pragma: no cover - guarded above
+            raise BenchmarkInputError(
+                "chronological split failed strict separation")
 
     competitions: dict[str, dict[str, set]] = defaultdict(
         lambda: {"train": set(), "holdout": set()})
@@ -181,12 +225,16 @@ def chronological_split(
         competitions[observation.competition][side].add(observation.match_id)
     diagnostics = {
         "split_by": "canonical match, chronological on kickoff",
-        "train_matches": len(ordered) - holdout_count,
-        "holdout_matches": holdout_count,
+        "train_matches": cut if ordered else 0,
+        "holdout_matches": len(ordered) - cut if ordered else 0,
+        "requested_holdout_matches": holdout_count,
         "holdout_fraction": holdout_fraction,
+        "boundary_note": (
+            "whole kickoff cohorts move together; the boundary cohort goes "
+            "to holdout"),
         "boundary_kickoff": (
-            ordered[len(ordered) - holdout_count][1].isoformat()
-            if holdout_count else None),
+            ordered[cut][1].isoformat()
+            if ordered and cut < len(ordered) else None),
         "competitions": {
             name: {
                 "train_matches": len(sides["train"]),
@@ -276,6 +324,10 @@ def evaluate_holdout(
     counts only, no verdict, no ranking, no deltas -- a tiny sample ranked is
     a lie with error bars.
     """
+    if min_matches < 1:
+        raise BenchmarkInputError("min_matches must be at least 1")
+    if n_bootstrap < 1:
+        raise BenchmarkInputError("n_bootstrap must be positive")
     groups: dict[str, list[MatchObservation]] = defaultdict(list)
     for observation in holdout:
         groups[observation.venue].append(observation)
@@ -299,6 +351,11 @@ def evaluate_holdout(
             "outcome_counts": dict(sorted(Counter(o.outcome for o in rows).items())),
             "mean_book_sum": round(
                 sum(o.book_sum for o in rows) / len(rows), 4),
+            "cross_leg_skew_seconds": {
+                "max": round(max(o.cross_leg_skew_seconds for o in rows), 1),
+                "mean": round(sum(o.cross_leg_skew_seconds for o in rows)
+                              / len(rows), 1),
+            },
             "min_matches": min_matches,
         }
         if n_matches < min_matches:

@@ -20,11 +20,13 @@ KICKOFF = datetime(2026, 10, 3, 15, 0, tzinfo=timezone.utc)
 
 def _observation(match_id=1, *, venue="kalshi", outcome="home",
                  kickoff=KICKOFF, captured=None, model=(0.5, 0.3, 0.2),
-                 raw=(0.52, 0.30, 0.24), competition="Premier League 2026-27"):
+                 raw=(0.52, 0.30, 0.24), competition="Premier League 2026-27",
+                 leg_captured_at=None):
     return MatchObservation(
         match_id=match_id, venue=venue, competition=competition,
         kickoff_utc=kickoff, captured_at=captured or (kickoff - timedelta(hours=1)),
-        outcome=outcome, model_probs=model, venue_probs_raw=raw)
+        outcome=outcome, model_probs=model, venue_probs_raw=raw,
+        leg_captured_at=leg_captured_at)
 
 
 def _many(n, *, venue="kalshi", start=KICKOFF, spread_days=1, **kwargs):
@@ -237,3 +239,62 @@ def test_run_benchmark_evaluates_the_holdout_only():
     assert result["split"]["holdout_matches"] == 30
     assert result["groups"][0]["n_matches"] == 30
     assert "future calibration" in result["note"]
+
+
+# --- review round 2: kickoff cohorts and gate validation ---------------------
+
+
+def test_a_simultaneous_kickoff_cohort_never_splits_across_the_boundary():
+    """A Saturday 15:00 round is one cohort. Cutting the sorted list by count
+    landed the boundary inside it, breaking strict train-before-holdout for
+    anything ever fitted on the train side."""
+    observations = [
+        _observation(match_id=i + 1, kickoff=KICKOFF + timedelta(days=i))
+        for i in range(7)
+    ]
+    cohort_kickoff = KICKOFF + timedelta(days=7)
+    observations += [
+        _observation(match_id=100 + i, kickoff=cohort_kickoff) for i in range(3)
+    ]
+
+    train, holdout, diagnostics = chronological_split(
+        observations, holdout_fraction=0.2)  # requests 2 of 10
+
+    holdout_ids = {o.match_id for o in holdout}
+    assert holdout_ids == {100, 101, 102}, "the whole cohort moved together"
+    assert diagnostics["holdout_matches"] == 3
+    assert diagnostics["requested_holdout_matches"] == 2
+    assert max(o.kickoff_utc for o in train) < min(o.kickoff_utc for o in holdout)
+
+
+def test_an_all_simultaneous_dataset_has_no_valid_boundary_and_fails_closed():
+    observations = [
+        _observation(match_id=i + 1, kickoff=KICKOFF) for i in range(6)
+    ]
+
+    with pytest.raises(BenchmarkInputError, match="no valid chronological"):
+        chronological_split(observations, holdout_fraction=0.5)
+
+
+def test_leg_timestamps_and_skew_travel_with_the_observation():
+    legs = (KICKOFF - timedelta(minutes=10), KICKOFF - timedelta(minutes=5),
+            KICKOFF - timedelta(minutes=2))
+    observation = _observation(leg_captured_at=legs)
+
+    assert observation.leg_captured_at == legs
+    assert observation.cross_leg_skew_seconds == 480.0
+
+    with pytest.raises(BenchmarkInputError, match="pre-match"):
+        _observation(leg_captured_at=(
+            KICKOFF - timedelta(minutes=5), KICKOFF - timedelta(minutes=2),
+            KICKOFF + timedelta(seconds=1)))
+    with pytest.raises(BenchmarkInputError, match="timezone-aware"):
+        _observation(leg_captured_at=(
+            KICKOFF.replace(tzinfo=None), KICKOFF, KICKOFF))
+
+
+def test_degenerate_evaluation_gates_fail_closed():
+    with pytest.raises(BenchmarkInputError, match="min_matches"):
+        evaluate_holdout(_many(5), min_matches=0)
+    with pytest.raises(BenchmarkInputError, match="n_bootstrap"):
+        evaluate_holdout(_many(60), min_matches=50, n_bootstrap=0)

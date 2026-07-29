@@ -201,10 +201,11 @@ def test_missing_and_one_sided_and_stale_quotes_are_excluded(db):
 
     assert result.observations == []
     assert result.exclusions == {
-        "no_prekickoff_quote": 1,
-        "no_two_sided_quote": 1,
+        "no_two_sided_prekickoff_quote": 2,
         "stale_prekickoff_quote": 1,
     }
+    assert any("home, away, draw" in n or "away, draw, home" in n
+               or "draw" in n for n in result.notes)
 
 
 def test_shadow_and_post_kickoff_predictions_do_not_count(db):
@@ -297,6 +298,209 @@ def test_the_full_artifact_is_deterministic_and_marked_experimental(db):
     assert json.dumps(first, sort_keys=True) == json.dumps(second, sort_keys=True)
     assert first["experimental"] is True
     assert "not a deployment signal" in first["role"]
-    assert first["lineage"]["outcome_side"].startswith("Match full-time")
+    assert first["lineage"]["outcome_side"].startswith("REGULATION-TIME")
+    assert first["artifact_version"] == "market-benchmark-artifact-v1"
     assert first["benchmark"]["groups"][0]["status"] == "NOT_READY"
     assert first["health"]["denominator"] == "fixtures and markets, never ticks"
+
+
+# --- coherent snapshots (review round 2) -------------------------------------
+
+
+def test_a_newer_one_sided_tick_does_not_hide_an_older_two_sided_quote(db):
+    """'Latest tick, then reject if one-sided' was the bug: the eligible
+    quote is the latest GENUINELY two-sided one."""
+    match = _fixture(db)
+    _prediction(db, match)
+    markets = _markets(db, match)
+    for market, mid in zip(markets, (0.55, 0.30, 0.25)):
+        _tick(db, market, ts=KICKOFF - timedelta(hours=6), mid=mid)
+        _tick(db, market, ts=KICKOFF - timedelta(hours=1), mid=None)
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    assert result.observations[0].venue_probs_raw == (0.55, 0.30, 0.25)
+    assert result.observations[0].captured_at == KICKOFF - timedelta(hours=6)
+
+
+def test_individually_fresh_but_mutually_incoherent_legs_are_refused(db):
+    """Three legs, each within the age bound, captured 20 hours apart with no
+    common cycle: stitching them makes a book that never existed."""
+    match = _fixture(db)
+    _prediction(db, match)
+    markets = _markets(db, match)
+    for market, (mid, hours) in zip(markets, [(0.55, 30), (0.30, 10), (0.25, 2)]):
+        _tick(db, market, ts=KICKOFF - timedelta(hours=hours), mid=mid)
+
+    result = build_observations(db)
+
+    assert result.observations == []
+    assert result.exclusions == {"incoherent_market_snapshot": 1}
+    assert any("fictitious book" in n for n in result.notes)
+
+
+def test_a_common_cycle_is_preferred_over_newer_scattered_legs(db):
+    """When one polling cycle quoted all three legs, that cycle is the
+    snapshot -- even if individual legs have newer stray updates."""
+    match = _fixture(db)
+    _prediction(db, match)
+    markets = _markets(db, match)
+    cycle = KICKOFF - timedelta(hours=5)
+    for market, mid in zip(markets, (0.55, 0.30, 0.25)):
+        _tick(db, market, ts=cycle, mid=mid)
+    # A stray newer two-sided update on ONE leg only.
+    _tick(db, markets[0], ts=KICKOFF - timedelta(hours=1), mid=0.60)
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    observation = result.observations[0]
+    assert observation.venue_probs_raw == (0.55, 0.30, 0.25)
+    assert observation.leg_captured_at == (cycle, cycle, cycle)
+    assert observation.cross_leg_skew_seconds == 0.0
+
+
+def test_small_cross_leg_skew_is_accepted_and_recorded(db):
+    match = _fixture(db)
+    _prediction(db, match)
+    markets = _markets(db, match)
+    for market, (mid, minutes) in zip(markets, [(0.55, 10), (0.30, 5), (0.25, 2)]):
+        _tick(db, market, ts=KICKOFF - timedelta(minutes=minutes), mid=mid)
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    assert result.observations[0].cross_leg_skew_seconds == 480.0
+
+
+# --- regulation-time outcomes (review round 2) -------------------------------
+
+
+def test_extra_time_does_not_relabel_a_regulation_draw(db):
+    """Knockout 1-1 at 90 that finishes 2-1 in ET: the model priced the
+    90-minute distribution, so the label is DRAW."""
+    match = _fixture(db)
+    db.query(Match).filter_by(id=match.id).update({
+        "stage": "QF", "score_home": 2, "score_away": 1,
+        "score_home_90": 1, "score_away_90": 1})
+    db.commit()
+    _prediction(db, match)
+    _complete(db, match)
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    assert result.observations[0].outcome == "draw"
+
+
+def test_a_knockout_final_without_90_minute_columns_is_excluded(db):
+    match = _fixture(db)
+    db.query(Match).filter_by(id=match.id).update({
+        "stage": "final", "score_home": 2, "score_away": 1,
+        "penalty_home": None, "penalty_away": None})
+    db.commit()
+    _prediction(db, match)
+    _complete(db, match)
+
+    result = build_observations(db)
+
+    assert result.observations == []
+    assert result.exclusions == {"no_regulation_time_basis": 1}
+
+
+def test_a_shootout_without_90_minute_columns_is_excluded_even_in_league(db):
+    match = _fixture(db)
+    db.query(Match).filter_by(id=match.id).update({
+        "penalty_home": 4, "penalty_away": 3})
+    db.commit()
+    _prediction(db, match)
+    _complete(db, match)
+
+    result = build_observations(db)
+
+    assert result.exclusions == {"no_regulation_time_basis": 1}
+
+
+def test_the_audited_ledger_pins_both_outcome_and_exact_prediction(db):
+    """When prediction_results exists, this benchmark scores the SAME frozen
+    vector against the SAME outcome as the public record -- not whatever row
+    happens to be latest."""
+    from app.models import PredictionResult
+
+    match = _fixture(db)
+    _complete(db, match)
+    _prediction(db, match, created=KICKOFF - timedelta(days=2),
+                probs=(0.7, 0.2, 0.1))
+    first = db.query(Prediction).order_by(Prediction.id).first()
+    _prediction(db, match, created=KICKOFF - timedelta(hours=2),
+                probs=(0.4, 0.35, 0.25))
+    db.add(PredictionResult(
+        match_id=match.id, prediction_id=first.id,
+        model_version="poisson-elo-v0.5", is_shadow=False,
+        actual_score_home=1, actual_score_away=1, outcome="draw",
+        winner_correct=False, exact_score_correct=False,
+        prob_assigned=0.2, brier=0.5, log_loss=1.6, goal_error=1))
+    db.commit()
+
+    result = build_observations(db)
+
+    assert len(result.observations) == 1
+    observation = result.observations[0]
+    assert observation.outcome == "draw", "ledger outcome, not FT score"
+    assert observation.model_probs[0] == pytest.approx(0.7), (
+        "the exact audited prediction, not the latest row")
+
+
+def test_a_ledger_pointing_at_a_post_kickoff_prediction_is_excluded(db):
+    from app.models import PredictionResult
+
+    match = _fixture(db)
+    _complete(db, match)
+    _prediction(db, match, created=KICKOFF + timedelta(hours=1))
+    late = db.query(Prediction).order_by(Prediction.id).first()
+    db.add(PredictionResult(
+        match_id=match.id, prediction_id=late.id,
+        model_version="poisson-elo-v0.5", is_shadow=False,
+        actual_score_home=2, actual_score_away=1, outcome="home",
+        winner_correct=True, exact_score_correct=False,
+        prob_assigned=0.5, brier=0.4, log_loss=0.7, goal_error=0))
+    db.commit()
+
+    result = build_observations(db)
+
+    assert result.exclusions == {"ledger_prediction_not_prekickoff": 1}
+
+
+def test_naive_now_and_degenerate_bounds_fail_closed(db):
+    from ml.evaluation.venue_benchmark import BenchmarkInputError
+
+    with pytest.raises(BenchmarkInputError, match="max_quote_age"):
+        build_observations(db, max_quote_age=timedelta(0))
+    with pytest.raises(BenchmarkInputError, match="max_cross_leg_skew"):
+        build_observations(db, max_cross_leg_skew=timedelta(seconds=-1))
+
+
+
+def test_artifact_gates_are_not_lowerable(db):
+    from pipeline.run_market_benchmark_report import build_artifact
+
+    now = datetime(2026, 8, 10, 9, 0, tzinfo=timezone.utc)
+    for offset in range(60):
+        match = _fixture(db, kickoff=KICKOFF + timedelta(days=offset))
+        _prediction(db, match)
+        _complete(db, match)
+
+    lowered = build_artifact(db, holdout_fraction=0.9, min_matches=1,
+                             n_bootstrap=100, seed=1, now=now)
+    groups = lowered["benchmark"]["groups"]
+    assert groups[0]["min_matches"] == 50, "--min-matches 1 clamps UP to 50"
+    assert lowered["min_matches_floor"] == 50
+
+    with pytest.raises(ValueError, match="n_bootstrap"):
+        build_artifact(db, holdout_fraction=0.3, min_matches=50,
+                       n_bootstrap=0, seed=1, now=now)
+    with pytest.raises(ValueError, match="timezone-aware"):
+        build_artifact(db, holdout_fraction=0.3, min_matches=50,
+                       n_bootstrap=100, seed=1,
+                       now=now.replace(tzinfo=None))

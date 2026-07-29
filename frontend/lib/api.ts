@@ -276,9 +276,17 @@ export const getRetentionServer = () =>
 /** EXPERIMENTAL/SHADOW research artifact: the venue market benchmark
  *  (backend/app/api/research.py). Operator-generated, served verbatim with
  *  its lineage and exclusions; `status: "no_data"` until someone runs the
- *  report. Short revalidate — the backend already refuses shared caching. */
-export const getMarketBenchmarkServer = () =>
-  getServer<MarketBenchmarkResponse>("/api/research/market-benchmark", 60);
+ *  report. TRUE no-store on this side too: the backend forces no-store, and
+ *  an ISR-cached copy here could keep serving a superseded artifact after a
+ *  correction — the exact failure the header exists to prevent. */
+export const getMarketBenchmarkServer = async (): Promise<MarketBenchmarkResponse | null> => {
+  const res = await fetch(`${API_URL}/api/research/market-benchmark`, {
+    cache: "no-store",
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API /api/research/market-benchmark failed: ${res.status}`);
+  return (await res.json()) as MarketBenchmarkResponse;
+};
 
 /** Public share-card data for /tips/share/[league]/[matchweek]/[handle] and
  *  its opengraph-image (design doc: League Score Predictions, 2026-07-24) --

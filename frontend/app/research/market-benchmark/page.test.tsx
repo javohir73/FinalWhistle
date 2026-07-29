@@ -52,6 +52,23 @@ const response: MarketBenchmarkResponse = {
           last_completed_at: "2026-08-02T11:55:00+00:00",
         },
       },
+      venues: {
+        kalshi: {
+          markets_total: 12,
+          mapping: { mapped: 9, proposed: 2, unmapped: 1 },
+          mapped_fixtures: 4,
+          fixtures_with_complete_1x2: 3,
+          fixtures_incomplete_1x2: [77],
+          fixtures_missing_prematch_quote: [41],
+          markets_without_any_quote: ["KX-SILENT"],
+          quote_freshness_by_transport: {
+            polling: {
+              latest_quote_at: "2026-08-02T11:50:00+00:00",
+              age_seconds: 600,
+            },
+          },
+        },
+      },
     },
   },
 };
@@ -74,6 +91,13 @@ it("renders the experimental banner, counts, exclusions, CI and NOT_READY state"
     "Not enough data: 4 matches (minimum 50)",
   );
   expect(screen.getByText(/kalshi\/worker-a: last cycle/)).toBeInTheDocument();
+  // Mapping and quote coverage render from health.venues.
+  const health = screen.getByTestId("health-kalshi");
+  expect(health).toHaveTextContent("mapping: mapped 9, proposed 2, unmapped 1");
+  expect(health).toHaveTextContent("fixtures with complete 1X2: 3 of 4 mapped");
+  expect(health).toHaveTextContent("incomplete: 77");
+  expect(health).toHaveTextContent("fixtures missing a pre-match quote: 1");
+  expect(health).toHaveTextContent("last polling quote: 10 min ago");
 });
 
 it("shows an honest empty state when no artifact exists", async () => {

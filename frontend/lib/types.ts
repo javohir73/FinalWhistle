@@ -1182,7 +1182,22 @@ export interface MarketBenchmarkArtifact {
       string,
       { age_seconds: number; last_completed_at: string }
     >;
+    venues?: Record<string, MarketHealthVenue>;
   };
+}
+
+export interface MarketHealthVenue {
+  markets_total: number;
+  mapping: Record<string, number>;
+  mapped_fixtures: number;
+  fixtures_with_complete_1x2: number;
+  fixtures_incomplete_1x2: number[];
+  fixtures_missing_prematch_quote: number[];
+  markets_without_any_quote: string[];
+  quote_freshness_by_transport: Record<
+    string,
+    { latest_quote_at: string; age_seconds: number }
+  >;
 }
 
 export interface MarketBenchmarkResponse {
