@@ -18,8 +18,8 @@ green.
 
 | Phase | Subject | State | Ledger | PR |
 |---|---|---|---|---|
-| **D0** | Independent market validation (football-data.co.uk closing odds) | **COMPLETE — draft PR open, G1 awaiting decision** | [`2026-07-29-d0-market-validation/`](experiments/2026-07-29-d0-market-validation/) | draft |
-| D1 | Rest and travel | NOT STARTED | — | — |
+| **D0** | Independent market validation (football-data.co.uk closing odds) | **COMPLETE — draft PR green, G1 awaiting decision** | [`2026-07-29-d0-market-validation/`](experiments/2026-07-29-d0-market-validation/) | [#213](https://github.com/javohir73/FinalWhistle/pull/213) (draft) |
+| **D1** | Rest and travel | **DATA LAYER COMPLETE — selection run outstanding; promotion blocked by design** | [`2026-07-30-d1-rest-travel/`](experiments/2026-07-30-d1-rest-travel/) | draft |
 | D2 | Lineups, player minutes, injuries | NOT STARTED | — | — |
 | D3 | xG (StatsBomb Open Data) | NOT STARTED | — | — |
 | D4 | Weather | NOT STARTED | — | — |

@@ -1,0 +1,12 @@
+=== D1 schedule-context coverage (27 pre-confirmation captures) ===
+scope: 2016-17..2024-25; the *_2526 confirmation captures are not opened
+
+div    fixtures  rest def  openers  travel def  no coord  median km   p95 km   max km
+E0         3420      3396       24        3420         0      174.1    378.4    471.7
+SP1        3420      3400       20        3420         0      428.5    954.4   2259.7
+D1         2754      2733       21        2754         0      304.2    513.7    721.4
+
+congestion differential (matches in trailing 14d, home - away):
+  E0    sd=0.547
+  SP1   sd=0.545
+  D1    sd=0.435
