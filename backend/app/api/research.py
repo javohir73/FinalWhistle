@@ -16,15 +16,26 @@ crash. `noindex` on the page is politeness; this allowlist is the boundary.
 from __future__ import annotations
 
 from datetime import datetime
-import json
 import math
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.db import get_db
+from app.research_store import (
+    MARKET_BENCHMARK_KIND,
+    ArtifactStoreError,
+    load_latest,
+)
 
 router = APIRouter(prefix="/api/research", tags=["research"])
 
-#: Written only by the operator CLI; absent until someone runs it.
+#: Local-development fallback only. It CANNOT deliver in production: the API
+#: image is built with `COPY backend /app/backend`, the generated artifact is
+#: gitignored so it is never in the image, the free-tier container has no
+#: persistent disk, and an ephemeral CI runner cannot write into it. The
+#: database backend exists precisely because this path is a dead end there.
 ARTIFACT_PATH = Path(__file__).resolve().parents[1] / "research_data" / (
     "market_benchmark.json")
 
@@ -267,25 +278,33 @@ def sanitize_artifact(artifact: object) -> dict:
 
 
 @router.get("/market-benchmark")
-def market_benchmark() -> dict:
-    """The shadow venue-benchmark artifact, or an honest empty state."""
-    if not ARTIFACT_PATH.exists():
+def market_benchmark(db: Session = Depends(get_db)) -> dict:
+    """The shadow venue-benchmark artifact, or an honest empty state.
+
+    Resolved through the persistence boundary: database first (the only
+    backend that can deliver in production), then the local file, then
+    nothing. Whichever backend supplies it, the same allowlist below
+    reconstructs the response -- a poisoned database row gets no more trust
+    than a poisoned file.
+    """
+    try:
+        artifact, source = load_latest(db, ARTIFACT_PATH,
+                                       kind=MARKET_BENCHMARK_KIND)
+    except ArtifactStoreError as exc:
+        return {
+            "experimental": True,
+            "status": "unreadable",
+            "detail": f"the benchmark artifact cannot be read: {exc}",
+        }
+    if artifact is None:
         return {
             "experimental": True,
             "status": "no_data",
             "detail": (
-                "no benchmark artifact has been generated; run "
-                "pipeline.run_market_benchmark_report with --output to "
-                "produce one"
+                "no benchmark artifact has been published; run "
+                "pipeline.run_market_benchmark_report with --publish-db "
+                "(or --output for local use) to produce one"
             ),
-        }
-    try:
-        artifact = json.loads(ARTIFACT_PATH.read_text())
-    except (OSError, json.JSONDecodeError):
-        return {
-            "experimental": True,
-            "status": "unreadable",
-            "detail": "the benchmark artifact exists but cannot be parsed",
         }
     try:
         sanitized = sanitize_artifact(artifact)
@@ -295,4 +314,5 @@ def market_benchmark() -> dict:
             "status": "invalid",
             "detail": str(exc),
         }
-    return {"experimental": True, "status": "ok", "artifact": sanitized}
+    return {"experimental": True, "status": "ok", "source": source,
+            "artifact": sanitized}

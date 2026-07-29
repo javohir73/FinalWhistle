@@ -86,8 +86,15 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_benchmark_report be
 ... health
 ```
 
-The artifact is written **atomically** (temp + rename) into
-`backend/app/research_data/` — gitignored, never committed. The API
+The artifact is delivered through a provider-neutral persistence boundary
+(`backend/app/research_store.py`) with two backends. `--publish-db` writes an
+append-only row to `research_artifact` — **the only backend the deployed API
+can read**, because the container image is built with `COPY`, the artifact is
+gitignored, and the free tier has no persistent disk (see
+[ADR 0001](adr/0001-research-artifact-delivery.md)). `--output` writes a local
+file atomically for development. Both are opt-in; nothing publishes by
+default. Reads are database-first, file-second, `no_data` last — a
+not-yet-migrated table is a fallback, not an error. The API
 (`GET /api/research/market-benchmark`, no-store) **reconstructs the response
 through a strict allowlist**: every rendered field is validated for type and
 domain (finite numbers, aware timestamps, enum statuses/verdicts, non-negative

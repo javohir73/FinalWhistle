@@ -9,7 +9,13 @@ Usage::
     # benchmark report to stdout (never writes anything anywhere)
     PYTHONPATH=backend:. .venv/bin/python -m pipeline.run_market_benchmark_report benchmark
 
-    # write the JSON artifact the research API serves
+    # publish to the database -- the ONLY backend the deployed API can read
+    # (the container image is built with COPY, the artifact is gitignored,
+    # and the free tier has no persistent disk, so a file written by CI can
+    # never reach the running API). Off unless you pass it.
+    ... benchmark --publish-db --published-by "pete"
+
+    # write a local file instead (development only)
     ... benchmark --output backend/app/research_data/market_benchmark.json
 
     # capture/mapping health, fixture-denominated
@@ -105,7 +111,15 @@ def main() -> int:
 
     bench = sub.add_parser("benchmark", help="shadow benchmark report")
     bench.add_argument("--output", type=Path,
-                       help="also write the JSON artifact here")
+                       help="also write the JSON artifact to this path "
+                            "(local development; cannot reach production)")
+    bench.add_argument("--publish-db", action="store_true",
+                       help="publish the artifact to the research_artifact "
+                            "table -- the only backend the deployed API can "
+                            "read. Off by default; nothing publishes unless "
+                            "you say so")
+    bench.add_argument("--published-by", default="",
+                       help="who is publishing (required with --publish-db)")
     bench.add_argument("--holdout-fraction", type=float,
                        default=DEFAULT_HOLDOUT_FRACTION)
     bench.add_argument(
@@ -138,6 +152,18 @@ def main() -> int:
                     json.dumps(artifact, indent=2, sort_keys=True) + "\n")
                 os.replace(temporary, args.output)
                 print(f"\nwrote {args.output}", file=sys.stderr)
+            if args.publish_db:
+                if not args.published_by.strip():
+                    parser.error("--publish-db requires --published-by")
+                from app.research_store import (
+                    MARKET_BENCHMARK_KIND,
+                    DatabaseArtifactStore,
+                )
+
+                reference = DatabaseArtifactStore(db).publish(
+                    artifact, kind=MARKET_BENCHMARK_KIND,
+                    published_by=args.published_by)
+                print(f"\npublished {reference}", file=sys.stderr)
         else:
             _print(build_health(db, now=datetime.now(timezone.utc)))
     finally:
