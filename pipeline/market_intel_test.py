@@ -108,6 +108,40 @@ def test_run_idempotent_per_hour_and_prunes(monkeypatch):
     assert db.query(MarketOddsSnapshot).count() == 3  # old row pruned
 
 
+def test_snapshot_retention_stays_bounded_at_the_declared_horizon(monkeypatch):
+    """`market_odds_snapshots` is a product surface, not an evidence store.
+
+    Every row is rewritten hourly per (sport, source, hour) and swept at
+    RETENTION_DAYS. Dropping the sweep turns an unbounded table loose on a free
+    Render tier; keeping evidence is what the append-only validation and
+    capture tables are for. Pin the horizon and both sides of the boundary.
+    """
+    db = _session()
+    _seed_football(db)
+    monkeypatch.setattr(market_intel, "CONFIGS", [
+        market_intel.SourceConfig("football", "polymarket", lambda: _match_rows()),
+    ])
+    assert market_intel.RETENTION_DAYS == 14
+    cutoff = timedelta(days=market_intel.RETENTION_DAYS)
+    db.add_all([
+        MarketOddsSnapshot(
+            sport="football", source="polymarket", market_type="title_winner",
+            team_id=1, outcome="win", implied_prob=0.5, external_id="just_inside",
+            fetched_at=NOW - cutoff + timedelta(seconds=1)),
+        MarketOddsSnapshot(
+            sport="football", source="polymarket", market_type="title_winner",
+            team_id=1, outcome="win", implied_prob=0.5, external_id="just_outside",
+            fetched_at=NOW - cutoff - timedelta(seconds=1)),
+    ])
+    db.commit()
+
+    market_intel.run(db, NOW)
+
+    kept = {row.external_id for row in db.query(MarketOddsSnapshot)}
+    assert "just_inside" in kept
+    assert "just_outside" not in kept
+
+
 def test_kalshi_leg_failure_does_not_drop_the_other_leg(monkeypatch):
     """A dead/renamed series ticker (e.g. WC_TITLE_SERIES 404ing) must not
     also discard rows from the sibling series — each leg is an independent

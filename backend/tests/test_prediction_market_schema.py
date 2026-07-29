@@ -379,6 +379,89 @@ def test_heartbeat_cannot_complete_before_its_cycle():
         db.commit()
 
 
+def test_unsupported_in_play_state_cannot_carry_match_detail():
+    """A venue that reports no live state may not imply one at the row level.
+
+    The contract refuses this too, but the constraint is what makes it true of
+    every writer, including one that assembles columns by hand.
+    """
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, in_play_state_supported=False, home_score=0, away_score=0))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"in_play_state_supported": True, "home_score": 1},
+        {"in_play_state_supported": True, "away_cards": 1},
+        {"in_play_state_supported": True, "home_score": -1, "away_score": 0},
+        {"in_play_state_supported": True, "home_cards": 0, "away_cards": -1},
+        {"in_play_state_supported": True, "minute": -1.0},
+        {"in_play_state_supported": False, "clock_state": "63'"},
+        {"in_play_state_supported": False, "is_in_play": True},
+    ],
+)
+def test_tick_rejects_incoherent_in_play_state(overrides):
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, **overrides))
+
+    with pytest.raises(IntegrityError):
+        db.commit()
+
+
+def test_supported_but_unreported_state_is_storable_and_distinct():
+    """Three cases, three rows: unsupported, supported-and-silent, reported."""
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add_all([
+        _tick(market.id, observation_key="cycle:a", in_play_state_supported=False),
+        _tick(market.id, observation_key="cycle:b", in_play_state_supported=True),
+        _tick(market.id, observation_key="cycle:c", in_play_state_supported=True,
+              is_in_play=True, clock_state="63'", period="second_half",
+              minute=63.0, home_score=1, away_score=1, home_cards=2, away_cards=0),
+    ])
+    db.commit()
+
+    rows = {row.observation_key: row for row in db.query(VenuePriceTick)}
+    assert rows["cycle:a"].in_play_state_supported is False
+    assert rows["cycle:b"].in_play_state_supported is True
+    assert rows["cycle:b"].home_score is None
+    assert rows["cycle:c"].home_score == 1 and rows["cycle:c"].away_cards == 0
+
+
+def test_in_play_contract_maps_onto_the_tick_columns_exactly():
+    """The contract's column mapping and the table cannot drift apart."""
+    from pipeline.ingest.venues import InPlayState
+
+    state = InPlayState(supported=True, is_in_play=True, clock_label="63'",
+                        period="second_half", minute=63, score=(1, 1), cards=(2, 0))
+    columns = state.as_columns()
+    assert set(columns) <= set(VenuePriceTick.__table__.c.keys())
+
+    _engine, db = _session()
+    market = _market()
+    db.add(market)
+    db.flush()
+    db.add(_tick(market.id, **columns))
+    db.commit()
+
+    stored = db.query(VenuePriceTick).one()
+    assert (stored.home_score, stored.away_score) == (1, 1)
+    assert (stored.home_cards, stored.away_cards) == (2, 0)
+    assert stored.minute == 63.0
+
+
 def test_legacy_market_snapshot_still_roundtrips_unchanged():
     _engine, db = _session()
     db.add(

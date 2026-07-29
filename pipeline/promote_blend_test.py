@@ -1,7 +1,29 @@
 import pytest
 
 from ml.models.params import DEFAULT_PARAMS
-from pipeline.promote_blend import promoted_params
+from pipeline.promote_blend import W_ODDS_CAP, promoted_params
+
+
+def test_the_market_is_never_primary():
+    """Pin the ceiling itself, not just a value that happens to exceed it.
+
+    The prediction-market work makes the market a far richer input, and the
+    cheap next step is always to let it carry more weight. 0.5 is the line at
+    which the market stops being an input and starts being the model; w_odds=1
+    is a market passthrough wearing the engine's version string. Raising this
+    is a modelling decision with evidence behind it, never a side effect of
+    landing capture infrastructure.
+    """
+    assert W_ODDS_CAP == 0.5
+
+    for weight in (0.51, 0.75, 1.0):
+        with pytest.raises(ValueError, match="cap"):
+            promoted_params(DEFAULT_PARAMS, w_odds=weight, use_availability=False,
+                            version="poisson-elo-v0.6")
+
+    assert promoted_params(DEFAULT_PARAMS, w_odds=W_ODDS_CAP,
+                           use_availability=False,
+                           version="poisson-elo-v0.6").w_odds == 0.5
 
 
 def test_promoted_params_sets_capped_w_odds_and_version():
