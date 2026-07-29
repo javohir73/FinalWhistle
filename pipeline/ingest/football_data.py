@@ -13,61 +13,148 @@ logged and skipped, never fatal.
 Pure module — no DB, no network, no app imports. Orchestration lives in
 pipeline/run_club_benchmark.py.
 
-Column reference (football-data.co.uk notes):
+Closing vs pre-closing — the publisher's own rule
+-------------------------------------------------
+football-data.co.uk's notes.txt states it plainly: the documented odds
+abbreviations "are for pre-closing odds. For the closing odds, as below but
+with an additional 'C' character following the bookmaker abbreviation/Max/Avg
+(e.g. B365CH = closing Bet365 home win odds)."
+
+So the ``C`` is the whole distinction, and a family without one is **not** a
+closing line. This module therefore records ``odds_basis`` on every record and
+**refuses by default** to answer a closing-line question with pre-closing
+prices. Passing ``require_basis="any"`` opts in explicitly and the records say
+so; nothing silently substitutes (docs/experiments/2026-07-29-d0-market-
+validation/PRE-REGISTRATION.md, A2).
+
+Column reference (football-data.co.uk notes.txt):
   FTHG/FTAG  full-time home/away goals        FTR  full-time result (H/D/A)
   AvgC*      market-average CLOSING odds      PSC* Pinnacle CLOSING odds
   B365C*     Bet365 CLOSING odds              MaxC* market-maximum CLOSING odds
-  Avg*/B365* the same books' OPENING odds (non-closing fallback)
+  Avg*/B365* the same books' PRE-CLOSING odds
 """
 from __future__ import annotations
 
 import logging
+from typing import Literal, NamedTuple
 
 import pandas as pd
 
 log = logging.getLogger(__name__)
 
-# Ordered preference of (home, draw, away) odds-column triples. CLOSING columns
-# come first (the roadmap benchmarks vs the closing line); opening columns are a
-# last-resort fallback. The key is the shared prefix recorded as odds_source.
-_ODDS_CHAIN: list[tuple[str, tuple[str, str, str]]] = [
-    ("AvgC", ("AvgCH", "AvgCD", "AvgCA")),  # market-average closing
-    ("PSC", ("PSCH", "PSCD", "PSCA")),      # Pinnacle closing
-    ("B365C", ("B365CH", "B365CD", "B365CA")),  # Bet365 closing
-    ("MaxC", ("MaxCH", "MaxCD", "MaxCA")),  # market-maximum closing
-    ("Avg", ("AvgH", "AvgD", "AvgA")),      # market-average opening (fallback)
-    ("B365", ("B365H", "B365D", "B365A")),  # Bet365 opening (fallback)
-]
+#: ``odds_basis`` values. "closing" is the publisher's ``C``-suffixed family;
+#: "pre_closing" is everything else. There is no third state — a family is one
+#: or the other by the publisher's documented rule.
+OddsBasis = Literal["closing", "pre_closing"]
 
 
-def _select_odds_columns(columns) -> tuple[str, tuple[str, str, str]]:
-    """Pick the first fully-present odds triple from the preference chain."""
+class OddsFamily(NamedTuple):
+    """One 1X2 odds column-triple, with what the publisher says it means."""
+
+    key: str  # shared prefix, recorded as odds_source (e.g. "AvgC")
+    columns: tuple[str, str, str]  # (home, draw, away)
+    basis: OddsBasis
+    bookmaker: str  # human label from the publisher's notes.txt
+
+
+class ClosingOddsUnavailable(ValueError):
+    """A closing family was required and the file has none.
+
+    Raised rather than falling through to pre-closing prices. Callers that
+    legitimately want a pre-closing series ask for it (``require_basis="any"``);
+    callers benchmarking a *closing* line catch this and **abstain**, naming the
+    file — they never quietly score a different market.
+    """
+
+
+#: Ordered preference of 1X2 odds families. CLOSING families come first (the
+#: roadmap benchmarks vs the closing line); pre-closing families are reachable
+#: only under ``require_basis="any"``.
+#:
+#: Public, because pipeline/market_coverage.py censuses exactly these families
+#: and a second copy of the table would drift from this one.
+ODDS_FAMILIES: tuple[OddsFamily, ...] = (
+    OddsFamily("AvgC", ("AvgCH", "AvgCD", "AvgCA"), "closing", "market average"),
+    OddsFamily("PSC", ("PSCH", "PSCD", "PSCA"), "closing", "Pinnacle"),
+    OddsFamily("B365C", ("B365CH", "B365CD", "B365CA"), "closing", "Bet365"),
+    OddsFamily("MaxC", ("MaxCH", "MaxCD", "MaxCA"), "closing", "market maximum"),
+    OddsFamily("Avg", ("AvgH", "AvgD", "AvgA"), "pre_closing", "market average"),
+    OddsFamily("B365", ("B365H", "B365D", "B365A"), "pre_closing", "Bet365"),
+)
+
+CLOSING_FAMILIES: tuple[OddsFamily, ...] = tuple(
+    f for f in ODDS_FAMILIES if f.basis == "closing"
+)
+
+
+def available_families(columns) -> tuple[OddsFamily, ...]:
+    """Every family in :data:`ODDS_FAMILIES` fully present in ``columns``.
+
+    Preference order preserved. Used by the coverage census to describe a file
+    rather than just pick from it.
+    """
     present = set(columns)
-    for source, triple in _ODDS_CHAIN:
-        if all(col in present for col in triple):
-            return source, triple
-    raise ValueError(
-        "no recognised odds columns in CSV header; expected one of "
-        + ", ".join(t[0] for t in _ODDS_CHAIN)
-    )
+    return tuple(f for f in ODDS_FAMILIES if all(c in present for c in f.columns))
 
 
-def load_football_data_csv(path: str, normalize=str.strip) -> list[dict]:
+def select_odds_family(
+    columns, require_basis: Literal["closing", "any"] = "closing"
+) -> OddsFamily:
+    """Pick the preferred family present in ``columns``.
+
+    ``require_basis="closing"`` (the default) considers only ``C``-suffixed
+    families and raises :class:`ClosingOddsUnavailable` if the file has none.
+    ``"any"`` walks the full chain and may return a pre-closing family — whose
+    ``basis`` then says so on every record it produces.
+    """
+    found = available_families(columns)
+    if require_basis == "closing":
+        closing = [f for f in found if f.basis == "closing"]
+        if not closing:
+            raise ClosingOddsUnavailable(
+                "no CLOSING odds columns in CSV header; expected one of "
+                + ", ".join(f.key for f in CLOSING_FAMILIES)
+                + (
+                    "; pre-closing families present: "
+                    + ", ".join(f.key for f in found)
+                    if found
+                    else "; no recognised odds columns at all"
+                )
+                + ". Pass require_basis='any' to accept pre-closing prices."
+            )
+        return closing[0]
+    if not found:
+        raise ValueError(
+            "no recognised odds columns in CSV header; expected one of "
+            + ", ".join(f.key for f in ODDS_FAMILIES)
+        )
+    return found[0]
+
+
+def load_football_data_csv(
+    path: str,
+    normalize=str.strip,
+    require_basis: Literal["closing", "any"] = "closing",
+) -> list[dict]:
     """Load a football-data.co.uk CSV into join-ready match records.
 
-    Chooses the closing-odds column-triple highest in ``_ODDS_CHAIN`` that is
-    present in the header (raising if none are), parses the Date column
-    day-first, and keeps only rows with present integer scores and three decimal
-    odds each > 1.0. Team names pass through ``normalize`` (default ``str.strip``
-    — club names must NOT go through the national-team mapper, which could mangle
+    Chooses the preferred odds family present in the header via
+    :func:`select_odds_family` — **closing-only by default**, which raises
+    :class:`ClosingOddsUnavailable` on a file that carries none rather than
+    answering with pre-closing prices. Parses the Date column day-first, and
+    keeps only rows with present integer scores and three decimal odds each
+    > 1.0. Team names pass through ``normalize`` (default ``str.strip`` — club
+    names must NOT go through the national-team mapper, which could mangle
     them). Rows are returned in file order; sorting is the caller's job.
 
     Returns a list of dicts with keys: date (datetime.date), home_team,
     away_team, home_score (int), away_score (int), odds_home, odds_draw,
-    odds_away (float), odds_source (str, e.g. "AvgC").
+    odds_away (float), odds_source (str, e.g. "AvgC"), odds_basis
+    ("closing"/"pre_closing"), odds_bookmaker (str).
     """
     df = pd.read_csv(path)
-    odds_source, (home_col, draw_col, away_col) = _select_odds_columns(df.columns)
+    family = select_odds_family(df.columns, require_basis=require_basis)
+    home_col, draw_col, away_col = family.columns
 
     # Day-first covers DD/MM/YY and DD/MM/YYYY; to_datetime also accepts ISO.
     dates = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
@@ -91,10 +178,10 @@ def load_football_data_csv(path: str, normalize=str.strip) -> list[dict]:
             odds_draw = float(row[draw_col])
             odds_away = float(row[away_col])
         except (KeyError, TypeError, ValueError):
-            log.warning("skipping row %d: missing/invalid %s odds", line, odds_source)
+            log.warning("skipping row %d: missing/invalid %s odds", line, family.key)
             continue
         if min(odds_home, odds_draw, odds_away) <= 1.0:
-            log.warning("skipping row %d: %s odds not all > 1.0", line, odds_source)
+            log.warning("skipping row %d: %s odds not all > 1.0", line, family.key)
             continue
 
         records.append(
@@ -107,7 +194,9 @@ def load_football_data_csv(path: str, normalize=str.strip) -> list[dict]:
                 "odds_home": odds_home,
                 "odds_draw": odds_draw,
                 "odds_away": odds_away,
-                "odds_source": odds_source,
+                "odds_source": family.key,
+                "odds_basis": family.basis,
+                "odds_bookmaker": family.bookmaker,
             }
         )
     return records

@@ -22,17 +22,109 @@ _LABEL_INDEX = {"H": 0, "D": 1, "A": 2}
 _EPS = 1e-15
 
 
-def devig(odds_home: float, odds_draw: float, odds_away: float) -> Probs:
+#: De-vig methods this module can apply. ``proportional`` is the default and
+#: must stay the default: every market number already recorded in
+#: docs/MODEL-EXPERIMENTS.md was computed with it, and the frozen q3 baseline
+#: (pipeline/run_calibrator_benchmark.py) calls :func:`devig` positionally.
+#: Changing the default would silently invalidate both.
+#:
+#: The other two exist so a headline claim ("the model is behind the closing
+#: line") can be shown not to rest on an arbitrary normalization. They are a
+#: sensitivity axis, never a tuning knob — no method is ever selected because
+#: it flatters the model.
+DEVIG_METHODS = ("proportional", "shin", "power")
+
+_SOLVER_TOL = 1e-12
+_SOLVER_ITERS = 200
+
+
+def _shin_probs(raw: tuple[float, ...]) -> tuple[float, ...]:
+    """Shin (1993): back out probabilities assuming a share ``z`` of insider bets.
+
+    ``p_i = (sqrt(z^2 + 4(1-z) * raw_i^2 / B) - z) / (2(1-z))`` with ``B`` the
+    booksum. ``z`` is the insider fraction, solved by bisection so the triple
+    sums to 1. ``z -> 0`` degenerates to proportional, which is why a zero-vig
+    book returns the proportional answer.
+    """
+    booksum = sum(raw)
+
+    def probs_for(z: float) -> tuple[float, ...]:
+        if z <= 0.0:
+            return tuple(r / booksum for r in raw)
+        return tuple(
+            (math.sqrt(z * z + 4.0 * (1.0 - z) * r * r / booksum) - z)
+            / (2.0 * (1.0 - z))
+            for r in raw
+        )
+
+    lo, hi = 0.0, 0.99
+    # sum(probs_for(z)) decreases in z; bisect for the root of sum - 1.
+    for _ in range(_SOLVER_ITERS):
+        mid = 0.5 * (lo + hi)
+        if sum(probs_for(mid)) > 1.0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < _SOLVER_TOL:
+            break
+    p = probs_for(0.5 * (lo + hi))
+    total = sum(p)
+    return tuple(x / total for x in p)  # guard the last ulp
+
+
+def _power_probs(raw: tuple[float, ...]) -> tuple[float, ...]:
+    """Power (odds-ratio) de-vig: find ``k`` with ``sum(raw_i ** k) == 1``.
+
+    Each ``raw_i`` is below 1 and the booksum is above 1, so the exponent is
+    above 1 and the sum is monotonically decreasing in ``k`` — bisection is
+    safe. Unlike proportional, this shrinks longshots harder than favourites,
+    which is the direction the favourite-longshot bias actually runs.
+    """
+    lo, hi = 1.0, 64.0
+    for _ in range(_SOLVER_ITERS):
+        mid = 0.5 * (lo + hi)
+        if sum(r**mid for r in raw) > 1.0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < _SOLVER_TOL:
+            break
+    k = 0.5 * (lo + hi)
+    p = tuple(r**k for r in raw)
+    total = sum(p)
+    return tuple(x / total for x in p)
+
+
+def _devig_raw(raw: tuple[float, ...], method: str) -> tuple[float, ...]:
+    if method == "proportional":
+        total = sum(raw)
+        return tuple(r / total for r in raw)
+    if method == "shin":
+        return _shin_probs(raw)
+    if method == "power":
+        return _power_probs(raw)
+    raise ValueError(f"unknown de-vig method {method!r}; expected one of {DEVIG_METHODS}")
+
+
+def devig(
+    odds_home: float,
+    odds_draw: float,
+    odds_away: float,
+    *,
+    method: str = "proportional",
+) -> Probs:
     """De-vig decimal odds -> implied probabilities summing to 1.
 
     Raw implied probability is 1/odds; the three sum to >1 by the bookmaker's
-    margin (overround). Proportional normalization removes it.
+    margin (overround). ``method`` selects how that margin is removed — see
+    :data:`DEVIG_METHODS`. The default is proportional normalization and is
+    keyword-only to change, so every existing positional caller is unaffected.
     """
     if min(odds_home, odds_draw, odds_away) <= 1.0:
         raise ValueError("decimal odds must be > 1.0")
     raw = (1.0 / odds_home, 1.0 / odds_draw, 1.0 / odds_away)
-    total = sum(raw)
-    return (raw[0] / total, raw[1] / total, raw[2] / total)
+    p = _devig_raw(raw, method)
+    return (p[0], p[1], p[2])
 
 
 def devig2(odds_a: float, odds_b: float) -> tuple[float, float]:

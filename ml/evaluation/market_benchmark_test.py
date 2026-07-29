@@ -6,6 +6,7 @@ from datetime import date, datetime
 import pytest
 
 from ml.evaluation.market_benchmark import (
+    DEVIG_METHODS,
     MatchedMatch,
     benchmark,
     benchmark_binary,
@@ -34,6 +35,64 @@ def test_devig_removes_margin_proportionally():
 def test_devig_rejects_bad_odds():
     with pytest.raises(ValueError):
         devig(1.0, 3.0, 4.0)
+
+
+# --- devig methods (D0 §10) ----------------------------------------------
+
+def test_default_stays_proportional_and_positional_calls_are_untouched():
+    # The frozen q3 baseline (pipeline/run_calibrator_benchmark.py) calls this
+    # positionally with three args. Every market number in
+    # docs/MODEL-EXPERIMENTS.md was computed under proportional. Both would be
+    # silently invalidated if the default ever moved.
+    assert devig(1.60, 4.20, 6.00) == devig(1.60, 4.20, 6.00, method="proportional")
+    raw = (1 / 1.60, 1 / 4.20, 1 / 6.00)
+    total = sum(raw)
+    assert devig(1.60, 4.20, 6.00) == pytest.approx(tuple(r / total for r in raw))
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_every_method_returns_a_normalized_ordered_triple(method):
+    p = devig(1.60, 4.20, 6.00, method=method)
+    assert sum(p) == pytest.approx(1.0)
+    assert p[0] > p[1] > p[2]
+    assert all(0.0 < x < 1.0 for x in p)
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_every_method_agrees_on_a_zero_vig_book(method):
+    # With no margin there is nothing to remove, so the methods cannot
+    # disagree. A method that does is solving the wrong equation.
+    assert devig(2.0, 4.0, 4.0, method=method) == pytest.approx((0.5, 0.25, 0.25))
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_every_method_rejects_bad_odds(method):
+    with pytest.raises(ValueError):
+        devig(1.0, 3.0, 4.0, method=method)
+
+
+def test_shin_and_power_shift_weight_toward_the_favourite():
+    # Both model the favourite-longshot bias: proportional over-prices
+    # longshots, so removing the margin proportionally leaves them too high.
+    prop = devig(1.10, 12.0, 26.0, method="proportional")
+    shin = devig(1.10, 12.0, 26.0, method="shin")
+    power = devig(1.10, 12.0, 26.0, method="power")
+    assert power[0] > shin[0] > prop[0]
+    assert power[2] < shin[2] < prop[2]
+
+
+def test_unknown_method_is_rejected_by_name():
+    with pytest.raises(ValueError, match="unknown de-vig method"):
+        devig(1.60, 4.20, 6.00, method="kelly")
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_methods_are_deterministic(method):
+    # The solvers are bisections with a fixed iteration budget; a benchmark
+    # that moved between runs would be unreproducible.
+    assert devig(1.83, 3.60, 4.50, method=method) == devig(
+        1.83, 3.60, 4.50, method=method
+    )
 
 
 # --- join ----------------------------------------------------------------

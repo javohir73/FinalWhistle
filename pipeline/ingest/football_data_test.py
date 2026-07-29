@@ -9,7 +9,11 @@ import textwrap
 
 import pytest
 
-from pipeline.ingest.football_data import load_football_data_csv
+from pipeline.ingest.football_data import (
+    ClosingOddsUnavailable,
+    available_families,
+    load_football_data_csv,
+)
 
 
 def _write(tmp_path, name, text):
@@ -39,9 +43,9 @@ def test_prefers_avg_closing_over_bet365(tmp_path):
     assert r["odds_away"] == 4.20
 
 
-def test_falls_back_when_no_closing_columns(tmp_path):
-    # Only non-closing AvgH/AvgD/AvgA present -> use them.
-    csv = _write(
+def _pre_closing_only(tmp_path):
+    # Only pre-closing AvgH/AvgD/AvgA — no "C"-suffixed family anywhere.
+    return _write(
         tmp_path,
         "epl.csv",
         """
@@ -49,10 +53,67 @@ def test_falls_back_when_no_closing_columns(tmp_path):
         E0,12/08/23,Arsenal,Chelsea,2,1,H,1.85,3.50,4.30
         """,
     )
-    records = load_football_data_csv(csv)
+
+
+def test_refuses_pre_closing_odds_by_default(tmp_path):
+    # D0/A2. The publisher's rule is that a family without a "C" is PRE-closing.
+    # This module's whole purpose is answering a closing-line question, so a
+    # file with no closing family must refuse — not quietly hand back a
+    # different market under the same label.
+    with pytest.raises(ClosingOddsUnavailable) as exc:
+        load_football_data_csv(_pre_closing_only(tmp_path))
+    # The message has to name what it found, or the operator cannot act on it.
+    assert "Avg" in str(exc.value)
+
+
+def test_pre_closing_odds_available_only_on_explicit_opt_in(tmp_path):
+    records = load_football_data_csv(_pre_closing_only(tmp_path), require_basis="any")
     assert len(records) == 1
     assert records[0]["odds_source"] == "Avg"
+    assert records[0]["odds_basis"] == "pre_closing"
     assert records[0]["odds_home"] == 1.85
+
+
+def test_closing_records_carry_their_basis_and_bookmaker(tmp_path):
+    # A3: provenance travels on the record, not in the caller's head.
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        """
+        Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR,PSCH,PSCD,PSCA
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.88,3.65,4.35
+        """,
+    )
+    r = load_football_data_csv(csv)[0]
+    assert r["odds_source"] == "PSC"
+    assert r["odds_basis"] == "closing"
+    assert r["odds_bookmaker"] == "Pinnacle"
+
+
+def test_closing_preferred_over_pre_closing_even_under_any(tmp_path):
+    # require_basis="any" widens what is ACCEPTABLE; it must not change what is
+    # PREFERRED. A closing family present anywhere still wins.
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        """
+        Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR,AvgH,AvgD,AvgA,PSCH,PSCD,PSCA
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.85,3.50,4.30,1.88,3.65,4.35
+        """,
+    )
+    for basis in ("closing", "any"):
+        r = load_football_data_csv(csv, require_basis=basis)[0]
+        assert (r["odds_source"], r["odds_basis"]) == ("PSC", "closing")
+
+
+def test_available_families_reports_every_present_family_in_order(tmp_path):
+    keys = [
+        f.key
+        for f in available_families(
+            ["Div", "Date", "B365H", "B365D", "B365A", "PSCH", "PSCD", "PSCA"]
+        )
+    ]
+    assert keys == ["PSC", "B365"]
 
 
 def test_parses_ddmmyy_dates(tmp_path):
