@@ -1202,7 +1202,10 @@ export interface MarketHealthVenue {
 
 export interface MarketBenchmarkResponse {
   experimental: boolean;
-  status: "ok" | "no_data" | "unreadable";
+  status: "ok" | "no_data" | "unreadable" | "invalid";
+  /** Which persistence backend answered — "database" is the only one that can
+   *  deliver in production (see docs/adr/0001-research-artifact-delivery.md). */
+  source?: "database" | "file";
   detail?: string;
   artifact?: MarketBenchmarkArtifact;
 }

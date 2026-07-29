@@ -1368,6 +1368,55 @@ class CaptureHeartbeat(Base):
     )
 
 
+class ResearchArtifact(Base):
+    """Append-only store for operator-generated research artifacts.
+
+    Exists because the filesystem cannot deliver one. The API image is built
+    with `COPY backend /app/backend`, the generated artifact is gitignored so
+    it is never in the image, the Render free tier has no persistent disk, and
+    an ephemeral CI runner cannot write into the running container -- so the
+    on-disk path the research API reads can never hold an artifact in
+    production. This table is reachable from both sides using the DATABASE_URL
+    that already exists in Render and in Actions: no new service, no new
+    secret, no new cost.
+
+    ONLY small aggregate research JSON belongs here -- metrics, counts,
+    exclusion tallies. Raw venue payloads stay OUT: they are large, unbounded
+    and already have their own provenance path (`venue_price_tick
+    .raw_payload_ref` into the raw store). Putting them in a free-tier
+    Postgres would trade one dead end for a worse one. `max_bytes` at the
+    write boundary enforces that distinction rather than trusting it.
+
+    Append-only: a new generation inserts a new row and the reader takes the
+    latest. Re-publishing byte-identical content is a no-op via the
+    (kind, sha256) key, so replaying a run cannot grow the table.
+    """
+
+    __tablename__ = "research_artifact"
+    __table_args__ = (
+        UniqueConstraint("kind", "sha256", name="uq_research_artifact_content"),
+        CheckConstraint("size_bytes > 0", name="ck_research_artifact_size"),
+        CheckConstraint("length(sha256) = 64", name="ck_research_artifact_digest"),
+        Index("ix_research_artifact_kind_generated", "kind", "generated_at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: Logical artifact family, e.g. "market_benchmark".
+    kind: Mapped[str] = mapped_column(String(60))
+    #: The generator's own schema version, checked by the reader.
+    artifact_version: Mapped[str] = mapped_column(String(60))
+    #: When the GENERATOR ran -- not when this row was inserted. Latest-wins
+    #: ordering uses this, so a delayed publish cannot displace newer content.
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    payload: Mapped[dict] = mapped_column(JSON)
+    sha256: Mapped[str] = mapped_column(String(64))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    published_by: Mapped[str] = mapped_column(String(120))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+
 # --- Wave 2: NRL team-stats layer -------------------------------------------
 # Table names nrl_match_stats / nrl_try_events are frozen by the match-intel
 # program spec (Wave 3 builds on them). They deviate from the sport_* naming
