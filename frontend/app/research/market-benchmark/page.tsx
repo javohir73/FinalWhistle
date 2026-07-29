@@ -94,18 +94,24 @@ export default async function MarketBenchmarkPage() {
       </p>
       <h1>Venue market benchmark</h1>
 
-      {!data || (data.status !== "ok" && data.status !== "no_data") ? (
+      {/* `no_data` is the ONLY state that may claim emptiness, so it is
+          matched first and by name. Everything else that is not a complete
+          success — a fault, a poisoned artifact, an unreachable API, or an
+          `ok` carrying no artifact — is a fault on our side. Ordering it this
+          way means a status we have never seen fails toward "something is
+          wrong" rather than toward "there is nothing here". */}
+      {data && data.status === "no_data" ? (
+        <p data-testid="no-data">
+          No benchmark data yet. An operator generates this artifact with{" "}
+          <code>pipeline.run_market_benchmark_report</code>; until then there is
+          nothing to show — and nothing is claimed.
+        </p>
+      ) : !data || data.status !== "ok" || !data.artifact ? (
         <p data-testid="unavailable">
           This benchmark cannot be read right now. That is a fault on our side
           — <strong>not</strong> a statement that no data exists. Whatever was
           published last is still published; this page just could not reach or
           parse it, so nothing is shown rather than something wrong.
-        </p>
-      ) : data.status !== "ok" || !data.artifact ? (
-        <p data-testid="no-data">
-          No benchmark data yet. An operator generates this artifact with{" "}
-          <code>pipeline.run_market_benchmark_report</code>; until then there is
-          nothing to show — and nothing is claimed.
         </p>
       ) : (
         <>

@@ -148,6 +148,19 @@ it("treats an unreachable API as a fault too, not as an empty result", async () 
   expect(screen.queryByTestId("no-data")).not.toBeInTheDocument();
 });
 
+it("treats an ok response carrying no artifact as a fault, not as emptiness", async () => {
+  /* A malformed success is the quietest failure of the three: the API said
+     everything worked and then handed over nothing. Reading that as "no data
+     yet" would be the same lie as the others, told by a bug on our own side
+     rather than by an outage. */
+  mockGet.mockResolvedValue({ experimental: true, status: "ok" });
+  render(await MarketBenchmarkPage());
+
+  expect(screen.getByTestId("unavailable")).toBeInTheDocument();
+  expect(screen.queryByTestId("no-data")).not.toBeInTheDocument();
+  expect(screen.queryByText(/No benchmark data yet/)).not.toBeInTheDocument();
+});
+
 it("still says 'no data yet' when that is genuinely true", async () => {
   mockGet.mockResolvedValue({
     experimental: true,
