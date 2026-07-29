@@ -25,7 +25,7 @@ from pipeline.ingest.venues.types import (
 )
 from worker.capture import CaptureWorker
 from worker.config import CaptureSettings
-from worker.raw_store import RawObject, RawPayloadRejected, RawStoreError
+from worker.raw_store import RawObject, RawPayloadRejected, RawStoreError  # noqa: F401
 
 NOW = datetime(2026, 10, 3, 14, 30, tzinfo=timezone.utc)
 
@@ -781,3 +781,203 @@ def test_a_refused_run_does_not_touch_the_archive(db_session):
             settings=_settings(enabled=False)).run_all(scheduled_cycle_at=NOW)
 
     assert store.pruned_at is None
+
+
+# --- round 3: enabled_venues is part of the gate ----------------------------
+
+
+def test_a_disabled_venue_is_refused_even_with_its_own_allowlist_entry(db_session):
+    """The gate checked the master switch and the per-venue allowlist but not
+    MARKET_CAPTURE_VENUES. run_all hid it by only ever iterating enabled
+    venues; a direct call walked straight through. Being reachable through
+    self.adapters is not being enabled."""
+    adapter = FixtureAdapter("polymarket", markets=[
+        VenueMarket(venue="polymarket", venue_key="0xaaa", sport="football",
+                    raw_title="x", status="active", discovered_at=NOW,
+                    market_type="moneyline", raw_payload={"event": {}})])
+    store = MemoryRawStore()
+    settings = _settings(enabled_venues=("kalshi",),
+                         market_key_allowlist=("polymarket:0xaaa",))
+    worker = CaptureWorker(
+        db=db_session, adapters={"polymarket": adapter}, raw_store=store,
+        settings=settings, now=lambda: NOW, monotonic=lambda: 0.0,
+        sleep=lambda _s: None, jitter=lambda: 0.5)
+
+    result = worker.run_venue_cycle("polymarket", scheduled_cycle_at=NOW)
+
+    assert "not in MARKET_CAPTURE_VENUES" in result["refused"]
+    assert adapter.discover_calls == 0
+    assert adapter.quote_calls == []
+    assert adapter.settlement_calls == []
+    assert store.objects == []
+    assert store.pruned_at is None
+    assert db_session.query(VenueMarketRow).count() == 0
+    assert db_session.query(VenuePriceTick).count() == 0
+    assert db_session.query(CaptureHeartbeat).count() == 0
+
+
+# --- round 3: retention is fail-closed, before capture ----------------------
+
+
+class BrokenPruneStore(MemoryRawStore):
+    def __init__(self):
+        super().__init__()
+        self.prune_calls = 0
+
+    def prune(self, *, now):
+        self.prune_calls += 1
+        raise RawStoreError("[Errno 13] Permission denied: 'var/market-intel-raw'")
+
+
+def test_a_retention_failure_refuses_the_cycle_before_any_capture(db_session):
+    """Pruning afterwards and logging the failure is not enforcement: the next
+    cycle writes anyway and the archive passes the horizon regardless."""
+    adapter = FixtureAdapter()
+    store = BrokenPruneStore()
+    worker = _worker(db_session, adapter, store)
+
+    result = worker.run_venue_cycle("kalshi", scheduled_cycle_at=NOW)
+
+    assert "raw retention failed" in result["refused"]
+    assert store.prune_calls == 1
+    assert adapter.discover_calls == 0
+    assert adapter.quote_calls == []
+    assert store.objects == []
+    assert db_session.query(VenueMarketRow).count() == 0
+    assert db_session.query(VenuePriceTick).count() == 0
+    assert db_session.query(CaptureHeartbeat).count() == 0
+
+
+def test_a_retention_failure_refuses_every_venue_in_the_run(db_session):
+    kalshi = FixtureAdapter("kalshi")
+    polymarket = FixtureAdapter("polymarket")
+    store = BrokenPruneStore()
+    settings = _settings(enabled_venues=("kalshi", "polymarket"),
+                         market_key_allowlist=("kalshi:KX-1", "polymarket:KX-1"))
+    worker = CaptureWorker(
+        db=db_session, adapters={"kalshi": kalshi, "polymarket": polymarket},
+        raw_store=store, settings=settings, now=lambda: NOW,
+        monotonic=lambda: 0.0, sleep=lambda _s: None, jitter=lambda: 0.5)
+
+    results = worker.run_all(scheduled_cycle_at=NOW)
+
+    assert all("raw retention failed" in r["refused"] for r in results.values())
+    assert (kalshi.discover_calls, polymarket.discover_calls) == (0, 0)
+    assert store.prune_calls == 1, "pruned once for the cycle, not per venue"
+    assert db_session.query(CaptureHeartbeat).count() == 0
+
+
+def test_retention_runs_before_capture_not_after(db_session):
+    order = []
+
+    class OrderedStore(MemoryRawStore):
+        def prune(self, *, now):
+            order.append("prune")
+            return super().prune(now=now)
+
+        def _record(self, *args, **kwargs):
+            order.append("write")
+            return super()._record(*args, **kwargs)
+
+    _worker(db_session, FixtureAdapter(), OrderedStore()).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    assert order[0] == "prune"
+
+
+# --- round 3: discovery bytes reach storage ---------------------------------
+
+
+SERIES_BODY = b'{"series": [{"ticker": "KXEPL", "tags": ["Soccer"]}],  "z": 1}\n'
+EVENTS_BODY = b'{"events": [{"series_ticker": "KXEPL"}], "n": "0.4300"}\n'
+
+
+def _discovery(*, markets, documents, rejected=()):
+    return DiscoveryResult(markets=tuple(markets), rejected=tuple(rejected),
+                           documents=tuple(documents))
+
+
+class DocumentAdapter(FixtureAdapter):
+    """Returns catalogue pages the way a real adapter now does."""
+
+    def discover_markets(self, sport):
+        self.discover_calls += 1
+        if self._discover_error is not None:
+            raise self._discover_error
+        documents = (RawDocument(name="series", body=SERIES_BODY),
+                     RawDocument(name="events-1", body=EVENTS_BODY))
+        return _discovery(markets=self._markets, documents=documents,
+                          rejected=self._rejected)
+
+
+def test_discovery_pages_are_stored_byte_for_byte(db_session):
+    """_catalogue dropped DiscoveryResult.documents entirely, and markets
+    carried none, so the stored 'discovery' object was a re-serialized parse.
+    The venue's own catalogue bytes were never kept."""
+    adapter = DocumentAdapter(markets=[_market("KX-1"), _market("KX-2")])
+    store = MemoryRawStore()
+    settings = _settings(market_key_allowlist=("kalshi:KX-1", "kalshi:KX-2"))
+
+    _worker(db_session, adapter, store, settings=settings).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    discovery = [obj for obj in store.objects if obj["kind"] == "discovery"]
+    assert [obj["body"] for obj in discovery] == [SERIES_BODY, EVENTS_BODY]
+    assert b'"0.4300"' in EVENTS_BODY and b'"z": 1' in SERIES_BODY
+
+
+def test_identical_pages_are_not_written_once_per_market(db_session):
+    """Two markets came off the same two pages. Storing the pages per market
+    would quadruple identical blobs at every discovery."""
+    adapter = DocumentAdapter(markets=[_market(f"KX-{n}") for n in range(1, 4)])
+    store = MemoryRawStore()
+    settings = _settings(
+        market_key_allowlist=tuple(f"kalshi:KX-{n}" for n in range(1, 4)))
+
+    _worker(db_session, adapter, store, settings=settings).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    discovery = [obj for obj in store.objects if obj["kind"] == "discovery"]
+    assert len(discovery) == 2, "one copy of each page for the whole cycle"
+    manifests = [obj for obj in store.objects
+                 if obj["kind"] == "discovery-manifest"]
+    assert len(manifests) == 1
+    refs = {row.raw_title_history[0]["raw_payload_ref"]
+            for row in db_session.query(VenueMarketRow)}
+    assert len(refs) == 1, "every market points at the one shared manifest"
+
+
+def test_a_top_level_malformed_response_keeps_its_bytes(db_session):
+    """_get built a RawDocument then called response.json(); a decode or
+    schema failure raised without it, so the one body worth keeping was the
+    one thrown away."""
+    garbage = b'{"events": "not-a-list"  \n'
+    adapter = FixtureAdapter(discover_error=VenuePayloadError(
+        "kalshi /events response is not valid JSON",
+        raw_document=RawDocument(name="events-1", body=garbage)))
+    store = MemoryRawStore()
+
+    result = _worker(db_session, adapter, store).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    rejected = [obj for obj in store.objects if obj["kind"] == "rejected"]
+    assert [obj["body"] for obj in rejected] == [garbage]
+    assert result["rejected_payloads_stored"] == 1
+    assert db_session.query(CaptureHeartbeat).one().error_count == 1
+    assert db_session.query(VenueMarketRow).count() == 0
+
+
+def test_an_all_invalid_catalogue_still_keeps_every_rejected_body(db_session):
+    adapter = DocumentAdapter(markets=[], rejected=tuple(
+        RejectedPayload(reason=f"bad {n}", identifier=f"m{n}", payload={"n": n})
+        for n in range(3)))
+    store = MemoryRawStore()
+
+    result = _worker(db_session, adapter, store).run_venue_cycle(
+        "kalshi", scheduled_cycle_at=NOW)
+
+    rejected = [obj for obj in store.objects if obj["kind"] == "rejected"]
+    assert [obj["payload"] for obj in rejected] == [{"n": 0}, {"n": 1}, {"n": 2}]
+    assert result["error_count"] == 3
+    assert db_session.query(VenuePriceTick).count() == 0
+    assert db_session.query(CaptureHeartbeat).count() == 1

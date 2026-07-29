@@ -35,11 +35,20 @@ _STREAM_TRANSPORTS = {"streaming", "recovery"}
 
 
 class VenuePayloadError(ValueError):
-    """A venue response cannot be represented by the normalized contract."""
+    """A venue response cannot be represented by the normalized contract.
 
-    def __init__(self, message: str, *, raw_payload: JsonObject | None = None) -> None:
+    Carries whatever evidence exists: the parsed payload when there is one,
+    and ``raw_document`` when the failure happened at or before parsing. A
+    response that fails to decode is exactly the one whose original bytes are
+    worth keeping, so the bytes travel with the error rather than being lost
+    at the raise site.
+    """
+
+    def __init__(self, message: str, *, raw_payload: JsonObject | None = None,
+                 raw_document=None) -> None:
         super().__init__(message)
         self.raw_payload = raw_payload
+        self.raw_document = raw_document
 
 
 def _required_text(value: str, field_name: str) -> str:

@@ -402,3 +402,48 @@ def test_a_rejected_market_is_returned_not_just_logged():
     assert len(result.markets) == 3
     assert all(reject.reason for reject in result.rejected)
     assert result.documents, "discovery keeps its own response bytes"
+
+
+def test_an_undecodable_response_keeps_its_bytes_on_the_error():
+    """A body that will not parse is exactly the one worth retaining, so the
+    document rides on the exception rather than being dropped at the raise."""
+    garbage = b'{"events": "not-a-list"  \n'
+
+    class Undecodable(FakeResponse):
+        def json(self):
+            raise ValueError("Expecting ',' delimiter")
+
+    session = FakeSession([])
+    session.responses = [Undecodable({}, body=garbage)]
+    adapter = KalshiAdapter(session=session, now=lambda: NOW)
+
+    with pytest.raises(VenuePayloadError) as excinfo:
+        adapter.discover_markets("football")
+
+    assert excinfo.value.raw_document.body == garbage
+
+
+def test_a_schema_failure_also_keeps_its_bytes():
+    body = b'["not", "an", "object"]'
+    session = FakeSession([])
+    session.responses = [FakeResponse(["not", "an", "object"], body=body)]
+    adapter = KalshiAdapter(session=session, now=lambda: NOW)
+
+    with pytest.raises(VenuePayloadError) as excinfo:
+        adapter.discover_markets("football")
+
+    assert excinfo.value.raw_document.body == body
+
+
+def test_discovered_markets_carry_the_pages_they_came_from():
+    adapter, _session = _adapter(
+        _fixture("kalshi_soccer_series.json"),
+        _fixture("kalshi_open_events_page_1.json"),
+        _fixture("kalshi_open_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    assert result.documents
+    for market in result.markets:
+        assert market.raw_documents == result.documents

@@ -202,6 +202,11 @@ class FileRawPayloadStore:
         Without this the archive is unbounded: a 30-second cadence writes
         forever and the byte ceiling caps each object, not the total. A
         retention of 0 means keep everything, and has to be chosen explicitly.
+
+        Only a genuine disappearance race is suppressed. A PermissionError, a
+        read-only mount or an unreadable directory means retention did NOT
+        happen, and swallowing that turns "bounded growth" into a claim
+        nothing enforces -- so it raises, and the caller refuses to write more.
         """
         if not self.retention_days:
             return 0
@@ -209,20 +214,41 @@ class FileRawPayloadStore:
         removed = 0
         if not self.root.exists():
             return 0
-        for path in self.root.rglob("*.json"):
+        try:
+            paths = list(self.root.rglob("*.json"))
+        except OSError as exc:
+            raise RawStoreError(f"raw retention could not read {self.root}: {exc}") from exc
+        for path in paths:
             try:
-                if path.stat().st_mtime < cutoff:
-                    path.unlink()
-                    removed += 1
-            except OSError:  # concurrent prune or vanished file: not fatal
+                stale = path.stat().st_mtime < cutoff
+            except FileNotFoundError:
+                continue  # another prune got there first
+            except OSError as exc:
+                raise RawStoreError(f"raw retention could not stat {path}: {exc}") from exc
+            if not stale:
                 continue
-        for directory in sorted(self.root.rglob("*"), reverse=True):
-            if directory.is_dir() and not any(directory.iterdir()):
-                try:
-                    directory.rmdir()
-                except OSError:
-                    continue
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            except OSError as exc:
+                raise RawStoreError(f"raw retention could not delete {path}: {exc}") from exc
+            removed += 1
+        self._remove_empty_directories()
         return removed
+
+    def _remove_empty_directories(self) -> None:
+        """Tidy-up only. A directory left behind does not affect the bound."""
+        try:
+            directories = sorted(self.root.rglob("*"), reverse=True)
+        except OSError:
+            return
+        for directory in directories:
+            try:
+                if directory.is_dir() and not any(directory.iterdir()):
+                    directory.rmdir()
+            except OSError:
+                continue
 
 
 class S3RawPayloadStore:
@@ -302,15 +328,28 @@ class S3RawPayloadStore:
             )
 
     def _rule_covers_prefix(self, rule: Mapping) -> bool:
-        candidates = [rule.get("Prefix")]
+        """Does this rule expire everything we write?
+
+        The rule's prefix must be a prefix OF OURS, compared as whole strings.
+        AWS supplies `Filter.And.Prefix` as a single string; iterating it
+        yields characters, and a one-character candidate makes any sibling
+        prefix look covered -- a rule for `market-other` would have been
+        accepted as covering `market-intel` on the strength of a shared "m".
+        """
+        candidates: list[object] = [rule.get("Prefix")]
         rule_filter = rule.get("Filter")
         if isinstance(rule_filter, Mapping):
             candidates.append(rule_filter.get("Prefix"))
-            for nested in rule_filter.get("And", {}).get("Prefix", []) if isinstance(
-                    rule_filter.get("And"), Mapping) else []:
-                candidates.append(nested)
+            nested = rule_filter.get("And")
+            if isinstance(nested, Mapping):
+                candidates.append(nested.get("Prefix"))
         for candidate in candidates:
-            if candidate in (None, "") or self.prefix.startswith(str(candidate)):
+            if candidate is None:
+                continue
+            text = str(candidate)
+            # S3 semantics: the rule covers every key starting with its
+            # prefix, so it covers us when its prefix is a prefix of ours.
+            if text == "" or self.prefix.startswith(text):
                 return True
         return False
 

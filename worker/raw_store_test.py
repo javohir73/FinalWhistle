@@ -1,6 +1,6 @@
 """Raw store: lossless bytes, safe paths, bounded growth, honest failures."""
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -335,3 +335,91 @@ def test_plain_but_credential_looking_keys_get_no_readable_path(tmp_path, venue_
     assert venue_key not in stored.reference
     for fragment in ("api_key", "Bearer", "APIKEY", "secret", "sk_1234"):
         assert fragment not in stored.reference
+
+
+# --- round 3: And-prefix is a string, and prune fails loudly ----------------
+
+def _and_rule(prefix, days=30):
+    return {"Rules": [{"Status": "Enabled",
+                       "Filter": {"And": {"Prefix": prefix,
+                                          "Tag": {"Key": "k", "Value": "v"}}},
+                       "Expiration": {"Days": days}}]}
+
+
+def test_a_sibling_and_prefix_sharing_a_first_character_is_rejected():
+    """`Filter.And.Prefix` is a STRING. Iterating it yielded characters, so a
+    rule for `market-other` contributed the candidate "m" and any prefix
+    starting with "m" looked covered."""
+    with pytest.raises(RawStoreError, match="no enabled expiration rule"):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          prefix="market-intel", retention_days=90,
+                          client=_FakeS3(_and_rule("market-other")))
+
+
+def test_a_matching_and_prefix_is_accepted():
+    store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                              prefix="market-intel", retention_days=90,
+                              client=_FakeS3(_and_rule("market-intel")))
+
+    assert store.prefix == "market-intel"
+
+
+def test_a_broader_and_prefix_still_covers_us():
+    store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                              prefix="market-intel/kalshi", retention_days=90,
+                              client=_FakeS3(_and_rule("market-intel")))
+
+    assert store.prefix == "market-intel/kalshi"
+
+
+def test_a_prune_permission_failure_is_raised_not_swallowed(tmp_path):
+    """Catching every OSError as a vanished-file race meant a read-only mount
+    or a permission problem silently pruned nothing while reporting success."""
+    store = FileRawPayloadStore(tmp_path, retention_days=1)
+    store.put(venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+              payload=PAYLOAD)
+
+    def boom(self):
+        raise PermissionError(13, "Permission denied")
+
+    original = type(tmp_path).unlink
+    try:
+        type(tmp_path).unlink = boom
+        with pytest.raises(RawStoreError, match="could not delete"):
+            store.prune(now=NOW + timedelta(days=400))
+    finally:
+        type(tmp_path).unlink = original
+
+
+def test_a_vanished_file_is_still_a_benign_race(tmp_path):
+    """The one case that really is harmless: another prune got there first."""
+    store = FileRawPayloadStore(tmp_path, retention_days=1)
+    store.put(venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+              payload=PAYLOAD)
+
+    def vanish(self):
+        raise FileNotFoundError(2, "No such file")
+
+    original = type(tmp_path).unlink
+    try:
+        type(tmp_path).unlink = vanish
+        assert store.prune(now=NOW + timedelta(days=400)) == 0
+    finally:
+        type(tmp_path).unlink = original
+
+
+def test_an_unreadable_root_is_raised(tmp_path):
+    store = FileRawPayloadStore(tmp_path, retention_days=1)
+    store.put(venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+              payload=PAYLOAD)
+
+    def boom(self, pattern):
+        raise PermissionError(13, "Permission denied")
+
+    original = type(tmp_path).rglob
+    try:
+        type(tmp_path).rglob = boom
+        with pytest.raises(RawStoreError, match="could not read"):
+            store.prune(now=NOW)
+    finally:
+        type(tmp_path).rglob = original

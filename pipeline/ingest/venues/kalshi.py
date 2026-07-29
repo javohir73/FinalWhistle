@@ -51,6 +51,19 @@ def _response_bytes(response) -> bytes:
     raise VenuePayloadError("venue response exposed no raw body")
 
 
+def _decode(response, document: RawDocument, label: str):
+    """Parse, keeping the bytes attached to any failure.
+
+    A body that will not decode is precisely the one worth retaining, so the
+    document rides on the exception instead of being dropped at the raise.
+    """
+    try:
+        return response.json()
+    except Exception as exc:  # noqa: BLE001 - any decoder failure is the same story
+        raise VenuePayloadError(f"{label} response is not valid JSON: {exc}",
+                                raw_document=document) from exc
+
+
 def _parse_time(value: object) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
@@ -168,9 +181,10 @@ class KalshiAdapter:
             content_type=str(getattr(response, "headers", {}).get(
                 "Content-Type", "application/json")),
         )
-        payload = response.json()
+        payload = _decode(response, document, f"kalshi {path}")
         if not isinstance(payload, dict):
-            raise VenuePayloadError(f"kalshi {path} response must be an object")
+            raise VenuePayloadError(f"kalshi {path} response must be an object",
+                                    raw_document=document)
         return payload, document
 
     def _soccer_series(self) -> tuple[dict[str, dict[str, Any]], RawDocument]:
@@ -270,7 +284,8 @@ class KalshiAdapter:
             for raw_market in nested:
                 try:
                     market = self._to_market(
-                        raw_market, event, series, discovered_at=discovered_at
+                        raw_market, event, series, discovered_at=discovered_at,
+                        documents=documents,
                     )
                 except VenuePayloadError as exc:
                     identifier = redact(str(
@@ -293,6 +308,7 @@ class KalshiAdapter:
         series: dict[str, Any],
         *,
         discovered_at: datetime,
+        documents: tuple = (),
     ) -> VenueMarket:
         if not isinstance(raw_market, dict):
             raise VenuePayloadError("market must be an object")
@@ -319,6 +335,7 @@ class KalshiAdapter:
                 "event": {key: value for key, value in event.items() if key != "markets"},
                 "market": raw_market,
             },
+            raw_documents=documents,
         )
 
     def fetch_quote(self, venue_key: str) -> Quote:

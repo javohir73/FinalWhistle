@@ -62,6 +62,19 @@ def _document(response, name: str, url: str) -> RawDocument:
     )
 
 
+def _decode(response, document: RawDocument, label: str):
+    """Parse, keeping the bytes attached to any failure.
+
+    A body that will not decode is precisely the one worth retaining, so the
+    document rides on the exception instead of being dropped at the raise.
+    """
+    try:
+        return response.json()
+    except Exception as exc:  # noqa: BLE001 - any decoder failure is the same story
+        raise VenuePayloadError(f"{label} response is not valid JSON: {exc}",
+                                raw_document=document) from exc
+
+
 def _parse_time(value: object) -> datetime | None:
     if not isinstance(value, str) or not value.strip():
         return None
@@ -209,9 +222,10 @@ class PolymarketAdapter:
         response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
         document = _document(response, name, url)
-        payload = response.json()
+        payload = _decode(response, document, f"polymarket {path}")
         if not isinstance(payload, dict):
-            raise VenuePayloadError(f"polymarket {path} response must be an object")
+            raise VenuePayloadError(f"polymarket {path} response must be an object",
+                                    raw_document=document)
         return payload, document
 
     def _get_clob(
@@ -221,9 +235,11 @@ class PolymarketAdapter:
         response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
         document = _document(response, name, url)
-        payload = response.json()
+        payload = _decode(response, document, f"polymarket CLOB {path}")
         if not isinstance(payload, dict):
-            raise VenuePayloadError(f"polymarket CLOB {path} response must be an object")
+            raise VenuePayloadError(
+                f"polymarket CLOB {path} response must be an object",
+                raw_document=document)
         return payload, document
 
     def _get_gamma_list(
@@ -233,11 +249,12 @@ class PolymarketAdapter:
         response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
         document = _document(response, name, url)
-        payload = response.json()
+        payload = _decode(response, document, f"polymarket {path}")
         if not isinstance(payload, list) or not all(
             isinstance(item, dict) for item in payload
         ):
-            raise VenuePayloadError(f"polymarket {path} response must be a list")
+            raise VenuePayloadError(f"polymarket {path} response must be a list",
+                                    raw_document=document)
         return payload, document
 
     def _soccer_tag(self) -> tuple[dict[str, Any], RawDocument]:
@@ -337,6 +354,7 @@ class PolymarketAdapter:
                         event,
                         tag,
                         discovered_at=discovered_at,
+                        documents=documents,
                     )
                 except VenuePayloadError as exc:
                     identifier = redact(str(
@@ -358,6 +376,7 @@ class PolymarketAdapter:
         tag: dict[str, Any],
         *,
         discovered_at: datetime,
+        documents: tuple = (),
     ) -> VenueMarket:
         if not isinstance(raw_market, dict):
             raise VenuePayloadError("market must be an object")
@@ -386,6 +405,7 @@ class PolymarketAdapter:
                 "event": {key: value for key, value in event.items() if key != "markets"},
                 "market": raw_market,
             },
+            raw_documents=documents,
         )
 
     def fetch_quote(self, venue_key: str) -> Quote:

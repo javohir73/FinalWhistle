@@ -413,3 +413,34 @@ def test_a_rejected_market_is_returned_not_just_logged():
     assert any("conditionId" in reason for reason in reasons)
     assert any("not a list" in reason for reason in reasons)
     assert result.documents
+
+
+def test_an_undecodable_response_keeps_its_bytes_on_the_error():
+    garbage = b'{"id": 5,,}'
+
+    class Undecodable(FakeResponse):
+        def json(self):
+            raise ValueError("Expecting property name")
+
+    session = FakeSession([])
+    session.responses = [Undecodable({}, body=garbage)]
+    adapter = PolymarketAdapter(session=session, now=lambda: NOW)
+
+    with pytest.raises(VenuePayloadError) as excinfo:
+        adapter.discover_markets("football")
+
+    assert excinfo.value.raw_document.body == garbage
+
+
+def test_discovered_markets_carry_the_pages_they_came_from():
+    adapter, _session = _adapter(
+        _fixture("polymarket_soccer_tag.json"),
+        _fixture("polymarket_active_events_page_1.json"),
+        _fixture("polymarket_active_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    assert result.documents
+    for market in result.markets:
+        assert market.raw_documents == result.documents

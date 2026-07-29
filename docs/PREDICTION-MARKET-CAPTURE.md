@@ -21,16 +21,19 @@ every market the venue lists" — that reading turns a missing decision into a
 worker quietly polling a whole catalogue against a public rate limit.
 
 The gate lives at the top of `run_venue_cycle`, before any adapter, network or
-database call — not only in `run_all`. Three things follow, each tested:
+database call — not in `run_all`, which only ever iterates venues that already
+passed. Four conditions refuse, each tested for zero discovery, zero quote,
+zero raw write, zero DB row and zero heartbeat:
 
-- a direct `run_venue_cycle` call with capture disabled discovers nothing,
-  stores nothing and writes no heartbeat;
-- an empty allowlist skips the same way, rather than fetching a catalogue it
-  will then find nothing eligible in;
-- **a venue with no allowlisted key of its own is skipped without discovery.**
-  Eligibility is computed from settings alone. Deriving it from the catalogue
-  meant fetching the catalogue first — so an allowlist naming only `kalshi:…`
-  still sent Polymarket's discovery request.
+- capture disabled;
+- the global allowlist is empty;
+- **the venue is not in `MARKET_CAPTURE_VENUES`.** Being reachable through the
+  adapter map is not being enabled;
+- **the venue has no allowlisted key of its own.** Eligibility is computed from
+  settings alone; deriving it from the catalogue meant fetching the catalogue
+  first, so an allowlist naming only `kalshi:…` still sent Polymarket's
+  discovery request;
+- retention could not be enforced (below).
 
 Importing any module in the layer opens no connection; a test enforces that
 with `socket.connect` made fatal.
@@ -90,8 +93,18 @@ what a venue would be held to if it ever disputed a price.
 A quote assembled from several responses (Kalshi reads an orderbook and a
 market; Polymarket a CLOB market and a book) stores every response verbatim
 plus a manifest of their digests, so the tick's single `raw_payload_ref` still
-resolves to the complete record. `put()` — which re-serializes — is used only
-for payloads we authored ourselves: rejected-item diagnostics, the manifest,
+resolves to the complete record. Discovery works the same way, but its pages
+are stored **once per cycle** rather than once per market — the same two
+responses back every market on them — and every market row points at that one
+shared manifest.
+
+A response that fails to decode or fails its schema check carries its bytes
+out on the exception (`VenuePayloadError.raw_document`) and is stored under
+the bounded reject policy. That is the body most worth keeping, and it was the
+one being dropped.
+
+`put()` — which re-serializes — is used only for payloads we authored
+ourselves: rejected-item diagnostics with no original response, the manifest,
 and the registry-recovery stub.
 
 Objects are `0600` inside `0700` directories; S3/R2 writes are server-side
@@ -108,11 +121,16 @@ else caps the total:
   the **dropped** counts reach the cycle result and the heartbeat, so overflow
   is a number rather than an absence;
 - everything is deleted past `MARKET_CAPTURE_RAW_RETENTION_DAYS`. Locally the
-  worker prunes after each completed run. For object storage it cannot: the
-  bucket lifecycle rule is the only enforcement, so it is **read and verified
-  at startup** and a missing, disabled or longer-than-configured rule is a
-  refusal to write at all. Assuming a lifecycle rule exists is how an archive
-  grows unbounded for a year.
+  worker prunes **before** each cycle's capture work, and a prune failure
+  refuses the cycle: pruning afterwards and logging the failure is not
+  enforcement, because the next cycle writes regardless. Only a genuine
+  disappearance race (`FileNotFoundError`) is suppressed — a permission error
+  or an unreadable tree means retention did not happen and is raised. For
+  object storage the worker cannot delete anything, so the bucket lifecycle
+  rule is the only enforcement: it is **read and verified at construction**,
+  and a missing, disabled, non-covering or longer-than-configured rule is a
+  refusal to write. `Filter.And.Prefix` is parsed as the string AWS sends,
+  not iterated character by character.
 
 Malformed discovery items are evidence too. Adapters return them alongside the
 good markets rather than logging and dropping them, so the payload is retained
