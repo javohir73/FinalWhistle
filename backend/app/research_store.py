@@ -30,7 +30,7 @@ import json
 from pathlib import Path
 from typing import Protocol
 
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models import ResearchArtifact
@@ -48,11 +48,22 @@ class ArtifactStoreError(RuntimeError):
 
 
 def canonical_bytes(artifact: dict) -> bytes:
-    """The exact bytes a digest is taken over. Stable across processes."""
+    """The exact bytes a digest is taken over. Stable across processes.
+
+    ``allow_nan=False`` matters: Python's default emits bare ``NaN`` and
+    ``Infinity``, which are not JSON, are not portable across parsers, and
+    are rejected by the reader's domain checks anyway. Letting them cross
+    the boundary stores an artifact that can never be served -- refuse them
+    here, where the error can still name the problem.
+    """
     try:
         return json.dumps(artifact, sort_keys=True, separators=(",", ":"),
-                          ensure_ascii=False).encode("utf-8")
-    except (TypeError, ValueError) as exc:
+                          ensure_ascii=False, allow_nan=False).encode("utf-8")
+    except ValueError as exc:
+        raise ArtifactStoreError(
+            f"artifact contains a value JSON cannot represent "
+            f"(NaN/Infinity are not valid JSON): {exc}") from exc
+    except TypeError as exc:
         raise ArtifactStoreError(
             f"artifact is not JSON-serializable: {exc}") from exc
 
@@ -135,11 +146,7 @@ class DatabaseArtifactStore:
         generated_at = _generated_at(artifact)
         if not str(published_by).strip():
             raise ArtifactStoreError("published_by must name who published")
-        existing = (
-            self.db.query(ResearchArtifact)
-            .filter_by(kind=kind, sha256=sha)
-            .one_or_none()
-        )
+        existing = self._find(kind, sha)
         if existing is not None:
             # Byte-identical replay is a no-op: re-running the generator on
             # unchanged data must not grow the table.
@@ -154,8 +161,27 @@ class DatabaseArtifactStore:
             published_by=published_by.strip(),
         )
         self.db.add(row)
-        self.db.commit()
+        try:
+            self.db.commit()
+        except IntegrityError:
+            # Two publishers can both miss the SELECT above and race to the
+            # INSERT; the loser gets the uniqueness violation. Byte-identical
+            # content means the winner already stored exactly what we have,
+            # so resolve to their row. If no matching row appears, the
+            # violation was something else entirely -- do not swallow it.
+            self.db.rollback()
+            winner = self._find(kind, sha)
+            if winner is None:
+                raise
+            return f"db://research_artifact/{winner.id} (unchanged)"
         return f"db://research_artifact/{row.id}"
+
+    def _find(self, kind: str, sha: str) -> ResearchArtifact | None:
+        return (
+            self.db.query(ResearchArtifact)
+            .filter_by(kind=kind, sha256=sha)
+            .one_or_none()
+        )
 
     def load(self, *, kind: str = MARKET_BENCHMARK_KIND) -> object | None:
         """Latest by GENERATOR time, tie-broken by insertion order.
@@ -173,21 +199,49 @@ class DatabaseArtifactStore:
         return None if row is None else row.payload
 
 
+#: PostgreSQL SQLSTATE for "relation does not exist".
+_UNDEFINED_TABLE = "42P01"
+
+
+def _is_missing_table(exc: SQLAlchemyError) -> bool:
+    """Is this specifically the not-yet-migrated table, and nothing else?
+
+    Only this one condition may fall back. An outage, a permission failure, a
+    corrupt schema or a query bug reported as "no data" would be a silent lie
+    on a public endpoint -- the operator would see an empty research page and
+    conclude no artifact had been published.
+    """
+    original = getattr(exc, "orig", None)
+    if original is None:
+        return False
+    if getattr(original, "pgcode", None) == _UNDEFINED_TABLE:
+        return True
+    text = str(original).lower()
+    return "no such table" in text or "undefinedtable" in text
+
+
 def load_latest(db: Session | None, file_path: Path | None, *,
                 kind: str = MARKET_BENCHMARK_KIND) -> tuple[object | None, str]:
     """Resolve an artifact through the boundary. Returns (artifact, source).
 
     Database first because it is the only backend that can deliver in
     production; then the file, which is how local development works; then
-    nothing. A database that has not yet had the migration applied is a
-    fallback case, not an error -- migrations land through refresh.yml, not
-    on deploy.
+    nothing.
+
+    A table that does not exist yet is the ONE accepted fallback: migrations
+    land through refresh.yml rather than on deploy, so between merge and the
+    next migration run the table is genuinely absent and "no data yet" is the
+    truth. Every other database failure raises, so the endpoint reports
+    `unreadable` rather than dressing an outage up as an empty result.
     """
     if db is not None:
         try:
             artifact = DatabaseArtifactStore(db).load(kind=kind)
-        except SQLAlchemyError:
+        except SQLAlchemyError as exc:
             db.rollback()
+            if not _is_missing_table(exc):
+                raise ArtifactStoreError(
+                    f"the artifact database could not be read: {exc}") from exc
             artifact = None
         else:
             if artifact is not None:

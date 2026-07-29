@@ -532,3 +532,22 @@ def test_artifact_gates_are_not_lowerable(db):
         build_artifact(db, holdout_fraction=0.3, min_matches=50,
                        n_bootstrap=100, seed=1,
                        now=now.replace(tzinfo=None))
+
+
+def test_the_artifact_lineage_does_not_claim_the_ledger_supplies_the_label(db):
+    """The ledger keeps the after-ET winner convention, so it pins the
+    prediction vector only. The published lineage must say that -- a stale
+    lineage string is how a reader concludes the wrong thing about how a
+    number was produced."""
+    from pipeline.run_market_benchmark_report import build_artifact
+
+    artifact = build_artifact(
+        db, holdout_fraction=0.3, min_matches=50, n_bootstrap=100, seed=1,
+        now=datetime(2026, 8, 10, 9, 0, tzinfo=timezone.utc))
+
+    outcome_side = artifact["lineage"]["outcome_side"]
+    model_side = artifact["lineage"]["model_side"]
+    assert "always derived independently" in outcome_side
+    assert "PredictionResult.outcome is NEVER the label" in outcome_side
+    assert "ledger outcome, else" not in outcome_side
+    assert "prediction_id, not its" in model_side

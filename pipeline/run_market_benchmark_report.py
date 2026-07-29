@@ -81,13 +81,17 @@ def build_artifact(db, *, holdout_fraction: float, min_matches: int,
         "lineage": {
             "venue_side": "venue_price_tick mids, latest logical ts <= kickoff",
             "model_side": (
-                "the exact frozen prediction from the audited "
-                "prediction_results ledger when it exists; otherwise the "
-                "latest non-shadow Prediction created before kickoff"),
+                "the exact frozen prediction pinned by the audited "
+                "prediction_results ledger (its prediction_id, not its "
+                "outcome) when it exists; otherwise the latest non-shadow "
+                "Prediction created before kickoff"),
             "outcome_side": (
-                "REGULATION-TIME result: ledger outcome, else 90-minute "
-                "score columns, else full time only for non-knockout stages "
-                "with no shootout; anything else excluded"),
+                "REGULATION-TIME result, always derived independently: "
+                "90-minute score columns, else full time only for "
+                "non-knockout stages with no shootout; anything else "
+                "excluded. PredictionResult.outcome is NEVER the label -- "
+                "the learning loop keeps the after-ET winner convention, so "
+                "the ledger pins the prediction vector only"),
             "snapshot_side": (
                 "coherent 1X2 snapshot: two-sided legs from one polling "
                 "cycle where available, otherwise within the cross-leg skew "

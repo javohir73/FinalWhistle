@@ -228,3 +228,129 @@ def test_the_digest_is_stable_and_order_independent():
 
     assert digest(a) == digest(b)
     assert json.loads(canonical_bytes(a)) == a
+
+
+# --- review round 2: concurrency, failure honesty, non-finite values ---------
+
+
+def test_a_concurrent_identical_publish_resolves_to_the_winners_row(db):
+    """Two publishers can both miss the SELECT and race to the INSERT. The
+    loser must resolve to the winner's row as a no-op, not raise."""
+    store = DatabaseArtifactStore(db)
+    artifact = _artifact()
+    sha = digest(artifact)
+
+    # Simulate the race: the SELECT sees nothing (as it would for both
+    # publishers), then a competitor's row lands before our commit.
+    original_find = store._find
+    calls = {"n": 0}
+
+    def racing_find(kind, digest_value):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            # First lookup: as if the competitor had not committed yet.
+            db.add(ResearchArtifact(
+                kind=kind, artifact_version="market-benchmark-artifact-v1",
+                generated_at=NOW, payload=artifact, sha256=digest_value,
+                size_bytes=len(canonical_bytes(artifact)),
+                published_by="competitor"))
+            db.commit()
+            return None
+        return original_find(kind, digest_value)
+
+    store._find = racing_find
+
+    reference = store.publish(artifact, published_by="pete")
+
+    assert "unchanged" in reference
+    assert db.query(ResearchArtifact).count() == 1
+    assert db.query(ResearchArtifact).one().published_by == "competitor"
+    assert db.query(ResearchArtifact).one().sha256 == sha
+
+
+def test_an_unrelated_integrity_failure_is_not_swallowed(db):
+    """The IntegrityError handler resolves ONLY a byte-identical duplicate.
+    Anything else must surface -- a swallowed constraint violation is a
+    silent data-loss bug."""
+    from sqlalchemy.exc import IntegrityError
+
+    store = DatabaseArtifactStore(db)
+    store._find = lambda kind, sha: None  # never finds a matching row
+
+    def explode():
+        raise IntegrityError("INSERT", {}, Exception("some other constraint"))
+
+    store.db.commit = explode
+
+    with pytest.raises(IntegrityError):
+        store.publish(_artifact(), published_by="pete")
+
+
+def test_a_real_database_failure_is_reported_not_disguised_as_no_data(db, tmp_path):
+    """Only the not-yet-migrated table may fall back. An outage, a permission
+    failure or a query bug reported as 'no data' would be a silent lie on a
+    public endpoint."""
+    from sqlalchemy.exc import OperationalError
+
+    class BrokenSession:
+        def query(self, *_args, **_kwargs):
+            raise OperationalError("SELECT", {},
+                                   Exception("connection refused"))
+
+        def rollback(self):
+            return None
+
+    with pytest.raises(ArtifactStoreError, match="could not be read"):
+        load_latest(BrokenSession(), tmp_path / "present.json")
+
+
+def test_the_missing_table_is_still_the_one_accepted_fallback(db, tmp_path):
+    """Distinguishes the accepted case from the rejected one above using the
+    real SQLite error, not a mock."""
+    FileArtifactStore(tmp_path / "a.json").publish(_artifact(),
+                                                   published_by="pete")
+    db.execute(text("DROP TABLE research_artifact"))
+    db.commit()
+
+    artifact, source = load_latest(db, tmp_path / "a.json")
+
+    assert source == "file"
+    assert artifact == _artifact()
+
+
+def test_a_postgres_undefined_table_is_recognised_by_sqlstate(tmp_path):
+    """SQLite says 'no such table'; PostgreSQL reports SQLSTATE 42P01. Both
+    must be recognised, or the fallback works locally and breaks in prod."""
+    from sqlalchemy.exc import ProgrammingError
+
+    class PgUndefinedTable(Exception):
+        pgcode = "42P01"
+
+    class MissingTableSession:
+        def query(self, *_args, **_kwargs):
+            raise ProgrammingError("SELECT", {}, PgUndefinedTable())
+
+        def rollback(self):
+            return None
+
+    assert load_latest(MissingTableSession(), tmp_path / "absent.json") == (
+        None, "none")
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_non_finite_numbers_are_refused_at_the_boundary(db, value):
+    """Python's json.dumps emits bare NaN/Infinity by default -- not JSON, not
+    portable, and rejected by the reader's domain checks anyway. Storing one
+    would persist an artifact that can never be served."""
+    with pytest.raises(ArtifactStoreError, match="NaN/Infinity"):
+        DatabaseArtifactStore(db).publish(
+            _artifact(coverage={"eligible_observations": value}),
+            published_by="pete")
+
+    assert db.query(ResearchArtifact).count() == 0
+
+
+def test_a_non_serializable_value_is_refused_with_a_different_message(db):
+    with pytest.raises(ArtifactStoreError, match="not JSON-serializable"):
+        DatabaseArtifactStore(db).publish(
+            _artifact(coverage={"when": object()}), published_by="pete")
