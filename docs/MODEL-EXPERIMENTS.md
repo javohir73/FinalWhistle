@@ -739,3 +739,47 @@ candidate families. Three apparent wins were killed by the held-out season.
 That is the process working: the internationals program shipped nothing across
 ~15 candidates, and this one ships the one thing that had an independently
 demonstrated defect behind it.
+
+## D0 correction (2026-07-29) — Finding 1's denominator was a column choice
+
+Appended by the Data & Independent Validation program
+(`docs/DATA-VALIDATION-PROGRAM.md`, phase D0). **Nothing above is edited.** No
+parameter changed, no gate re-run, no recorded number replaced.
+
+Finding 1 reports the club market baseline on "~70% of matches [that] carry
+odds" — EPL n=2,660, La Liga n=2,660, Bundesliga n=2,142. Those are exactly
+`7 × 380` and `7 × 306`.
+
+**Read that as a column choice, not a coverage limit.** Audited over the 27
+pre-confirmation captures (`pipeline/market_coverage.py`):
+
+| division | matches | with a closing line | with `AvgC` closing |
+|---|---|---|---|
+| E0 | 3,420 | **3,420 (100%)** | 2,280 (66.7%) |
+| SP1 | 3,420 | **3,419 (100%)** | 2,280 (66.7%) |
+| D1 | 2,754 | **2,753 (100%)** | 1,836 (66.7%) |
+
+`AvgC*` (market-average closing) first appears in the 2019-20 files. The three
+earlier seasons per division carry `PSC*` — **Pinnacle closing** — which
+football-data.co.uk has published throughout the window. Finding 1 pinned
+`AvgC` and so dropped them.
+
+Where both families exist (18 captures), they are the same predictor: mean
+Δ log loss 0.0004 nats, max |Δ| 0.0025, Pinnacle ahead in 11 of 18.
+
+Two consequences worth carrying forward:
+
+- **The market baseline can be computed on ~43% more matches** than Finding 1
+  used, via best-available closing rather than `AvgC` only.
+- **That makes the bar harder, not softer.** The recovered seasons carry a
+  sharper market in England and Spain (E0 0.8907–0.9405, SP1 0.8997–1.0017).
+
+Also recorded there, and material to any reproduction claim in this document:
+**all 27 pinned captures now mismatch `pipeline/data/club_data_manifest.json`**
+(row counts unchanged; every file smaller). The manifest was **not** re-pinned.
+Because the 2026-07-28 bytes were never retained, the drift cannot be diagnosed
+and the numbers above cannot currently be reproduced byte-for-byte from a live
+download.
+
+Full detail, receipts and declared limitations:
+`docs/experiments/2026-07-29-d0-market-validation/EVIDENCE-CARD.md`.
