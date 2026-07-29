@@ -14,6 +14,7 @@ from ml.evaluation.market_benchmark import (
     devig2,
     format_report,
     join_odds_to_rows,
+    market_basis,
     ou25_label,
     result_to_json,
 )
@@ -84,6 +85,112 @@ def test_shin_and_power_shift_weight_toward_the_favourite():
 def test_unknown_method_is_rejected_by_name():
     with pytest.raises(ValueError, match="unknown de-vig method"):
         devig(1.60, 4.20, 6.00, method="kelly")
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_blank_odds_are_rejected_not_propagated_as_nan(method):
+    """A blank price scored as a PERFECT market prediction before this guard.
+
+    `min(nan, nan, nan) <= 1.0` is False — every comparison against NaN is —
+    so the row survived, devig returned (nan, nan, nan), and `_log_loss_one`
+    clamped the NaN to `1 - eps`. The market got the best possible log loss on a
+    match it never priced, while the same row contributed the worst possible
+    Brier score.
+    """
+    nan = float("nan")
+    with pytest.raises(ValueError, match="must be present"):
+        devig(nan, 3.60, 4.50, method=method)
+    with pytest.raises(ValueError, match="must be present"):
+        devig(1.83, nan, nan, method=method)
+
+
+def test_devig2_also_rejects_blank_odds():
+    with pytest.raises(ValueError, match="must be present"):
+        devig2(float("nan"), 2.0)
+
+
+@pytest.mark.parametrize("method", DEVIG_METHODS)
+def test_underround_books_are_handled_not_silently_degenerated(method):
+    # Market-maximum families are a best-price envelope across books, so a
+    # booksum below 1 is their normal state, not an anomaly. 71.5% of real MaxC
+    # triples in the club captures are underround.
+    odds = (2.2, 4.2, 4.4)
+    assert sum(1 / o for o in odds) < 1.0
+    p = devig(*odds, method=method)
+    assert sum(p) == pytest.approx(1.0)
+    assert all(0.0 < x < 1.0 for x in p)
+    assert p[0] > p[1] > p[2]
+
+
+def test_power_actually_solves_for_an_underround_book():
+    # The bracket has to straddle k=1: an underround book needs k<1. A bracket
+    # starting at 1.0 collapses onto its floor and returns the proportional
+    # answer under a power label.
+    odds = (2.2, 4.2, 4.4)
+    assert devig(*odds, method="power") != pytest.approx(
+        devig(*odds, method="proportional")
+    )
+
+
+def test_shin_falls_back_to_proportional_on_an_underround_book():
+    # z is a share of insider money and cannot be negative, so Shin has no
+    # solution here. The fallback is deliberate and documented, not a silent
+    # bisection failure.
+    odds = (2.2, 4.2, 4.4)
+    assert devig(*odds, method="shin") == pytest.approx(
+        devig(*odds, method="proportional")
+    )
+
+
+# --- provenance on benchmark output (D0 A3) -------------------------------
+
+def _matched(basis, source="AvgC"):
+    return MatchedMatch(
+        date=date(2023, 8, 12), home="A", away="B",
+        model_probs=(0.5, 0.3, 0.2), market_probs=(0.45, 0.3, 0.25), label="H",
+        odds_basis=basis, odds_source=source,
+    )
+
+
+def test_market_basis_reports_a_single_basis():
+    b = market_basis([_matched("closing"), _matched("closing")])
+    assert b["odds_basis"] == "closing"
+    assert b["mixed_basis"] is False
+    assert b["odds_sources"] == ["AvgC"]
+
+
+def test_market_basis_flags_a_mixed_set_instead_of_picking_a_label():
+    b = market_basis([_matched("closing", "AvgC"), _matched("pre_closing", "Avg")])
+    assert b["odds_basis"] == "mixed"
+    assert b["mixed_basis"] is True
+    assert b["odds_basis_values"] == ["closing", "pre_closing"]
+
+
+def test_unlabelled_odds_report_as_unknown_not_as_closing():
+    # The API-Football path attaches no basis. Absence must read as absence.
+    b = market_basis([_matched(None, None)])
+    assert b["odds_basis"] == "unknown"
+    assert b["odds_sources"] == ["unknown"]
+
+
+def test_report_header_names_the_basis_it_actually_scored():
+    result = benchmark([_matched("closing")] * 4)
+    assert "Closing-line benchmark" in format_report(
+        result, "T", {"odds_basis": "closing"}
+    )
+    assert "PRE-CLOSING" in format_report(result, "T", {"odds_basis": "pre_closing"})
+    assert "MIXED" in format_report(result, "T", {"odds_basis": "mixed"})
+    # No provenance means nothing has been established — not "closing".
+    assert "UNKNOWN" in format_report(result, "T")
+
+
+def test_result_to_json_carries_provenance_and_stays_additive_without_it():
+    result = benchmark([_matched("closing")] * 4)
+    plain = result_to_json(result, "d", "t")
+    assert "provenance" not in plain  # existing consumers see the old shape
+    withp = result_to_json(result, "d", "t", {"odds_basis": "closing", "x": 1})
+    assert withp["provenance"]["odds_basis"] == "closing"
+    assert {k: v for k, v in withp.items() if k != "provenance"} == plain
 
 
 @pytest.mark.parametrize("method", DEVIG_METHODS)

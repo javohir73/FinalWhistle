@@ -42,6 +42,45 @@ import pandas as pd
 
 log = logging.getLogger(__name__)
 
+#: Where the captures come from. Duplicated deliberately from
+#: ``pipeline.ingest.club_results.BASE_URL`` rather than imported: that module
+#: pulls in ``app.db`` and builds a live SQLAlchemy engine at import time, which
+#: would make this pure parser — and the offline census built on it — fail on a
+#: machine with no database configured. A test pins the two strings equal.
+DOWNLOAD_URL_TEMPLATE = "https://www.football-data.co.uk/mmz4281/{season}/{division}.csv"
+
+#: Provider provenance, carried onto every benchmark this module feeds
+#: (D0 acceptance criterion A3). Lives here, next to the parser, so a caller
+#: cannot report a number from these files without the terms attached.
+#:
+#: Licence position, verified on the publisher's own pages 2026-07-29: the site
+#: says "Simply download for free the available files" and footers every page
+#: with "© Football-Data. Liability Disclaimer. All Rights Reserved." Free
+#: download is granted; **no redistribution grant appears anywhere on the
+#: site** — hence stop gate G1 in docs/DATA-VALIDATION-PROGRAM.md, and hence
+#: fingerprints in the repo rather than bytes.
+PROVIDER = {
+    "provider": "football-data.co.uk",
+    "url": "https://www.football-data.co.uk/",
+    "download_url_template": DOWNLOAD_URL_TEMPLATE,
+    "column_notes_url": "https://www.football-data.co.uk/notes.txt",
+    "cost": "free — no key, no account, no quota",
+    "licence": "© Football-Data. All Rights Reserved. Free download granted; "
+    "no redistribution grant published.",
+    "redistribution": "NOT GRANTED — fingerprints are committed, bytes are not",
+    "attribution": "Data © football-data.co.uk",
+    # The publisher's own closing rule, quoted from notes.txt. It is the whole
+    # basis on which a family is called closing or pre-closing.
+    "closing_rule": 'notes.txt: documented odds abbreviations "are for '
+    'pre-closing odds. For the closing odds, as below but with an additional '
+    '\\"C\\" character following the bookmaker abbreviation/Max/Avg".',
+    # One row per finished match, no capture time. "Closing" is a publisher
+    # claim about a column family, not an observation this repo made, so the
+    # strictly-pre-kickoff rule that governs live capture cannot be checked here.
+    "timestamp_semantics": "no per-price timestamp; basis is a publisher "
+    "column-family claim, not an observed capture time",
+}
+
 #: ``odds_basis`` values. "closing" is the publisher's ``C``-suffixed family;
 #: "pre_closing" is everything else. There is no third state — a family is one
 #: or the other by the publisher's documented rule.
@@ -179,6 +218,13 @@ def load_football_data_csv(
             odds_away = float(row[away_col])
         except (KeyError, TypeError, ValueError):
             log.warning("skipping row %d: missing/invalid %s odds", line, family.key)
+            continue
+        # NaN first: `float("nan")` does not raise above, and every comparison
+        # against NaN is False — so `min(nan, ...) <= 1.0` is False and a blank
+        # price used to survive both guards. Downstream that scored as a
+        # PERFECT market prediction on a match the book never priced.
+        if any(x != x for x in (odds_home, odds_draw, odds_away)):
+            log.warning("skipping row %d: blank %s odds", line, family.key)
             continue
         if min(odds_home, odds_draw, odds_away) <= 1.0:
             log.warning("skipping row %d: %s odds not all > 1.0", line, family.key)

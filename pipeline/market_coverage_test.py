@@ -17,13 +17,19 @@ from pipeline.club_data_manifest import (
     expected_keys,
     pre_confirmation_keys,
 )
+from pipeline.ingest.football_data import ODDS_FAMILIES
 from pipeline.market_coverage import (
     PROVIDER,
+    ConfirmationFetchRefused,
     census_directory,
     census_file,
+    compare_families,
     coverage_summary,
+    fetch_captures,
+    format_family_comparison,
     format_report,
     join_diagnostics,
+    main,
 )
 
 _HEAD = "Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR"
@@ -258,6 +264,120 @@ def test_provenance_travels_on_the_census():
     assert "NOT GRANTED" in census.provider["redistribution"]
     assert "no per-price timestamp" in census.provider["timestamp_semantics"]
     assert json.dumps(census.provider)  # serializable for the emitted artifact
+
+
+# ------------------------------------------- holdout safety on FETCH (L4)
+
+
+def test_fetch_refuses_confirmation_captures_by_default(tmp_path, monkeypatch):
+    """Reading the burnt holdout and DOWNLOADING it are different decisions.
+
+    `--include-confirmation` widens what is read. It must not also put the
+    consumed 2025-26 season on disk, where the next careless glob finds it.
+    """
+    import urllib.request
+
+    monkeypatch.setattr(
+        urllib.request, "urlopen", lambda *a, **k: pytest.fail("must not fetch")
+    )
+    with pytest.raises(ConfirmationFetchRefused) as exc:
+        fetch_captures(tmp_path, keys=expected_keys())
+    assert "E0_2526" in str(exc.value)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_fetch_of_pre_confirmation_scope_is_not_blocked(tmp_path, monkeypatch):
+    # The refusal must be specific to the holdout, not a blanket block.
+    import urllib.request
+
+    calls: list[str] = []
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"Div,Date\n"
+
+    def _fake(req, timeout=0):
+        calls.append(req.full_url)
+        return _Resp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", _fake)
+    written = fetch_captures(tmp_path, keys=["E0_2324"], delay_s=0)
+    assert written == ["E0_2324"]
+    assert calls == ["https://www.football-data.co.uk/mmz4281/2324/E0.csv"]
+
+
+def test_scope_label_is_derived_from_the_keys_not_from_how_they_were_passed(tmp_path):
+    # The CLI always passes an explicit list, so labelling by argument shape
+    # stamped every artifact "explicit" — including one that read the holdout.
+    _avgc_capture(tmp_path, "E0_2324.csv")
+    assert (
+        census_directory(tmp_path, keys=pre_confirmation_keys(), check_manifest=False).scope
+        == "pre_confirmation_27"
+    )
+    assert (
+        census_directory(tmp_path, keys=expected_keys(), check_manifest=False).scope
+        == "includes_confirmation"
+    )
+    assert (
+        census_directory(tmp_path, keys=["E0_2324"], check_manifest=False).scope
+        == "partial_pre_confirmation"
+    )
+
+
+def test_cli_exits_non_zero_on_drift(tmp_path, capsys):
+    # pipeline.club_data_manifest already exits 1 on drift. Two tools
+    # disagreeing about whether 27/27 drift is an error is worse than either.
+    _avgc_capture(tmp_path, "E0_2324.csv")
+    assert main(["--dir", str(tmp_path)]) == 1
+    assert "MANIFEST DRIFT" in capsys.readouterr().out
+
+
+def test_drift_message_does_not_assert_a_cause_it_cannot_know(tmp_path):
+    # The only input to this branch is a sha256 mismatch. A local edit, a
+    # truncated download and a publisher revision are indistinguishable to it.
+    _avgc_capture(tmp_path, "E0_2324.csv")
+    census = census_directory(tmp_path, keys=["E0_2324"])
+    text = format_report(census, coverage_summary(census))
+    assert "not the recorded capture" in text
+    assert "Cause is NOT established here" in text
+
+
+# --------------------------------------------------- family comparison
+
+
+def test_compare_families_pairs_only_captures_carrying_both(tmp_path):
+    _avgc_capture(tmp_path, "E0_2324.csv")  # AvgC + PSC
+    _psc_only_capture(tmp_path, "E0_1617.csv")  # PSC only
+    census = census_directory(
+        tmp_path, keys=["E0_2324", "E0_1617"], check_manifest=False
+    )
+    cmp = compare_families(census, "AvgC", "PSC")
+    assert [p["key"] for p in cmp["paired"]] == ["E0_2324"]
+    assert [o["key"] for o in cmp["only_PSC"]] == ["E0_1617"]
+    assert cmp["discarded_by_pinning_AvgC"] == 2
+    assert "E0_1617" in format_family_comparison(cmp)
+
+
+def test_family_table_only_lists_families_the_publisher_documents_as_closing():
+    """`VC` ends in C and is BetVictor PRE-closing; `VCC` is its closing twin.
+
+    A "prefix ends in C" heuristic would label a pre-closing series closing in
+    24 of the 27 captures. The table is an explicit allowlist for that reason,
+    and the two families must never both be treated as closing.
+    """
+    keys = {f.key for f in ODDS_FAMILIES}
+    assert "VC" not in keys  # would be a false positive under a naive rule
+    for fam in ODDS_FAMILIES:
+        if fam.basis == "closing":
+            assert fam.key.endswith("C"), fam
+        else:
+            assert not fam.key.endswith("C"), fam
 
 
 def test_census_makes_no_network_call(tmp_path, monkeypatch):

@@ -1,7 +1,7 @@
 === D0 closing-odds coverage census ===
 provider : football-data.co.uk  (free — no key, no account, no quota)
 licence  : © Football-Data. All Rights Reserved. Free download granted; no redistribution grant published.
-scope    : explicit  (27 captures)
+scope    : pre_confirmation_27  (27 captures)
 
 capture     rows  cols  closing  usable   AvgC    PSC  Time
 E0_1617      380    65      PSC     380      -      y     -
@@ -37,7 +37,7 @@ per division (denominators always shown):
   SP1  rows= 3420  closing(any)= 3419 (100.0%)  closing(AvgC only)= 2280 (66.7%)  discarded by pinning AvgC= 1139
   D1   rows= 2754  closing(any)= 2753 (100.0%)  closing(AvgC only)= 1836 (66.7%)  discarded by pinning AvgC=  917
 
-MANIFEST DRIFT on 27 capture(s) — the publisher revised files in place. Recorded, NOT re-pinned:
+MANIFEST DRIFT on 27 capture(s): these bytes are not the recorded capture. Cause is NOT established here — the publisher is known to revise files in place, but a local edit or a partial download looks identical to a hash. Recorded, NOT re-pinned:
   E0_1617    bytes 102505 -> 99990  rows 380 -> 380
   E0_1718    bytes 103569 -> 100734  rows 380 -> 380
   E0_1819    bytes 98513 -> 96144  rows 380 -> 380

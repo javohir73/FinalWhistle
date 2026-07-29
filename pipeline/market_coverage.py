@@ -56,40 +56,13 @@ from pipeline.club_data_manifest import (
     load_manifest,
     pre_confirmation_keys,
 )
-from pipeline.ingest.club_results import BASE_URL
-from pipeline.ingest.football_data import ODDS_FAMILIES, OddsFamily, available_families
-
-#: Provider provenance. Carried on every output so a number can always state
-#: where it came from and under what terms (D0 pre-registration, A3).
-#:
-#: Licence position, verified on the publisher's pages 2026-07-29: the site
-#: says "Simply download for free the available files" and footers every page
-#: with "© Football-Data. Liability Disclaimer. All Rights Reserved." Free
-#: download is granted; **redistribution is not granted anywhere on the site**.
-#: That is why this module emits a fingerprint descriptor and never the bytes —
-#: see stop gate G1 in docs/DATA-VALIDATION-PROGRAM.md.
-PROVIDER = {
-    "provider": "football-data.co.uk",
-    "url": "https://www.football-data.co.uk/",
-    "download_url_template": BASE_URL,
-    "column_notes_url": "https://www.football-data.co.uk/notes.txt",
-    "cost": "free — no key, no account, no quota",
-    "licence": "© Football-Data. All Rights Reserved. Free download granted; "
-    "no redistribution grant published.",
-    "redistribution": "NOT GRANTED — fingerprints are committed, bytes are not",
-    "attribution": "Data © football-data.co.uk",
-    # The publisher's own closing rule, quoted from notes.txt. It is the whole
-    # basis on which this module calls a family closing or pre-closing.
-    "closing_rule": 'notes.txt: documented odds abbreviations "are for '
-    'pre-closing odds. For the closing odds, as below but with an additional '
-    '\\"C\\" character following the bookmaker abbreviation/Max/Avg".',
-    # There is no per-price timestamp in these files: one row per finished
-    # match, no capture time. "Closing" is a publisher claim about a column
-    # family, not an observation this repo made, and the strictly-pre-kickoff
-    # rule that governs live capture cannot be checked here.
-    "timestamp_semantics": "no per-price timestamp; basis is a publisher "
-    "column-family claim, not an observed capture time",
-}
+from pipeline.ingest.football_data import (
+    DOWNLOAD_URL_TEMPLATE,
+    ODDS_FAMILIES,
+    PROVIDER,
+    OddsFamily,
+    available_families,
+)
 
 _LABEL_INDEX = {"H": 0, "D": 1, "A": 2}
 _EPS = 1e-15
@@ -209,6 +182,25 @@ def _score_family(
     return n, (total / n if n else None), counts
 
 
+#: Season code of the consumed #202 confirmation holdout. Mirrors
+#: `pipeline.club_data_manifest.CONFIRM_SEASON`; a test pins them equal.
+_CONFIRMATION_SUFFIX = "_2526"
+
+
+def _scope_label(keys: list[str]) -> str:
+    """Name a scope by what it contains, so an artifact can be read years later.
+
+    ``includes_confirmation`` is the one an auditor cares about: it says a
+    burnt-holdout capture was opened, and it says so in the emitted JSON rather
+    than only in a stderr warning nobody kept.
+    """
+    if any(k.endswith(_CONFIRMATION_SUFFIX) for k in keys):
+        return "includes_confirmation"
+    if set(keys) == set(pre_confirmation_keys()):
+        return "pre_confirmation_27"
+    return "partial_pre_confirmation"
+
+
 def census_file(path: Path, devig_method: str = "proportional") -> FileCensus:
     """Describe one capture: families present, what each can price, what drops."""
     raw = path.read_bytes()
@@ -264,7 +256,11 @@ def census_directory(
     unless an operator asks for it and records why.
     """
     scope_keys = list(keys) if keys is not None else pre_confirmation_keys()
-    scope = "pre_confirmation_27" if keys is None else "explicit"
+    # Derived from the keys, never from HOW they were passed. Labelling by
+    # argument shape made the CLI — which always passes an explicit list —
+    # stamp every artifact "explicit", so the durable evidence could not say
+    # whether the burnt confirmation season had been in scope.
+    scope = _scope_label(scope_keys)
 
     manifest = load_manifest()["files"] if check_manifest else {}
     files: list[FileCensus] = []
@@ -392,6 +388,72 @@ def devig_sensitivity(
     return out
 
 
+def compare_families(census: DirectoryCensus, a: str = "AvgC", b: str = "PSC") -> dict:
+    """Are two closing families the same predictor where both are published?
+
+    The question behind swapping a benchmark from one family to another. Only
+    captures carrying **both** are compared, so the comparison is paired; the
+    captures carrying only one are listed separately as exactly the evidence a
+    single-family benchmark discards.
+    """
+    paired, only_b = [], []
+    for c in census.files:
+        fam = {f.key: f for f in c.families}
+        fa, fb = fam.get(a), fam.get(b)
+        if fa and fb and fa.present and fb.present:
+            paired.append(
+                {
+                    "key": c.key,
+                    "n": fa.usable,
+                    f"{a}_log_loss": fa.market_log_loss,
+                    f"{b}_log_loss": fb.market_log_loss,
+                    "delta": fb.market_log_loss - fa.market_log_loss,
+                }
+            )
+        elif fb and fb.present and (not fa or not fa.present):
+            only_b.append({"key": c.key, "n": fb.usable, "log_loss": fb.market_log_loss})
+    deltas = [p["delta"] for p in paired]
+    return {
+        "family_a": a,
+        "family_b": b,
+        "paired": paired,
+        f"only_{b}": only_b,
+        "n_paired_captures": len(paired),
+        "max_abs_delta": max((abs(d) for d in deltas), default=None),
+        "mean_delta": (sum(deltas) / len(deltas)) if deltas else None,
+        f"{b}_better_in": sum(1 for d in deltas if d < 0),
+        f"discarded_by_pinning_{a}": sum(o["n"] for o in only_b),
+    }
+
+
+def format_family_comparison(cmp: dict) -> str:
+    a, b = cmp["family_a"], cmp["family_b"]
+    lines = [
+        f"{a} vs {b} on captures where BOTH are present",
+        "(mean log loss, vs realized FTR; same rows both columns)",
+        "",
+        f"{'capture':10s}{'n':>6s}{a + ' LL':>10s}{b + ' LL':>10s}{b + '-' + a:>11s}",
+    ]
+    for p in cmp["paired"]:
+        lines.append(
+            f"{p['key']:10s}{p['n']:>6d}{p[f'{a}_log_loss']:>10.4f}"
+            f"{p[f'{b}_log_loss']:>10.4f}{p['delta']:>+11.4f}"
+        )
+    lines += [
+        "",
+        f"captures with both families: {cmp['n_paired_captures']}",
+        f"max |{b} - {a}|           : {cmp['max_abs_delta']:.4f} nats",
+        f"mean ({b} - {a})          : {cmp['mean_delta']:+.4f} nats",
+        f"{b} better in             : {cmp[f'{b}_better_in']}/{cmp['n_paired_captures']} captures",
+        "",
+        f"{b}-only captures (no {a}) — the evidence an {a}-pinned benchmark discards:",
+    ]
+    for o in cmp[f"only_{b}"]:
+        lines.append(f"  {o['key']:10s} n={o['n']:>4d}  {b} LL={o['log_loss']:.4f}")
+    lines.append(f"  total discarded: {cmp[f'discarded_by_pinning_{a}']} matches")
+    return "\n".join(lines)
+
+
 def join_diagnostics(
     model_keys: list[tuple], odds_keys: list[tuple]
 ) -> dict:
@@ -433,8 +495,15 @@ def join_diagnostics(
     }
 
 
+class ConfirmationFetchRefused(RuntimeError):
+    """Refused to download a confirmation-season capture."""
+
+
 def fetch_captures(
-    directory: Path, keys: list[str] | None = None, delay_s: float = 0.4
+    directory: Path,
+    keys: list[str] | None = None,
+    delay_s: float = 0.4,
+    allow_confirmation: bool = False,
 ) -> list[str]:
     """Download the free public CSVs for ``keys`` into ``directory``.
 
@@ -442,16 +511,30 @@ def fetch_captures(
     calls it for real, nothing schedules it, it costs nothing and needs no key.
     Existing files are left alone — re-fetching would overwrite the very bytes
     a drift check is about to compare.
+
+    **Refuses to fetch a confirmation-season capture unless asked twice.**
+    Widening the census scope is a decision about what to *read*; downloading is
+    a decision to put the burnt holdout on disk, where the next default-scope
+    run will not touch it but the next careless glob will. Those are different
+    decisions and they need different flags.
     """
     directory.mkdir(parents=True, exist_ok=True)
     scope = list(keys) if keys is not None else pre_confirmation_keys()
+    held_out = [k for k in scope if k.endswith(_CONFIRMATION_SUFFIX)]
+    if held_out and not allow_confirmation:
+        raise ConfirmationFetchRefused(
+            "refusing to download confirmation-season captures "
+            f"{sorted(held_out)}: the 2025-26 season is the consumed #202 "
+            "holdout. Pass allow_confirmation=True (CLI: --fetch-confirmation) "
+            "only for a #202 reproduction, and record the reason."
+        )
     written: list[str] = []
     for key in scope:
         division, season = key.rsplit("_", 1)
         dest = directory / f"{key}.csv"
         if dest.exists():
             continue
-        url = BASE_URL.format(season=season, division=division)
+        url = DOWNLOAD_URL_TEMPLATE.format(season=season, division=division)
         req = urllib.request.Request(url, headers={"User-Agent": "curl/8"})
         with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 (fixed https host)
             dest.write_bytes(resp.read())
@@ -500,9 +583,16 @@ def format_report(census: DirectoryCensus, summary: dict) -> str:
     if census.missing:
         lines.append(f"\nMISSING captures: {list(census.missing)}")
     if census.manifest_drift:
+        # Deliberately does NOT assert the publisher revised anything. The only
+        # input to this branch is a sha256 mismatch, which a local edit, a
+        # truncated download or a different capture method produces just as
+        # readily. Naming a cause the evidence cannot support is the same error
+        # this phase exists to correct.
         lines.append(
-            f"\nMANIFEST DRIFT on {len(census.manifest_drift)} capture(s) — the "
-            "publisher revised files in place. Recorded, NOT re-pinned:"
+            f"\nMANIFEST DRIFT on {len(census.manifest_drift)} capture(s): these "
+            "bytes are not the recorded capture. Cause is NOT established here — "
+            "the publisher is known to revise files in place, but a local edit or "
+            "a partial download looks identical to a hash. Recorded, NOT re-pinned:"
         )
         for d in census.manifest_drift:
             lines.append(
@@ -570,11 +660,25 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--devig", default="proportional", choices=DEVIG_METHODS)
     ap.add_argument(
+        "--fetch-confirmation",
+        action="store_true",
+        help="permit --fetch to download the *_2526 holdout captures. Separate "
+        "from --include-confirmation on purpose: reading and downloading the "
+        "burnt holdout are different decisions.",
+    )
+    ap.add_argument(
         "--sensitivity",
         action="store_true",
         help="also report market log loss under every de-vig method",
     )
+    ap.add_argument(
+        "--compare-families",
+        nargs=2,
+        metavar=("A", "B"),
+        help="paired per-capture comparison of two odds families, e.g. AvgC PSC",
+    )
     ap.add_argument("--emit-json", help="write the full census to this path")
+    ap.add_argument("--emit-comparison", help="write --compare-families to this path")
     args = ap.parse_args(argv)
 
     directory = Path(args.dir)
@@ -587,8 +691,10 @@ def main(argv: list[str] | None = None) -> int:
         )
 
     if args.fetch:
-        written = fetch_captures(directory, keys)
-        print(f"fetched {len(written)} capture(s)", file=sys.stderr)
+        written = fetch_captures(
+            directory, keys, allow_confirmation=args.fetch_confirmation
+        )
+        print(f"fetched {len(written)} capture(s): {written}", file=sys.stderr)
 
     census = census_directory(directory, keys=keys, devig_method=args.devig)
     summary = coverage_summary(census)
@@ -603,15 +709,30 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(f"  {method:14s}{row}")
 
+    if args.compare_families:
+        cmp = compare_families(census, *args.compare_families)
+        text = format_family_comparison(cmp)
+        if args.emit_comparison:
+            Path(args.emit_comparison).write_text(text + "\n")
+            print(f"wrote {args.emit_comparison}", file=sys.stderr)
+        else:
+            print("\n" + text)
+
     if args.emit_json:
         Path(args.emit_json).write_text(
             json.dumps(_to_json(census, summary, sensitivity), indent=2)
         )
         print(f"\nwrote {args.emit_json}", file=sys.stderr)
 
-    # A capture that cannot answer a closing-line question is worth a non-zero
-    # exit: the operator should see it, not scroll past it.
-    return 1 if any(c.abstains for c in census.files) or census.missing else 0
+    # Non-zero on anything that makes a published number untrustworthy: a
+    # capture that cannot answer a closing-line question, a capture that is not
+    # there, or a capture whose bytes are not the recorded ones. Drift belongs
+    # in this list — `pipeline.club_data_manifest` already exits 1 on it, and
+    # two tools disagreeing about whether 27/27 drift is an error is worse than
+    # either answer.
+    if any(c.abstains for c in census.files) or census.missing or census.manifest_drift:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

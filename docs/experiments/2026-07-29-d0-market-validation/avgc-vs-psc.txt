@@ -1,5 +1,5 @@
 AvgC vs PSC on captures where BOTH are present
-(mean log loss, proportional de-vig, vs realized FTR; same rows both columns)
+(mean log loss, vs realized FTR; same rows both columns)
 
 capture        n   AvgC LL    PSC LL   PSC-AvgC
 E0_1920      380    0.9731    0.9722    -0.0009
@@ -22,11 +22,11 @@ D1_2324      306    0.9459    0.9442    -0.0018
 D1_2425      306    0.9870    0.9882    +0.0011
 
 captures with both families: 18
-max |PSC - AvgC|          : 0.0025 nats
-mean (PSC - AvgC)         : -0.0004 nats
+max |PSC - AvgC|           : 0.0025 nats
+mean (PSC - AvgC)          : -0.0004 nats
 PSC better in             : 11/18 captures
 
-PSC-only captures (no AvgC), which an AvgC-pinned benchmark discards entirely:
+PSC-only captures (no AvgC) — the evidence an AvgC-pinned benchmark discards:
   E0_1617    n= 380  PSC LL=0.9065
   E0_1718    n= 380  PSC LL=0.9405
   E0_1819    n= 380  PSC LL=0.8907
@@ -36,3 +36,4 @@ PSC-only captures (no AvgC), which an AvgC-pinned benchmark discards entirely:
   D1_1617    n= 306  PSC LL=0.9954
   D1_1718    n= 306  PSC LL=0.9979
   D1_1819    n= 305  PSC LL=0.9674
+  total discarded: 3196 matches

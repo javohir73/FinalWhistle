@@ -11,7 +11,7 @@
     "closing_rule": "notes.txt: documented odds abbreviations \"are for pre-closing odds. For the closing odds, as below but with an additional \\\"C\\\" character following the bookmaker abbreviation/Max/Avg\".",
     "timestamp_semantics": "no per-price timestamp; basis is a publisher column-family claim, not an observed capture time"
   },
-  "scope": "explicit",
+  "scope": "pre_confirmation_27",
   "keys": [
     "E0_1617",
     "E0_1718",
@@ -2138,7 +2138,7 @@
       "closing_rule": "notes.txt: documented odds abbreviations \"are for pre-closing odds. For the closing odds, as below but with an additional \\\"C\\\" character following the bookmaker abbreviation/Max/Avg\".",
       "timestamp_semantics": "no per-price timestamp; basis is a publisher column-family claim, not an observed capture time"
     },
-    "scope": "explicit",
+    "scope": "pre_confirmation_27",
     "n_files": 27,
     "missing_files": [],
     "manifest_drift_files": [

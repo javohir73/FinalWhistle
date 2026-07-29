@@ -10,6 +10,8 @@ import textwrap
 import pytest
 
 from pipeline.ingest.football_data import (
+    DOWNLOAD_URL_TEMPLATE,
+    PROVIDER,
     ClosingOddsUnavailable,
     available_families,
     load_football_data_csv,
@@ -104,6 +106,47 @@ def test_closing_preferred_over_pre_closing_even_under_any(tmp_path):
     for basis in ("closing", "any"):
         r = load_football_data_csv(csv, require_basis=basis)[0]
         assert (r["odds_source"], r["odds_basis"]) == ("PSC", "closing")
+
+
+def test_rows_with_blank_odds_are_skipped_not_kept_as_nan(tmp_path):
+    """`float("nan")` does not raise and `min(nan, ...) <= 1.0` is False.
+
+    So a blank price used to pass BOTH guards and reach the benchmark, where it
+    scored as a perfect market prediction. Two real rows in the club captures
+    hit this: SP1_1718 (Alaves v Sociedad) and D1_1819 (Bayern v Hannover).
+    """
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        """
+        Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR,PSCH,PSCD,PSCA
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.88,3.65,4.35
+        E0,13/08/23,Alaves,Sociedad,0,2,A,,,
+        """,
+    )
+    records = load_football_data_csv(csv)
+    assert [r["home_team"] for r in records] == ["Arsenal"]
+    assert all(r["odds_home"] == r["odds_home"] for r in records)  # no NaN survives
+
+
+def test_provider_record_states_the_licence_and_the_timestamp_limits():
+    # A3: a number sourced from these files must be able to state its terms.
+    assert PROVIDER["provider"] == "football-data.co.uk"
+    assert "NOT GRANTED" in PROVIDER["redistribution"]
+    assert "no per-price timestamp" in PROVIDER["timestamp_semantics"]
+
+
+def test_download_url_template_matches_the_club_results_constant():
+    """Single source of truth, without importing the module that builds an engine.
+
+    `pipeline.ingest.club_results` imports `app.models` -> `app.db`, which calls
+    `create_engine` at import time. The pure parser and the offline census must
+    not need a database to start, so the template is duplicated here and pinned
+    equal by this test — which, being a test, may pay the import cost.
+    """
+    from pipeline.ingest.club_results import BASE_URL
+
+    assert DOWNLOAD_URL_TEMPLATE == BASE_URL
 
 
 def test_available_families_reports_every_present_family_in_order(tmp_path):

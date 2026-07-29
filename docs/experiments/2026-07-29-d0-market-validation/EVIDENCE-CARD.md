@@ -82,7 +82,16 @@ say *that* a file moved and never *what* moved.
 The byte deltas are consistent with removal of ~7–12 trailing padding commas per
 line, and no capture now carries an `Unnamed:` column — but that is a
 **hypothesis, not a finding**, and it cannot be tested without the 2026-07-28
-bytes. The census artifact
+bytes. A CRLF→LF rewrite is ruled out: all 27 files still carry CRLF.
+
+One capture does not fit the pattern. Normalised by cell count, 26 of 27 lost
+0.074–0.117 bytes per cell — a tight band that reads as one systematic
+reformat rather than 27 independent revisions. **`D1_2425` lost 0.329
+bytes/cell (−11,968 bytes), roughly 3× every peer including its own siblings
+`E0_2425` and `SP1_2425`.** Its row count is unchanged and its closing coverage
+is still 306/306, so nothing here invalidates a number — but it is the one file
+where "systematic reformat" is the weaker explanation, and the next
+investigation should start there. The census artifact
 ([`coverage-census.json`](coverage-census.json)) now records per-file column
 counts, per-family presence, usable counts and per-family market log loss, so
 **the next drift will be diagnosable** even though this one is not.
@@ -130,29 +139,78 @@ Recorded because they cost the same to find as a positive one.
   missing odds were degrading the benchmark. They are not missing. The
   benchmark's weakness was a column choice and an unretained snapshot.
 
+## Independent replication
+
+Two agents re-derived the coverage claims from the raw bytes without importing
+any module in this change set — one with pandas, one deliberately avoiding it
+(stdlib `csv`) so a pandas parsing quirk could not make both agree for the wrong
+reason. **All six claims CONFIRMED by both**, to the digit: closing-family
+presence 27/27, `AvgC` absent but `PSC` present in the nine earliest captures,
+coverage 3420/3419/2753, `AvgC`-only 2280/2280/1836, max |Δ| 0.0025 nats, and
+27/27 hash drift with row counts unchanged.
+
+The stdlib replication also surfaced a trap this census avoids only because its
+family table is an explicit allowlist: **`VC` ends in "C" but is BetVictor
+*pre*-closing** — its closing twin is `VCC`, and both coexist in 24 of the 27
+captures. A "prefix ends in C" heuristic would label a pre-closing series
+closing in most of the corpus. Pinned by
+`test_family_table_only_lists_families_the_publisher_documents_as_closing`.
+
 ## Acceptance criteria
+
+Verdicts below are **after** the adversarial review round (next section). Three
+were overstated in the first cut and are corrected here.
 
 | ID | Verdict | Evidence |
 |---|---|---|
 | A1 census exists | **MET** | [`coverage-census.json`](coverage-census.json), [`coverage-report.txt`](coverage-report.txt) |
 | A2 no silent substitution | **MET** | `test_refuses_pre_closing_odds_by_default`, `test_pre_closing_odds_available_only_on_explicit_opt_in` |
-| A3 provenance end-to-end | **MET** | `PROVIDER` on every census; `odds_basis`/`odds_bookmaker` on every record; `test_provenance_travels_on_the_census` |
-| A4 denominators always | **MET** | `test_drop_reasons_are_exhaustive_and_sum_to_rows` proves `usable + Σdrops == rows` |
-| A5 leakage L1–L4 | **MET** | `pipeline/market_leakage_test.py`, `test_join_is_exact_and_a_near_miss_does_not_match`, `test_default_scope_never_opens_a_confirmation_capture` |
+| A3 provenance end-to-end | **MET for the club path, after remediation** | Was **NOT met** in the first cut: `MatchedMatch` dropped the basis at the join and `result_to_json` emitted none. Now `market_basis()` + a `provenance` block on `result_to_json`/`format_report`, wired through `run_club_benchmark.py` with per-input sha256. The report header names the basis and prints **MIXED** or **UNKNOWN** rather than asserting "Closing-line". **Boundary:** `pipeline/run_market_benchmark.py` (the WC26/API-Football path) is not a D0 input and was not wired; it now reports basis `unknown` rather than implying closing. |
+| A4 denominators always | **MET for file-level; join-level SPECIFIED BUT NOT EXERCISED** | `test_drop_reasons_are_exhaustive_and_sum_to_rows` proves `usable + Σdrops == rows` on every capture. `join_diagnostics` is unit-tested but has **no production caller** — D0 recomputes no model-vs-market benchmark, so nothing joins model rows to prices. Stated rather than papered over. |
+| A5 leakage L1–L4 | **MET, after the guard itself was repaired** | The first cut's L1 scanner saw only absolute static imports — it went green on a working `from ..evaluation.market_benchmark import devig` planted in `ml/features`, and on `importlib.import_module`, and on a transitive hop through `ml/models`. Now resolves relative and dynamic imports, walks the transitive closure, and refuses to scan an empty directory (which silently asserted nothing if a package moved). |
 | A6 hermetic tests | **MET** | `test_census_makes_no_network_call`; `fetch_captures` is operator-only and never called for real |
-| A7 reproduction receipt | **MET, with a declared limitation** | below — the receipt is exact, but D0-2 means it reproduces *today's* publisher bytes, not 2026-07-28's |
+| A7 reproduction receipt | **MET, after remediation, with a declared limitation** | `avgc-vs-psc.txt` was produced by an ad-hoc script and could not be regenerated from the documented commands; it is now `--compare-families`. The receipt is exact, but D0-2 means it reproduces *today's* publisher bytes, not 2026-07-28's. |
+
+## Adversarial review round — what it found in this change set
+
+Three reviewers (correctness / leakage / documentation-honesty) worked the diff;
+every finding was then handed to a skeptic instructed to refute it. Recorded
+because the defects were in code written *for* this phase, and two of them are
+the same class of error the phase exists to catch.
+
+| Severity | Defect | Status |
+|---|---|---|
+| **P1** | **A blank price scored as a perfect market prediction.** `min(nan, nan, nan) <= 1.0` is `False` — every comparison against NaN is — so a blank odds cell passed both guards, `devig` returned `(nan, nan, nan)`, and `_log_loss_one` clamped it to `1 - eps`. Two real rows hit this (SP1_1718 Alaves–Sociedad, D1_1819 Bayern–Hannover). The same row simultaneously scored the *worst possible* Brier. **Pre-existing in `devig`, which the frozen q3 baseline calls.** | **FIXED** — explicit NaN rejection in the loader and in `devig`/`devig2`. |
+| **P1** | **`_power_probs` could not solve an underround book.** Its bracket started at `k = 1.0` on a docstring premise that booksum is always > 1. **71.5% of real `MaxC` triples are underround** — a market-maximum family is a best-price envelope across books, so that is its normal state. The bisection collapsed onto its floor and returned the proportional answer under a power label. | **FIXED** — bracket straddles 1; Shin now has an explicit documented fallback, since a negative insider share has no meaning. |
+| **P1** | **A3 was claimed MET and was not.** | **FIXED** — see A3 above. |
+| P2 | **The L1 leakage guard was not load-bearing.** Blind to relative imports, `importlib`, and transitive reachability; and `rglob` on a moved directory scans zero files and passes. | **FIXED** — and the "planted import" test now plants all six spellings. |
+| P2 | **Importing the offline census built a live SQLAlchemy engine.** It reached `pipeline.ingest.club_results` for a URL constant; that module imports `app.models` → `app.db`, which calls `create_engine` at import time. An offline audit tool failed on any machine without `DATABASE_URL`. | **FIXED** — template moved to the pure parser, pinned equal by a test. |
+| P2 | **`--fetch --include-confirmation` downloaded the burnt holdout.** Widening what is *read* also put the consumed 2025-26 captures on disk. | **FIXED** — separate `--fetch-confirmation` flag; refuses otherwise. |
+| P2 | **The census exited 0 on 27/27 drift** while `club_data_manifest` exits 1 on the same condition. | **FIXED** — drift is now a non-zero exit. |
+| P2 | **The drift message asserted a cause it could not know.** "the publisher revised files in place" was printed on any sha mismatch — including a locally corrupted file, proven by a reviewer hand-writing one. | **FIXED** — reports the mismatch, names the likely cause as unestablished. |
+| P3 | **Every emitted artifact was labelled `scope: explicit`**, because the label came from *how* keys were passed rather than what they contained — so the durable evidence could not say whether the holdout was in scope. | **FIXED** — label derived from the keys; `includes_confirmation` is now visible in the JSON. |
+
+Refuted and not changed: an alleged abort in `run_club_benchmark` on a
+closing-less capture (no such capture exists in scope), and a rounding
+complaint about `100.0%` displayed for 3419/3420 (exact counts are printed
+alongside).
 
 ## Reproduction receipt
 
 ```bash
-# 1. fetch the free public captures (no key, no account, no cost)
+# 1. fetch the free public captures (no key, no account, no cost).
+#    Refuses to download the *_2526 holdout; --fetch-confirmation is a
+#    separate, deliberate decision.
 PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
     --dir data/raw/club --fetch
 
-# 2. census + de-vig sensitivity + drift check
+# 2. every artifact in this directory, in one command. Exits 1 on drift.
 PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
     --dir data/raw/club --sensitivity \
-    --emit-json docs/experiments/2026-07-29-d0-market-validation/coverage-census.json
+    --compare-families AvgC PSC \
+    --emit-comparison docs/experiments/2026-07-29-d0-market-validation/avgc-vs-psc.txt \
+    --emit-json docs/experiments/2026-07-29-d0-market-validation/coverage-census.json \
+    > docs/experiments/2026-07-29-d0-market-validation/coverage-report.txt
 ```
 
 | | |
@@ -161,8 +219,8 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
 | python / pandas | 3.12.1 / 3.0.3 |
 | scope | 27 pre-confirmation captures (`pre_confirmation_keys()`); the three `*_2526` captures were **never fetched and never opened** |
 | input fingerprints | per-file sha256 in [`coverage-census.json`](coverage-census.json) |
-| drift verdict | **27/27 drifted** vs `pipeline/data/club_data_manifest.json`; manifest byte-identical to `main` |
-| python suite | 2,577 passed |
+| drift verdict | **27/27 drifted** vs `pipeline/data/club_data_manifest.json`; manifest byte-identical to `main`. Census exits **1** on this. |
+| python suite | 2,609 passed |
 
 ## Limitations, declared
 
