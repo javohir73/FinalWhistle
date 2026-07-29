@@ -5,6 +5,7 @@ import json
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -14,6 +15,30 @@ from app.main import app
 from app.research_store import DatabaseArtifactStore, FileArtifactStore
 
 client = TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture(autouse=True)
+def db_app():
+    """Bind the API to a throwaway database for the duration of one test.
+
+    AUTOUSE deliberately: without it a test reaches whatever Postgres happens
+    to be running on the developer's machine. That passed locally and failed
+    on a clean runner -- and failed *correctly*, as `unreadable`, because a
+    database the endpoint cannot reach is now reported honestly rather than as
+    "no data". The endpoint behaviour is right; the ambient dependency was the
+    bug. Every test in this module gets its own empty database, so the ones
+    below exercise the file branch because nothing is published, not because
+    no database exists.
+    """
+    engine = create_engine("sqlite://",
+                           connect_args={"check_same_thread": False},
+                           poolclass=StaticPool)
+    Base.metadata.create_all(engine)
+    session = sessionmaker(bind=engine, future=True)()
+    app.dependency_overrides[get_db] = lambda: session
+    yield session
+    app.dependency_overrides.pop(get_db, None)
+    session.close()
 
 
 def test_no_artifact_returns_an_honest_empty_state(tmp_path, monkeypatch):
@@ -220,20 +245,6 @@ def test_the_generator_and_api_agree_on_the_artifact_version():
 # --- the persistence boundary, end to end ------------------------------------
 
 
-@pytest.fixture
-def db_app():
-    """Bind the API to a throwaway database for the duration of one test."""
-    engine = create_engine("sqlite://",
-                           connect_args={"check_same_thread": False},
-                           poolclass=StaticPool)
-    Base.metadata.create_all(engine)
-    session = sessionmaker(bind=engine, future=True)()
-    app.dependency_overrides[get_db] = lambda: session
-    yield session
-    app.dependency_overrides.clear()
-    session.close()
-
-
 def test_an_artifact_published_to_the_database_is_served(db_app, tmp_path, monkeypatch):
     """The point of the whole slice: CI publishes to Postgres, the deployed
     API reads it -- no shared filesystem anywhere in the path."""
@@ -301,3 +312,47 @@ def test_the_endpoint_survives_the_table_not_existing_yet(db_app, tmp_path, monk
 
     assert response.status_code == 200
     assert response.json()["status"] == "no_data"
+
+
+def test_a_database_outage_is_reported_not_papered_over(db_app, tmp_path, monkeypatch):
+    """The counterpart to the fallback above, and the reason the fallback is
+    narrow: a reachable-but-broken database must never render as "no data".
+
+    A valid file is present here on purpose. Serving it would look like a
+    graceful degradation and would in fact hide an outage behind whatever
+    stale bytes were baked into the image -- the operator would read a number
+    and never learn the database was down.
+    """
+    path = tmp_path / "market_benchmark.json"
+    FileArtifactStore(path).publish(VALID_ARTIFACT, published_by="stale")
+    monkeypatch.setattr(research, "ARTIFACT_PATH", path)
+
+    def _refused(*_args, **_kwargs):
+        raise OperationalError("SELECT research_artifact", {},
+                               ConnectionError("connection refused"))
+
+    monkeypatch.setattr(db_app, "query", _refused)
+
+    response = client.get("/api/research/market-benchmark")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "unreadable"
+    assert "cannot be read" in body["detail"]
+    assert "no benchmark artifact has been published" not in body["detail"]
+
+
+def test_the_table_not_existing_yet_still_falls_back_to_the_file(
+        db_app, tmp_path, monkeypatch):
+    """The one accepted fallback, proven to actually deliver: table absent,
+    file present, file served."""
+    path = tmp_path / "market_benchmark.json"
+    FileArtifactStore(path).publish(VALID_ARTIFACT, published_by="local")
+    monkeypatch.setattr(research, "ARTIFACT_PATH", path)
+    db_app.execute(text("DROP TABLE research_artifact"))
+    db_app.commit()
+
+    body = client.get("/api/research/market-benchmark").json()
+
+    assert body["status"] == "ok"
+    assert body["source"] == "file"
