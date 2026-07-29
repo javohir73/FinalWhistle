@@ -18,14 +18,29 @@ def _fixture(name):
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    """Mimics requests.Response closely enough to prove byte preservation."""
+
+    def __init__(self, payload, *, body=None):
         self.payload = payload
+        self._body = body
+        self.headers = {"Content-Type": "application/json"}
+
+    @property
+    def content(self):
+        if self._body is not None:
+            return self._body
+        return json.dumps(self.payload).encode("utf-8")
 
     def raise_for_status(self):
         return None
 
     def json(self):
         return self.payload
+
+
+def _as_response(item):
+    """Allow a test to queue a pre-built response when it needs exact bytes."""
+    return item if isinstance(item, FakeResponse) else FakeResponse(item)
 
 
 class FakeSession:
@@ -35,7 +50,7 @@ class FakeSession:
 
     def get(self, url, *, params, timeout):
         self.calls.append((url, params, timeout))
-        return FakeResponse(self.responses.pop(0))
+        return _as_response(self.responses.pop(0))
 
 
 def _adapter(*responses):
@@ -50,7 +65,7 @@ def test_discovery_resolves_soccer_tag_and_keyset_paginates_all_active_events():
         _fixture("polymarket_active_events_page_2.json"),
     )
 
-    markets = adapter.discover_markets("football")
+    markets = adapter.discover_markets("football").markets
 
     assert [market.venue_key for market in markets] == ["0xaaa", "0xbbb", "0xccc"]
     assert [market.market_type for market in markets] == [
@@ -96,7 +111,7 @@ def test_discovery_deduplicates_market_repeated_across_pages():
 def test_unsupported_sport_is_a_network_free_empty_result():
     adapter, session = _adapter()
 
-    assert adapter.discover_markets("nrl") == []
+    assert adapter.discover_markets("nrl").markets == ()
     assert session.calls == []
 
 
@@ -140,11 +155,11 @@ def test_malformed_market_is_logged_without_aborting_valid_siblings(caplog):
         _fixture("polymarket_active_events_page_2.json"),
     )
 
-    markets = adapter.discover_markets("football")
+    markets = adapter.discover_markets("football").markets
 
     assert [market.venue_key for market in markets] == ["0xaaa", "0xbbb", "0xccc"]
-    assert "market 'market-without-condition' rejected" in caplog.text
-    assert "event 'event-malformed' has malformed markets" in caplog.text
+    assert "market market-without-condition rejected" in caplog.text
+    assert "event event-malformed has malformed markets" in caplog.text
 
 
 def test_fetch_quote_returns_complete_yes_token_book_and_provenance():
@@ -363,6 +378,38 @@ def test_discovery_still_exposes_the_live_hint_for_cadence_only():
         _fixture("polymarket_active_events_page_2.json"),
     )
 
-    markets = adapter.discover_markets("football")
+    markets = adapter.discover_markets("football").markets
 
     assert markets[0].raw_payload["event"]["live"] is True
+
+
+def test_the_venues_exact_bytes_survive_to_the_raw_document():
+    body = b'{"bids": [{"price": "0.4400", "size": "10"}],  "t": 1, "t": 2}\n'
+    session = FakeSession([])
+    session.responses = [
+        FakeResponse(_fixture("polymarket_clob_market.json")),
+        FakeResponse(json.loads(body), body=body),
+    ]
+    adapter = PolymarketAdapter(session=session, now=lambda: NOW)
+
+    quote = adapter.fetch_quote("0xaaa")
+
+    book = next(d for d in quote.raw_documents if d.name == "book")
+    assert book.body == body
+    assert b'"0.4400"' in book.body
+
+
+def test_a_rejected_market_is_returned_not_just_logged():
+    adapter, _session = _adapter(
+        _fixture("polymarket_soccer_tag.json"),
+        _fixture("polymarket_active_events_page_1.json"),
+        _fixture("polymarket_active_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    assert len(result.markets) == 3
+    reasons = {reject.reason for reject in result.rejected}
+    assert any("conditionId" in reason for reason in reasons)
+    assert any("not a list" in reason for reason in reasons)
+    assert result.documents

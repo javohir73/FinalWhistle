@@ -5,6 +5,7 @@ import json
 
 import pytest
 
+from pipeline.ingest.venues.types import RawDocument
 from worker.raw_store import (
     FileRawPayloadStore,
     RawPayloadRejected,
@@ -122,9 +123,19 @@ def test_a_rejected_payload_is_also_a_raw_store_error():
     assert issubclass(RawPayloadRejected, RawStoreError)
 
 
+LIFECYCLE = {"Rules": [{"Status": "Enabled", "Filter": {"Prefix": ""},
+                        "Expiration": {"Days": 90}}]}
+
+
 class _FakeS3:
-    def __init__(self):
+    def __init__(self, lifecycle=LIFECYCLE):
         self.objects = {}
+        self._lifecycle = lifecycle
+
+    def get_bucket_lifecycle_configuration(self, Bucket):  # noqa: N803 - boto3 API
+        if self._lifecycle is None:
+            raise RuntimeError("NoSuchLifecycleConfiguration")
+        return self._lifecycle
 
     def put_object(self, **kwargs):
         self.objects[kwargs["Key"]] = kwargs
@@ -133,7 +144,7 @@ class _FakeS3:
 def test_s3_store_writes_encrypted_json_under_a_deterministic_key():
     client = _FakeS3()
     store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
-                              client=client)
+                              retention_days=90, client=client)
 
     stored = store.put(venue="polymarket", venue_key="0xaaa", kind="settlement",
                        captured_at=NOW, payload=PAYLOAD)
@@ -148,7 +159,8 @@ def test_s3_store_writes_encrypted_json_under_a_deterministic_key():
 
 def test_s3_store_enforces_the_same_size_bound():
     store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
-                              max_payload_bytes=100, client=_FakeS3())
+                              max_payload_bytes=100, retention_days=90,
+                              client=_FakeS3())
 
     with pytest.raises(RawPayloadRejected):
         store.put(venue="polymarket", venue_key="0xaaa", kind="quote",
@@ -156,14 +168,170 @@ def test_s3_store_enforces_the_same_size_bound():
 
 
 def test_s3_outage_is_a_transient_error():
-    class Broken:
+    class Broken(_FakeS3):
         def put_object(self, **_kwargs):
             raise RuntimeError("connection reset")
 
     store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
-                              client=Broken())
+                              retention_days=90, client=Broken())
 
     with pytest.raises(RawStoreError) as excinfo:
         store.put(venue="polymarket", venue_key="0xaaa", kind="quote",
                   captured_at=NOW, payload=PAYLOAD)
     assert not isinstance(excinfo.value, RawPayloadRejected)
+
+
+# --- lossless bytes ---------------------------------------------------------
+
+AWKWARD = (b'{\n  "z": 1,\n  "a": "0.4300",\n  "a": "0.4301",\n'
+           b'  "unicode": "Bayern M\xc3\xbcnchen"\n}\n')
+
+
+def test_a_document_is_written_byte_for_byte(tmp_path):
+    """The whole point of the raw store. Every one of these survives only
+    because the bytes are never parsed: key order (z before a), indentation,
+    the duplicate `a`, the trailing newline, and `0.4300` rather than 0.43."""
+    store = FileRawPayloadStore(tmp_path)
+    document = RawDocument(name="orderbook", body=AWKWARD,
+                           url="https://venue.example/orderbook")
+
+    stored = store.put_document(venue="kalshi", venue_key="KX-1", kind="quote",
+                                captured_at=NOW, document=document)
+
+    with open(stored.reference, "rb") as handle:
+        assert handle.read() == AWKWARD
+    assert stored.sha256 == document.sha256
+    assert stored.size_bytes == len(AWKWARD)
+
+
+def test_re_serializing_would_have_destroyed_that_evidence():
+    """States the loss the byte path avoids, so the guarantee is not folklore."""
+    reserialized = json.dumps(json.loads(AWKWARD), sort_keys=True,
+                              separators=(",", ":")).encode()
+
+    assert reserialized != AWKWARD
+    assert b"0.4300" not in reserialized
+    assert reserialized.count(b'"a"') == 1  # the duplicate key is gone
+
+
+def test_document_name_reaches_the_filename(tmp_path):
+    store = FileRawPayloadStore(tmp_path)
+
+    stored = store.put_document(
+        venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+        document=RawDocument(name="orderbook", body=b"{}"))
+
+    assert "-quote-orderbook-" in stored.reference
+
+
+def test_an_oversized_document_is_rejected_before_it_is_written(tmp_path):
+    store = FileRawPayloadStore(tmp_path, max_payload_bytes=10)
+
+    with pytest.raises(RawPayloadRejected, match="over the 10 byte bound"):
+        store.put_document(venue="kalshi", venue_key="KX-1", kind="quote",
+                           captured_at=NOW,
+                           document=RawDocument(name="q", body=b"x" * 50))
+    assert list(tmp_path.rglob("*.json")) == []
+
+
+# --- retention --------------------------------------------------------------
+
+
+def test_local_retention_deletes_past_the_horizon_and_keeps_the_rest(tmp_path):
+    """The byte ceiling bounds each object; only this bounds the total. At a
+    30-second cadence an unpruned archive grows forever."""
+    import os as _os
+    from datetime import timedelta
+
+    store = FileRawPayloadStore(tmp_path, retention_days=30)
+    old = store.put(venue="kalshi", venue_key="KX-1", kind="quote",
+                    captured_at=NOW, payload={"n": 1})
+    fresh = store.put(venue="kalshi", venue_key="KX-2", kind="quote",
+                      captured_at=NOW, payload={"n": 2})
+    stale = (NOW - timedelta(days=31)).timestamp()
+    _os.utime(old.reference, (stale, stale))
+
+    removed = store.prune(now=NOW)
+
+    assert removed == 1
+    assert not type(tmp_path)(old.reference).exists()
+    assert type(tmp_path)(fresh.reference).exists()
+
+
+def test_retention_of_zero_keeps_everything_and_must_be_deliberate(tmp_path):
+    store = FileRawPayloadStore(tmp_path, retention_days=0)
+    store.put(venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+              payload={"n": 1})
+
+    assert store.prune(now=NOW) == 0
+    assert len(list(tmp_path.rglob("*.json"))) == 1
+
+
+def test_pruning_an_absent_root_is_not_an_error(tmp_path):
+    assert FileRawPayloadStore(tmp_path / "missing", retention_days=1).prune(
+        now=NOW) == 0
+
+
+@pytest.mark.parametrize("lifecycle,message", [
+    (None, "cannot read the lifecycle configuration"),
+    ({"Rules": []}, "no enabled expiration rule"),
+    ({"Rules": [{"Status": "Disabled", "Expiration": {"Days": 30}}]},
+     "no enabled expiration rule"),
+    ({"Rules": [{"Status": "Enabled", "Filter": {"Prefix": ""},
+                 "Expiration": {"Days": 365}}]}, "longer than the configured"),
+])
+def test_object_storage_refuses_to_write_without_verified_expiry(lifecycle, message):
+    """The worker cannot delete remote objects, so the bucket lifecycle is the
+    only enforcement there is. Assuming it exists is how an archive quietly
+    grows for a year -- so it is read once and a miss is a refusal."""
+    with pytest.raises(RawStoreError, match=message):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          retention_days=90, client=_FakeS3(lifecycle))
+
+
+def test_object_storage_refuses_an_unbounded_horizon():
+    with pytest.raises(RawStoreError, match="explicit retention horizon"):
+        S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                          retention_days=0, client=_FakeS3())
+
+
+def test_object_storage_accepts_a_rule_that_meets_the_horizon():
+    store = S3RawPayloadStore(
+        bucket="raw", endpoint_url="https://r2.example", retention_days=90,
+        client=_FakeS3({"Rules": [{"Status": "Enabled",
+                                   "Prefix": "prediction-market",
+                                   "Expiration": {"Days": 30}}]}))
+
+    assert store.prune(now=NOW) == 0  # the bucket does the deleting
+
+
+def test_object_storage_writes_documents_verbatim():
+    client = _FakeS3()
+    store = S3RawPayloadStore(bucket="raw", endpoint_url="https://r2.example",
+                              retention_days=90, client=client)
+
+    stored = store.put_document(
+        venue="kalshi", venue_key="KX-1", kind="quote", captured_at=NOW,
+        document=RawDocument(name="orderbook", body=AWKWARD))
+
+    written = client.objects[stored.reference.removeprefix("s3://raw/")]
+    assert written["Body"] == AWKWARD
+
+
+# --- credential-looking keys ------------------------------------------------
+
+
+@pytest.mark.parametrize("venue_key", [
+    "api_key_live_sk_1234", "Bearer_xyz", "APIKEY-9f3a", "my_secret_market",
+])
+def test_plain_but_credential_looking_keys_get_no_readable_path(tmp_path, venue_key):
+    """Character shape is not enough. These are all alphanumeric with
+    underscores and contain no separator for a scrubber to find."""
+    store = FileRawPayloadStore(tmp_path)
+
+    stored = store.put(venue="kalshi", venue_key=venue_key, kind="quote",
+                       captured_at=NOW, payload=PAYLOAD)
+
+    assert venue_key not in stored.reference
+    for fragment in ("api_key", "Bearer", "APIKEY", "secret", "sk_1234"):
+        assert fragment not in stored.reference

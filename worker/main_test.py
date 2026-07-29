@@ -15,7 +15,7 @@ MODULES = [
     "worker.capture",
     "worker.streaming",
     "worker.raw_store",
-    "worker.redaction",
+    "pipeline.ingest.venues.redaction",
     "worker.main",
     "pipeline.ingest.venues",
     "pipeline.ingest.venues.types",

@@ -20,11 +20,20 @@ An empty allowlist means **capture nothing**. It is never read as "capture
 every market the venue lists" — that reading turns a missing decision into a
 worker quietly polling a whole catalogue against a public rate limit.
 
-`CaptureWorker.run_all` re-checks both before touching an adapter, and
-`_capture_keys` returns an empty set for an empty allowlist, so a direct
-programmatic call cannot bypass the gates either. Importing any module in the
-layer opens no connection; a test enforces that with `socket.connect` made
-fatal.
+The gate lives at the top of `run_venue_cycle`, before any adapter, network or
+database call — not only in `run_all`. Three things follow, each tested:
+
+- a direct `run_venue_cycle` call with capture disabled discovers nothing,
+  stores nothing and writes no heartbeat;
+- an empty allowlist skips the same way, rather than fetching a catalogue it
+  will then find nothing eligible in;
+- **a venue with no allowlisted key of its own is skipped without discovery.**
+  Eligibility is computed from settings alone. Deriving it from the catalogue
+  meant fetching the catalogue first — so an allowlist naming only `kalshi:…`
+  still sent Polymarket's discovery request.
+
+Importing any module in the layer opens no connection; a test enforces that
+with `socket.connect` made fatal.
 
 ## Running it locally
 
@@ -72,26 +81,58 @@ ledger, or from a venue that publishes it.
 
 ## Raw payloads
 
-Byte-exact JSON with a sha256, written once, never rewritten, never parsed on
-the way in. Objects are `0600` inside `0700` directories; S3/R2 writes are
-server-side encrypted.
+The venue's **original response bytes**, written once with a sha256 and never
+parsed on the way in. Not a re-serialization of the parse: `json.loads` then
+`json.dumps(sort_keys=True)` discards whitespace, key order, duplicate keys and
+every number's lexical form — `"0.4300"` becomes `0.43` — and those bytes are
+what a venue would be held to if it ever disputed a price.
 
-Bounded on two axes:
+A quote assembled from several responses (Kalshi reads an orderbook and a
+market; Polymarket a CLOB market and a book) stores every response verbatim
+plus a manifest of their digests, so the tick's single `raw_payload_ref` still
+resolves to the complete record. `put()` — which re-serializes — is used only
+for payloads we authored ourselves: rejected-item diagnostics, the manifest,
+and the registry-recovery stub.
+
+Objects are `0600` inside `0700` directories; S3/R2 writes are server-side
+encrypted.
+
+Bounded on **three** axes, because a byte ceiling caps each object and nothing
+else caps the total:
 
 - a payload over `MARKET_CAPTURE_MAX_RAW_PAYLOAD_BYTES` is **refused**, not
   truncated, and the refusal is not retried — it would fail identically every
   time;
 - rejected payloads are retained for diagnosis up to
-  `MARKET_CAPTURE_MAX_REJECTED_PER_CYCLE` per venue cycle. A venue that starts
-  returning garbage returns it every poll, so the overflow is counted rather
-  than written.
+  `MARKET_CAPTURE_MAX_REJECTED_PER_CYCLE` per venue cycle. Both the stored and
+  the **dropped** counts reach the cycle result and the heartbeat, so overflow
+  is a number rather than an absence;
+- everything is deleted past `MARKET_CAPTURE_RAW_RETENTION_DAYS`. Locally the
+  worker prunes after each completed run. For object storage it cannot: the
+  bucket lifecycle rule is the only enforcement, so it is **read and verified
+  at startup** and a missing, disabled or longer-than-configured rule is a
+  refusal to write at all. Assuming a lifecycle rule exists is how an archive
+  grows unbounded for a year.
 
-Paths never carry a venue string verbatim unless it is already plain
-(alphanumerics, dot, dash, underscore, no leading dot, ≤64 chars). Anything
-else is filed under its digest alone — sanitizing is a guess about which
-fragments are harmless, and `Bearer xyz` survives a character-class filter
-intact. Error messages are scrubbed by `worker.redaction.redact` before they
-reach a log line or the heartbeat row.
+Malformed discovery items are evidence too. Adapters return them alongside the
+good markets rather than logging and dropping them, so the payload is retained
+under the same bounded policy and counted — a venue quietly breaking half its
+catalogue must not look like a venue with a smaller catalogue. A malformed
+top-level catalogue response still records a heartbeat; without one, a venue
+serving garbage is indistinguishable from a worker that never ran.
+
+Paths never carry a venue string verbatim unless it is plain in shape
+(alphanumerics, dot, dash, underscore, no leading dot, ≤64 chars) **and** clean
+by the shared credential detector. Shape alone is not enough:
+`api_key_live_sk_1234` and `Bearer_xyz` are perfectly plain and contain no
+separator for a scrubber to find. Anything that trips either check is filed
+under its digest alone.
+
+`pipeline.ingest.venues.redaction` is the single detector, used by the raw
+store, the worker and both adapters — including adapter warnings that
+interpolate venue-controlled identifiers and exception text. It matches
+structured bodies (`{"apiKey":"secret"}`, `{'api_key':'secret'}`) as well as
+`key: value`, because a venue error usually arrives serialized.
 
 ## Failure behaviour
 

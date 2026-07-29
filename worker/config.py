@@ -54,6 +54,12 @@ class CaptureSettings:
     #: garbage must not be able to fill the disk one poll at a time.
     max_raw_payload_bytes: int = 2_000_000
     max_rejected_payloads_per_cycle: int = 5
+    #: Retention horizon for stored raw objects. The byte ceiling bounds each
+    #: object; only this bounds the total. 0 means keep forever and must be
+    #: chosen deliberately -- the S3 store refuses it outright, because there
+    #: the worker cannot delete anything and the bucket lifecycle is the only
+    #: enforcement there is.
+    raw_retention_days: int = 90
 
     def __post_init__(self) -> None:
         venues = tuple(dict.fromkeys(v.strip().casefold() for v in self.enabled_venues if v.strip()))
@@ -103,6 +109,13 @@ class CaptureSettings:
             raise ValueError("retry_limit must be at least 0")
         if self.max_rejected_payloads_per_cycle < 0:
             raise ValueError("max_rejected_payloads_per_cycle must be at least 0")
+        if self.raw_retention_days < 0:
+            raise ValueError("raw_retention_days must be at least 0")
+        if self.raw_store_backend == "s3" and not self.raw_retention_days:
+            raise ValueError(
+                "the s3 raw store needs raw_retention_days > 0: the worker cannot "
+                "delete remote objects, so an unbounded horizon has no enforcement"
+            )
         if self.backoff_max_seconds < self.backoff_initial_seconds:
             raise ValueError("backoff_max_seconds must be >= backoff_initial_seconds")
 
@@ -214,5 +227,8 @@ class CaptureSettings:
             max_rejected_payloads_per_cycle=integer(
                 "MARKET_CAPTURE_MAX_REJECTED_PER_CYCLE",
                 defaults.max_rejected_payloads_per_cycle,
+            ),
+            raw_retention_days=integer(
+                "MARKET_CAPTURE_RAW_RETENTION_DAYS", defaults.raw_retention_days
             ),
         )

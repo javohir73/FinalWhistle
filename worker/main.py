@@ -34,10 +34,13 @@ def build_worker(settings: CaptureSettings, db):
             endpoint_url=settings.raw_store_endpoint,
             region_name=settings.raw_store_region,
             max_payload_bytes=settings.max_raw_payload_bytes,
+            retention_days=settings.raw_retention_days,
         )
         if settings.raw_store_backend == "s3"
         else FileRawPayloadStore(
-            settings.raw_store_path, max_payload_bytes=settings.max_raw_payload_bytes
+            settings.raw_store_path,
+            max_payload_bytes=settings.max_raw_payload_bytes,
+            retention_days=settings.raw_retention_days,
         )
     )
     return CaptureWorker(

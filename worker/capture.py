@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.models import CaptureHeartbeat, VenueMarket as VenueMarketRow, VenuePriceTick
 from pipeline.ingest.venues.types import (
+    DiscoveryResult,
     Quote,
     Settlement,
     VenueAdapter,
@@ -33,8 +34,8 @@ from pipeline.ingest.venues.types import (
     tick_identity,
 )
 from worker.config import CaptureSettings
+from pipeline.ingest.venues.redaction import redact
 from worker.raw_store import RawPayloadRejected, RawPayloadStore, RawStoreError
-from worker.redaction import redact
 
 log = logging.getLogger(__name__)
 T = TypeVar("T")
@@ -70,6 +71,23 @@ def _db_utc(value: datetime) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         return value.replace(tzinfo=timezone.utc)
     return value.astimezone(timezone.utc)
+
+
+def _with_retention_counts(errors: list[dict], stored: int, dropped: int):
+    """Attach the bounded-retention outcome to the heartbeat.
+
+    Overflow used to be implicit -- the cap silently stopped writing and
+    nothing recorded that it had. A dropped diagnostic you cannot count is a
+    diagnostic you will not miss.
+    """
+    if not errors and not stored and not dropped:
+        return None
+    entry = {
+        "category": "raw_retention",
+        "rejected_payloads_stored": stored,
+        "rejected_payloads_dropped": dropped,
+    }
+    return [*errors, entry]
 
 
 def _error_category(exc: Exception) -> str:
@@ -115,28 +133,36 @@ class CaptureWorker:
         self._catalogue_counts: dict[str, int] = {}
         self._last_discovery: dict[str, datetime] = {}
         self._rejected_stored = 0
+        self._rejected_dropped = 0
 
     # --- policy ------------------------------------------------------------
 
+    def _allowed_keys(self, venue: str) -> set[str]:
+        """Keys allowed for THIS venue, from settings alone.
+
+        Computed before any network call, because a venue with no allowlisted
+        keys must not be discovered at all. Deriving eligibility from a
+        catalogue means fetching the catalogue first, which is exactly the
+        request the allowlist was supposed to prevent.
+        """
+        if not self.settings.market_key_allowlist:
+            return set()
+        return {
+            value.split(":", 1)[1]
+            for value in self.settings.market_key_allowlist
+            if value.split(":", 1)[0].casefold() == venue.casefold()
+        }
+
     def _capture_keys(self, venue: str, markets: list[VenueMarket]) -> set[str]:
         """The bounded exact market set eligible for remote capture calls.
-
-        An empty allowlist yields an empty set. It is never read as "capture
-        everything": a missing allowlist is a decision nobody made, and the
-        failure mode of guessing is a worker quietly polling an entire venue
-        catalogue against a rate limit.
 
         Selection is sorted, so the hard cap always truncates the same way.
         Unsorted, a catalogue whose order shifted between cycles would rotate
         which markets got captured and leave every series with holes.
         """
-        if not self.settings.market_key_allowlist:
+        qualified = self._allowed_keys(venue)
+        if not qualified:
             return set()
-        qualified = {
-            value.split(":", 1)[1]
-            for value in self.settings.market_key_allowlist
-            if value.split(":", 1)[0].casefold() == venue.casefold()
-        }
         candidates = sorted(
             (market.venue_key for market in markets if market.venue_key in qualified)
         )
@@ -189,6 +215,54 @@ class CaptureWorker:
         )
         return stored.reference, retries, rate_limits
 
+    def _store_documents(
+        self,
+        *,
+        venue: str,
+        venue_key: str,
+        kind: str,
+        captured_at: datetime,
+        documents: tuple,
+        fallback_payload: Mapping[str, object],
+    ) -> tuple[str, int, int]:
+        """Write the venue's original bytes, and return the provenance ref.
+
+        One response gives one object and the tick points straight at it. A
+        quote assembled from several responses (Kalshi reads an orderbook and
+        a market; Polymarket a CLOB market and a book) gets every response
+        stored verbatim plus a manifest listing their digests, so a single
+        `raw_payload_ref` still resolves to the complete record.
+
+        `fallback_payload` covers items we assembled ourselves -- the
+        registry-recovery stub has no venue response behind it.
+        """
+        if not documents:
+            return self._store(venue=venue, venue_key=venue_key, kind=kind,
+                               captured_at=captured_at, payload=fallback_payload)
+        retries = rate_limits = 0
+        entries = []
+        for document in documents:
+            stored, r, rl = self._retry(
+                lambda doc=document: self.raw_store.put_document(
+                    venue=venue, venue_key=venue_key, kind=kind,
+                    captured_at=captured_at, document=doc,
+                )
+            )
+            retries += r
+            rate_limits += rl
+            entries.append({
+                "name": document.name, "sha256": stored.sha256,
+                "size_bytes": stored.size_bytes, "url": document.url,
+                "reference": stored.reference,
+            })
+        if len(entries) == 1:
+            return entries[0]["reference"], retries, rate_limits
+        manifest_ref, r, rl = self._store(
+            venue=venue, venue_key=venue_key, kind=f"{kind}-manifest",
+            captured_at=captured_at, payload={"documents": entries},
+        )
+        return manifest_ref, retries + r, rate_limits + rl
+
     def _store_rejected(
         self, market: VenueMarket, payload: Mapping[str, object], captured_at: datetime
     ) -> bool:
@@ -199,6 +273,7 @@ class CaptureWorker:
         one, so the cap is stated and the overflow is counted, not hidden.
         """
         if self._rejected_stored >= self.settings.max_rejected_payloads_per_cycle:
+            self._rejected_dropped += 1
             return False
         try:
             self._store(
@@ -209,6 +284,24 @@ class CaptureWorker:
                 payload=payload,
             )
         except RetryExhausted:
+            self._rejected_dropped += 1
+            return False
+        self._rejected_stored += 1
+        return True
+
+    def _store_rejected_payload(
+        self, venue: str, venue_key: str, payload: Mapping[str, object],
+        captured_at: datetime,
+    ) -> bool:
+        """Same bounded policy, for a discovery item with no VenueMarket."""
+        if self._rejected_stored >= self.settings.max_rejected_payloads_per_cycle:
+            self._rejected_dropped += 1
+            return False
+        try:
+            self._store(venue=venue, venue_key=venue_key or "unparsed",
+                        kind="rejected", captured_at=captured_at, payload=payload)
+        except RetryExhausted:
+            self._rejected_dropped += 1
             return False
         self._rejected_stored += 1
         return True
@@ -217,7 +310,7 @@ class CaptureWorker:
 
     def _catalogue(
         self, adapter: VenueAdapter, scheduled_cycle_at: datetime
-    ) -> tuple[list[VenueMarket], int, int, int]:
+    ) -> tuple[list[VenueMarket], int, int, int, tuple]:
         previous = self._last_discovery.get(adapter.venue)
         if (
             previous is not None
@@ -230,10 +323,14 @@ class CaptureWorker:
                 self._catalogue_counts[adapter.venue],
                 0,
                 0,
+                (),
             )
-        markets, retries, rate_limits = self._retry(
+        discovery, retries, rate_limits = self._retry(
             lambda: adapter.discover_markets("football")
         )
+        if not isinstance(discovery, DiscoveryResult):  # pragma: no cover
+            raise VenuePayloadError("adapter must return a DiscoveryResult")
+        markets = list(discovery.markets)
         by_key = {market.identity_key: market for market in markets}
         # A market disappearing from a complete active catalogue becomes a
         # settlement candidate. Preserve it across restarts using the registry;
@@ -286,7 +383,8 @@ class CaptureWorker:
         self._catalogues[adapter.venue] = cached_markets
         self._catalogue_counts[adapter.venue] = discovered_count
         self._last_discovery[adapter.venue] = scheduled_cycle_at
-        return cached_markets, discovered_count, retries, rate_limits
+        return (cached_markets, discovered_count, retries, rate_limits,
+                discovery.rejected)
 
     # --- persistence -------------------------------------------------------
 
@@ -525,21 +623,51 @@ class CaptureWorker:
 
     # --- cycle -------------------------------------------------------------
 
+    def _refusal(self, venue: str) -> str | None:
+        """Why this venue must not be touched this cycle, or None.
+
+        Checked at the very top of the cycle, before any adapter, network or
+        database call. Putting the check in run_all only was not enough: a
+        direct run_venue_cycle call bypassed it entirely, and even through
+        run_all a global allowlist that named one venue still let the OTHER
+        venue's discovery request go out before eligibility was computed.
+        """
+        refusal = self.settings.refuse_reason()
+        if refusal is not None:
+            return refusal
+        if not self._allowed_keys(venue):
+            return (
+                f"no allowlisted market keys for {venue}; skipped without "
+                "discovery. An empty list captures nothing."
+            )
+        return None
+
     def run_venue_cycle(
         self, venue: str, *, scheduled_cycle_at: datetime
     ) -> dict[str, object]:
         scheduled_cycle_at = _utc(scheduled_cycle_at, "scheduled_cycle_at")
+        refusal = self._refusal(venue)
+        if refusal is not None:
+            log.warning("capture skipped: %s", refusal)
+            return {
+                "venue": venue, "markets_seen": 0, "markets_registered": 0,
+                "markets_eligible": 0, "markets_skipped_by_policy": 0,
+                "rejected_payloads_stored": 0, "rejected_payloads_dropped": 0,
+                "success_count": 0, "error_count": 0, "retry_count": 0,
+                "rate_limit_count": 0, "refused": refusal, "errors": [],
+            }
         started = self.monotonic()
         adapter = self.adapters[venue]
         errors: list[dict[str, str]] = []
         success_count = error_count = retry_count = rate_limit_count = 0
         markets: list[VenueMarket] = []
         discovered_count = 0
+        discovery_rejects: tuple = ()
         self._rejected_stored = 0
+        self._rejected_dropped = 0
         try:
-            markets, discovered_count, retries, rate_limits = self._catalogue(
-                adapter, scheduled_cycle_at
-            )
+            (markets, discovered_count, retries, rate_limits,
+             discovery_rejects) = self._catalogue(adapter, scheduled_cycle_at)
             retry_count += retries
             rate_limit_count += rate_limits
         except RetryExhausted as exc:
@@ -549,6 +677,30 @@ class CaptureWorker:
             errors.append(
                 {"category": _error_category(exc.cause), "message": str(exc.cause)}
             )
+        except Exception as exc:
+            # A malformed top-level catalogue must not escape the cycle. If it
+            # did, run_all rolled the session back and no heartbeat was
+            # written -- so a venue serving garbage looked exactly like a
+            # worker that never ran.
+            error_count += 1
+            errors.append({"category": _error_category(exc), "message": str(exc)})
+            raw = getattr(exc, "raw_payload", None)
+            if isinstance(raw, Mapping):
+                self._store_rejected_payload(venue, "catalogue", raw,
+                                             scheduled_cycle_at)
+
+        # Rejected discovery items are evidence, not noise: a venue quietly
+        # breaking half its catalogue is indistinguishable from a smaller
+        # catalogue unless the rejects are stored and counted.
+        for reject in discovery_rejects:
+            error_count += 1
+            errors.append({
+                "venue_key": reject.identifier,
+                "category": "discovery_validation",
+                "message": reject.reason,
+            })
+            self._store_rejected_payload(
+                venue, reject.identifier, reject.payload, scheduled_cycle_at)
 
         capture_keys = self._capture_keys(venue, markets)
         registry_markets = (
@@ -564,12 +716,13 @@ class CaptureWorker:
                 with self.db.begin_nested():
                     discovery_ref = None
                     if self._needs_discovery_raw(market):
-                        discovery_ref, retries, rate_limits = self._store(
+                        discovery_ref, retries, rate_limits = self._store_documents(
                             venue=market.venue,
                             venue_key=market.venue_key,
                             kind="discovery",
                             captured_at=market.discovered_at,
-                            payload=market.raw_payload,
+                            documents=market.raw_documents,
+                            fallback_payload=market.raw_payload,
                         )
                         retry_count += retries
                         rate_limit_count += rate_limits
@@ -611,12 +764,13 @@ class CaptureWorker:
                         )
                         retry_count += retries
                         rate_limit_count += rate_limits
-                        quote_ref, retries, rate_limits = self._store(
+                        quote_ref, retries, rate_limits = self._store_documents(
                             venue=market.venue,
                             venue_key=market.venue_key,
                             kind="quote",
                             captured_at=scheduled_cycle_at,
-                            payload=quote.raw_payload,
+                            documents=quote.raw_documents,
+                            fallback_payload=quote.raw_payload,
                         )
                         retry_count += retries
                         rate_limit_count += rate_limits
@@ -667,12 +821,15 @@ class CaptureWorker:
                         retry_count += retries
                         rate_limit_count += rate_limits
                         if settlement is not None:
-                            settlement_ref, retries, rate_limits = self._store(
-                                venue=market.venue,
-                                venue_key=market.venue_key,
-                                kind="settlement",
-                                captured_at=settlement.settled_at,
-                                payload=settlement.raw_payload,
+                            settlement_ref, retries, rate_limits = (
+                                self._store_documents(
+                                    venue=market.venue,
+                                    venue_key=market.venue_key,
+                                    kind="settlement",
+                                    captured_at=settlement.settled_at,
+                                    documents=settlement.raw_documents,
+                                    fallback_payload=settlement.raw_payload,
+                                )
                             )
                             retry_count += retries
                             rate_limit_count += rate_limits
@@ -739,7 +896,8 @@ class CaptureWorker:
                 retry_count=retry_count,
                 rate_limit_count=rate_limit_count,
                 cycle_duration_ms=duration_ms,
-                errors=errors or None,
+                errors=_with_retention_counts(
+                    errors, self._rejected_stored, self._rejected_dropped),
             )
             self.db.add(heartbeat)
         else:
@@ -750,7 +908,9 @@ class CaptureWorker:
             heartbeat.retry_count += retry_count
             heartbeat.rate_limit_count += rate_limit_count
             heartbeat.cycle_duration_ms += duration_ms
-            heartbeat.errors = list(heartbeat.errors or []) + errors
+            heartbeat.errors = list(heartbeat.errors or []) + (
+                _with_retention_counts(
+                    errors, self._rejected_stored, self._rejected_dropped) or [])
         self.db.commit()
         return {
             "venue": venue,
@@ -759,6 +919,7 @@ class CaptureWorker:
             "markets_eligible": len(capture_keys),
             "markets_skipped_by_policy": max(0, discovered_count - len(capture_keys)),
             "rejected_payloads_stored": self._rejected_stored,
+            "rejected_payloads_dropped": self._rejected_dropped,
             "success_count": success_count,
             "error_count": error_count,
             "retry_count": retry_count,
@@ -775,20 +936,6 @@ class CaptureWorker:
         and cost determinism in the heartbeat. There is no concurrency setting
         rather than an unimplemented one.
         """
-        refusal = self.settings.refuse_reason()
-        if refusal is not None:
-            log.warning("capture refused: %s", refusal)
-            return {
-                venue: {
-                    "venue": venue,
-                    "markets_seen": 0,
-                    "success_count": 0,
-                    "error_count": 0,
-                    "refused": refusal,
-                    "errors": [],
-                }
-                for venue in self.settings.enabled_venues
-            }
         results: dict[str, dict[str, object]] = {}
         for venue in self.settings.enabled_venues:
             if venue not in self.adapters:
@@ -818,4 +965,11 @@ class CaptureWorker:
                     ],
                 }
                 log.exception("capture venue cycle failed", extra={"venue": venue})
+        if any("refused" not in result for result in results.values()):
+            try:
+                removed = self.raw_store.prune(now=self.now())
+                if removed:
+                    log.info("raw retention pruned %d objects", removed)
+            except Exception:  # noqa: BLE001 - retention must not fail a cycle
+                log.exception("raw retention prune failed")
         return results

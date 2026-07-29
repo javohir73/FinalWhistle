@@ -19,11 +19,15 @@ from urllib.parse import quote as url_quote
 
 import requests
 
+from pipeline.ingest.venues.redaction import redact
 from pipeline.ingest.venues.types import (
     UNSUPPORTED_IN_PLAY,
+    DiscoveryResult,
     OrderBook,
     OrderBookLevel,
     Quote,
+    RawDocument,
+    RejectedPayload,
     Settlement,
     VenueMarket,
     VenuePayloadError,
@@ -37,6 +41,25 @@ SOCCER_TAG_SLUG = "soccer"
 _PAGE_LIMIT = 100
 _MARKET_TYPE_SEPARATOR = re.compile(r"[^a-z0-9]+")
 _ONE = Decimal("1")
+
+
+def _response_bytes(response) -> bytes:
+    """The exact bytes the venue sent, however the client exposes them."""
+    body = getattr(response, "content", None)
+    if isinstance(body, (bytes, bytearray)):
+        return bytes(body)
+    text = getattr(response, "text", None)
+    if isinstance(text, str):
+        return text.encode("utf-8")
+    raise VenuePayloadError("venue response exposed no raw body")
+
+
+def _document(response, name: str, url: str) -> RawDocument:
+    return RawDocument(
+        name=name, body=_response_bytes(response), url=url,
+        content_type=str(getattr(response, "headers", {}).get(
+            "Content-Type", "application/json")),
+    )
 
 
 def _parse_time(value: object) -> datetime | None:
@@ -173,43 +196,53 @@ class PolymarketAdapter:
         self.session = session or requests.Session()
         self.now = now or (lambda: datetime.now(timezone.utc))
 
-    def _get(self, path: str, params: dict[str, object]) -> dict[str, Any]:
-        response = self.session.get(
-            f"{self.gamma_base_url}{path}", params=params, timeout=self.timeout
-        )
+    def _get(
+        self, path: str, params: dict[str, object], *, name: str
+    ) -> tuple[dict[str, Any], RawDocument]:
+        """Return the parsed body AND the bytes it was parsed from.
+
+        Both, always. Re-serializing the parse loses whitespace, key order,
+        duplicate keys and every number's lexical form, and those bytes are
+        the only evidence of what the venue actually said.
+        """
+        url = f"{self.gamma_base_url}{path}"
+        response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
+        document = _document(response, name, url)
         payload = response.json()
         if not isinstance(payload, dict):
             raise VenuePayloadError(f"polymarket {path} response must be an object")
-        return payload
+        return payload, document
 
-    def _get_clob(self, path: str, params: dict[str, object]) -> dict[str, Any]:
-        response = self.session.get(
-            f"{self.clob_base_url}{path}", params=params, timeout=self.timeout
-        )
+    def _get_clob(
+        self, path: str, params: dict[str, object], *, name: str
+    ) -> tuple[dict[str, Any], RawDocument]:
+        url = f"{self.clob_base_url}{path}"
+        response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
+        document = _document(response, name, url)
         payload = response.json()
         if not isinstance(payload, dict):
             raise VenuePayloadError(f"polymarket CLOB {path} response must be an object")
-        return payload
+        return payload, document
 
     def _get_gamma_list(
-        self, path: str, params: dict[str, object]
-    ) -> list[dict[str, Any]]:
-        response = self.session.get(
-            f"{self.gamma_base_url}{path}", params=params, timeout=self.timeout
-        )
+        self, path: str, params: dict[str, object], *, name: str
+    ) -> tuple[list[dict[str, Any]], RawDocument]:
+        url = f"{self.gamma_base_url}{path}"
+        response = self.session.get(url, params=params, timeout=self.timeout)
         response.raise_for_status()
+        document = _document(response, name, url)
         payload = response.json()
         if not isinstance(payload, list) or not all(
             isinstance(item, dict) for item in payload
         ):
             raise VenuePayloadError(f"polymarket {path} response must be a list")
-        return payload
+        return payload, document
 
-    def _soccer_tag(self) -> dict[str, Any]:
-        payload = self._get(
-            f"/tags/slug/{url_quote(SOCCER_TAG_SLUG, safe='')}", {}
+    def _soccer_tag(self) -> tuple[dict[str, Any], RawDocument]:
+        payload, document = self._get(
+            f"/tags/slug/{url_quote(SOCCER_TAG_SLUG, safe='')}", {}, name="tag"
         )
         tag_id = payload.get("id")
         slug = payload.get("slug")
@@ -225,13 +258,18 @@ class PolymarketAdapter:
             or slug.casefold() != SOCCER_TAG_SLUG
         ):
             raise VenuePayloadError("polymarket soccer tag response is inconsistent")
-        return payload
+        return payload, document
 
-    def _active_events(self, tag_id: int) -> list[dict[str, Any]]:
+    def _active_events(
+        self, tag_id: int
+    ) -> tuple[list[dict[str, Any]], list[RawDocument]]:
         events: list[dict[str, Any]] = []
+        documents: list[RawDocument] = []
         cursor: str | None = None
         seen_cursors: set[str] = set()
+        page_number = 0
         while True:
+            page_number += 1
             params: dict[str, object] = {
                 "tag_id": tag_id,
                 "active": "true",
@@ -240,7 +278,9 @@ class PolymarketAdapter:
             }
             if cursor:
                 params["after_cursor"] = cursor
-            payload = self._get("/events/keyset", params)
+            payload, document = self._get(
+                "/events/keyset", params, name=f"events-{page_number}")
+            documents.append(document)
             page = payload.get("events")
             if not isinstance(page, list):
                 raise VenuePayloadError(
@@ -254,7 +294,7 @@ class PolymarketAdapter:
 
             next_cursor = payload.get("next_cursor")
             if not next_cursor:
-                return events
+                return events, documents
             if not isinstance(next_cursor, str):
                 raise VenuePayloadError("polymarket event cursor must be a string")
             if next_cursor in seen_cursors:
@@ -264,20 +304,31 @@ class PolymarketAdapter:
             seen_cursors.add(next_cursor)
             cursor = next_cursor
 
-    def discover_markets(self, sport: str) -> list[VenueMarket]:
+    def discover_markets(self, sport: str) -> DiscoveryResult:
+        """Catalogue markets, and carry back what could not be parsed.
+
+        A malformed market used to be logged and dropped, which lost the only
+        copy of the payload and the count with it -- a venue quietly breaking
+        half its catalogue looked exactly like a venue with a smaller one.
+        """
         if sport != "football":
-            return []
+            return DiscoveryResult()
         discovered_at = self.now()
-        tag = self._soccer_tag()
+        tag, tag_document = self._soccer_tag()
         tag_id = int(str(tag["id"]))
+        events, event_documents = self._active_events(tag_id)
+        documents = (tag_document, *event_documents)
         markets: dict[tuple[str, str], VenueMarket] = {}
-        for event in self._active_events(tag_id):
+        rejected: list[RejectedPayload] = []
+        for event in events:
             nested = event.get("markets") or []
             if not isinstance(nested, list):
-                log.warning(
-                    "polymarket discovery: event %r has malformed markets",
-                    event.get("id") or event.get("slug"),
-                )
+                identifier = redact(str(event.get("id") or event.get("slug") or ""))
+                log.warning("polymarket discovery: event %s has malformed markets",
+                            identifier)
+                rejected.append(RejectedPayload(
+                    reason="event markets is not a list", identifier=identifier,
+                    payload={"event": event}))
                 continue
             for raw_market in nested:
                 try:
@@ -288,16 +339,17 @@ class PolymarketAdapter:
                         discovered_at=discovered_at,
                     )
                 except VenuePayloadError as exc:
-                    log.warning(
-                        "polymarket discovery: market %r rejected: %s",
-                        raw_market.get("id")
-                        if isinstance(raw_market, dict)
-                        else None,
-                        exc,
-                    )
+                    identifier = redact(str(
+                        raw_market.get("id") if isinstance(raw_market, dict) else ""))
+                    log.warning("polymarket discovery: market %s rejected: %s",
+                                identifier, redact(str(exc)))
+                    rejected.append(RejectedPayload(
+                        reason=redact(str(exc)), identifier=identifier,
+                        payload={"market": raw_market}))
                     continue
                 markets.setdefault(market.identity_key, market)
-        return list(markets.values())
+        return DiscoveryResult(markets=tuple(markets.values()),
+                               rejected=tuple(rejected), documents=documents)
 
     def _to_market(
         self,
@@ -340,8 +392,8 @@ class PolymarketAdapter:
         venue_key = venue_key.strip()
         if not venue_key:
             raise VenuePayloadError("venue_key must not be empty")
-        market_info = self._get_clob(
-            f"/clob-markets/{url_quote(venue_key, safe='')}", {}
+        market_info, market_document = self._get_clob(
+            f"/clob-markets/{url_quote(venue_key, safe='')}", {}, name="clob-market"
         )
         raw_tokens = market_info.get("t") or market_info.get("tokens")
         if not isinstance(raw_tokens, list):
@@ -367,7 +419,8 @@ class PolymarketAdapter:
                 raw_payload=market_info,
             )
 
-        book_payload = self._get_clob("/book", {"token_id": yes_tokens[0]})
+        book_payload, book_document = self._get_clob(
+            "/book", {"token_id": yes_tokens[0]}, name="book")
         raw_payload = {"market": market_info, "book": book_payload}
         if book_payload.get("market") not in {None, "", venue_key}:
             raise VenuePayloadError(
@@ -402,14 +455,16 @@ class PolymarketAdapter:
             source_event_id=str(book_payload.get("hash") or "").strip() or None,
             in_play=UNSUPPORTED_IN_PLAY,
             raw_payload=raw_payload,
+            raw_documents=(market_document, book_document),
         )
 
     def fetch_settlement(self, venue_key: str) -> Settlement | None:
         venue_key = venue_key.strip()
         if not venue_key:
             raise VenuePayloadError("venue_key must not be empty")
-        rows = self._get_gamma_list(
-            "/markets", {"condition_ids": venue_key, "closed": "true", "limit": 2}
+        rows, document = self._get_gamma_list(
+            "/markets", {"condition_ids": venue_key, "closed": "true", "limit": 2},
+            name="markets",
         )
         matching = [row for row in rows if row.get("conditionId") == venue_key]
         if not matching:
@@ -480,4 +535,5 @@ class PolymarketAdapter:
                 or settled_at.isoformat()
             ),
             raw_payload={"market": market},
+            raw_documents=(document,),
         )

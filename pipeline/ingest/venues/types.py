@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+import hashlib
 import math
 from typing import Literal, Mapping, Protocol, runtime_checkable
 
@@ -241,6 +242,8 @@ class VenueMarket:
     opened_at: datetime | None = None
     closed_at: datetime | None = None
     raw_payload: JsonObject = field(default_factory=dict, repr=False, compare=False)
+    #: The untouched venue responses this market was parsed from.
+    raw_documents: tuple = field(default=(), repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "venue", _required_text(self.venue, "venue"))
@@ -289,6 +292,8 @@ class Quote:
     source_event_id: str | None = None
     in_play: InPlayState = UNSUPPORTED_IN_PLAY
     raw_payload: JsonObject = field(default_factory=dict, repr=False, compare=False)
+    #: The untouched venue responses this quote was parsed from.
+    raw_documents: tuple = field(default=(), repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "venue", _required_text(self.venue, "venue"))
@@ -343,6 +348,8 @@ class Settlement:
     outcome: str | None = None
     source_event_id: str | None = None
     raw_payload: JsonObject = field(default_factory=dict, repr=False, compare=False)
+    #: The untouched venue responses this settlement was parsed from.
+    raw_documents: tuple = field(default=(), repr=False, compare=False)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "venue", _required_text(self.venue, "venue"))
@@ -369,6 +376,73 @@ class Settlement:
     @property
     def identity_key(self) -> tuple[str, str]:
         return self.venue, self.venue_key
+
+
+@dataclass(frozen=True, slots=True)
+class RawDocument:
+    """One venue response exactly as it arrived, before any parsing.
+
+    Parsed-and-reserialized JSON is not the same evidence. Round-tripping
+    through ``json.loads`` then ``json.dumps(sort_keys=True)`` discards
+    whitespace, key order, duplicate keys, and the lexical form of every
+    number -- ``0.4300`` becomes ``0.43``, and a venue that later disputes a
+    price is disputing bytes we no longer hold.
+
+    ``body`` is what the socket delivered. Nothing here interprets it.
+    """
+
+    name: str
+    body: bytes
+    url: str = ""
+    content_type: str = "application/json"
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "name", _required_text(self.name, "name"))
+        if not isinstance(self.body, (bytes, bytearray)):
+            raise VenuePayloadError("raw document body must be bytes")
+        object.__setattr__(self, "body", bytes(self.body))
+
+    @property
+    def sha256(self) -> str:
+        return hashlib.sha256(self.body).hexdigest()
+
+    @property
+    def size_bytes(self) -> int:
+        return len(self.body)
+
+
+@dataclass(frozen=True, slots=True)
+class RejectedPayload:
+    """A venue item that could not be normalized, kept for diagnosis.
+
+    Discovery reads a page of markets at a time. Dropping a malformed one with
+    a log line loses the only copy of what the venue actually sent, and loses
+    the count too -- a venue quietly breaking half its catalogue looks
+    identical to a venue with a smaller catalogue.
+    """
+
+    reason: str
+    identifier: str = ""
+    payload: JsonObject = field(default_factory=dict, repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveryResult:
+    """Markets a venue catalogue yielded, plus what it could not yield.
+
+    Returning only the good rows makes silent loss the default. Both halves
+    travel together so the worker can persist and count the rejects.
+    """
+
+    markets: tuple[VenueMarket, ...] = ()
+    rejected: tuple[RejectedPayload, ...] = ()
+    documents: tuple[RawDocument, ...] = ()
+
+    def __iter__(self):  # pragma: no cover - convenience for `for m in result`
+        return iter(self.markets)
+
+    def __len__(self) -> int:
+        return len(self.markets)
 
 
 @dataclass(frozen=True, slots=True)
@@ -471,7 +545,7 @@ class VenueAdapter(Protocol):
 
     venue: str
 
-    def discover_markets(self, sport: str) -> list[VenueMarket]: ...
+    def discover_markets(self, sport: str) -> DiscoveryResult: ...
 
     def fetch_quote(self, venue_key: str) -> Quote: ...
 

@@ -18,14 +18,29 @@ def _fixture(name):
 
 
 class FakeResponse:
-    def __init__(self, payload):
+    """Mimics requests.Response closely enough to prove byte preservation."""
+
+    def __init__(self, payload, *, body=None):
         self.payload = payload
+        self._body = body
+        self.headers = {"Content-Type": "application/json"}
+
+    @property
+    def content(self):
+        if self._body is not None:
+            return self._body
+        return json.dumps(self.payload).encode("utf-8")
 
     def raise_for_status(self):
         return None
 
     def json(self):
         return self.payload
+
+
+def _as_response(item):
+    """Allow a test to queue a pre-built response when it needs exact bytes."""
+    return item if isinstance(item, FakeResponse) else FakeResponse(item)
 
 
 class FakeSession:
@@ -37,11 +52,11 @@ class FakeSession:
         self.calls.append((url, params, timeout))
         if "/markets/" in url and not url.endswith("/orderbook"):
             if self.responses and isinstance(self.responses[0], dict) and "market" in self.responses[0]:
-                return FakeResponse(self.responses.pop(0))
+                return _as_response(self.responses.pop(0))
             return FakeResponse(
                 {"market": {"last_price_dollars": "0.4300"}}
             )
-        return FakeResponse(self.responses.pop(0))
+        return _as_response(self.responses.pop(0))
 
 
 def _adapter(*responses):
@@ -56,7 +71,7 @@ def test_discovery_filters_exact_soccer_series_and_paginates_all_open_events():
         _fixture("kalshi_open_events_page_2.json"),
     )
 
-    markets = adapter.discover_markets("football")
+    markets = adapter.discover_markets("football").markets
 
     assert [market.venue_key for market in markets] == [
         "KXEPLGAME-26AUG01ARSCHE-ARS",
@@ -95,7 +110,7 @@ def test_discovery_deduplicates_market_repeated_across_pages():
 def test_unsupported_sport_is_a_network_free_empty_result():
     adapter, session = _adapter()
 
-    assert adapter.discover_markets("nrl") == []
+    assert adapter.discover_markets("nrl").markets == ()
     assert session.calls == []
 
 
@@ -126,7 +141,7 @@ def test_malformed_market_is_logged_and_does_not_drop_siblings(caplog):
     }
     adapter, _session = _adapter(_fixture("kalshi_soccer_series.json"), events)
 
-    markets = adapter.discover_markets("football")
+    markets = adapter.discover_markets("football").markets
 
     assert [market.venue_key for market in markets] == ["GOOD"]
     assert "market None rejected" in caplog.text
@@ -349,3 +364,41 @@ def test_quotes_declare_live_match_state_unsupported():
         "period": None, "minute": None, "home_score": None, "away_score": None,
         "home_cards": None, "away_cards": None,
     }
+
+
+def test_the_venues_exact_bytes_survive_to_the_raw_document():
+    """Parsed-and-reserialized JSON is not the same evidence.
+
+    Key order, whitespace, a duplicate key and `0.4300` vs `0.43` all vanish
+    through json.loads/json.dumps -- and those bytes are what a venue would be
+    held to if it ever disputed a price.
+    """
+    body = b'{"orderbook_fp": {"yes_dollars": [["0.4300", "10"]]}, "z": 1, "z": 2}\n'
+    session = FakeSession([])
+    session.responses = [FakeResponse(json.loads(body), body=body),
+                         FakeResponse({"market": {"last_price_dollars": "0.4300"}})]
+    adapter = KalshiAdapter(session=session, now=lambda: NOW)
+
+    quote = adapter.fetch_quote("KX-1")
+
+    book = next(d for d in quote.raw_documents if d.name == "orderbook")
+    assert book.body == body, "raw bytes must be preserved verbatim"
+    assert b'"0.4300"' in book.body and b'"z": 1' in book.body
+    import hashlib
+    assert book.sha256 == hashlib.sha256(body).hexdigest()
+
+
+def test_a_rejected_market_is_returned_not_just_logged():
+    """Good siblings survive AND the rejected payload comes back, so the
+    worker can store and count it. Dropping it lost the only copy."""
+    adapter, _session = _adapter(
+        _fixture("kalshi_soccer_series.json"),
+        _fixture("kalshi_open_events_page_1.json"),
+        _fixture("kalshi_open_events_page_2.json"),
+    )
+
+    result = adapter.discover_markets("football")
+
+    assert len(result.markets) == 3
+    assert all(reject.reason for reject in result.rejected)
+    assert result.documents, "discovery keeps its own response bytes"
