@@ -11,7 +11,7 @@ import logging
 import math
 from datetime import datetime, timezone
 from types import SimpleNamespace
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 from sqlalchemy.orm import Session
 
@@ -50,6 +50,7 @@ from ml.simulate.group_sim import GroupFixture, simulate_group
 
 if TYPE_CHECKING:  # forward ref used in signatures below
     from ml.models.wdl_boost import WdlBoost
+    from pipeline.vnext_shadow import VNextShadowSpec
 
 log = logging.getLogger(__name__)
 
@@ -719,6 +720,51 @@ def write_shadow_prediction(
     _write_prediction(db, match, shadow, shadow_version, is_shadow=True)
 
 
+def write_vnext_shadow_prediction(
+    db: Session,
+    match: Match,
+    payload: dict,
+    spec: "VNextShadowSpec",
+    clock: "Callable[[], datetime] | None" = None,
+) -> bool:
+    """Append the explicit opt-in vNext shadow, isolated from production."""
+    from pipeline.vnext_shadow import (
+        build_vnext_shadow_payload,
+        is_strictly_before_kickoff,
+    )
+
+    clock = clock or (lambda: datetime.now(timezone.utc))
+    try:
+        generated_at = payload.get("generated_at")
+        if isinstance(generated_at, datetime):
+            features_as_of = generated_at
+        elif isinstance(generated_at, str):
+            features_as_of = datetime.fromisoformat(
+                generated_at.replace("Z", "+00:00")
+            )
+        else:
+            raise ValueError("production payload generated_at is required")
+        if features_as_of.tzinfo is None or features_as_of.utcoffset() is None:
+            raise ValueError("production payload generated_at must be timezone-aware")
+        features_as_of = features_as_of.astimezone(timezone.utc)
+        shadow = build_vnext_shadow_payload(
+            match,
+            payload,
+            spec,
+            features_as_of=features_as_of,
+        )
+    except Exception:
+        log.exception("vNext shadow skipped for match %s: predictor failed", match.id)
+        return False
+    if shadow is None:
+        return False
+    if not is_strictly_before_kickoff(match, clock()):
+        log.warning("vNext shadow skipped for match %s: kickoff cutoff crossed", match.id)
+        return False
+    _write_prediction(db, match, shadow, spec.model_tag, is_shadow=True)
+    return True
+
+
 def write_availability_prediction(
     db: Session, match: Match, payload: dict,
     strengths: dict[int, float], params: ModelParams,
@@ -1136,6 +1182,7 @@ def generate_predictions(
     params: ModelParams | None = None,
     baseline_params: ModelParams | None = None,
     shadow_variants: dict[str, ModelParams] | None = None,
+    vnext_shadow_spec: "VNextShadowSpec | None" = None,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1173,6 +1220,10 @@ def generate_predictions(
     opt-in per call site, not a global. A variant that raises (e.g. a
     calibrator `calibrate` cannot actually serve) is DROPPED with a logged
     error; it never aborts the pass and never touches the production row.
+
+    ``vnext_shadow_spec`` is an explicit shadow-only canary. None (the default)
+    imports no vNext integration code and writes no vNext row. When supplied,
+    its exact content-addressed tag is appended after all existing twins.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -1244,6 +1295,20 @@ def generate_predictions(
                 log.exception(
                     "shadow variant %r failed for match %s; dropped (production "
                     "row unaffected)", _name, match.id,
+                )
+        if vnext_shadow_spec is not None:
+            # Same SAVEPOINT reasoning as the variant loop above: the vNext row
+            # is a canary, so a database-level failure inside it must not take
+            # the production rows of this pass down with it.
+            try:
+                with db.begin_nested():
+                    write_vnext_shadow_prediction(
+                        db, match, payload, vnext_shadow_spec,
+                    )
+            except Exception:  # noqa: BLE001 - a shadow must never break serving
+                log.exception(
+                    "vNext shadow failed for match %s; dropped (production row "
+                    "unaffected)", match.id,
                 )
         predicted += 1
 
