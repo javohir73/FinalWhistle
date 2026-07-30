@@ -272,29 +272,98 @@ def test_selection_is_deterministic_under_a_tie():
 
 # --- diagnostics ---------------------------------------------------------
 
-def test_saturation_is_detected_at_the_cap():
-    """§S4: a solution pinned to the policy bound is the bound being reported as
-    a finding, not a measurement of tempo."""
-    fitted = {"1819": {t: (0.075, 0.0) for t in TEAMS}}
-    d = offset_diagnostics(fitted, cap=0.075)
+def test_saturation_is_judged_on_the_RAW_fit_not_the_post_ramp_value():
+    """The defect the review found, as a regression.
+
+    The policy clamps to +-cap and THEN multiplies by min(1, sqrt(n_eff/n0)), so
+    a pinned component emerges as cap*ramp. Comparing the post-ramp value to cap
+    is a detector that cannot fire below full confidence — at Bundesliga's own
+    selected point it was arithmetically pinned to 0.0% while the true rate was
+    70%.
+    """
+    ramp = 0.87
+    post = {"1819": {t: (0.075 * ramp, 0.0) for t in TEAMS}}
+    raw = {"1819": {t: (2.0, 0.0) for t in TEAMS}}   # wildly clipped
+    d = offset_diagnostics(post, cap=0.075, raw=raw)
     assert d["saturated_frac"] == 1.0
-    loose = offset_diagnostics({"1819": {t: (0.01, 0.0) for t in TEAMS}}, cap=0.075)
+    assert d["saturation_measured_on_raw_fit"] is True
+
+    loose_raw = {"1819": {t: (0.01, 0.0) for t in TEAMS}}
+    loose = offset_diagnostics({"1819": {t: (0.01, 0.0) for t in TEAMS}},
+                               cap=0.075, raw=loose_raw)
     assert loose["saturated_frac"] == 0.0
+
+
+def test_saturation_is_none_rather_than_zero_when_the_raw_fit_is_absent():
+    """Without the raw fit the rate is unknowable. Returning 0.0 would be the
+    original bug wearing a different hat."""
+    d = offset_diagnostics({"1819": {t: (0.075, 0.0) for t in TEAMS}}, cap=0.075)
+    assert d["saturated_frac"] is None
+    assert d["saturation_measured_on_raw_fit"] is False
+
+
+def test_unmodelled_clubs_are_counted_against_clubs_that_PLAYED():
+    """Measured over the fit dictionary alone, a club with no offset is absent
+    from the denominator too, so the rate is ~0 by construction."""
+    fitted = {"1819": {"Arsenal": (0.03, -0.01)}}
+    played = {"1819": {"Arsenal", "Chelsea", "Spurs", "Everton"}}
+    d = offset_diagnostics(fitted, cap=0.075, raw={}, played=played)
+    assert d["unmodelled_club_seasons"] == 3
+    assert d["scored_club_seasons"] == 4
+    assert d["unmodelled_frac"] == pytest.approx(0.75)
+
+
+def test_rekey_by_iso_week_produces_the_pre_registered_primary_cluster():
+    """§7 pre-registered iso-week as PRIMARY and season as sensitivity. The
+    first cut shipped season only — 7 clusters — undisclosed."""
+    from ml.evaluation.club_tempo import iso_week_of, rekey_by_iso_week
+    deltas = {"1819": [1.0, 2.0, 3.0]}
+    dates = {"1819": ["2019-01-07", "2019-01-08", "2019-02-04"]}
+    out = rekey_by_iso_week(deltas, dates)
+    assert out["2019-W02"] == [1.0, 2.0]
+    assert out["2019-W06"] == [3.0]
+    assert iso_week_of("2024-12-30") == "2025-W01"   # ISO year rolls
+
+
+def test_rekey_refuses_a_length_mismatch():
+    from ml.evaluation.club_tempo import rekey_by_iso_week
+    with pytest.raises(ValueError, match="deltas vs"):
+        rekey_by_iso_week({"1819": [1.0, 2.0]}, {"1819": ["2019-01-07"]})
 
 
 def test_zeroed_clubs_are_counted_not_hidden():
     fitted = {"1819": {"Arsenal": (0.0, 0.0), "Chelsea": (0.03, -0.01)}}
-    d = offset_diagnostics(fitted, cap=0.075)
+    d = offset_diagnostics(fitted, cap=0.075, raw={})
     assert d["zeroed"] == 1 and d["n"] == 2
 
 
 def test_diagnostics_on_an_empty_fit_do_not_divide_by_zero():
-    assert offset_diagnostics({}, cap=0.075)["n"] == 0
+    assert offset_diagnostics({}, cap=0.075, raw={})["n"] == 0
 
 
 def test_tempo_spread_is_reported_because_a_flat_fit_is_a_null_by_construction():
-    flat = offset_diagnostics({"1819": {t: (0.02, 0.02) for t in TEAMS}}, cap=0.075)
+    flat = offset_diagnostics({"1819": {t: (0.02, 0.02) for t in TEAMS}},
+                              cap=0.075, raw={})
     assert flat["tempo_sd"] == pytest.approx(0.0)
+
+
+def test_the_diagnostic_reports_atk_PLUS_def_as_tempo():
+    """Tempo is (a+d), not (a-d). With positive def = leaky, a club that both
+    scores and concedes heavily produces high-total matches. The first cut had
+    these swapped and reported strength under a tempo label.
+
+    Clubs given equal-and-opposite (atk, def) have zero tempo and large
+    strength; the diagnostic must say so.
+    """
+    same_sign = {"1819": {"A": (0.05, 0.05), "B": (-0.05, -0.05)}}
+    d = offset_diagnostics(same_sign, cap=0.075, raw={})
+    assert d["tempo_sd"] > 0.05           # (a+d) = +0.10 / -0.10
+    assert d["strength_sd"] == pytest.approx(0.0)   # (a-d) = 0 / 0
+
+    opposite = {"1819": {"A": (0.05, -0.05), "B": (-0.05, 0.05)}}
+    d2 = offset_diagnostics(opposite, cap=0.075, raw={})
+    assert d2["tempo_sd"] == pytest.approx(0.0)
+    assert d2["strength_sd"] > 0.05
 
 
 # --- the guardrail metric ------------------------------------------------

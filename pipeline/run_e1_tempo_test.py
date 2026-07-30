@@ -90,6 +90,18 @@ def test_fit_offsets_without_policy_is_unchanged_by_the_seam():
     assert default == explicit
     assert default, "fixture produced no offsets; the test would assert nothing"
 
+    # Comparing the default against the same default passed explicitly is
+    # TAUTOLOGICAL -- both sides run the identical core, so no change to the
+    # core could ever break it. These golden values were captured by running
+    # the PRE-E1 module out of git (`git show 87e69eb:pipeline/
+    # fit_attack_defence.py`), not from the patched file, so an edit to the
+    # iterative-scaling loop fails here rather than passing silently.
+    assert set(default) == {"A", "B"}
+    for team, atk in (("A", -0.000607841110139271), ("B", 0.0006078411101392508)):
+        assert default[team]["atk"] == pytest.approx(atk, abs=1e-15), team
+        assert default[team]["def"] == 0.0, team
+        assert default[team]["n_matches"] == 20
+
 
 def test_the_parameterised_policy_is_exactly_the_shipped_one_at_defaults():
     from ml.models.team_offsets import (
@@ -150,7 +162,7 @@ def test_the_fitter_uses_only_matches_strictly_before_the_cutoff(csv_dir):
 
     ms = load_matches(csv_dir, "E0")
     pre = replay(ms, EloConfig(), "Premier League")
-    fit, rows = make_fitter(ms, pre, load_params(), 60.0)
+    fit, rows, _raw = make_fitter(ms, pre, load_params(), 60.0)
     cutoff = min(m.date for m in ms if m.season == "1819")
 
     fitted = fit(cutoff, GRID[0])
@@ -167,7 +179,7 @@ def test_a_cutoff_before_all_data_yields_no_offsets(csv_dir):
 
     ms = load_matches(csv_dir, "E0")
     pre = replay(ms, EloConfig(), "Premier League")
-    fit, _ = make_fitter(ms, pre, load_params(), 60.0)
+    fit, _rows, _raw = make_fitter(ms, pre, load_params(), 60.0)
     assert fit("1900-01-01", GRID[0]) == {}
 
 
@@ -175,9 +187,12 @@ def test_a_cutoff_before_all_data_yields_no_offsets(csv_dir):
 
 def test_an_effect_inside_its_own_half_width_prints_unresolved():
     """The rule D0-B broke. A tiny mean with a wide interval is not a direction."""
+    # >= 20 clusters (or it is not an interval at all), tiny mean, large spread
+    # ACROSS clusters -- so the bootstrap has plenty to resample and still
+    # cannot place the effect on one side of zero.
     deltas = {
-        f"s{i}": [0.001 * (i - 2), -0.02 * (i % 3), 0.03 * ((i + 1) % 4), -0.01]
-        for i in range(8)
+        f"s{i}": [0.4 if i % 2 else -0.4, 0.3 if i % 3 else -0.3, 0.002]
+        for i in range(30)
     }
     out = _interval(deltas, 400, CORRECTED_ALPHA)
     assert out["half_width"] > 0
@@ -189,7 +204,7 @@ def test_identical_clusters_are_degenerate_not_certain():
     """Every resample draws the same values, so the bootstrap measures nothing
     and returns a zero-width interval. Reporting that as credible is the failure
     `season_clustered_ci`'s docstring already warns about."""
-    deltas = {f"s{i}": [0.001, -0.002, 0.003, -0.001] for i in range(6)}
+    deltas = {f"s{i}": [0.001, -0.002, 0.003, -0.001] for i in range(30)}
     out = _interval(deltas, 200, CORRECTED_ALPHA)
     assert out["half_width"] == 0.0
     assert out["verdict"].startswith("DEGENERATE")
@@ -199,16 +214,26 @@ def test_identical_clusters_are_degenerate_not_certain():
 def test_a_large_consistent_effect_is_reported_as_credible():
     # Varied across clusters, so the bootstrap has something to resample, but
     # every cluster points the same way.
-    deltas = {f"s{i}": [-0.5 - 0.02 * i, -0.4 - 0.01 * i, -0.6] for i in range(8)}
+    deltas = {f"s{i}": [-0.5 - 0.02 * i, -0.4 - 0.01 * i, -0.6] for i in range(30)}
     out = _interval(deltas, 400, CORRECTED_ALPHA)
     assert out["verdict"] == "CANDIDATE BETTER (credible)"
     assert out["excludes_zero"]
 
 
+def test_fewer_than_twenty_clusters_is_not_reported_as_an_interval():
+    """D0-B's own standard, now enforced. §7 says such a figure is not quoted;
+    the first cut printed 7-cluster season intervals as the headline."""
+    few = {f"s{i}": [0.01 * (i - 3), -0.02, 0.03] for i in range(7)}
+    out = _interval(few, 400, CORRECTED_ALPHA)
+    assert out["is_an_interval"] is False
+    assert out["excludes_zero"] is False
+    assert "NOT AN INTERVAL" in out["verdict"] and "7 clusters" in out["verdict"]
+
+
 def test_intervals_are_bonferroni_corrected_not_ninety_five_percent():
     assert BONFERRONI_K == 3
     assert CORRECTED_ALPHA == pytest.approx(0.05 / 3)
-    deltas = {f"s{i}": [0.01 * ((-1) ** j) for j in range(30)] for i in range(6)}
+    deltas = {f"s{i}": [0.01 * ((-1) ** j) for j in range(30)] for i in range(30)}
     wide = _interval(deltas, 400, CORRECTED_ALPHA)
     narrow = _interval(deltas, 400, 0.05)
     assert wide["half_width"] >= narrow["half_width"]
@@ -315,16 +340,35 @@ def test_no_served_parameter_or_artifact_is_changed_by_this_phase():
         pytest.skip("no origin/main to compare against")
     merge_base = base.stdout.strip()
 
+    # §11 names four files. The first cut diffed two, leaving the FR-5 fitter
+    # and the policy module entirely unguarded -- the two Appendix A1 actually
+    # permits E1 to touch, and therefore the two most in need of a check.
     for guarded in ("pipeline/leagues.py", "ml/models/model_params.json"):
         diff = subprocess.run(["git", "diff", "--exit-code", merge_base, "--", guarded],
                               cwd=root, capture_output=True, text=True)
         assert diff.returncode == 0, f"{guarded} differs:\n{diff.stdout}"
 
-    # team_offsets.py may gain policy_with (A1) but no constant may move, and
-    # no existing function body may change.
+    # The two files A1 permits E1 to touch: additive only. Their pre-E1 public
+    # behaviour is pinned by the value tests above and by these invariants.
     src = (root / "ml" / "models" / "team_offsets.py").read_text()
     assert "OFFSET_CAP = 0.075" in src
     assert "FULL_WEIGHT_EFF_MATCHES = 30.0" in src
+
+    import inspect
+
+    from ml.models.team_offsets import shrink_and_cap
+    from pipeline.fit_attack_defence import DEFAULT_HALF_LIFE_DAYS, fit_offsets
+
+    # `policy` must remain keyword-only AND default to the shipped policy, or an
+    # existing positional caller changes meaning.
+    sig = inspect.signature(fit_offsets)
+    assert sig.parameters["policy"].kind is inspect.Parameter.KEYWORD_ONLY
+    assert sig.parameters["policy"].default is shrink_and_cap
+    assert DEFAULT_HALF_LIFE_DAYS == 1095
+    positional = [n for n, p in sig.parameters.items()
+                  if p.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD]
+    assert positional == ["rows", "ref_date", "half_life_days", "params",
+                          "max_iter", "tol", "goal_keys"]
 
 
 def test_team_offsets_stays_disabled_in_the_served_params():
@@ -332,3 +376,45 @@ def test_team_offsets_stays_disabled_in_the_served_params():
     root = Path(__file__).resolve().parent.parent
     params = json.loads((root / "ml" / "models" / "model_params.json").read_text())
     assert params["team_offsets"] is None
+
+
+def test_the_fit_and_the_scoring_agree_about_home_advantage():
+    """`fit_offsets` derives its baseline mu from `params.home_adv`, but
+    `club_params_for` returns the GLOBAL 60.0 for every league — per-league home
+    advantage lives in `leagues.py::home_advantage` (60/80/60) and never reaches
+    `ModelParams`.
+
+    Left unforced, La Liga's offsets are fitted against a baseline 20 Elo points
+    adrift of the one they are scored on and silently absorb the difference.
+    That is a saturated fit and a meaningless null, not a finding.
+    """
+    from pipeline.leagues import LEAGUES as LEAGUE_CONFIG
+    from pipeline.leagues import club_params_for
+
+    mismatched = [
+        lg for lg in LEAGUES
+        if club_params_for(lg).home_adv != LEAGUE_CONFIG[lg]["home_advantage"]
+    ]
+    assert mismatched, (
+        "this test only means something while club_params_for still returns the "
+        "global home_adv; if that changed, re-derive the guarantee below"
+    )
+
+    captured: list[float] = []
+    real_fit = None
+
+    import pipeline.run_e1_tempo as mod
+
+    def spy(rows, ref, half_life_days=None, params=None, **kw):
+        captured.append(params.home_adv)
+        return {}
+
+    orig = mod.fit_offsets
+    mod.fit_offsets = spy
+    try:
+        for lg in sorted(LEAGUES):
+            fit, _r, _raw = mod.make_fitter([], [], club_params_for(lg), LEAGUES[lg][2])
+            fit("2020-01-01", GRID[0])
+            assert captured[-1] == LEAGUES[lg][2], lg
+    finally:
+        mod.fit_offsets = orig

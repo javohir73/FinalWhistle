@@ -16,13 +16,24 @@ below 0.5 **zero times in 612 matches** because with ``base=1.44`` its floor is
 
 Per-team attack/defence offsets break that identity. Written out:
 
-    log lam_h - log lam_a  =  (Elo term) + (a_h + d_h) - (a_a + d_a)   -> 1X2
-    log lam_h + log lam_a  =  2*log base + (a_h + a_a) + (d_h + d_a)   -> TOTALS
+    lam_h = mu_h * exp(a_h + d_a)          [positive d = LEAKY defence]
+    lam_a = mu_a * exp(a_a + d_h)
 
-``(a_i + d_i)`` is STRENGTH and moves the ratio, which Elo already handles
-(D0-B: 64-84% of the 1X2 budget). ``(a_i - d_i)`` is TEMPO and moves the sum,
-which the served engine cannot express at all. E1 asks only whether the second
+    log lam_h + log lam_a  =  base + (a_h + d_h) + (a_a + d_a)   -> TOTALS
+    log lam_h - log lam_a  =  base + (a_h - d_h) - (a_a - d_a)   -> 1X2
+
+``(a_i + d_i)`` is TEMPO: it moves the SUM, which the served engine cannot
+express at all, because ``lam_h * lam_a == base**2`` identically.
+``(a_i - d_i)`` is STRENGTH: it moves the RATIO, which Elo already handles
+(D0-B: 64-84% of the 1X2 budget captured). E1 asks only whether the first
 channel earns its complexity.
+
+**These labels were swapped in the pre-registration's prose (§4) and in the
+first cut of `offset_diagnostics`.** The algebra above is what the code does
+and is verified by test; the corrected reading is recorded in the evidence
+card. Getting it backwards costs nothing in the run — the fitter and the
+scorer never use the decomposition — but it makes the diagnostics report
+strength spread under a tempo label.
 
 Three traps this module is shaped around (pre-registration §12)
 ---------------------------------------------------------------
@@ -276,6 +287,7 @@ def walk_forward_tempo(
             )
 
     deltas: dict[str, list[float]] = {}
+    dates: dict[str, list[str]] = {}
     guard_deltas: dict[str, list[float]] = {}
     chosen: dict[str, TempoPoint] = {}
     for season in scored:
@@ -294,9 +306,13 @@ def walk_forward_tempo(
         deltas[season] = [
             c - k for c, k in zip(losses[best][season], control[season])
         ]
+        # §7 clusters by ISO WEEK, not season. Carrying the dates out here is
+        # what lets the caller do that without re-deriving the index mapping.
+        dates[season] = [matches[i].date for i in by_season[season]]
 
     return {
         "deltas": deltas,
+        "dates": dates,
         "chosen": chosen,
         "control": control,
         "losses": losses,
@@ -306,38 +322,126 @@ def walk_forward_tempo(
     }
 
 
-def offset_diagnostics(fitted: dict[str, Offsets], cap: float) -> dict:
+def iso_week_of(iso_date: str) -> str:
+    """``YYYY-Www`` for an ISO date string. §7's pre-registered cluster key."""
+    from datetime import date as _d
+
+    y, w, _ = _d.fromisoformat(iso_date).isocalendar()
+    return f"{y}-W{w:02d}"
+
+
+def rekey_by_iso_week(deltas: dict[str, list[float]],
+                      dates: dict[str, list[str]]) -> dict[str, list[float]]:
+    """Re-bucket season-keyed deltas into iso-week clusters.
+
+    §7 pre-registered iso-week as the PRIMARY cluster and season as a
+    sensitivity. The first cut shipped season only — 7 clusters — which is
+    below the threshold D0-B's own code uses to decide something is not an
+    interval at all, and the substitution was never disclosed.
+    """
+    out: dict[str, list[float]] = {}
+    for season, vals in deltas.items():
+        ds = dates[season]
+        if len(ds) != len(vals):
+            raise ValueError(f"season {season}: {len(vals)} deltas vs {len(ds)} dates")
+        for d, v in zip(ds, vals):
+            out.setdefault(iso_week_of(d), []).append(v)
+    return out
+
+
+def offset_diagnostics(
+    fitted: dict[str, Offsets],
+    cap: float,
+    *,
+    raw: dict[str, dict] | None = None,
+    played: dict[str, set] | None = None,
+) -> dict:
     """§S4 and §13: is the fit a result, or an artifact?
 
     A solution where most clubs sit on the cap is not a measurement of tempo —
     it is the policy bound being reported as a finding. §S4 stops the phase
     above 20%.
+
+    ``raw`` is REQUIRED to answer that honestly. The shrink/cap policy clamps to
+    ±cap and *then* multiplies by ``min(1, sqrt(n_eff/n0))``, so a component
+    pinned at the bound emerges as ``cap * ramp``, not ``cap``. Testing the
+    post-policy value against ``cap`` therefore only ever matches club-seasons
+    at full confidence — and at Bundesliga's own selected point (n0=60) the ramp
+    tops out at 0.87, so **not one of 191 club-seasons could match** and the
+    rate was arithmetically pinned to 0.0%. The first cut did exactly that and
+    reported "nothing saturated, a well-identified fit" for a league whose true
+    rate is 70.7%. Passing ``raw`` (the pre-policy fit) is what makes this a
+    detector rather than a decoration.
+
+    ``played`` maps season -> clubs that actually contested it, so ``zeroed``
+    counts clubs the model had no offset for. Measured over the fit dictionary
+    alone it is ~0 by construction, because a club absent from the fit is
+    absent from the denominator too.
     """
     total = 0
     saturated = 0
+    saturated_both = 0
     zeroed = 0
     tempo: list[float] = []
-    for offs in fitted.values():
-        for atk, dfn in offs.values():
+    strength: list[float] = []
+    for season, offs in fitted.items():
+        raw_season = (raw or {}).get(season, {})
+        for team, (atk, dfn) in offs.items():
             total += 1
             if atk == 0.0 and dfn == 0.0:
                 zeroed += 1
-            # Cap is applied to each component before the ramp, so a component
-            # within 1e-9 of it is saturated at full confidence.
-            if abs(abs(atk) - cap) < 1e-9 or abs(abs(dfn) - cap) < 1e-9:
-                saturated += 1
-            tempo.append(atk - dfn)
+            # Judged on the RAW fit, before the ramp scaled it down. See the
+            # docstring: comparing the post-ramp value to `cap` is a detector
+            # that cannot fire.
+            r = raw_season.get(team)
+            if r is not None:
+                hit_a = abs(r[0]) >= cap - 1e-12
+                hit_d = abs(r[1]) >= cap - 1e-12
+                if hit_a or hit_d:
+                    saturated += 1
+                if hit_a and hit_d:
+                    saturated_both += 1
+            # TEMPO is atk + def, not atk - def. With positive def = leaky, a
+            # club that both scores and concedes heavily has a large (a+d) and
+            # produces high-total matches; (a-d) is its strength. The first cut
+            # reported (a-d) under a "tempo" label, which is the wrong quantity
+            # -- against realized goals-per-match, (a+d) correlates +0.53..+0.71
+            # while (a-d) correlates -0.13..-0.28.
+            tempo.append(atk + dfn)
+            strength.append(atk - dfn)
     if not total:
         return {"n": 0, "saturated_frac": 0.0, "zeroed_frac": 0.0}
-    mean_t = sum(tempo) / len(tempo)
-    sd_t = (sum((x - mean_t) ** 2 for x in tempo) / len(tempo)) ** 0.5
-    return {
+    def _sd(xs: list[float]) -> float:
+        m = sum(xs) / len(xs)
+        return (sum((x - m) ** 2 for x in xs) / len(xs)) ** 0.5
+
+    # Clubs that played a season but the fit had nothing for. §8 says a zero is
+    # a real prediction, but it is still a club the candidate did not model, and
+    # a coverage number measured over the fit dict alone cannot see them.
+    unmodelled = modelled = 0
+    for season, clubs in (played or {}).items():
+        offs = fitted.get(season, {})
+        for club in clubs:
+            modelled += 1
+            atk, dfn = offsets_for(offs, club)
+            if atk == 0.0 and dfn == 0.0:
+                unmodelled += 1
+
+    out = {
         "n": total,
         "saturated": saturated,
-        "saturated_frac": saturated / total,
+        "saturated_frac": (saturated / total) if raw else None,
+        "saturated_both_frac": (saturated_both / total) if raw else None,
+        "saturation_measured_on_raw_fit": bool(raw),
         "zeroed": zeroed,
         "zeroed_frac": zeroed / total,
-        "tempo_sd": sd_t,
+        "tempo_sd": _sd(tempo),
         "tempo_min": min(tempo),
         "tempo_max": max(tempo),
+        "strength_sd": _sd(strength),
     }
+    if played:
+        out["scored_club_seasons"] = modelled
+        out["unmodelled_club_seasons"] = unmodelled
+        out["unmodelled_frac"] = unmodelled / modelled if modelled else 0.0
+    return out

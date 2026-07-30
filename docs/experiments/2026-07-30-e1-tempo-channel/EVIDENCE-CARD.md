@@ -17,6 +17,18 @@ league; `2526` never opened. Intervals: season-clustered paired bootstrap,
 
 ## Result: NEGATIVE. Two stop conditions fired.
 
+> # ⚠ THIS SECTION AND EVERY NUMBER BELOW IT ARE SUPERSEDED — read **Appendix B**.
+> An adversarial review (28 agents, 23 confirmed findings, 7 invalidating)
+> established that **the cap-saturation detector could not fire**, that the
+> primary interval used **season** clustering where §7 pre-registered
+> **iso-week**, and that the tempo/strength labels were swapped. Corrected:
+> saturation is **69.9% / 78.4% / 89.2%**, not 0.0% / 28.1% / 65.4%; **S4 fires
+> in all three leagues**; and on the pre-registered clustering La Liga's effect
+> is credible, not unresolved. The conclusion below — "the tempo channel does
+> not clear its bar", and specifically "Bundesliga's null is clean" — **is
+> withdrawn.** The corrected outcome is that E1 has **no interpretable league**
+> and the candidate was never given a fair test.
+
 **The per-team tempo channel does not clear its bar on club data.**
 
 | League | O/U 2.5 (PRIMARY) | 98.3% CI | verdict | paired sd | MDE₈₀ |
@@ -172,3 +184,117 @@ one bootstrap is seeded at 26.
 | Appendix A2 market reporting deferred | deferred; D0-B's harness is on an unmerged branch |
 
 `2659 passed`
+
+---
+
+# APPENDIX B — adversarial review: the null was an instrument failure
+
+**2026-07-30.** 28 independent agents across four lenses, each finding handed to
+a separate verifier told to default to "not real". **24 raised, 23 confirmed, 7
+flagged as invalidating the result.** Appended, not edited in place.
+
+The brief was explicit that *a null result is the easiest place to hide a bug*.
+It was.
+
+## B1. WITHDRAWN — the cap-saturation detector could not fire
+
+`policy_with` clamps to ±cap and **then** multiplies by
+`min(1, √(n_eff/n0))`, so a component pinned at the bound emerges as
+`cap × ramp`, never `cap`. `offset_diagnostics` compared the **post-ramp** value
+to `cap`, so it could only ever match club-seasons at full confidence.
+
+At Bundesliga's own selected point (`n0 = 60`) the ramp tops out at **0.87** and
+**not one of 191 club-seasons reached full confidence** — the rate was
+arithmetically incapable of being anything but 0.0%.
+
+| League | reported | **actual (raw fit)** | both components |
+|---|---|---|---|
+| Bundesliga | 0.0% | **69.9%** | 23.7% |
+| EPL | 28.1% | **78.4%** | 32.4% |
+| La Liga | 65.4% | **89.2%** | 45.4% |
+
+The card's own numbers corroborated it and nobody noticed: Bundesliga's reported
+`tempo_max = +0.1290` is Augsburg at raw `(+0.0794, −0.0948)` — **both**
+components past ±0.075 — and `2 × 0.075 × 0.8603 = 0.1290` exactly. A club
+pinned to the bound sat in the row labelled "0.0% cap-saturated".
+
+**"Bundesliga's null is clean — nothing saturated, a well-identified fit" is
+false and is withdrawn.** It was the only interpretable result E1 claimed.
+
+## B2. WITHDRAWN — the primary interval used the wrong clustering
+
+§7 pre-registered **iso-week-clustered** as PRIMARY with season as a
+sensitivity. The code clustered by **season** only — 7 clusters — and the
+substitution was never disclosed. D0-B's own code treats anything under 20
+clusters as *not an interval*; E1 printed a 7-cluster figure as its headline.
+
+Corrected to §7's clustering (227–247 clusters), and the result changes:
+
+| League | O/U 2.5 | iso-week 98.3% CI (PRIMARY) | verdict | season (7 clusters) |
+|---|---|---|---|---|
+| Bundesliga | −0.0013 | [−0.0040, +0.0015] | UNRESOLVED | [−0.0030, +0.0004] *not an interval* |
+| EPL | +0.0004 | [−0.0037, +0.0044] | UNRESOLVED | [−0.0031, +0.0036] *not an interval* |
+| La Liga | **−0.0053** | **[−0.0098, −0.0004]** | **CANDIDATE BETTER (credible)** | [−0.0111, +0.0008] *not an interval* |
+
+`_interval` now flags any bootstrap under 20 clusters as `NOT AN INTERVAL` and
+refuses to let it exclude zero.
+
+## B3. CORRECTED — tempo and strength were swapped
+
+With `λ_h = μ_h·exp(a_h + d_a)` and **positive `d` = leaky**:
+
+```
+log λ_h + log λ_a = base + (a_h + d_h) + (a_a + d_a)   -> TOTALS, so (a+d) is TEMPO
+log λ_h − log λ_a = base + (a_h − d_h) − (a_a − d_a)   -> 1X2,    so (a−d) is STRENGTH
+```
+
+§4's prose and `offset_diagnostics` had these backwards, so the card's "tempo"
+column was reporting **strength** spread. Against realized goals-per-match,
+`(a+d)` correlates **+0.53 / +0.63 / +0.71** while `(a−d)` correlates
+**−0.18 / −0.13 / −0.28** — and the top-`(a+d)` clubs are Hoffenheim (3.32
+gpm), Bayern (3.78), Luton (3.61), Girona. **The fitter genuinely learns tempo.**
+
+## B4. CORRECTED — "0.0% zeroed" measured the wrong denominator
+
+Zeroing was counted over the *fit dictionary*, where a club with no offset is
+absent from the numerator and the denominator alike. Counted against clubs that
+actually **played a scored season**: **7.9% / 7.9% / 5.0%** had no offset at all.
+
+## B5. Also fixed
+
+| Defect | Fix |
+|---|---|
+| La Liga fitted at `home_adv = 60`, scored at 80 (`club_params_for` returns the global value; per-league lives in `leagues.py::home_advantage`) | `make_fitter` forces it. **Immaterial** — the fitter centres `atk`/`dfn` each iteration, so a uniform shift is absorbed by the identifiability pin. Real bug, no numeric change. |
+| Appendix A1's bit-identity test compared the default against the same default passed explicitly — tautological | now pins golden values from the pre-E1 implementation |
+| §11's git-diff guard covered 2 of the 4 files §11 names | extended to `fit_attack_defence.py` and `team_offsets.py` |
+| "the effect is less than half its own half-width" — false (0.0013 vs half of 0.0017 = 0.00086) | removed |
+| "~13,600 matches" — the correct figure is **~12,400** | corrected |
+| `saturated_frac` returned 0.0 when the raw fit was unavailable | returns `None`, so "unknown" cannot read as "none" |
+
+## B6. The corrected conclusion
+
+**S4 fires in all three leagues.** §S4: *"that is a fitting defect, not a
+result, and reporting a number from it would be reporting an artifact."* §11's
+decision rule requires offsets that are **not** cap-saturated; that condition
+fails everywhere.
+
+**E1 has no interpretable league.** Not a null — an **inconclusive** phase:
+
+> The FR-5 policy cap of ±0.075, derived for international football from the
+> form layer's ±35 Elo through β, binds on **70–89%** of club-seasons. Club
+> teams play 34–38 matches a season rather than 3–7, so per-team offsets are far
+> better identified and the international-calibrated ceiling is simply the wrong
+> size for this population. **The instrument was mis-calibrated for the data, so
+> the question E1 asked was never actually put.**
+
+La Liga's credible −0.0053 must **not** be read as a win: 89.2% of its fit sits
+at the bound. Nor may the cap be raised and the run repeated — §4 froze it
+(*"moving it would be a second candidate wearing the first one's name"*) and §10
+forbids re-specifying after a stop. **Answering this question needs a fresh
+pre-registration with a club-appropriate cap, argued from club data before any
+run.** That is a different phase, and it is the human's call whether it is worth
+one.
+
+**Unchanged:** nothing was promoted; `"team_offsets"` is still `null`; the
+served files are byte-identical to the merge base; and D0-B's structural finding
+(`λ_h·λ_a ≡ base²`) stands untouched — E1 failed to test it, not to confirm it.

@@ -24,6 +24,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -34,6 +35,7 @@ from ml.evaluation.club_tempo import (
     GRID,
     MIN_PRIOR_MATCHES,
     TempoPoint,
+    rekey_by_iso_week,
     loss_1x2_offsets,
     loss_totals_offsets,
     offset_diagnostics,
@@ -122,14 +124,24 @@ def make_fitter(matches, pre, params, home_adv: float):
     """Build the ``fit(cutoff_iso, point) -> Offsets`` callable E1 injects.
 
     Rows are shaped for FR-5's `fit_offsets`, which filters to
-    ``date < ref_date`` itself and uses ``ref_date`` as the decay reference —
-    so a cutoff of the season's first kickoff cannot leak that season into its
-    own fit.
+    ``date < ref_date`` itself and uses ``ref_date`` as the decay reference — so
+    a cutoff of the season's first kickoff cannot leak that season into its own
+    fit.
 
-    Club names key the result directly; the fitter's ``home_id``/``away_id`` are
-    opaque to it, so passing names is legitimate and avoids an id table whose
-    only job would be to be reversed again.
+    ``home_adv`` is forced onto ``params`` rather than trusted to already be
+    there. `fit_offsets` derives its baseline mu from ``params.home_adv``, and
+    `club_params_for` returns the GLOBAL 60.0 for every league because
+    `pipeline/leagues.py` keeps per-league home advantage in a different field
+    (`home_advantage`, 60/80/60) that never reaches `ModelParams`. Left alone,
+    La Liga's offsets would be fitted against a baseline 20 Elo points adrift of
+    the one they are scored on.
+
+    Returns ``(fit, rows, raw)``. ``raw[(cutoff, point)]`` is the PRE-policy fit
+    per club, which `offset_diagnostics` needs: the policy clamps to ±cap and
+    *then* applies the confidence ramp, so a pinned component comes back as
+    ``cap * ramp`` and comparing it to ``cap`` is a detector that cannot fire.
     """
+    params = replace(params, home_adv=home_adv)
     rows = [
         {
             "date": date.fromisoformat(m.date),
@@ -140,30 +152,46 @@ def make_fitter(matches, pre, params, home_adv: float):
         }
         for m, p in zip(matches, pre)
     ]
+    raw_by_key: dict[tuple, dict] = {}
 
     def fit(cutoff_iso: str, point: TempoPoint) -> dict:
+        shrink = policy_with(cap=point.cap, full_weight_eff=point.n0)
+        seen: list[tuple[float, float]] = []
+
+        def spy(atk: float, dfn: float, n_eff: float):
+            seen.append((atk, dfn))
+            return shrink(atk, dfn, n_eff)
+
         fitted = fit_offsets(
             rows,
             date.fromisoformat(cutoff_iso),
             half_life_days=point.half_life_days,
             params=params,
-            policy=policy_with(cap=point.cap, full_weight_eff=point.n0),
+            policy=spy,
         )
+        # `fit_offsets` applies the policy once per club, iterating `sorted(ids)`
+        # and inserting into its result in that same order, so the Nth captured
+        # raw pair belongs to the Nth key. Asserted rather than assumed.
+        teams = list(fitted)
+        if len(seen) != len(teams):
+            raise AssertionError(
+                f"policy called {len(seen)} times for {len(teams)} clubs; the "
+                "raw-capture pairing is no longer safe"
+            )
+        raw_by_key[(cutoff_iso, point)] = dict(zip(teams, seen))
+
         # §8: below the floor a club falls back to served behaviour EXACTLY.
-        # The shrink ramp alone still multiplies a noisy fit by a small number;
-        # this is a hard zero, not a small guess.
-        #
-        # Kept in the dict as an explicit (0.0, 0.0) rather than dropped. Both
-        # spellings behave identically at lookup, but dropping them makes the
-        # zeroed-club count in the diagnostics silently zero — a coverage number
-        # that reads as "every club was modelled" precisely when it was not.
+        # Kept in the dict as an explicit (0.0, 0.0) rather than dropped — both
+        # behave identically at lookup, but dropping them makes the zeroed count
+        # silently zero, a coverage number that reads as "every club was
+        # modelled" precisely when it was not.
         return {
             team: ((v["atk"], v["def"]) if v["n_matches"] >= MIN_PRIOR_MATCHES
                    else (0.0, 0.0))
             for team, v in fitted.items()
         }
 
-    return fit, rows
+    return fit, rows, raw_by_key
 
 
 def _interval(deltas: dict, n_bootstrap: int, alpha: float) -> dict:
@@ -193,6 +221,11 @@ def _interval(deltas: dict, n_bootstrap: int, alpha: float) -> dict:
 
     half = (hi - lo) / 2
     n = len(pooled)
+    # D0-B's own standard: below 20 clusters a percentile bootstrap is not an
+    # interval, it is the range of a handful of resamples. §7 says such a figure
+    # "is not quoted"; the first cut printed 7-cluster season intervals as the
+    # headline and never said so.
+    is_interval = len(keys) >= 20
     sd = (sum((x - mean) ** 2 for x in pooled) / (n - 1)) ** 0.5 if n > 1 else float("nan")
     # A zero-width interval is not certainty, it is the absence of measurement:
     # every resample drew the same clusters, so the bootstrap saw no variation
@@ -215,8 +248,10 @@ def _interval(deltas: dict, n_bootstrap: int, alpha: float) -> dict:
         "n": n, "n_clusters": len(keys), "mean": mean, "ci": (lo, hi),
         "half_width": half, "paired_sd": sd,
         "naive_mde_80pct": 2.80 * sd / (n ** 0.5) if n else float("nan"),
-        "excludes_zero": bool(half > 0.0 and (hi < 0 or lo > 0)),
-        "verdict": verdict,
+        "excludes_zero": bool(half > 0.0 and is_interval and (hi < 0 or lo > 0)),
+        "is_an_interval": is_interval,
+        "verdict": verdict if is_interval else
+                   f"NOT AN INTERVAL ({len(keys)} clusters, <20)",
     }
 
 
@@ -233,7 +268,7 @@ def run_league(league: str, csv_dir: Path, *, n_bootstrap: int = 2000) -> dict:
     grid = GridConfig(base=params.base, beta=params.beta, rho=params.rho,
                       temperature=params.temperature, calibrator=params.calibrator)
     pre = replay(matches, elo, competition)
-    fit, _rows = make_fitter(matches, pre, params, home_adv)
+    fit, _rows, raw_by_key = make_fitter(matches, pre, params, home_adv)
 
     primary = walk_forward_tempo(
         matches, pre, elo, grid, points=GRID, fit=fit,
@@ -254,8 +289,28 @@ def run_league(league: str, csv_dir: Path, *, n_bootstrap: int = 2000) -> dict:
         ctrl = loss_1x2_offsets(ms, ps, elo, grid, offsets=None)
         guard[season] = [c - k for c, k in zip(cand, ctrl)]
 
+    # §7: ISO-WEEK is the pre-registered PRIMARY cluster; season is a
+    # sensitivity. The first cut shipped season only (7 clusters) and did not
+    # disclose the substitution.
+    cutoffs = {s: min(m.date for m in matches if m.season == s)
+               for s in primary["deltas"]}
+    prim_week = rekey_by_iso_week(primary["deltas"], primary["dates"])
+    guard_week = rekey_by_iso_week(guard, primary["dates"])
+
     diag_point = primary["chosen"].get(SCORED_SEASONS[-1], GRID[0])
-    diagnostics = offset_diagnostics(primary["fitted"][diag_point], diag_point.cap)
+    played: dict[str, set] = {}
+    for m in matches:
+        if m.season in primary["deltas"]:
+            played.setdefault(m.season, set()).update((m.home, m.away))
+    raw_for_point = {
+        season: raw_by_key.get((cutoffs.get(season, ""), diag_point), {})
+        for season in primary["fitted"][diag_point]
+        if season in cutoffs
+    }
+    diagnostics = offset_diagnostics(
+        {s: v for s, v in primary["fitted"][diag_point].items() if s in cutoffs},
+        diag_point.cap, raw=raw_for_point, played=played,
+    )
 
     sensitivity = {}
     for point in CAP_SENSITIVITY:
@@ -263,7 +318,8 @@ def run_league(league: str, csv_dir: Path, *, n_bootstrap: int = 2000) -> dict:
             matches, pre, elo, grid, points=(point,), fit=fit,
             loss=loss_totals_offsets, scored_seasons=SCORED_SEASONS,
         )
-        sensitivity[point.label()] = _interval(wf["deltas"], n_bootstrap, CORRECTED_ALPHA)
+        sensitivity[point.label()] = _interval(
+            rekey_by_iso_week(wf["deltas"], wf["dates"]), n_bootstrap, CORRECTED_ALPHA)
 
     return {
         "league": league, "division": division,
@@ -272,8 +328,10 @@ def run_league(league: str, csv_dir: Path, *, n_bootstrap: int = 2000) -> dict:
         "params": {"base": grid.base, "beta": grid.beta, "rho": grid.rho,
                    "home_adv": home_adv, "calibrator": grid.calibrator is not None},
         "chosen": {s: p.label() for s, p in primary["chosen"].items()},
-        "primary": _interval(primary["deltas"], n_bootstrap, CORRECTED_ALPHA),
-        "guardrail_1x2": _interval(guard, n_bootstrap, CORRECTED_ALPHA),
+        "primary": _interval(prim_week, n_bootstrap, CORRECTED_ALPHA),
+        "primary_season_sensitivity": _interval(primary["deltas"], n_bootstrap,
+                                                CORRECTED_ALPHA),
+        "guardrail_1x2": _interval(guard_week, n_bootstrap, CORRECTED_ALPHA),
         "diagnostics": diagnostics,
         "cap_sensitivity": sensitivity,
     }
@@ -336,17 +394,31 @@ def format_report(results: list[dict], fired: list[str]) -> str:
         w(f"{r['league'].upper()} ({r['division']})   base={r['params']['base']} "
           f"replayed={r['n_replayed']} scored={r['n_scored']}")
         w("-" * 78)
-        ci = lambda e: f"[{e['ci'][0]:+.4f}, {e['ci'][1]:+.4f}]" if e["ci"] else "n/a"
+        ci = lambda e: (f"[{e['ci'][0]:+.4f}, {e['ci'][1]:+.4f}]"
+                        + ("" if e.get("is_an_interval", True) else " NOT-AN-INTERVAL")
+                        ) if e["ci"] else "n/a"
         w(f"  O/U 2.5 (PRIMARY)  {p['mean']:+.4f}  {ci(p)}  "
-          f"sd {p['paired_sd']:.4f}  MDE80 {p['naive_mde_80pct']:.4f}")
+          f"sd {p['paired_sd']:.4f}  MDE80 {p['naive_mde_80pct']:.4f}  "
+          f"({p['n_clusters']} iso-week clusters)")
+        ss = r["primary_season_sensitivity"]
+        w(f"    season-clustered sensitivity: {ss['mean']:+.4f} {ci(ss)} "
+          f"({ss['n_clusters']} clusters)")
         w(f"                     {p['verdict']}")
         w(f"  1X2 (guardrail)    {g['mean']:+.4f}  {ci(g)}")
         w(f"                     {g['verdict']}")
-        w(f"  offsets: {d['n']} club-seasons, {d['zeroed_frac']:.1%} zeroed, "
-          f"{d['saturated_frac']:.1%} cap-saturated")
-        w(f"  tempo (atk-def) sd {d.get('tempo_sd', float('nan')):.4f} "
+        sat = d.get("saturated_frac")
+        w(f"  offsets: {d['n']} club-seasons; cap-saturated "
+          f"{'n/a' if sat is None else f'{sat:.1%}'} "
+          f"(both components {d.get('saturated_both_frac') or 0:.1%})"
+          f"{'' if d.get('saturation_measured_on_raw_fit') else '  [POST-RAMP: UNRELIABLE]'}")
+        if "unmodelled_frac" in d:
+            w(f"  clubs playing a scored season with NO offset: "
+              f"{d['unmodelled_club_seasons']}/{d['scored_club_seasons']} "
+              f"({d['unmodelled_frac']:.1%})")
+        w(f"  tempo (atk+def) sd {d.get('tempo_sd', float('nan')):.4f} "
           f"range [{d.get('tempo_min', float('nan')):+.4f}, "
-          f"{d.get('tempo_max', float('nan')):+.4f}]")
+          f"{d.get('tempo_max', float('nan')):+.4f}]   "
+          f"strength (atk-def) sd {d.get('strength_sd', float('nan')):.4f}")
         picks = sorted(set(r["chosen"].values()))
         w(f"  grid points chosen: {', '.join(picks)}")
         w("  cap sensitivity (reported, never eligible to win):")
