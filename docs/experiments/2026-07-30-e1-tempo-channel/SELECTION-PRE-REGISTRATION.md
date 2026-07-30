@@ -395,3 +395,65 @@ in the ledger. §10's whole purpose is that S1 and S2 are ordinary outcomes.
   area, `pipeline/run_calibrator_benchmark.py`, or the frozen q3 baseline.
 - Re-landing D1. Its orphaning is recorded in the ledger and is the human's
   call, not a side errand of this phase.
+
+---
+
+# APPENDIX A — one constraint relaxed, before any run
+
+**2026-07-30, appended before E1 code existed and before any candidate ran.**
+Not edited in place.
+
+## A1. §14's "no modification of `fit_attack_defence.py`" is narrowed
+
+§14 forbids *any* modification of `pipeline/fit_attack_defence.py` and
+`ml/models/team_offsets.py`. That was written to protect the FR-5 serving path,
+and as written it forces E1 to duplicate the fitter — which defeats §3.
+
+The grid in §4 varies the shrinkage denominator `n0 ∈ {10, 30, 60}` and reports
+a cap sensitivity. Both live in `ml/models/team_offsets.py` as module
+constants (`FULL_WEIGHT_EFF_MATCHES = 30.0`, `OFFSET_CAP = 0.075`), and
+`fit_offsets` calls `shrink_and_cap` on them directly, with no seam.
+
+Duplicating the fitter's iterative-scaling core to get that seam would mean E1
+is no longer testing *FR-5's fitter on club data* — it would be testing a
+60-line numerical lookalike that can silently diverge, and §3's entire
+comparison table would stop being true. That is a worse outcome than relaxing
+a constraint I wrote too tightly.
+
+**Narrowed to:** E1 may make **additive, default-preserving** changes to those
+two modules — specifically, one optional `policy` callable on `fit_offsets`
+defaulting to the current `shrink_and_cap`, and one parameterized policy
+factory beside it. E1 may **not** change any default, any existing signature's
+meaning, any constant, or any serving behaviour.
+
+**Enforced, not promised:**
+
+- A test asserts `fit_offsets` called without `policy` is **bit-identical** to
+  its pre-E1 behaviour on a fixed fixture.
+- A test asserts the parameterized policy at `n0 = 30, cap = 0.075` returns
+  **exactly** what `shrink_and_cap` returns, over a grid of raw inputs.
+- `OFFSET_CAP` and `FULL_WEIGHT_EFF_MATCHES` keep their values; a test pins
+  both.
+- `"team_offsets"` stays `null` in `model_params.json`, and §11's git-diff test
+  covers that file plus `pipeline/leagues.py`. It is **extended** to allow the
+  two additive changes here while still failing on any served-parameter edit.
+
+Everything else in §14 stands unchanged.
+
+## A2. Market-relative reporting is deferred, with the reason
+
+§6 says both metrics are **reported, never gating** against the de-vigged
+closing line "via D0-B's harness". That harness is on the D0-B branch
+([#215](https://github.com/javohir73/FinalWhistle/pull/215)), which is not
+merged; E1 is branched from `main` precisely so it cannot be orphaned the way
+D1 was.
+
+E1 therefore **defers the market-relative reporting** rather than either
+stacking on an unmerged branch or duplicating D0-B's loader. This costs
+nothing that gates: §6 already declared the market comparison non-gating, and
+the primary metric (`loss_totals`, O/U 2.5 vs realized outcomes) is on `main`
+and unaffected.
+
+Recorded so a reader does not mistake its absence for an omission. If D0-B
+merges before E1's evidence card is written, the market columns are added and
+the card says when.
