@@ -1,0 +1,2548 @@
+{
+  "derived_from": {
+    "raw_snapshot": "club_venues_raw.json",
+    "retrieved_utc": "2026-07-29T13:39:50Z",
+    "bindings_sha256": "e220a05d5d1db50453b3c4f1b2f723fb19551efc35ce51c4df7f958e18f9985c",
+    "query_sha256": "01c8ddd8dc8ca165373a3abfc84877ca122707f3a5ebb05913cbf38d6971dd39"
+  },
+  "provider": {
+    "provider": "Wikidata",
+    "endpoint": "https://query.wikidata.org/sparql",
+    "properties": {
+      "P115": "home venue",
+      "P625": "coordinate location",
+      "P1083": "maximum capacity",
+      "P580": "start time (qualifier — opens the interval)",
+      "P582": "end time (qualifier — closes the interval)"
+    },
+    "cost": "free — no key, no account, no quota tier",
+    "licence": "CC0 1.0 Universal (public domain dedication)",
+    "licence_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "licence_source": "https://www.wikidata.org/wiki/Wikidata:Licensing — Wikidata's structured data is released under CC0 1.0",
+    "redistribution": "GRANTED — the raw response snapshot and the derived table are both committed, bytes included",
+    "attribution": "Data from Wikidata, CC0 1.0",
+    "wdqs_usage": {
+      "policy": "https://www.mediawiki.org/wiki/Wikidata_Query_Service/User_Manual#Query_limits",
+      "query_timeout_s": 60,
+      "user_agent_required": true,
+      "user_agent_sent": "finalwhistle-research/0.1 (club venue coordinates; CC0)",
+      "client_throttle": "batched 24 labels per query, 1.0s sleep between batches, single-threaded — well inside the service's concurrency limits",
+      "anonymous_rate_limit": "shared per-IP budget; a throttled response would look like missing data, which is why the raw snapshot records the binding count"
+    }
+  },
+  "seasons_in_scope": [
+    "1617",
+    "1718",
+    "1819",
+    "1920",
+    "2021",
+    "2122",
+    "2223",
+    "2324",
+    "2425"
+  ],
+  "relocation_risk_seasons": [
+    "1920",
+    "2021"
+  ],
+  "relocation_risk_reason": "COVID-19 era. Fixtures in these seasons were played behind closed doors and, in some cases, at neutral or substitute grounds. football-data.co.uk carries no venue column, so a relocated match is undetectable per fixture and the season is excluded wholesale rather than assumed normal.",
+  "status_counts": {
+    "ambiguous_undated": 8,
+    "dated": 11,
+    "excluded_declared": 2,
+    "single_undated": 73
+  },
+  "n_required": 94,
+  "clubs": [
+    {
+      "club": "Augsburg",
+      "division": "D1",
+      "canonical_name": "FC Augsburg",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q167418",
+          "venue_label": "WWK Arena",
+          "lat": 48.3233205,
+          "lon": 10.8859261,
+          "capacity": 30660,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Bayern Munich",
+      "division": "D1",
+      "canonical_name": "FC Bayern Munich",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q127429",
+          "venue_label": "Allianz Arena",
+          "lat": 48.218775,
+          "lon": 11.624752777,
+          "capacity": 75024,
+          "valid_from": "2005-07-26",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q131610",
+          "venue_label": "Munich Olympic Stadium",
+          "lat": 48.173055555,
+          "lon": 11.546666666,
+          "capacity": 63118,
+          "valid_from": "1972-09-30",
+          "valid_from_precision": 11,
+          "valid_to": "2005-05-14",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q254903",
+          "venue_label": "Grünwalder Stadion",
+          "lat": 48.110833,
+          "lon": 11.574444,
+          "capacity": 15000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": "1972-09-20",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q328464",
+          "venue_label": "BMW Park",
+          "lat": 48.12605,
+          "lon": 11.52535,
+          "capacity": 6700,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q328464",
+          "venue_label": "BMW Park",
+          "lat": 48.12605,
+          "lon": 11.52535,
+          "capacity": 6731,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Bielefeld",
+      "division": "D1",
+      "canonical_name": "Arminia Bielefeld",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q706435",
+          "venue_label": "Bielefelder Alm",
+          "lat": 52.031389,
+          "lon": 8.516944,
+          "capacity": 27300,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Bochum",
+      "division": "D1",
+      "canonical_name": "VfL Bochum",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q373769",
+          "venue_label": "Ruhrstadion",
+          "lat": 51.489944,
+          "lon": 7.236489,
+          "capacity": 29299,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Darmstadt",
+      "division": "D1",
+      "canonical_name": "SV Darmstadt 98",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q878622",
+          "venue_label": "Stadion am Böllenfalltor",
+          "lat": 49.857778,
+          "lon": 8.672222,
+          "capacity": 19000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Dortmund",
+      "division": "D1",
+      "canonical_name": "Borussia Dortmund",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q150928",
+          "venue_label": "Westfalenstadion",
+          "lat": 51.4925,
+          "lon": 7.451667,
+          "capacity": 81359,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Ein Frankfurt",
+      "division": "D1",
+      "canonical_name": "Eintracht Frankfurt",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q157273",
+          "venue_label": "Waldstadion",
+          "lat": 50.068611,
+          "lon": 8.645278,
+          "capacity": 51500,
+          "valid_from": "1925-05-21",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "FC Koln",
+      "division": "D1",
+      "canonical_name": "1. FC Köln",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q151893",
+          "venue_label": "RheinEnergie Stadion",
+          "lat": 50.933611,
+          "lon": 6.875,
+          "capacity": 46195,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Fortuna Dusseldorf",
+      "division": "D1",
+      "canonical_name": "Fortuna Düsseldorf",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q155351",
+          "venue_label": "Merkur Spiel-Arena",
+          "lat": 51.261539,
+          "lon": 6.733083,
+          "capacity": 51500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q155351",
+          "venue_label": "Merkur Spiel-Arena",
+          "lat": 51.261539,
+          "lon": 6.733083,
+          "capacity": 54600,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q155351",
+          "venue_label": "Merkur Spiel-Arena",
+          "lat": 51.261539,
+          "lon": 6.733083,
+          "capacity": 66500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q155351",
+          "venue_label": "Merkur Spiel-Arena",
+          "lat": 51.261539,
+          "lon": 6.733083,
+          "capacity": 9917,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Freiburg",
+      "division": "D1",
+      "canonical_name": "SC Freiburg",
+      "status": "ambiguous_undated",
+      "note": "3 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q1958177",
+          "venue_label": "Möslestadion",
+          "lat": 47.983942,
+          "lon": 7.881192,
+          "capacity": 18000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q311458",
+          "venue_label": "Dreisamstadion",
+          "lat": 47.988889,
+          "lon": 7.893056,
+          "capacity": 24000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q64586775",
+          "venue_label": "Europa-Park-Stadion",
+          "lat": 48.021536,
+          "lon": 7.830006,
+          "capacity": 34700,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Greuther Furth",
+      "division": "D1",
+      "canonical_name": "SpVgg Greuther Fürth",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q684301",
+          "venue_label": "Trolli Arena",
+          "lat": 49.486944,
+          "lon": 10.999167,
+          "capacity": 18500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Hamburg",
+      "division": "D1",
+      "canonical_name": "Hamburger SV",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q150933",
+          "venue_label": "Volksparkstadion",
+          "lat": 53.586944,
+          "lon": 9.898611,
+          "capacity": 51500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q150933",
+          "venue_label": "Volksparkstadion",
+          "lat": 53.586944,
+          "lon": 9.898611,
+          "capacity": 57000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Hannover",
+      "division": "D1",
+      "canonical_name": "Hannover 96",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q152633",
+          "venue_label": "Niedersachsenstadion",
+          "lat": 52.36,
+          "lon": 9.731111,
+          "capacity": 49000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Heidenheim",
+      "division": "D1",
+      "canonical_name": "1. FC Heidenheim 1846",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q548138",
+          "venue_label": "Voith-Arena",
+          "lat": 48.6685,
+          "lon": 10.1393,
+          "capacity": 10001,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Hertha",
+      "division": "D1",
+      "canonical_name": "Hertha BSC",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q151374",
+          "venue_label": "Berlin Olympic Stadium",
+          "lat": 52.514722222,
+          "lon": 13.239444444,
+          "capacity": 74475,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Hoffenheim",
+      "division": "D1",
+      "canonical_name": "TSG 1899 Hoffenheim",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q129870",
+          "venue_label": "SNP Arena",
+          "lat": 49.239,
+          "lon": 8.888278,
+          "capacity": 30150,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q470396",
+          "venue_label": "Dietmar-Hopp-Stadion",
+          "lat": 49.2783,
+          "lon": 8.84212,
+          "capacity": 6350,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Holstein Kiel",
+      "division": "D1",
+      "canonical_name": "Holstein Kiel",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q872915",
+          "venue_label": "Holstein-Stadion",
+          "lat": 54.349167,
+          "lon": 10.123611,
+          "capacity": 15034,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Ingolstadt",
+      "division": "D1",
+      "canonical_name": "FC Ingolstadt 04",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q479619",
+          "venue_label": "Audi-Sportpark",
+          "lat": 48.745555555,
+          "lon": 11.485,
+          "capacity": 15000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Leverkusen",
+      "division": "D1",
+      "canonical_name": "Bayer 04 Leverkusen",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q156630",
+          "venue_label": "BayArena",
+          "lat": 51.038255555,
+          "lon": 7.002205555,
+          "capacity": 30210,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q871510",
+          "venue_label": "Ostermann-Arena",
+          "lat": 51.039463,
+          "lon": 7.004058,
+          "capacity": 3500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "M'gladbach",
+      "division": "D1",
+      "canonical_name": "Borussia Mönchengladbach",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q154074",
+          "venue_label": "ista-Borussia-Park",
+          "lat": 51.174583333,
+          "lon": 6.385463888,
+          "capacity": 59749,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Mainz",
+      "division": "D1",
+      "canonical_name": "1. FSV Mainz 05",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q392494",
+          "venue_label": "Mewa Arena",
+          "lat": 49.984167,
+          "lon": 8.224167,
+          "capacity": 34034,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Nurnberg",
+      "division": "D1",
+      "canonical_name": "1. FC Nürnberg",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q152599",
+          "venue_label": "Max-Morlock-Stadion",
+          "lat": 49.426240624,
+          "lon": 11.125617009,
+          "capacity": 50000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Paderborn",
+      "division": "D1",
+      "canonical_name": "SC Paderborn 07",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q567402",
+          "venue_label": "Home Deluxe Arena",
+          "lat": 51.731389,
+          "lon": 8.710833,
+          "capacity": 15000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "RB Leipzig",
+      "division": "D1",
+      "canonical_name": "RB Leipzig",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q210466",
+          "venue_label": "Red Bull Arena",
+          "lat": 51.345833,
+          "lon": 12.348056,
+          "capacity": 42000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Schalke 04",
+      "division": "D1",
+      "canonical_name": "FC Schalke 04",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q150961",
+          "venue_label": "Arena AufSchalke",
+          "lat": 51.554502777,
+          "lon": 7.067588888,
+          "capacity": 62271,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "St Pauli",
+      "division": "D1",
+      "canonical_name": "FC St. Pauli",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q339572",
+          "venue_label": "Millerntor-Stadion",
+          "lat": 53.554444,
+          "lon": 9.967778,
+          "capacity": 29546,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Stuttgart",
+      "division": "D1",
+      "canonical_name": "VfB Stuttgart",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q152349",
+          "venue_label": "MHPArena",
+          "lat": 48.792222,
+          "lon": 9.231944,
+          "capacity": 60058,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Union Berlin",
+      "division": "D1",
+      "canonical_name": "1. FC Union Berlin",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q749172",
+          "venue_label": "Stadion An der Alten Försterei",
+          "lat": 52.457222,
+          "lon": 13.568056,
+          "capacity": 21704,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Werder Bremen",
+      "division": "D1",
+      "canonical_name": "SV Werder Bremen",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q154475",
+          "venue_label": "Weserstadion",
+          "lat": 53.066389,
+          "lon": 8.8375,
+          "capacity": 42500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Wolfsburg",
+      "division": "D1",
+      "canonical_name": "VfL Wolfsburg",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q155603",
+          "venue_label": "Volkswagen Arena",
+          "lat": 52.431944,
+          "lon": 10.803889,
+          "capacity": 30000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q323718",
+          "venue_label": "VfL-Stadion am Elsterweg",
+          "lat": 52.425306,
+          "lon": 10.799417,
+          "capacity": 17600,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q323718",
+          "venue_label": "VfL-Stadion am Elsterweg",
+          "lat": 52.425306,
+          "lon": 10.799417,
+          "capacity": 17600,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": "2002-01-01",
+          "valid_to_precision": 9,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Arsenal",
+      "division": "E0",
+      "canonical_name": "Arsenal F.C.",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q163995",
+          "venue_label": "Emirates Stadium",
+          "lat": 51.555,
+          "lon": -0.108333333,
+          "capacity": 60338,
+          "valid_from": "2006-07-22",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q205309",
+          "venue_label": "Arsenal Stadium",
+          "lat": 51.557696,
+          "lon": -0.102966,
+          "capacity": 38419,
+          "valid_from": "1913-09-06",
+          "valid_from_precision": 11,
+          "valid_to": "2006-05-07",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Aston Villa",
+      "division": "E0",
+      "canonical_name": "Aston Villa F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q175339",
+          "venue_label": "Villa Park",
+          "lat": 52.509166666,
+          "lon": -1.884722222,
+          "capacity": 42640,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Bournemouth",
+      "division": "E0",
+      "canonical_name": "AFC Bournemouth",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q619094",
+          "venue_label": "Dean Court",
+          "lat": 50.735278,
+          "lon": -1.838333,
+          "capacity": 12000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Brentford",
+      "division": "E0",
+      "canonical_name": "Brentford F.C.",
+      "status": "excluded_declared",
+      "note": "Wikidata lists Griffin Park as the only home venue and has no statement for Brentford Community Stadium. Every in-scope Brentford season (2021-22 onward) was played at the new ground, so the source's only venue is wrong for every in-scope fixture.",
+      "intervals": [
+        {
+          "venue_qid": "Q1546623",
+          "venue_label": "Griffin Park",
+          "lat": 51.488167,
+          "lon": -0.302639,
+          "capacity": 14863,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Brighton",
+      "division": "E0",
+      "canonical_name": "Brighton & Hove Albion F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q619409",
+          "venue_label": "Brighton Community Stadium",
+          "lat": 50.861822222,
+          "lon": -0.083277777,
+          "capacity": 31800,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Burnley",
+      "division": "E0",
+      "canonical_name": "Burnley F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q683112",
+          "venue_label": "Turf Moor",
+          "lat": 53.789064,
+          "lon": -2.230225,
+          "capacity": 22546,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Cardiff",
+      "division": "E0",
+      "canonical_name": "Cardiff City F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q867902",
+          "venue_label": "Cardiff City Stadium",
+          "lat": 51.472778,
+          "lon": -3.203056,
+          "capacity": 33260,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Chelsea",
+      "division": "E0",
+      "canonical_name": "Chelsea F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q171458",
+          "venue_label": "Stamford Bridge",
+          "lat": 51.481666666,
+          "lon": -0.191111111,
+          "capacity": 41875,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Crystal Palace",
+      "division": "E0",
+      "canonical_name": "Crystal Palace F.C.",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q1066373",
+          "venue_label": "Selhurst Park",
+          "lat": 51.398333333,
+          "lon": -0.085555555,
+          "capacity": 26255,
+          "valid_from": "1924-01-01",
+          "valid_from_precision": 9,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Everton",
+      "division": "E0",
+      "canonical_name": "Everton F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q29347805",
+          "venue_label": "Hill Dickinson Stadium",
+          "lat": 53.4250789,
+          "lon": -3.0027851,
+          "capacity": 52769,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Fulham",
+      "division": "E0",
+      "canonical_name": "Fulham F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q318043",
+          "venue_label": "Craven Cottage",
+          "lat": 51.475,
+          "lon": -0.221666666,
+          "capacity": 25700,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Huddersfield",
+      "division": "E0",
+      "canonical_name": "Huddersfield Town A.F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q619407",
+          "venue_label": "Kirklees Stadium",
+          "lat": 53.654166666,
+          "lon": -1.768333333,
+          "capacity": 24500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Hull",
+      "division": "E0",
+      "canonical_name": "Hull City A.F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q630160",
+          "venue_label": "MKM Stadium",
+          "lat": 53.746111111,
+          "lon": -0.367777777,
+          "capacity": 25400,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Ipswich",
+      "division": "E0",
+      "canonical_name": "Ipswich Town F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q619558",
+          "venue_label": "Portman Road",
+          "lat": 52.055,
+          "lon": 1.145277777,
+          "capacity": 30311,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Leeds",
+      "division": "E0",
+      "canonical_name": "Leeds United F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q619505",
+          "venue_label": "Elland Road",
+          "lat": 53.777777777,
+          "lon": -1.572222222,
+          "capacity": 37792,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Leicester",
+      "division": "E0",
+      "canonical_name": "Leicester City F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q620031",
+          "venue_label": "Leicester City Stadium",
+          "lat": 52.620277777,
+          "lon": -1.142222222,
+          "capacity": 32261,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Liverpool",
+      "division": "E0",
+      "canonical_name": "Liverpool F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q45671",
+          "venue_label": "Anfield",
+          "lat": 53.430833333,
+          "lon": -2.960833333,
+          "capacity": 61276,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Luton",
+      "division": "E0",
+      "canonical_name": "Luton Town F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1613767",
+          "venue_label": "Kenilworth Road",
+          "lat": 51.884166666,
+          "lon": -0.431666666,
+          "capacity": 10356,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Man City",
+      "division": "E0",
+      "canonical_name": "Manchester City F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q48159",
+          "venue_label": "Etihad Stadium",
+          "lat": 53.483055555,
+          "lon": -2.200277777,
+          "capacity": 52900,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Man United",
+      "division": "E0",
+      "canonical_name": "Manchester United F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q83457",
+          "venue_label": "Old Trafford",
+          "lat": 53.463055555,
+          "lon": -2.291388888,
+          "capacity": 75731,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Middlesbrough",
+      "division": "E0",
+      "canonical_name": "Middlesbrough F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q822886",
+          "venue_label": "Riverside Stadium",
+          "lat": 54.578333333,
+          "lon": -1.216944444,
+          "capacity": 34742,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Newcastle",
+      "division": "E0",
+      "canonical_name": "Newcastle United F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q191774",
+          "venue_label": "St James’ Park",
+          "lat": 54.975555555,
+          "lon": -1.621666666,
+          "capacity": 52305,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Norwich",
+      "division": "E0",
+      "canonical_name": "Norwich City F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q123017",
+          "venue_label": "Carrow Road",
+          "lat": 52.622222222,
+          "lon": 1.309166666,
+          "capacity": 27244,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Nott'm Forest",
+      "division": "E0",
+      "canonical_name": "Nottingham Forest F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q593446",
+          "venue_label": "City Ground",
+          "lat": 52.94,
+          "lon": -1.132778,
+          "capacity": 30404,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Sheffield United",
+      "division": "E0",
+      "canonical_name": "Sheffield United F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q897533",
+          "venue_label": "Bramall Lane",
+          "lat": 53.370277777,
+          "lon": -1.470833333,
+          "capacity": 32702,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Southampton",
+      "division": "E0",
+      "canonical_name": "Southampton F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q567339",
+          "venue_label": "St Mary's Stadium",
+          "lat": 50.90583333,
+          "lon": -1.39111111,
+          "capacity": 32589,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Stoke",
+      "division": "E0",
+      "canonical_name": "Stoke City F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q500922",
+          "venue_label": "Britannia Stadium",
+          "lat": 52.988333333,
+          "lon": -2.175555555,
+          "capacity": 27740,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Sunderland",
+      "division": "E0",
+      "canonical_name": "Sunderland A.F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q31969",
+          "venue_label": "Stadium of Light",
+          "lat": 54.914429068,
+          "lon": -1.388172971,
+          "capacity": 48339,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Swansea",
+      "division": "E0",
+      "canonical_name": "Swansea City A.F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q580480",
+          "venue_label": "Liberty Stadium",
+          "lat": 51.6422,
+          "lon": -3.9351,
+          "capacity": 20750,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Tottenham",
+      "division": "E0",
+      "canonical_name": "Tottenham Hotspur F.C.",
+      "status": "excluded_declared",
+      "note": "Wikidata records White Hart Lane (to 2017-05-14) and Tottenham Hotspur Stadium (from 2019-04-03) but nothing for the 2017-18 and 2018-19 seasons at Wembley. The interval set has a two-season hole inside the window, and Wembley is ~10 km from either Tottenham ground.",
+      "intervals": [
+        {
+          "venue_qid": "Q186425",
+          "venue_label": "White Hart Lane",
+          "lat": 51.603333333,
+          "lon": -0.065833333,
+          "capacity": 36284,
+          "valid_from": "1899-09-04",
+          "valid_from_precision": 11,
+          "valid_to": "2017-05-14",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q55074091",
+          "venue_label": "Tottenham Hotspur Stadium",
+          "lat": 51.604444444,
+          "lon": -0.066388888,
+          "capacity": 62850,
+          "valid_from": "2019-04-03",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        }
+      ]
+    },
+    {
+      "club": "Watford",
+      "division": "E0",
+      "canonical_name": "Watford F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q10626",
+          "venue_label": "Vicarage Road",
+          "lat": 51.649928,
+          "lon": -0.401606,
+          "capacity": 22000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "West Brom",
+      "division": "E0",
+      "canonical_name": "West Bromwich Albion F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q31678",
+          "venue_label": "The Hawthorns",
+          "lat": 52.509166666,
+          "lon": -1.963888888,
+          "capacity": 26445,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "West Ham",
+      "division": "E0",
+      "canonical_name": "West Ham United F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q172190",
+          "venue_label": "London Stadium",
+          "lat": 51.538611111,
+          "lon": -0.016388888,
+          "capacity": 62500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Wolves",
+      "division": "E0",
+      "canonical_name": "Wolverhampton Wanderers F.C.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q380823",
+          "venue_label": "Molineux Stadium",
+          "lat": 52.590277777,
+          "lon": -2.130277777,
+          "capacity": 30852,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Alaves",
+      "division": "SP1",
+      "canonical_name": "Deportivo Alavés",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1369390",
+          "venue_label": "Mendizorrotza Stadium",
+          "lat": 42.837111,
+          "lon": -2.688044,
+          "capacity": 19840,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Almeria",
+      "division": "SP1",
+      "canonical_name": "Unión Deportiva Almería",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1130617",
+          "venue_label": "Estadio de los Juegos Mediterraneos",
+          "lat": 36.84,
+          "lon": -2.435278,
+          "capacity": 22000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Ath Bilbao",
+      "division": "SP1",
+      "canonical_name": "Athletic Bilbao",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q182864",
+          "venue_label": "San Mamés Stadium",
+          "lat": 43.264205,
+          "lon": -2.949369,
+          "capacity": 53289,
+          "valid_from": "2013-09-16",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q9008639",
+          "venue_label": "Lezama Facilities",
+          "lat": 43.2775,
+          "lon": -2.83932,
+          "capacity": 3250,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Ath Madrid",
+      "division": "SP1",
+      "canonical_name": "Atlético Madrid",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q1369687",
+          "venue_label": "Metropolitano Stadium",
+          "lat": 40.436111,
+          "lon": -3.599444,
+          "capacity": 70692,
+          "valid_from": "2017-01-01",
+          "valid_from_precision": 9,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q1857355",
+          "venue_label": "Estadio Metropolitano de Madrid",
+          "lat": 40.447527,
+          "lon": -3.716147,
+          "capacity": 35800,
+          "valid_from": "1923-01-01",
+          "valid_from_precision": 9,
+          "valid_to": "1966-01-01",
+          "valid_to_precision": 9,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q207626",
+          "venue_label": "Vicente Calderón Stadium",
+          "lat": 40.401667,
+          "lon": -3.720556,
+          "capacity": 54960,
+          "valid_from": "1966-01-01",
+          "valid_from_precision": 9,
+          "valid_to": "2017-01-01",
+          "valid_to_precision": 9,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Barcelona",
+      "division": "SP1",
+      "canonical_name": "FC Barcelona",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q1030045",
+          "venue_label": "Camp del Carrer Indústria",
+          "lat": 41.3903,
+          "lon": 2.1483,
+          "capacity": 6000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q1030045",
+          "venue_label": "Camp del Carrer Indústria",
+          "lat": 41.3903,
+          "lon": 2.1483,
+          "capacity": 6000,
+          "valid_from": "1909-05-14",
+          "valid_from_precision": 11,
+          "valid_to": "1922-05-19",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q159848",
+          "venue_label": "Camp Nou",
+          "lat": 41.380833333,
+          "lon": 2.122777777,
+          "capacity": 105000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q159848",
+          "venue_label": "Camp Nou",
+          "lat": 41.380833333,
+          "lon": 2.122777777,
+          "capacity": 105000,
+          "valid_from": "1957-09-24",
+          "valid_from_precision": 11,
+          "valid_to": "2023-08-07",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q159848",
+          "venue_label": "Camp Nou",
+          "lat": 41.380833333,
+          "lon": 2.122777777,
+          "capacity": 105000,
+          "valid_from": "2025-11-22",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q21154992",
+          "venue_label": "Estadi Pau Negre",
+          "lat": 41.36078333,
+          "lon": 2.15430556,
+          "capacity": 1500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q275715",
+          "venue_label": "Lluís Companys Olympic Stadium",
+          "lat": 41.364722,
+          "lon": 2.155556,
+          "capacity": 55926,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q275715",
+          "venue_label": "Lluís Companys Olympic Stadium",
+          "lat": 41.364722,
+          "lon": 2.155556,
+          "capacity": 55926,
+          "valid_from": "2023-08-08",
+          "valid_from_precision": 11,
+          "valid_to": "2025-08-09",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q275715",
+          "venue_label": "Lluís Companys Olympic Stadium",
+          "lat": 41.364722,
+          "lon": 2.155556,
+          "capacity": 55926,
+          "valid_from": "2025-09-28",
+          "valid_from_precision": 11,
+          "valid_to": "2025-11-21",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q29043488",
+          "venue_label": "Johan Cruijff Stadium",
+          "lat": 41.374224,
+          "lon": 2.050506,
+          "capacity": 6000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q29043488",
+          "venue_label": "Johan Cruijff Stadium",
+          "lat": 41.374224,
+          "lon": 2.050506,
+          "capacity": 6000,
+          "valid_from": "2025-08-10",
+          "valid_from_precision": 11,
+          "valid_to": "2025-09-27",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q630630",
+          "venue_label": "Palau Sant Jordi",
+          "lat": 41.363389,
+          "lon": 2.152556,
+          "capacity": 17960,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q725581",
+          "venue_label": "Miniestadi",
+          "lat": 41.379722,
+          "lon": 2.118056,
+          "capacity": 15276,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q918580",
+          "venue_label": "Camp de Les Corts",
+          "lat": 41.385833,
+          "lon": 2.135556,
+          "capacity": 60000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q918580",
+          "venue_label": "Camp de Les Corts",
+          "lat": 41.385833,
+          "lon": 2.135556,
+          "capacity": 60000,
+          "valid_from": "1922-05-20",
+          "valid_from_precision": 11,
+          "valid_to": "1957-09-23",
+          "valid_to_precision": 11,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q930832",
+          "venue_label": "Palau Blaugrana",
+          "lat": 41.380081,
+          "lon": 2.12005,
+          "capacity": 7585,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        }
+      ]
+    },
+    {
+      "club": "Betis",
+      "division": "SP1",
+      "canonical_name": "Real Betis",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q126844",
+          "venue_label": "Estadio Benito Villamarín",
+          "lat": 37.356403,
+          "lon": -5.981611,
+          "capacity": 60721,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Cadiz",
+      "division": "SP1",
+      "canonical_name": "Cádiz Club de Fútbol",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q2301915",
+          "venue_label": "Estadio Nuevo Mirandilla",
+          "lat": 36.502778,
+          "lon": -6.273056,
+          "capacity": 26000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Celta",
+      "division": "SP1",
+      "canonical_name": "RC Celta de Vigo",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1326578",
+          "venue_label": "Abanca Balaídos Stadium",
+          "lat": 42.211861,
+          "lon": -8.740328,
+          "capacity": 22803,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Eibar",
+      "division": "SP1",
+      "canonical_name": "SD Eibar",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q3320428",
+          "venue_label": "Ipurúa Municipal Stadium",
+          "lat": 43.181706,
+          "lon": -2.475803,
+          "capacity": 8164,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Elche",
+      "division": "SP1",
+      "canonical_name": "Elche CF",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q953600",
+          "venue_label": "Estadio Manuel Martínez Valero",
+          "lat": 38.266944,
+          "lon": -0.663333,
+          "capacity": 31388,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Espanol",
+      "division": "SP1",
+      "canonical_name": "RCD Espanyol",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q1325234",
+          "venue_label": "Estadi de Sarrià",
+          "lat": 41.393055555,
+          "lon": 2.133333333,
+          "capacity": 43667,
+          "valid_from": "1923-01-01",
+          "valid_from_precision": 9,
+          "valid_to": "1997-01-01",
+          "valid_to_precision": 9,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q473223",
+          "venue_label": "RCDE Stadium",
+          "lat": 41.347861,
+          "lon": 2.075667,
+          "capacity": 40500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Getafe",
+      "division": "SP1",
+      "canonical_name": "Getafe CF",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q929109",
+          "venue_label": "Estadio Coliseum",
+          "lat": 40.325556,
+          "lon": -3.714722,
+          "capacity": 16500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Girona",
+      "division": "SP1",
+      "canonical_name": "Girona FC",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q2097709",
+          "venue_label": "Montilivi Stadium",
+          "lat": 41.961389,
+          "lon": 2.828611,
+          "capacity": 14624,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Granada",
+      "division": "SP1",
+      "canonical_name": "Granada CF",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q574565",
+          "venue_label": "Estadio Nuevo Los Cármeness",
+          "lat": 37.152967,
+          "lon": -3.595736,
+          "capacity": 19436,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q5848495",
+          "venue_label": "Pedro S. Garrido football stadium",
+          "lat": 36.6728,
+          "lon": -6.13889,
+          "capacity": 2000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q5848495",
+          "venue_label": "Pedro S. Garrido football stadium",
+          "lat": 36.6728,
+          "lon": -6.13889,
+          "capacity": 5000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q5848495",
+          "venue_label": "Pedro S. Garrido football stadium",
+          "lat": 36.6728,
+          "lon": -6.13889,
+          "capacity": 6060,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q5848495",
+          "venue_label": "Pedro S. Garrido football stadium",
+          "lat": 36.6728,
+          "lon": -6.13889,
+          "capacity": 8000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Huesca",
+      "division": "SP1",
+      "canonical_name": "Sociedad Deportiva Huesca",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1369197",
+          "venue_label": "Estadio El Alcoraz",
+          "lat": 42.131944,
+          "lon": -0.424444,
+          "capacity": 9000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "La Coruna",
+      "division": "SP1",
+      "canonical_name": "Real Club Deportivo de La Coruña",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q22130",
+          "venue_label": "Estadio Municipal de Abanca Riazor",
+          "lat": 43.368667,
+          "lon": -8.417372,
+          "capacity": 32490,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Las Palmas",
+      "division": "SP1",
+      "canonical_name": "UD Las Palmas",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q991419",
+          "venue_label": "Gran Canaria Stadium",
+          "lat": 28.1,
+          "lon": -15.456667,
+          "capacity": 32392,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Leganes",
+      "division": "SP1",
+      "canonical_name": "CD Leganés",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1369462",
+          "venue_label": "Estadio Municipal de Butarque",
+          "lat": 40.3404,
+          "lon": -3.7607,
+          "capacity": 11454,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Levante",
+      "division": "SP1",
+      "canonical_name": "Levante UD",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q1122715",
+          "venue_label": "Estadi Ciutat de València",
+          "lat": 39.494722,
+          "lon": -0.364167,
+          "capacity": 26354,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Malaga",
+      "division": "SP1",
+      "canonical_name": "Málaga CF",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q695879",
+          "venue_label": "La Rosaleda Stadium",
+          "lat": 36.734092,
+          "lon": -4.426422,
+          "capacity": 30044,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Mallorca",
+      "division": "SP1",
+      "canonical_name": "RCD Mallorca",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q276163",
+          "venue_label": "Estadi Mallorca Son Moix",
+          "lat": 39.59,
+          "lon": 2.63,
+          "capacity": 25736,
+          "valid_from": "1999-06-01",
+          "valid_from_precision": 10,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#PreferredRank"
+        },
+        {
+          "venue_qid": "Q3813479",
+          "venue_label": "Lluís Sitjar stadium",
+          "lat": 39.5808,
+          "lon": 2.6407,
+          "capacity": 18000,
+          "valid_from": "1945-01-01",
+          "valid_from_precision": 9,
+          "valid_to": "1999-01-01",
+          "valid_to_precision": 9,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Osasuna",
+      "division": "SP1",
+      "canonical_name": "CA Osasuna",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q735783",
+          "venue_label": "El Sadar Stadium",
+          "lat": 42.796667,
+          "lon": -1.636944,
+          "capacity": 23576,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Real Madrid",
+      "division": "SP1",
+      "canonical_name": "Real Madrid C.F.",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q164027",
+          "venue_label": "Bernabéu",
+          "lat": 40.45306,
+          "lon": -3.68835,
+          "capacity": 83186,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Sevilla",
+      "division": "SP1",
+      "canonical_name": "Sevilla FC",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q275429",
+          "venue_label": "Ramón Sánchez Pizjuán Stadium",
+          "lat": 37.383878,
+          "lon": -5.970467,
+          "capacity": 42714,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Sociedad",
+      "division": "SP1",
+      "canonical_name": "Real Sociedad",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q917845",
+          "venue_label": "Anoeta Stadium",
+          "lat": 43.301378,
+          "lon": -1.973617,
+          "capacity": 40000,
+          "valid_from": "1993-08-13",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Sp Gijon",
+      "division": "SP1",
+      "canonical_name": "Sporting de Gijón",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q5839304",
+          "venue_label": "Escuela de Fútbol de Mareo",
+          "lat": 43.4981,
+          "lon": -5.68056,
+          "capacity": 3000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q929315",
+          "venue_label": "El Molinón-Enrique Castro Quini",
+          "lat": 43.536111,
+          "lon": -5.637222,
+          "capacity": 29371,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Valencia",
+      "division": "SP1",
+      "canonical_name": "Valencia CF",
+      "status": "dated",
+      "note": "",
+      "intervals": [
+        {
+          "venue_qid": "Q202762",
+          "venue_label": "Mestalla Stadium",
+          "lat": 39.474722,
+          "lon": -0.358333,
+          "capacity": 49430,
+          "valid_from": "1923-05-20",
+          "valid_from_precision": 11,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Valladolid",
+      "division": "SP1",
+      "canonical_name": "Real Valladolid",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q151816",
+          "venue_label": "Estadio Nuevo José Zorrilla",
+          "lat": 41.644444,
+          "lon": -4.761111,
+          "capacity": 26512,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q8199533",
+          "venue_label": "Ciudad Deportiva del Real Valladolid",
+          "lat": 41.64444351,
+          "lon": -4.76333332,
+          "capacity": 1500,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Vallecano",
+      "division": "SP1",
+      "canonical_name": "Rayo Vallecano",
+      "status": "single_undated",
+      "note": "one venue, no P580/P582 qualifier — cannot be verified for any date. Brentford shows this failure mode is real.",
+      "intervals": [
+        {
+          "venue_qid": "Q983806",
+          "venue_label": "Campo de Fútbol de Vallecas",
+          "lat": 40.391944,
+          "lon": -3.658961,
+          "capacity": 14708,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    },
+    {
+      "club": "Villarreal",
+      "division": "SP1",
+      "canonical_name": "Villarreal CF",
+      "status": "ambiguous_undated",
+      "note": "2 venues, none dated — which applied when is unknowable from this source",
+      "intervals": [
+        {
+          "venue_qid": "Q2438875",
+          "venue_label": "Ciudad Deportiva Villarreal CF",
+          "lat": 39.94046,
+          "lon": -0.11501,
+          "capacity": 5000,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        },
+        {
+          "venue_qid": "Q741157",
+          "venue_label": "Estadio de la Cerámica",
+          "lat": 39.944167,
+          "lon": -0.103611,
+          "capacity": 24891,
+          "valid_from": null,
+          "valid_from_precision": null,
+          "valid_to": null,
+          "valid_to_precision": null,
+          "rank": "ontology#NormalRank"
+        }
+      ]
+    }
+  ]
+}

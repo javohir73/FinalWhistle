@@ -215,7 +215,7 @@ PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
 
 | | |
 |---|---|
-| code revision | `86f8c8b` (branch `claude/finalwhistle-data-validation-2b6db1`, from `main` at `eebff2c`) |
+| code revision | **`254273e`** (branch `claude/finalwhistle-data-validation-2b6db1`, from `main` at `eebff2c`). Not `86f8c8b`: `--compare-families` and `--emit-comparison` do not exist there, and the emitted `scope` reads `explicit` rather than `pre_confirmation_27`. The numbers are identical at both revisions; only the receipt differs. |
 | python / pandas | 3.12.1 / 3.0.3 |
 | scope | 27 pre-confirmation captures (`pre_confirmation_keys()`); the three `*_2526` captures were **never fetched and never opened** |
 | input fingerprints | per-file sha256 in [`coverage-census.json`](coverage-census.json) |

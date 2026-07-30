@@ -1,0 +1,37 @@
+=== D1 schedule-context coverage (27 pre-confirmation captures) ===
+scope: 2016-17..2024-25; the *_2526 confirmation captures are not opened
+travel requires the venue in force ON THE FIXTURE DATE for both clubs,
+with the boundary's Wikidata time precision respected
+
+E0: 3420 fixtures
+   rest defined    3396 / 3420  (99.3%)
+   travel defined    14 / 3420  (0.41%)
+   travel excluded, by named reason (sums to 3406):
+      excluded_declared              273
+      relocation_risk_season           4
+      single_undated                3129
+   travel km: median 17.5  max 17.5
+
+SP1: 3420 fixtures
+   rest defined    3400 / 3420  (99.4%)
+   travel defined    62 / 3420  (1.81%)
+   travel excluded, by named reason (sums to 3358):
+      ambiguous_undated              449
+      boundary_precision_unknown     580
+      relocation_risk_season          18
+      single_undated                2311
+   travel km: median 349.6  max 563.3
+
+D1: 2754 fixtures
+   rest defined    2733 / 2754  (99.2%)
+   travel defined     0 / 2754  (0.00%)
+   travel excluded, by named reason (sums to 2754):
+      ambiguous_undated              648
+      boundary_precision_unknown     162
+      single_undated                1944
+
+ALL: travel defined 76 / 9594 (0.79%)
+exclusion totals: {"excluded_declared": 273, "relocation_risk_season": 22, "single_undated": 7384, "ambiguous_undated": 1097, "boundary_precision_unknown": 742}
+
+VERDICT unchanged: travel candidates D1.1/D1.2/D1.4 remain BLOCKED.
+Congestion (D1.3) needs no coordinate and is unaffected.

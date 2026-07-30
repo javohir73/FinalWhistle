@@ -380,6 +380,51 @@ def test_family_table_only_lists_families_the_publisher_documents_as_closing():
             assert not fam.key.endswith("C"), fam
 
 
+def test_confirmation_suffix_tracks_the_shared_holdout_constant():
+    """The comment used to claim a test pinned these equal. None existed.
+
+    Now the suffix is derived, and this pins it — so when the holdout rolls,
+    the census scope rolls with it instead of guarding a stale season.
+    """
+    from pipeline.club_data_manifest import CONFIRM_SEASON
+    from pipeline.market_coverage import _CONFIRMATION_SUFFIX
+
+    assert _CONFIRMATION_SUFFIX == f"_{CONFIRM_SEASON}"
+    assert all(k.endswith(_CONFIRMATION_SUFFIX) for k in expected_keys()
+               if k not in pre_confirmation_keys())
+
+
+def test_the_capture_fetcher_identifies_itself_honestly(tmp_path, monkeypatch):
+    """Asserts the header actually SENT, not the source text.
+
+    The provider whose licence this phase is careful about deserves a real
+    agent string rather than a forged `curl/8`. Checking the source would also
+    trip on the comment that explains why.
+    """
+    import urllib.request
+
+    seen = {}
+
+    class _Resp:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return b"Div,Date\n"
+
+    def _capture(req, timeout=0):
+        seen["ua"] = req.get_header("User-agent")
+        return _Resp()
+
+    monkeypatch.setattr(urllib.request, "urlopen", _capture)
+    fetch_captures(tmp_path, keys=["E0_2324"], delay_s=0)
+    assert seen["ua"].startswith("finalwhistle-research/")
+    assert "curl" not in seen["ua"]
+
+
 def test_census_makes_no_network_call(tmp_path, monkeypatch):
     """A6. The census path is offline; fetching is a separate operator action."""
     import urllib.request

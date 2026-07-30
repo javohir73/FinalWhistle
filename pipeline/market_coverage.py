@@ -51,6 +51,7 @@ import pandas as pd
 
 from ml.evaluation.market_benchmark import DEVIG_METHODS, devig
 from pipeline.club_data_manifest import (
+    CONFIRM_SEASON,
     DIVISIONS,
     expected_keys,
     load_manifest,
@@ -182,9 +183,11 @@ def _score_family(
     return n, (total / n if n else None), counts
 
 
-#: Season code of the consumed #202 confirmation holdout. Mirrors
-#: `pipeline.club_data_manifest.CONFIRM_SEASON`; a test pins them equal.
-_CONFIRMATION_SUFFIX = "_2526"
+#: Season suffix of the consumed #202 confirmation holdout. DERIVED from
+#: `pipeline.club_data_manifest.CONFIRM_SEASON` rather than restated, so the
+#: two cannot drift when the holdout rolls. It was previously a bare literal
+#: with a comment claiming a test pinned them equal; no such test existed.
+_CONFIRMATION_SUFFIX = f"_{CONFIRM_SEASON}"
 
 
 def _scope_label(keys: list[str]) -> str:
@@ -535,7 +538,12 @@ def fetch_captures(
         if dest.exists():
             continue
         url = DOWNLOAD_URL_TEMPLATE.format(season=season, division=division)
-        req = urllib.request.Request(url, headers={"User-Agent": "curl/8"})
+        # An honest agent string. Sending "curl/8" to the one provider in this
+        # program whose terms the phase is careful about was a bad look at best
+        # and misrepresentation at worst.
+        req = urllib.request.Request(
+            url, headers={"User-Agent": "finalwhistle-research/0.1 (offline club benchmark)"}
+        )
         with urllib.request.urlopen(req, timeout=60) as resp:  # noqa: S310 (fixed https host)
             dest.write_bytes(resp.read())
         written.append(key)
