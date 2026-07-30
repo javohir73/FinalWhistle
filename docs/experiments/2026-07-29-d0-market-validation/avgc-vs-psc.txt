@@ -1,0 +1,39 @@
+AvgC vs PSC on captures where BOTH are present
+(mean log loss, vs realized FTR; same rows both columns)
+
+capture        n   AvgC LL    PSC LL   PSC-AvgC
+E0_1920      380    0.9731    0.9722    -0.0009
+E0_2021      380    0.9961    0.9971    +0.0009
+E0_2122      380    0.9367    0.9367    +0.0000
+E0_2223      380    0.9620    0.9622    +0.0001
+E0_2324      380    0.9007    0.8995    -0.0012
+E0_2425      380    0.9667    0.9664    -0.0003
+SP1_1920     380    0.9791    0.9765    -0.0025
+SP1_2021     380    0.9806    0.9795    -0.0010
+SP1_2122     380    0.9892    0.9887    -0.0005
+SP1_2223     380    0.9778    0.9759    -0.0019
+SP1_2324     380    0.9498    0.9509    +0.0010
+SP1_2425     380    0.9462    0.9463    +0.0001
+D1_1920      306    0.9740    0.9738    -0.0003
+D1_2021      306    0.9833    0.9829    -0.0004
+D1_2122      306    0.9814    0.9805    -0.0009
+D1_2223      306    0.9955    0.9963    +0.0008
+D1_2324      306    0.9459    0.9442    -0.0018
+D1_2425      306    0.9870    0.9882    +0.0011
+
+captures with both families: 18
+max |PSC - AvgC|           : 0.0025 nats
+mean (PSC - AvgC)          : -0.0004 nats
+PSC better in             : 11/18 captures
+
+PSC-only captures (no AvgC) — the evidence an AvgC-pinned benchmark discards:
+  E0_1617    n= 380  PSC LL=0.9065
+  E0_1718    n= 380  PSC LL=0.9405
+  E0_1819    n= 380  PSC LL=0.8907
+  SP1_1617   n= 380  PSC LL=0.8997
+  SP1_1718   n= 379  PSC LL=0.9554
+  SP1_1819   n= 380  PSC LL=1.0017
+  D1_1617    n= 306  PSC LL=0.9954
+  D1_1718    n= 306  PSC LL=0.9979
+  D1_1819    n= 305  PSC LL=0.9674
+  total discarded: 3196 matches

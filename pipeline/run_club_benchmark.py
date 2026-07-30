@@ -31,9 +31,11 @@ intentionally out of scope here; this runner proves the edge offline first.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import logging
 from datetime import datetime, timezone
+from pathlib import Path
 
 from ml.evaluation.backtest import model_probs
 from ml.evaluation.market_benchmark import (
@@ -41,13 +43,19 @@ from ml.evaluation.market_benchmark import (
     benchmark,
     devig,
     format_report,
+    market_basis,
     result_to_json,
 )
 from ml.ratings.elo import MatchInput, replay_with_prematch
-from pipeline.ingest.football_data import load_football_data_csv
+from pipeline.ingest.football_data import PROVIDER, load_football_data_csv
 
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 log = logging.getLogger(__name__)
+
+
+def _sha256_of(path: str) -> str:
+    """Fingerprint an input so a reported number can be traced back to bytes."""
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
 def build_club_matched(csv_paths: list[str], league: str) -> list[MatchedMatch]:
@@ -100,6 +108,8 @@ def build_club_matched(csv_paths: list[str], league: str) -> list[MatchedMatch]:
                 model_probs=mp,
                 market_probs=market,
                 label=label,
+                odds_basis=rec.get("odds_basis"),
+                odds_source=rec.get("odds_source"),
             )
         )
     return matched
@@ -115,9 +125,27 @@ def run_club_benchmark(
         return 1
 
     result = benchmark(matched)
-    log.info("\n%s", format_report(result, league))
+    # D0/A3: say which market this scored. A number that cannot name its own
+    # basis is the failure this phase exists to prevent — and if the inputs mix
+    # closing and pre-closing prices, the report says "MIXED" rather than
+    # picking whichever label reads better.
+    provenance = {
+        **market_basis(matched),
+        "provider": PROVIDER["provider"],
+        "licence": PROVIDER["licence"],
+        "attribution": PROVIDER["attribution"],
+        "timestamp_semantics": PROVIDER["timestamp_semantics"],
+        "devig_method": "proportional",
+        "inputs": [
+            {"path": p, "sha256": _sha256_of(p), "bytes": Path(p).stat().st_size}
+            for p in csv_paths
+        ],
+    }
+    log.info("\n%s", format_report(result, league, provenance))
     if emit_json:
-        payload = result_to_json(result, league, datetime.now(timezone.utc).isoformat())
+        payload = result_to_json(
+            result, league, datetime.now(timezone.utc).isoformat(), provenance
+        )
         with open(emit_json, "w", encoding="utf-8") as fh:
             fh.write(json.dumps(payload, indent=2))
         log.info("wrote benchmark JSON -> %s", emit_json)

@@ -22,17 +22,143 @@ _LABEL_INDEX = {"H": 0, "D": 1, "A": 2}
 _EPS = 1e-15
 
 
-def devig(odds_home: float, odds_draw: float, odds_away: float) -> Probs:
+#: De-vig methods this module can apply. ``proportional`` is the default and
+#: must stay the default: every market number already recorded in
+#: docs/MODEL-EXPERIMENTS.md was computed with it, and the frozen q3 baseline
+#: (pipeline/run_calibrator_benchmark.py) calls :func:`devig` positionally.
+#: Changing the default would silently invalidate both.
+#:
+#: The other two exist so a headline claim ("the model is behind the closing
+#: line") can be shown not to rest on an arbitrary normalization. They are a
+#: sensitivity axis, never a tuning knob — no method is ever selected because
+#: it flatters the model.
+DEVIG_METHODS = ("proportional", "shin", "power")
+
+_SOLVER_TOL = 1e-12
+_SOLVER_ITERS = 200
+
+
+def _shin_probs(raw: tuple[float, ...]) -> tuple[float, ...]:
+    """Shin (1993): back out probabilities assuming a share ``z`` of insider bets.
+
+    ``p_i = (sqrt(z^2 + 4(1-z) * raw_i^2 / B) - z) / (2(1-z))`` with ``B`` the
+    booksum. ``z`` is the insider fraction, solved by bisection so the triple
+    sums to 1. ``z -> 0`` degenerates to proportional, which is why a zero-vig
+    book returns the proportional answer.
+
+    **Underround books have no Shin solution.** ``z`` is a share of insider
+    money and cannot be negative, so a booksum below 1 — routine for the
+    market-maximum family, which is a best-price envelope across books rather
+    than one book's line — falls back to proportional. That is a real branch,
+    not a degenerate bisection: taken silently it would report a proportional
+    number under a Shin label.
+    """
+    booksum = sum(raw)
+    if booksum <= 1.0:
+        return tuple(r / booksum for r in raw)
+
+    def probs_for(z: float) -> tuple[float, ...]:
+        if z <= 0.0:
+            return tuple(r / booksum for r in raw)
+        return tuple(
+            (math.sqrt(z * z + 4.0 * (1.0 - z) * r * r / booksum) - z)
+            / (2.0 * (1.0 - z))
+            for r in raw
+        )
+
+    lo, hi = 0.0, 0.99
+    # sum(probs_for(z)) decreases in z; bisect for the root of sum - 1.
+    for _ in range(_SOLVER_ITERS):
+        mid = 0.5 * (lo + hi)
+        if sum(probs_for(mid)) > 1.0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < _SOLVER_TOL:
+            break
+    p = probs_for(0.5 * (lo + hi))
+    total = sum(p)
+    return tuple(x / total for x in p)  # guard the last ulp
+
+
+def _power_probs(raw: tuple[float, ...]) -> tuple[float, ...]:
+    """Power (odds-ratio) de-vig: find ``k`` with ``sum(raw_i ** k) == 1``.
+
+    Every ``raw_i`` is below 1, so ``sum(raw_i ** k)`` is strictly decreasing in
+    ``k`` and bisection is safe over any bracket that contains the root. Unlike
+    proportional, this shrinks longshots harder than favourites, which is the
+    direction the favourite-longshot bias actually runs.
+
+    The bracket must straddle ``k = 1``, not start there. An overround book
+    (booksum > 1) has ``k > 1``; an **underround** book has ``k < 1``, and that
+    is not a corner case — the market-maximum family is a best-price envelope
+    across books, so a booksum below 1 is its normal state. A bracket starting
+    at 1.0 would collapse onto its own floor and return the proportional answer
+    under a power label.
+    """
+    lo, hi = 1e-6, 64.0
+    for _ in range(_SOLVER_ITERS):
+        mid = 0.5 * (lo + hi)
+        if sum(r**mid for r in raw) > 1.0:
+            lo = mid
+        else:
+            hi = mid
+        if hi - lo < _SOLVER_TOL:
+            break
+    k = 0.5 * (lo + hi)
+    p = tuple(r**k for r in raw)
+    total = sum(p)
+    return tuple(x / total for x in p)
+
+
+def _devig_raw(raw: tuple[float, ...], method: str) -> tuple[float, ...]:
+    if method == "proportional":
+        total = sum(raw)
+        return tuple(r / total for r in raw)
+    if method == "shin":
+        return _shin_probs(raw)
+    if method == "power":
+        return _power_probs(raw)
+    raise ValueError(f"unknown de-vig method {method!r}; expected one of {DEVIG_METHODS}")
+
+
+def _reject_unusable(odds: tuple[float, ...]) -> None:
+    """Reject NaN before the ``> 1.0`` bound, because NaN slips through it.
+
+    ``min(nan, nan, nan) <= 1.0`` is ``False``, so a blank price passed the old
+    guard, produced a ``(nan, nan, nan)`` triple, and then scored as a
+    **perfect** prediction: ``_log_loss_one`` clamps NaN to ``1 - eps``. A match
+    the book never priced became the market's best result of the season, and the
+    same row simultaneously contributed the worst possible Brier score.
+
+    Every comparison against NaN is False, so this has to be an explicit test.
+    """
+    if any(x != x for x in odds):  # NaN is the only value unequal to itself
+        raise ValueError("decimal odds must be present (got NaN)")
+    if min(odds) <= 1.0:
+        raise ValueError("decimal odds must be > 1.0")
+
+
+def devig(
+    odds_home: float,
+    odds_draw: float,
+    odds_away: float,
+    *,
+    method: str = "proportional",
+) -> Probs:
     """De-vig decimal odds -> implied probabilities summing to 1.
 
     Raw implied probability is 1/odds; the three sum to >1 by the bookmaker's
-    margin (overround). Proportional normalization removes it.
+    margin (overround). ``method`` selects how that margin is removed — see
+    :data:`DEVIG_METHODS`. The default is proportional normalization and is
+    keyword-only to change, so every existing positional caller is unaffected.
+
+    Raises on a missing or non-positive price rather than propagating NaN.
     """
-    if min(odds_home, odds_draw, odds_away) <= 1.0:
-        raise ValueError("decimal odds must be > 1.0")
+    _reject_unusable((odds_home, odds_draw, odds_away))
     raw = (1.0 / odds_home, 1.0 / odds_draw, 1.0 / odds_away)
-    total = sum(raw)
-    return (raw[0] / total, raw[1] / total, raw[2] / total)
+    p = _devig_raw(raw, method)
+    return (p[0], p[1], p[2])
 
 
 def devig2(odds_a: float, odds_b: float) -> tuple[float, float]:
@@ -41,8 +167,7 @@ def devig2(odds_a: float, odds_b: float) -> tuple[float, float]:
     Same proportional de-vig as :func:`devig`, restricted to two mutually
     exclusive outcomes. The shorter price carries the larger probability.
     """
-    if min(odds_a, odds_b) <= 1.0:
-        raise ValueError("decimal odds must be > 1.0")
+    _reject_unusable((odds_a, odds_b))
     raw = (1.0 / odds_a, 1.0 / odds_b)
     total = raw[0] + raw[1]
     return (raw[0] / total, raw[1] / total)
@@ -50,7 +175,14 @@ def devig2(odds_a: float, odds_b: float) -> tuple[float, float]:
 
 @dataclass(frozen=True)
 class MatchedMatch:
-    """One match where both a model and a market probability triple exist."""
+    """One match where both a model and a market probability triple exist.
+
+    ``odds_basis`` / ``odds_source`` ride along from the loader so a benchmark
+    can state which market it scored. They default to ``None`` for callers whose
+    odds carry no basis (the API-Football path), and ``None`` reports as
+    ``"unknown"`` rather than being quietly dropped — an unlabelled market is a
+    fact about the evidence, not a field to omit.
+    """
 
     date: date_type
     home: str
@@ -58,6 +190,8 @@ class MatchedMatch:
     model_probs: Probs
     market_probs: Probs
     label: str  # H / D / A
+    odds_basis: str | None = None  # "closing" / "pre_closing" / None
+    odds_source: str | None = None  # column family, e.g. "AvgC"
 
 
 def join_odds_to_rows(
@@ -108,9 +242,27 @@ def join_odds_to_rows(
             MatchedMatch(
                 date=d, home=home, away=away,
                 model_probs=row["model_probs"], market_probs=market, label=label,
+                odds_basis=rec.get("odds_basis"), odds_source=rec.get("odds_source"),
             )
         )
     return matched, unmatched
+
+
+def market_basis(matched: list[MatchedMatch]) -> dict:
+    """What market the matched set actually represents.
+
+    Reports every distinct basis and family present rather than a single label,
+    because a set mixing closing and pre-closing prices is a fact worth seeing,
+    not something to average into one word. ``mixed_basis`` is the flag a report
+    should act on.
+    """
+    bases = sorted({m.odds_basis or "unknown" for m in matched})
+    return {
+        "odds_basis": bases[0] if len(bases) == 1 else "mixed",
+        "odds_basis_values": bases,
+        "odds_sources": sorted({m.odds_source or "unknown" for m in matched}),
+        "mixed_basis": len(bases) > 1,
+    }
 
 
 def _log_loss_one(probs: Probs, label: str) -> float:
@@ -255,10 +407,18 @@ def _verdict(lo: float, hi: float) -> str:
     return "NO CREDIBLE DIFFERENCE (CI straddles 0)"
 
 
-def result_to_json(result: dict, dataset: str, updated_at: str) -> dict:
-    """Serialize a benchmark result for the methodology page (rounded, JSON-ready)."""
+def result_to_json(
+    result: dict, dataset: str, updated_at: str, provenance: dict | None = None
+) -> dict:
+    """Serialize a benchmark result for the methodology page (rounded, JSON-ready).
+
+    ``provenance`` (D0 acceptance criterion A3) records which market this scored
+    — provider, licence, odds basis, column family, de-vig method, input
+    fingerprints. It is additive: callers that pass nothing emit exactly the
+    previous shape, so no existing consumer moves.
+    """
     lo, hi = result["diff_ci95"]
-    return {
+    out = {
         "status": "ready",
         "dataset": dataset,
         "n_matches": result["n_matches"],
@@ -271,16 +431,33 @@ def result_to_json(result: dict, dataset: str, updated_at: str) -> dict:
         "mean_edge": round(result["mean_edge"], 4),
         "verdict": _verdict(lo, hi),
     }
+    if provenance is not None:
+        out["provenance"] = provenance
+    return out
 
 
-def format_report(result: dict, title: str) -> str:
-    """Human-readable benchmark report (stable format — archived per run)."""
+def format_report(result: dict, title: str, provenance: dict | None = None) -> str:
+    """Human-readable benchmark report (stable format — archived per run).
+
+    The header no longer hardcodes "Closing-line". It says what ``provenance``
+    says it scored, because a report that calls a pre-closing series a closing
+    line is wrong in exactly the way this phase exists to prevent.
+    """
     mo, mk = result["model"], result["market"]
     lo, hi = result["diff_ci95"]
     d = result["diff_log_loss"]
     verdict = _verdict(lo, hi)
+    # Defaults to "unknown", not "closing". A caller that has not said what it
+    # scored has not established that it scored a closing line.
+    basis = (provenance or {}).get("odds_basis", "unknown")
+    heading = {
+        "closing": "Closing-line benchmark",
+        "pre_closing": "PRE-CLOSING-line benchmark",
+        "mixed": "MIXED-basis benchmark",
+        "unknown": "Market benchmark (odds basis UNKNOWN)",
+    }.get(basis, f"Market benchmark (basis: {basis})")
     lines = [
-        f"=== Closing-line benchmark: {title} ({result['n_matches']} matches) ===",
+        f"=== {heading}: {title} ({result['n_matches']} matches) ===",
         f"  {'':14s}{'log-loss':>10s}{'brier':>10s}{'accuracy':>10s}",
         f"  {'model':14s}{mo['log_loss']:>10.4f}{mo['brier']:>10.4f}{mo['accuracy']:>10.3f}",
         f"  {'market':14s}{mk['log_loss']:>10.4f}{mk['brier']:>10.4f}{mk['accuracy']:>10.3f}",

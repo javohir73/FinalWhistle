@@ -1,0 +1,2238 @@
+{
+  "provider": {
+    "provider": "football-data.co.uk",
+    "url": "https://www.football-data.co.uk/",
+    "download_url_template": "https://www.football-data.co.uk/mmz4281/{season}/{division}.csv",
+    "column_notes_url": "https://www.football-data.co.uk/notes.txt",
+    "cost": "free \u2014 no key, no account, no quota",
+    "licence": "\u00a9 Football-Data. All Rights Reserved. Free download granted; no redistribution grant published.",
+    "redistribution": "NOT GRANTED \u2014 fingerprints are committed, bytes are not",
+    "attribution": "Data \u00a9 football-data.co.uk",
+    "closing_rule": "notes.txt: documented odds abbreviations \"are for pre-closing odds. For the closing odds, as below but with an additional \\\"C\\\" character following the bookmaker abbreviation/Max/Avg\".",
+    "timestamp_semantics": "no per-price timestamp; basis is a publisher column-family claim, not an observed capture time"
+  },
+  "scope": "pre_confirmation_27",
+  "keys": [
+    "E0_1617",
+    "E0_1718",
+    "E0_1819",
+    "E0_1920",
+    "E0_2021",
+    "E0_2122",
+    "E0_2223",
+    "E0_2324",
+    "E0_2425",
+    "SP1_1617",
+    "SP1_1718",
+    "SP1_1819",
+    "SP1_1920",
+    "SP1_2021",
+    "SP1_2122",
+    "SP1_2223",
+    "SP1_2324",
+    "SP1_2425",
+    "D1_1617",
+    "D1_1718",
+    "D1_1819",
+    "D1_1920",
+    "D1_2021",
+    "D1_2122",
+    "D1_2223",
+    "D1_2324",
+    "D1_2425"
+  ],
+  "missing": [],
+  "manifest_drift": [
+    {
+      "file": "E0_1617",
+      "expected_sha256": "ea2166a51ed2da0cdcd99782c32895ec637b21a9645648bf25465119481de92d",
+      "actual_sha256": "9625a7652b5f98fbd3e2e4d378c851fc246693f3343e34a72428d5b6e864d3e0",
+      "expected_bytes": 102505,
+      "actual_bytes": 99990,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_1718",
+      "expected_sha256": "6198a3965509ccea6be922c3e736ef0d6cc4f73b08de80bf8a4f82c4075cbde9",
+      "actual_sha256": "4f3389365ef3f7ac966764ed8ba67cf3b79f5aebed18dd224099c4b2c98bc67b",
+      "expected_bytes": 103569,
+      "actual_bytes": 100734,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_1819",
+      "expected_sha256": "6811e9d855938773a8724bc46df3b53206b2020f643e2aa6229a4bf904ff7c19",
+      "actual_sha256": "7c096b3c2ecd54c6993d22eeea73450c2bde11e3457238b226b8f43c62dfc35e",
+      "expected_bytes": 98513,
+      "actual_bytes": 96144,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_1920",
+      "expected_sha256": "0a4a75a71e263c17a024f7a7ffe85b30b89d0822195f55b4c0ca36b6d9a7dfd9",
+      "actual_sha256": "100037618b94f94057400bb02bf6bac4ef74ddaa58cde4b38370839c39caee61",
+      "expected_bytes": 179968,
+      "actual_bytes": 175475,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_2021",
+      "expected_sha256": "feca59b3a8638c26f0877aeb3e8aa6f540cb6113b81f23179fd315b7d5ff0f6d",
+      "actual_sha256": "5afe63f69401457b8354eaacee24f9a3e520b3c3af6329564a9783e20d789c62",
+      "expected_bytes": 179860,
+      "actual_bytes": 175815,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_2122",
+      "expected_sha256": "bea2cd444d42f63651702a683343589a775e92a11a0f981a24aae681d4089eb2",
+      "actual_sha256": "335afcbabeb2939fa10ab39ba3e8215072d0b577cb8d0705c1e44c56e934e703",
+      "expected_bytes": 179969,
+      "actual_bytes": 175363,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_2223",
+      "expected_sha256": "c9a9edcf87acb65b94ccafa37b2e8e05b8da837a4e7fc10a571d382b6a29171e",
+      "actual_sha256": "8442792d3b614c94ea3cf381bd2736805889cc1713169035368fff19c3d02380",
+      "expected_bytes": 180307,
+      "actual_bytes": 176180,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_2324",
+      "expected_sha256": "a04c2b030976cc7a16bb5ef260c1e0e4ce36b514abe3ad3a45c53de5dc655a4b",
+      "actual_sha256": "b2e057b0ed959f198b0f63d2391c01239f3608e6de5db68edab3f88e04d07ff3",
+      "expected_bytes": 176593,
+      "actual_bytes": 172196,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "E0_2425",
+      "expected_sha256": "556a1c2cafab6fdba9688b6c561cac74a4f24e93ad22910e03898e07bf85b125",
+      "actual_sha256": "d0c8ce4a96d886cf60cf101f570f4a3893844226f91c7bd769eb568c49edbfa4",
+      "expected_bytes": 201454,
+      "actual_bytes": 197110,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_1617",
+      "expected_sha256": "ee8d355f611d7acb35765253b66b359cc885700f15fefa226a7db0a97fe4a869",
+      "actual_sha256": "6f5794a69decfb863ecb6a0b865ffd3241eb5028035d9f19c48a299c5baa8f9a",
+      "expected_bytes": 99071,
+      "actual_bytes": 96226,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_1718",
+      "expected_sha256": "f012fcec69a6f188639291384d6b7172908e990e5a32bd75fbf2d5dab852691f",
+      "actual_sha256": "5786719e06d1a5387cb90fac71597c890f496df19e8e1aa868bbc852f7e730fd",
+      "expected_bytes": 99188,
+      "actual_bytes": 96801,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_1819",
+      "expected_sha256": "8e41cd284025acdc1e5918d3046c08c4a4d98da513aedf11eda5ce1dcd4fbe3a",
+      "actual_sha256": "9b8cece2c85e90e382b30dc4fc5046534f12c6d2b0efa74cd7d1d52e90a0c201",
+      "expected_bytes": 94619,
+      "actual_bytes": 92914,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_1920",
+      "expected_sha256": "f8f8ad8798af6016756f8a0546e5a27d6d9bc0f8971a9065eb58f1f5971bf9ce",
+      "actual_sha256": "a05d5d60eee0b1414c56d6d6817f860cdc620e206234069a1886c98a8cb318da",
+      "expected_bytes": 175521,
+      "actual_bytes": 171484,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_2021",
+      "expected_sha256": "e657d66c049dc0fca3e26486af3a4cf5dc9ae75582f369e5a39eee288dbae4ee",
+      "actual_sha256": "b4137db923101f464e8403c4973acbfaf7d71724ce93b4336fad580e894d9591",
+      "expected_bytes": 175634,
+      "actual_bytes": 171721,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_2122",
+      "expected_sha256": "3acd31c6fee9d00be9a9ebc72c89faf41f2ab6cc7dee5e1902021dc4c75be309",
+      "actual_sha256": "2d9e619700712823d15716c07715133f8c3b1a09046930dcfc785a38633dee2e",
+      "expected_bytes": 175847,
+      "actual_bytes": 172174,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_2223",
+      "expected_sha256": "46bb390290217323ec8d33814e69f745547c5b628e84713fa672784894902c22",
+      "actual_sha256": "53348112526b5165539df240be350083989bb258f30c0ff7cacbc0165ca7e4b3",
+      "expected_bytes": 176132,
+      "actual_bytes": 172199,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_2324",
+      "expected_sha256": "d41ca9bf1e1e46f206e7096f6bc73bea4cc12104b4bfeec1ca299ba0a3cf72d7",
+      "actual_sha256": "5323f596c7ed318e4bce95557a369d809d98501fa499ea5f41350cd45cf3c7d9",
+      "expected_bytes": 171969,
+      "actual_bytes": 168164,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "SP1_2425",
+      "expected_sha256": "b46462581495658297ad2d26f215fe34e8299b9e2584474e464943d8d7ffaae0",
+      "actual_sha256": "c086e96d6a53f6e6c0fce4e35db0d1728c773b4362323da0161a34769e315a36",
+      "expected_bytes": 197223,
+      "actual_bytes": 192863,
+      "expected_rows": 380,
+      "actual_rows": 380
+    },
+    {
+      "file": "D1_1617",
+      "expected_sha256": "bb49b41a30b0421bdb277ea10cd2773180482aabf42adcf0504d381506b71084",
+      "actual_sha256": "15b7a41eacde5fcd130d1cd0954c8fe8371fbbfc815c1ce2dd329cf3b27c2d5c",
+      "expected_bytes": 80195,
+      "actual_bytes": 78466,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_1718",
+      "expected_sha256": "62f6c0658535c084b8307a336490e5ffc1b2cdb9f7a17ea95cec9549fed38f48",
+      "actual_sha256": "033227408247769568111af49de2a50f6951c87e6d43f9e1a01e73d647bced3e",
+      "expected_bytes": 80198,
+      "actual_bytes": 78641,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_1819",
+      "expected_sha256": "56708d2e2c9158ec5d7851de56cd328fd605a3f50f574f9840b081cd0c46d237",
+      "actual_sha256": "f03ee41b741aca9c43cbafb800bbc6f01ca9d7ed19c1a9dd4c309389280cfe11",
+      "expected_bytes": 77050,
+      "actual_bytes": 75587,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_1920",
+      "expected_sha256": "dda7053f5997e1cd91c19b7e77d49cfd647704f01d03acda5b1540394f92420d",
+      "actual_sha256": "0a032b1adc75f7fa018dcfeff7fcdcc0a89014e3fe69f44534f538b6f931aef5",
+      "expected_bytes": 142616,
+      "actual_bytes": 138965,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_2021",
+      "expected_sha256": "8fd8e3d9a2d6a536eb5d24a7edaa30a6e77f2038a8b5deac4d17ae2597311bda",
+      "actual_sha256": "48ec5d53d2452b6ebdbc07bd78a836d6a4686f99fc020439ee3292e685315e61",
+      "expected_bytes": 142596,
+      "actual_bytes": 139075,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_2122",
+      "expected_sha256": "508ff47cb949f1144a4f8af4ff3f2b4726e8c834e80b587340340a5844707ca2",
+      "actual_sha256": "034d0e1296e944dddf25e3c91b85ef5bd1ad25661b89d73878f5c73bfea4b9fc",
+      "expected_bytes": 142626,
+      "actual_bytes": 139177,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_2223",
+      "expected_sha256": "8dbacc58bfb2359c8bada1a440314b66a92ec13ee199918369f53566eeeb8518",
+      "actual_sha256": "b716517b25033ce8e0243e967aa961876425a4c41e97c8aa8fa59f2aca061341",
+      "expected_bytes": 142433,
+      "actual_bytes": 139302,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_2324",
+      "expected_sha256": "4d37f8e3f03f838cce6e0da0810f059b6acc323f2903ca5145b6ef0c4c9a66c3",
+      "actual_sha256": "1de8bc12a133dbbf71bc6ffda62082642f087f61b1b7c15ae9f2d320876fb07e",
+      "expected_bytes": 139154,
+      "actual_bytes": 135825,
+      "expected_rows": 306,
+      "actual_rows": 306
+    },
+    {
+      "file": "D1_2425",
+      "expected_sha256": "f80f898f7806ab985ece03a41d42d815f0406887ba2775fcbd170c7e1f5e5e6b",
+      "actual_sha256": "a295c58033cfe6393cbbc28f7db85671839b960c5f1153fd3678e20ad2adb92e",
+      "expected_bytes": 168382,
+      "actual_bytes": 156414,
+      "expected_rows": 306,
+      "actual_rows": 306
+    }
+  ],
+  "files": [
+    {
+      "key": "E0_1617",
+      "rows": 380,
+      "columns": 65,
+      "sha256": "9625a7652b5f98fbd3e2e4d378c851fc246693f3343e34a72428d5b6e864d3e0",
+      "bytes": 99990,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.906487
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.90652
+        }
+      ]
+    },
+    {
+      "key": "E0_1718",
+      "rows": 380,
+      "columns": 65,
+      "sha256": "4f3389365ef3f7ac966764ed8ba67cf3b79f5aebed18dd224099c4b2c98bc67b",
+      "bytes": 100734,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.940535
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.945463
+        }
+      ]
+    },
+    {
+      "key": "E0_1819",
+      "rows": 380,
+      "columns": 62,
+      "sha256": "7c096b3c2ecd54c6993d22eeea73450c2bde11e3457238b226b8f43c62dfc35e",
+      "bytes": 96144,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.890662
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.892901
+        }
+      ]
+    },
+    {
+      "key": "E0_1920",
+      "rows": 380,
+      "columns": 106,
+      "sha256": "100037618b94f94057400bb02bf6bac4ef74ddaa58cde4b38370839c39caee61",
+      "bytes": 175475,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.973097
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.972153
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.972831
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.974068
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.97259
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.973209
+        }
+      ]
+    },
+    {
+      "key": "E0_2021",
+      "rows": 380,
+      "columns": 106,
+      "sha256": "5afe63f69401457b8354eaacee24f9a3e520b3c3af6329564a9783e20d789c62",
+      "bytes": 175815,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.996114
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.997052
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.997164
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.996412
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 1.004213
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 1.007013
+        }
+      ]
+    },
+    {
+      "key": "E0_2122",
+      "rows": 380,
+      "columns": 106,
+      "sha256": "335afcbabeb2939fa10ab39ba3e8215072d0b577cb8d0705c1e44c56e934e703",
+      "bytes": 175363,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.936698
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.936732
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.936054
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.934731
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.935971
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.937243
+        }
+      ]
+    },
+    {
+      "key": "E0_2223",
+      "rows": 380,
+      "columns": 106,
+      "sha256": "8442792d3b614c94ea3cf381bd2736805889cc1713169035368fff19c3d02380",
+      "bytes": 176180,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.962039
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.962152
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.961713
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.961855
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.965801
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.966158
+        }
+      ]
+    },
+    {
+      "key": "E0_2324",
+      "rows": 380,
+      "columns": 106,
+      "sha256": "b2e057b0ed959f198b0f63d2391c01239f3608e6de5db68edab3f88e04d07ff3",
+      "bytes": 172196,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.900701
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.89955
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.899684
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.899467
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.90925
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.909212
+        }
+      ]
+    },
+    {
+      "key": "E0_2425",
+      "rows": 380,
+      "columns": 120,
+      "sha256": "d0c8ce4a96d886cf60cf101f570f4a3893844226f91c7bd769eb568c49edbfa4",
+      "bytes": 197110,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.966733
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.966412
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.967769
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.966538
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.970552
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.970758
+        }
+      ]
+    },
+    {
+      "key": "SP1_1617",
+      "rows": 380,
+      "columns": 64,
+      "sha256": "6f5794a69decfb863ecb6a0b865ffd3241eb5028035d9f19c48a299c5baa8f9a",
+      "bytes": 96226,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.899713
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.902651
+        }
+      ]
+    },
+    {
+      "key": "SP1_1718",
+      "rows": 380,
+      "columns": 64,
+      "sha256": "5786719e06d1a5387cb90fac71597c890f496df19e8e1aa868bbc852f7e730fd",
+      "bytes": 96801,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 1,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 379,
+          "market_log_loss": 0.955393
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.959555
+        }
+      ]
+    },
+    {
+      "key": "SP1_1819",
+      "rows": 380,
+      "columns": 61,
+      "sha256": "9b8cece2c85e90e382b30dc4fc5046534f12c6d2b0efa74cd7d1d52e90a0c201",
+      "bytes": 92914,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 1.001743
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 1.01025
+        }
+      ]
+    },
+    {
+      "key": "SP1_1920",
+      "rows": 380,
+      "columns": 105,
+      "sha256": "a05d5d60eee0b1414c56d6d6817f860cdc620e206234069a1886c98a8cb318da",
+      "bytes": 171484,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979068
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.976529
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.98001
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.978061
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.981788
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.983941
+        }
+      ]
+    },
+    {
+      "key": "SP1_2021",
+      "rows": 380,
+      "columns": 105,
+      "sha256": "b4137db923101f464e8403c4973acbfaf7d71724ce93b4336fad580e894d9591",
+      "bytes": 171721,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.980584
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979546
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979737
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979957
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.985615
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.987896
+        }
+      ]
+    },
+    {
+      "key": "SP1_2122",
+      "rows": 380,
+      "columns": 105,
+      "sha256": "2d9e619700712823d15716c07715133f8c3b1a09046930dcfc785a38633dee2e",
+      "bytes": 172174,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.9892
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.988742
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.992004
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.986157
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.987845
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.987762
+        }
+      ]
+    },
+    {
+      "key": "SP1_2223",
+      "rows": 380,
+      "columns": 105,
+      "sha256": "53348112526b5165539df240be350083989bb258f30c0ff7cacbc0165ca7e4b3",
+      "bytes": 172199,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.97784
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.975939
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.976404
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.978817
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979905
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.979746
+        }
+      ]
+    },
+    {
+      "key": "SP1_2324",
+      "rows": 380,
+      "columns": 105,
+      "sha256": "5323f596c7ed318e4bce95557a369d809d98501fa499ea5f41350cd45cf3c7d9",
+      "bytes": 168164,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.949829
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.950861
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.951346
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.945666
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.94921
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.947332
+        }
+      ]
+    },
+    {
+      "key": "SP1_2425",
+      "rows": 380,
+      "columns": 119,
+      "sha256": "c086e96d6a53f6e6c0fce4e35db0d1728c773b4362323da0161a34769e315a36",
+      "bytes": 192863,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.946235
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.946325
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.947043
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.945725
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.953199
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 380,
+          "market_log_loss": 0.95341
+        }
+      ]
+    },
+    {
+      "key": "D1_1617",
+      "rows": 306,
+      "columns": 64,
+      "sha256": "15b7a41eacde5fcd130d1cd0954c8fe8371fbbfc815c1ce2dd329cf3b27c2d5c",
+      "bytes": 78466,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.995427
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.996923
+        }
+      ]
+    },
+    {
+      "key": "D1_1718",
+      "rows": 306,
+      "columns": 64,
+      "sha256": "033227408247769568111af49de2a50f6951c87e6d43f9e1a01e73d647bced3e",
+      "bytes": 78641,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.997891
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.997704
+        }
+      ]
+    },
+    {
+      "key": "D1_1819",
+      "rows": 306,
+      "columns": 61,
+      "sha256": "f03ee41b741aca9c43cbafb800bbc6f01ca9d7ed19c1a9dd4c309389280cfe11",
+      "bytes": 75587,
+      "has_kickoff_time": false,
+      "selected_closing": "PSC",
+      "selected_any": "PSC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 1,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 305,
+          "market_log_loss": 0.967405
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": false,
+          "usable": 0,
+          "market_log_loss": null
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.962502
+        }
+      ]
+    },
+    {
+      "key": "D1_1920",
+      "rows": 306,
+      "columns": 105,
+      "sha256": "0a032b1adc75f7fa018dcfeff7fcdcc0a89014e3fe69f44534f538b6f931aef5",
+      "bytes": 138965,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.974026
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.973759
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.975997
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.974815
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.969633
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.971235
+        }
+      ]
+    },
+    {
+      "key": "D1_2021",
+      "rows": 306,
+      "columns": 105,
+      "sha256": "48ec5d53d2452b6ebdbc07bd78a836d6a4686f99fc020439ee3292e685315e61",
+      "bytes": 139075,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.983321
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.982876
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.982959
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.984383
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.987261
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.988247
+        }
+      ]
+    },
+    {
+      "key": "D1_2122",
+      "rows": 306,
+      "columns": 105,
+      "sha256": "034d0e1296e944dddf25e3c91b85ef5bd1ad25661b89d73878f5c73bfea4b9fc",
+      "bytes": 139177,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.981386
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.980498
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.981334
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.982845
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.988816
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.988184
+        }
+      ]
+    },
+    {
+      "key": "D1_2223",
+      "rows": 306,
+      "columns": 105,
+      "sha256": "b716517b25033ce8e0243e967aa961876425a4c41e97c8aa8fa59f2aca061341",
+      "bytes": 139302,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.995504
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.996296
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.995973
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.994657
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.995942
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.996618
+        }
+      ]
+    },
+    {
+      "key": "D1_2324",
+      "rows": 306,
+      "columns": 105,
+      "sha256": "1de8bc12a133dbbf71bc6ffda62082642f087f61b1b7c15ae9f2d320876fb07e",
+      "bytes": 135825,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.945921
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.944171
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.945734
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.944021
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.946988
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.946359
+        }
+      ]
+    },
+    {
+      "key": "D1_2425",
+      "rows": 306,
+      "columns": 119,
+      "sha256": "a295c58033cfe6393cbbc28f7db85671839b960c5f1153fd3678e20ad2adb92e",
+      "bytes": 156414,
+      "has_kickoff_time": true,
+      "selected_closing": "AvgC",
+      "selected_any": "AvgC",
+      "abstains": false,
+      "drops": {
+        "unparseable_date": 0,
+        "missing_or_invalid_score": 0,
+        "missing_result": 0,
+        "missing_odds": 0,
+        "odds_not_above_one": 0
+      },
+      "families": [
+        {
+          "key": "AvgC",
+          "basis": "closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.987021
+        },
+        {
+          "key": "PSC",
+          "basis": "closing",
+          "bookmaker": "Pinnacle",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.988159
+        },
+        {
+          "key": "B365C",
+          "basis": "closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.987354
+        },
+        {
+          "key": "MaxC",
+          "basis": "closing",
+          "bookmaker": "market maximum",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.986954
+        },
+        {
+          "key": "Avg",
+          "basis": "pre_closing",
+          "bookmaker": "market average",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.990029
+        },
+        {
+          "key": "B365",
+          "basis": "pre_closing",
+          "bookmaker": "Bet365",
+          "present": true,
+          "usable": 306,
+          "market_log_loss": 0.988265
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "provider": {
+      "provider": "football-data.co.uk",
+      "url": "https://www.football-data.co.uk/",
+      "download_url_template": "https://www.football-data.co.uk/mmz4281/{season}/{division}.csv",
+      "column_notes_url": "https://www.football-data.co.uk/notes.txt",
+      "cost": "free \u2014 no key, no account, no quota",
+      "licence": "\u00a9 Football-Data. All Rights Reserved. Free download granted; no redistribution grant published.",
+      "redistribution": "NOT GRANTED \u2014 fingerprints are committed, bytes are not",
+      "attribution": "Data \u00a9 football-data.co.uk",
+      "closing_rule": "notes.txt: documented odds abbreviations \"are for pre-closing odds. For the closing odds, as below but with an additional \\\"C\\\" character following the bookmaker abbreviation/Max/Avg\".",
+      "timestamp_semantics": "no per-price timestamp; basis is a publisher column-family claim, not an observed capture time"
+    },
+    "scope": "pre_confirmation_27",
+    "n_files": 27,
+    "missing_files": [],
+    "manifest_drift_files": [
+      "E0_1617",
+      "E0_1718",
+      "E0_1819",
+      "E0_1920",
+      "E0_2021",
+      "E0_2122",
+      "E0_2223",
+      "E0_2324",
+      "E0_2425",
+      "SP1_1617",
+      "SP1_1718",
+      "SP1_1819",
+      "SP1_1920",
+      "SP1_2021",
+      "SP1_2122",
+      "SP1_2223",
+      "SP1_2324",
+      "SP1_2425",
+      "D1_1617",
+      "D1_1718",
+      "D1_1819",
+      "D1_1920",
+      "D1_2021",
+      "D1_2122",
+      "D1_2223",
+      "D1_2324",
+      "D1_2425"
+    ],
+    "per_division": {
+      "E0": {
+        "division": "E0",
+        "season_files": 9,
+        "rows": 3420,
+        "closing_any_usable": 3420,
+        "closing_avgc_usable": 2280,
+        "abstained_files": [],
+        "families_used": {
+          "PSC": 3,
+          "AvgC": 6
+        },
+        "coverage_rate_closing_any": 1.0,
+        "coverage_rate_closing_avgc": 0.6667,
+        "discarded_by_pinning_avgc": 1140
+      },
+      "SP1": {
+        "division": "SP1",
+        "season_files": 9,
+        "rows": 3420,
+        "closing_any_usable": 3419,
+        "closing_avgc_usable": 2280,
+        "abstained_files": [],
+        "families_used": {
+          "PSC": 3,
+          "AvgC": 6
+        },
+        "coverage_rate_closing_any": 0.9997,
+        "coverage_rate_closing_avgc": 0.6667,
+        "discarded_by_pinning_avgc": 1139
+      },
+      "D1": {
+        "division": "D1",
+        "season_files": 9,
+        "rows": 2754,
+        "closing_any_usable": 2753,
+        "closing_avgc_usable": 1836,
+        "abstained_files": [],
+        "families_used": {
+          "PSC": 3,
+          "AvgC": 6
+        },
+        "coverage_rate_closing_any": 0.9996,
+        "coverage_rate_closing_avgc": 0.6667,
+        "discarded_by_pinning_avgc": 917
+      }
+    }
+  },
+  "devig_sensitivity": {
+    "proportional": {
+      "E0": 0.9415,
+      "SP1": 0.9644,
+      "D1": 0.9809
+    },
+    "shin": {
+      "E0": 0.9413,
+      "SP1": 0.9641,
+      "D1": 0.9813
+    },
+    "power": {
+      "E0": 0.9412,
+      "SP1": 0.964,
+      "D1": 0.9816
+    }
+  }
+}

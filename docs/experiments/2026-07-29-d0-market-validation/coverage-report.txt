@@ -1,0 +1,72 @@
+=== D0 closing-odds coverage census ===
+provider : football-data.co.uk  (free — no key, no account, no quota)
+licence  : © Football-Data. All Rights Reserved. Free download granted; no redistribution grant published.
+scope    : pre_confirmation_27  (27 captures)
+
+capture     rows  cols  closing  usable   AvgC    PSC  Time
+E0_1617      380    65      PSC     380      -      y     -
+E0_1718      380    65      PSC     380      -      y     -
+E0_1819      380    62      PSC     380      -      y     -
+E0_1920      380   106     AvgC     380      y      y     y
+E0_2021      380   106     AvgC     380      y      y     y
+E0_2122      380   106     AvgC     380      y      y     y
+E0_2223      380   106     AvgC     380      y      y     y
+E0_2324      380   106     AvgC     380      y      y     y
+E0_2425      380   120     AvgC     380      y      y     y
+SP1_1617     380    64      PSC     380      -      y     -
+SP1_1718     380    64      PSC     379      -      y     -
+SP1_1819     380    61      PSC     380      -      y     -
+SP1_1920     380   105     AvgC     380      y      y     y
+SP1_2021     380   105     AvgC     380      y      y     y
+SP1_2122     380   105     AvgC     380      y      y     y
+SP1_2223     380   105     AvgC     380      y      y     y
+SP1_2324     380   105     AvgC     380      y      y     y
+SP1_2425     380   119     AvgC     380      y      y     y
+D1_1617      306    64      PSC     306      -      y     -
+D1_1718      306    64      PSC     306      -      y     -
+D1_1819      306    61      PSC     305      -      y     -
+D1_1920      306   105     AvgC     306      y      y     y
+D1_2021      306   105     AvgC     306      y      y     y
+D1_2122      306   105     AvgC     306      y      y     y
+D1_2223      306   105     AvgC     306      y      y     y
+D1_2324      306   105     AvgC     306      y      y     y
+D1_2425      306   119     AvgC     306      y      y     y
+
+per division (denominators always shown):
+  E0   rows= 3420  closing(any)= 3420 (100.0%)  closing(AvgC only)= 2280 (66.7%)  discarded by pinning AvgC= 1140
+  SP1  rows= 3420  closing(any)= 3419 (100.0%)  closing(AvgC only)= 2280 (66.7%)  discarded by pinning AvgC= 1139
+  D1   rows= 2754  closing(any)= 2753 (100.0%)  closing(AvgC only)= 1836 (66.7%)  discarded by pinning AvgC=  917
+
+MANIFEST DRIFT on 27 capture(s): these bytes are not the recorded capture. Cause is NOT established here — the publisher is known to revise files in place, but a local edit or a partial download looks identical to a hash. Recorded, NOT re-pinned:
+  E0_1617    bytes 102505 -> 99990  rows 380 -> 380
+  E0_1718    bytes 103569 -> 100734  rows 380 -> 380
+  E0_1819    bytes 98513 -> 96144  rows 380 -> 380
+  E0_1920    bytes 179968 -> 175475  rows 380 -> 380
+  E0_2021    bytes 179860 -> 175815  rows 380 -> 380
+  E0_2122    bytes 179969 -> 175363  rows 380 -> 380
+  E0_2223    bytes 180307 -> 176180  rows 380 -> 380
+  E0_2324    bytes 176593 -> 172196  rows 380 -> 380
+  E0_2425    bytes 201454 -> 197110  rows 380 -> 380
+  SP1_1617   bytes 99071 -> 96226  rows 380 -> 380
+  SP1_1718   bytes 99188 -> 96801  rows 380 -> 380
+  SP1_1819   bytes 94619 -> 92914  rows 380 -> 380
+  SP1_1920   bytes 175521 -> 171484  rows 380 -> 380
+  SP1_2021   bytes 175634 -> 171721  rows 380 -> 380
+  SP1_2122   bytes 175847 -> 172174  rows 380 -> 380
+  SP1_2223   bytes 176132 -> 172199  rows 380 -> 380
+  SP1_2324   bytes 171969 -> 168164  rows 380 -> 380
+  SP1_2425   bytes 197223 -> 192863  rows 380 -> 380
+  D1_1617    bytes 80195 -> 78466  rows 306 -> 306
+  D1_1718    bytes 80198 -> 78641  rows 306 -> 306
+  D1_1819    bytes 77050 -> 75587  rows 306 -> 306
+  D1_1920    bytes 142616 -> 138965  rows 306 -> 306
+  D1_2021    bytes 142596 -> 139075  rows 306 -> 306
+  D1_2122    bytes 142626 -> 139177  rows 306 -> 306
+  D1_2223    bytes 142433 -> 139302  rows 306 -> 306
+  D1_2324    bytes 139154 -> 135825  rows 306 -> 306
+  D1_2425    bytes 168382 -> 156414  rows 306 -> 306
+
+de-vig sensitivity (market log loss, closing family, weighted):
+  proportional  D1=0.9809  E0=0.9415  SP1=0.9644
+  shin          D1=0.9813  E0=0.9413  SP1=0.9641
+  power         D1=0.9816  E0=0.9412  SP1=0.9640
