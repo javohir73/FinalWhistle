@@ -176,6 +176,19 @@ def _grids(league: str) -> tuple[EloConfig, GridConfig, GridConfig]:
 
     _div, _comp, home_adv = LEAGUES[league]
     served, control = club_params_for(league), club_baseline_params_for(league)
+
+    # `ml/models/odds_blend.py::lambda_total_from_over` inverts THIS market
+    # straight into the served lambda sum. With `use_odds` on, the model column
+    # would become a function of the market column and this benchmark would
+    # converge toward zero while looking like progress. The committed config is
+    # pinned by test; this guards a run made against a modified one.
+    for name, p in (("served", served), ("control", control)):
+        if p.use_odds:
+            raise AssertionError(
+                f"{league}/{name} has use_odds=True — the odds-blend shadow path "
+                "feeds the closing over/under line into the model's lambdas, so "
+                "this benchmark would be scoring the market against itself"
+            )
     to_grid = lambda p: GridConfig(  # noqa: E731 - a 1-line adapter, not logic
         base=p.base, beta=p.beta, rho=p.rho,
         temperature=p.temperature, calibrator=p.calibrator,

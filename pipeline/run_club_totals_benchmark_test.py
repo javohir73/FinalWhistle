@@ -201,3 +201,145 @@ def test_every_registered_league_is_runnable_shape(csv_dir):
     assert set(LEAGUES) == {"epl", "laliga", "bundesliga"}
     for _lg, (div, comp, adv) in LEAGUES.items():
         assert div and comp and adv > 0
+
+
+# --- the pre-registration's leakage audit, as executable checks -----------
+#
+# Sections 8 (L2, L3, L5) and 12 promise these specifically. A promise in a
+# pre-registration that is never turned into a test is just a sentence.
+
+
+def test_l3_truncation_invariance_the_model_cannot_see_later_matches(csv_dir):
+    """Section 8 L3. Scoring match n with the fixture list truncated at n must give
+    match n the same probability as scoring it with the full window present.
+
+    Elo is path-dependent, so this is the property that actually distinguishes
+    a leak-free replay from one that merely looks chronological.
+    """
+    from ml.evaluation.club_totals_benchmark import build_matched_totals
+    from ml.evaluation.club_walkforward import replay
+    from pipeline.run_club_totals_benchmark import _grids, load_division_totals
+
+    ms = load_division_matches(csv_dir, "E0")
+    elo, served, control = _grids("epl")
+    priced, _ = load_division_totals(csv_dir, "E0")
+
+    full, _ = build_matched_totals(ms, replay(ms, elo, "Premier League"),
+                                   elo, served, control, priced)
+    cut = len(ms) - 5
+    head = ms[:cut]
+    head_dates = {(m.date, m.home, m.away) for m in head}
+    trunc, _ = build_matched_totals(
+        head, replay(head, elo, "Premier League"), elo, served, control,
+        [r for r in priced
+         if (r["date"].isoformat(), r["home_team"], r["away_team"]) in head_dates],
+    )
+    by_key = {(m.date, m.home, m.away): m for m in full}
+    assert trunc, "truncated window produced no matched rows"
+    for t in trunc:
+        assert t.model_p_over == by_key[(t.date, t.home, t.away)].model_p_over
+
+
+def test_l2_no_market_probability_reaches_the_model_path(csv_dir, monkeypatch):
+    """Section 8 L2. A price must never appear in an argument to the grid.
+
+    Asserted by intercepting the call, not by reading the code: every
+    ``score_matrix`` argument during a full run is captured and checked against
+    every de-vigged market probability the same run produced.
+    """
+    import ml.evaluation.club_walkforward as wf
+
+    seen: list[tuple] = []
+    real = wf.score_matrix
+
+    def _spy(lam_home, lam_away, *a, **k):
+        seen.append((lam_home, lam_away))
+        return real(lam_home, lam_away, *a, **k)
+
+    monkeypatch.setattr(wf, "score_matrix", _spy)
+    r = run_league("epl", csv_dir, n_bootstrap=20)
+    assert seen, "score_matrix was never called"
+
+    # Lambdas are goal rates; a de-vigged probability is in (0, 1). Any lambda
+    # that is also a valid probability AND equals a market number would be the
+    # signature of a price having been routed into the grid.
+    from ml.evaluation.club_totals_benchmark import market_p_over
+    from pipeline.ingest.football_data import load_football_data_totals_csv
+    prices = {
+        round(market_p_over(x["odds_over"], x["odds_under"]), 12)
+        for s in SCORED_SEASONS
+        for x in load_football_data_totals_csv(str(csv_dir / f"E0_{s}.csv"))
+    }
+    lambdas = {round(v, 12) for pair in seen for v in pair}
+    assert not (lambdas & prices)
+    assert r["n_matches"] > 0
+
+
+def test_l5_the_odds_blend_shadow_path_is_off_for_every_scored_league():
+    """Section 8 L5. `odds_blend` inverts THIS market straight into the served
+    lambda sum. If `use_odds` were ever flipped, the model column would become a
+    function of the market column and the benchmark would converge toward zero
+    while looking like progress.
+    """
+    from pipeline.leagues import club_baseline_params_for, club_params_for
+
+    for league in LEAGUES:
+        for params in (club_params_for(league), club_baseline_params_for(league)):
+            assert params.use_odds is False, league
+
+
+def test_l5_neither_new_module_can_reach_odds_blend():
+    from pipeline.market_leakage_test import _imported_modules, _module_path
+
+    for module in ("ml.evaluation.club_totals_benchmark",
+                   "pipeline.run_club_totals_benchmark"):
+        path = _module_path(module)
+        assert path is not None, module
+        assert "ml.models.odds_blend" not in _imported_modules(path)
+
+
+def test_s12_this_phase_changes_no_served_parameter(tmp_path):
+    """Section 12. The no-promotion rule, enforced against git rather than trust.
+
+    `pipeline/leagues.py` and `ml/models/model_params.json` carry every served
+    parameter this benchmark measures. If a run of D0-B ever ends with one of
+    them modified, the phase has promoted something.
+    """
+    import subprocess
+
+    root = Path(__file__).resolve().parent.parent
+    base = subprocess.run(
+        ["git", "merge-base", "HEAD", "origin/main"],
+        cwd=root, capture_output=True, text=True,
+    )
+    if base.returncode != 0:  # pragma: no cover - only without a remote
+        pytest.skip("no origin/main to compare against")
+    merge_base = base.stdout.strip()
+
+    for guarded in ("pipeline/leagues.py", "ml/models/model_params.json"):
+        diff = subprocess.run(
+            ["git", "diff", "--exit-code", merge_base, "--", guarded],
+            cwd=root, capture_output=True, text=True,
+        )
+        assert diff.returncode == 0, (
+            f"{guarded} differs from the merge base — D0-B selects nothing and "
+            f"may not change a served parameter:\n{diff.stdout}"
+        )
+
+
+def test_use_odds_on_aborts_the_run_rather_than_scoring_the_market_on_itself(
+    csv_dir, monkeypatch
+):
+    """The runtime half of L5: the test above pins the committed config, this
+    pins the behaviour when someone runs against a modified one."""
+    from dataclasses import replace
+
+    import pipeline.leagues as leagues_mod
+
+    real = leagues_mod.club_params_for
+    monkeypatch.setattr(
+        leagues_mod, "club_params_for",
+        lambda code: replace(real(code), use_odds=True),
+    )
+    with pytest.raises(AssertionError, match="use_odds=True"):
+        run_league("epl", csv_dir, n_bootstrap=20)
