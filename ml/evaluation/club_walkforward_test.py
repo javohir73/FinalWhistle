@@ -11,6 +11,7 @@ from ml.evaluation.club_walkforward import (
     loss_1x2,
     loss_totals,
     replay,
+    totals_probabilities,
     season_clustered_ci,
     seasons_of,
     walk_forward,
@@ -244,3 +245,101 @@ def test_season_clustered_ci_is_deterministic():
 
 def test_season_clustered_ci_handles_no_data():
     assert season_clustered_ci({})["n"] == 0
+
+
+# --- totals_probabilities: the extraction, and what it must not change ----
+#
+# D0-B needed the P(over) that `loss_totals` had always computed and thrown
+# away. Extracting it is only safe if it is bit-identical, because every
+# recorded T1.1 number was produced by the pre-extraction code.
+
+
+def _loss_totals_as_originally_written(matches, pre, elo, grid, line=2.5,
+                                       rest_deltas=None):
+    """The pre-extraction body, inlined verbatim.
+
+    A golden vector generated from the refactor would only prove the refactor
+    agrees with itself. This is the actual thing being regressed against.
+    """
+    import math as _math
+
+    from ml.evaluation.club_walkforward import _EPS, _lambdas
+    from ml.models.poisson import score_matrix as _sm
+
+    out = []
+    for i, (m, p) in enumerate(zip(matches, pre)):
+        lam_h, lam_a = _lambdas(p, grid, elo.home_adv,
+                                rest_deltas[i] if rest_deltas else 0.0)
+        matrix = _sm(lam_h, lam_a, rho=grid.rho)
+        p_over = sum(
+            matrix[h][a]
+            for h in range(len(matrix))
+            for a in range(len(matrix[h]))
+            if h + a > line
+        )
+        total = sum(sum(row) for row in matrix)
+        p_over = min(max(p_over / total, _EPS), 1.0 - _EPS)
+        over = (m.goals_home + m.goals_away) > line
+        out.append(-_math.log(p_over if over else 1.0 - p_over))
+    return out
+
+
+@pytest.mark.parametrize("grid", [
+    GridConfig(),
+    GridConfig(base=1.30),
+    GridConfig(base=1.44, rho=0.0),
+    GridConfig(base=1.20, beta=0.0019, rho=-0.20),
+])
+def test_loss_totals_is_bit_identical_after_the_extraction(grid):
+    ms = _matches()
+    elo = EloConfig()
+    pre = replay(ms, elo, COMP)
+    got = loss_totals(ms, pre, elo, grid)
+    want = _loss_totals_as_originally_written(ms, pre, elo, grid)
+    # Exact equality, not approx: a last-bit drift would silently move every
+    # recorded T1.1 number while the suite stayed green.
+    assert got == want
+
+
+def test_loss_totals_and_totals_probabilities_agree_exactly():
+    ms = _matches()
+    elo, grid = EloConfig(), GridConfig(base=1.44)
+    pre = replay(ms, elo, COMP)
+    ps = totals_probabilities(ms, pre, elo, grid)
+    losses = loss_totals(ms, pre, elo, grid)
+    import math
+    for m, p, l in zip(ms, ps, losses):
+        over = (m.goals_home + m.goals_away) > 2.5
+        assert l == -math.log(p if over else 1.0 - p)
+
+
+def test_totals_probabilities_ignores_the_outcome():
+    """The model column must not be a function of the result it is scored on."""
+    ms = _matches()
+    elo, grid = EloConfig(), GridConfig()
+    pre = replay(ms, elo, COMP)
+    flipped = [
+        ClubMatch(season=m.season, home=m.home, away=m.away,
+                  goals_home=m.goals_away + 3, goals_away=m.goals_home,
+                  date=m.date)
+        for m in ms
+    ]
+    # Same ratings in, same probabilities out, however the matches finished.
+    assert totals_probabilities(ms, pre, elo, grid) == \
+        totals_probabilities(flipped, pre, elo, grid)
+
+
+@pytest.mark.parametrize("rho", [0.0, -0.06, -0.20])
+def test_dixon_coles_rho_is_exactly_vacuous_on_the_totals_market(rho):
+    """tau touches only cells with total <= 2, and is mass-preserving.
+
+    So it moves neither the numerator nor the denominator of P(total >= 3) --
+    exactly, not approximately. Pinned so a future rho change cannot silently
+    move a recorded totals number, and so the pre-registration's A3 claim is
+    checked rather than trusted.
+    """
+    ms = _matches()
+    elo = EloConfig()
+    pre = replay(ms, elo, COMP)
+    base_ps = totals_probabilities(ms, pre, elo, GridConfig(rho=0.0))
+    assert totals_probabilities(ms, pre, elo, GridConfig(rho=rho)) == base_ps

@@ -10,11 +10,16 @@ import textwrap
 import pytest
 
 from pipeline.ingest.football_data import (
+    CLOSING_TOTALS_FAMILIES,
     DOWNLOAD_URL_TEMPLATE,
     PROVIDER,
+    TOTALS_FAMILIES,
     ClosingOddsUnavailable,
+    ClosingTotalsUnavailable,
     available_families,
+    available_totals_families,
     load_football_data_csv,
+    load_football_data_totals_csv,
 )
 
 
@@ -285,3 +290,138 @@ def test_does_not_sort(tmp_path):
     )
     records = load_football_data_csv(csv)
     assert [r["home_team"] for r in records] == ["Liverpool", "Arsenal"]
+
+
+# --- over/under 2.5 totals families (D0-B) -------------------------------
+#
+# Pre-registration: docs/experiments/2026-07-30-d0b-totals-market/
+# PRE-REGISTRATION.md. The totals market abstains on DIFFERENT files than the
+# 1X2 market does, which is the whole reason these have their own family table
+# and their own exception.
+
+_TOTALS_HEADER = "Div,Date,HomeTeam,AwayTeam,FTHG,FTAG,FTR"
+
+
+def test_totals_prefers_avgc_over_every_other_closing_family(tmp_path):
+    # AvgC must lead, so the totals gap and the 1X2 gap are measured against
+    # the same book and can be read on one scale.
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        f"""
+        {_TOTALS_HEADER},AvgC>2.5,AvgC<2.5,PC>2.5,PC<2.5,B365C>2.5,B365C<2.5,MaxC>2.5,MaxC<2.5
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.90,1.95,1.92,1.97,1.88,1.93,1.99,2.05
+        """,
+    )
+    r = load_football_data_totals_csv(csv)[0]
+    assert r["odds_source"] == "AvgC"
+    assert (r["odds_over"], r["odds_under"]) == (1.90, 1.95)
+    assert r["odds_basis"] == "closing"
+    assert r["line"] == 2.5
+
+
+def test_pinnacle_totals_prefix_is_pc_not_psc(tmp_path):
+    # The publisher uses PSCH/PSCD/PSCA for 1X2 but PC>2.5 for totals. This
+    # test exists because following the 1X2 pattern would silently abstain on
+    # every Pinnacle-only file.
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        f"""
+        {_TOTALS_HEADER},PC>2.5,PC<2.5
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.92,1.97
+        """,
+    )
+    assert load_football_data_totals_csv(csv)[0]["odds_source"] == "PC"
+
+
+def test_betbrain_only_file_abstains_rather_than_serving_pre_closing(tmp_path):
+    # The nine 2016-17..2018-19 captures look exactly like this: Betbrain
+    # over/under and no closing totals family at all. Admitting them would
+    # widen the sample ~50% with PRE-CLOSING rows reported as a closing-line
+    # benchmark -- D0's founding defect, through the totals door.
+    csv = _write(
+        tmp_path,
+        "epl_old.csv",
+        f"""
+        {_TOTALS_HEADER},BbMx>2.5,BbAv>2.5,BbMx<2.5,BbAv<2.5
+        E0,13/08/16,Burnley,Swansea,0,1,A,2.05,1.98,1.95,1.88
+        """,
+    )
+    with pytest.raises(ClosingTotalsUnavailable) as exc:
+        load_football_data_totals_csv(csv)
+    assert "no recognised over/under columns at all" in str(exc.value)
+    assert available_totals_families(["BbAv>2.5", "BbAv<2.5"]) == ()
+
+
+def test_betbrain_is_absent_from_the_family_table_entirely():
+    # Belt and braces: a future "helpful" addition has to change this literal,
+    # and this test, rather than drifting a default.
+    keys = {f.key for f in TOTALS_FAMILIES}
+    assert not any(k.startswith("Bb") for k in keys)
+    assert {f.key for f in CLOSING_TOTALS_FAMILIES} == {"AvgC", "PC", "B365C", "MaxC"}
+    assert all(f.basis == "closing" for f in CLOSING_TOTALS_FAMILIES)
+
+
+def test_pre_closing_totals_reachable_only_by_asking_and_labelled(tmp_path):
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        f"""
+        {_TOTALS_HEADER},Avg>2.5,Avg<2.5
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,1.90,1.95
+        """,
+    )
+    with pytest.raises(ClosingTotalsUnavailable):
+        load_football_data_totals_csv(csv)
+    r = load_football_data_totals_csv(csv, require_basis="any")[0]
+    assert r["odds_basis"] == "pre_closing" and r["odds_source"] == "Avg"
+
+
+def test_totals_price_below_one_is_dropped_not_devigged(tmp_path):
+    # D1_1920.csv line 261 for real: FC Koln 2-4 RB Leipzig, a realized Over,
+    # priced AvgC>2.5 = 0.42. A decimal price below 1.0 is not a price; without
+    # this guard it de-vigs to p_over ~= 0.871 and scores as one of the
+    # market's best calls of the decade.
+    csv = _write(
+        tmp_path,
+        "d1.csv",
+        f"""
+        {_TOTALS_HEADER},AvgC>2.5,AvgC<2.5
+        D1,01/06/20,FC Koln,RB Leipzig,2,4,A,0.42,2.83
+        D1,02/06/20,Mainz,Augsburg,1,1,D,1.90,1.95
+        """,
+    )
+    records = load_football_data_totals_csv(csv)
+    assert [r["home_team"] for r in records] == ["Mainz"]
+
+
+def test_blank_totals_price_is_rejected_before_the_bound(tmp_path):
+    # NaN fails every comparison, so `min(nan, x) <= 1.0` is False and a blank
+    # would survive a bound-only guard. Ordering, not style.
+    csv = _write(
+        tmp_path,
+        "epl.csv",
+        f"""
+        {_TOTALS_HEADER},AvgC>2.5,AvgC<2.5
+        E0,12/08/23,Arsenal,Chelsea,2,1,H,,1.95
+        E0,13/08/23,Spurs,Brentford,3,1,H,1.80,2.05
+        """,
+    )
+    assert [r["home_team"] for r in load_football_data_totals_csv(csv)] == ["Spurs"]
+
+
+def test_totals_and_1x2_abstain_on_different_files(tmp_path):
+    # The point of a separate exception type: a file can have a closing 1X2
+    # line and no closing totals line, which is exactly the nine-capture case.
+    csv = _write(
+        tmp_path,
+        "epl_old.csv",
+        f"""
+        {_TOTALS_HEADER},AvgCH,AvgCD,AvgCA,BbAv>2.5,BbAv<2.5
+        E0,13/08/16,Burnley,Swansea,0,1,A,2.50,3.30,2.90,1.98,1.88
+        """,
+    )
+    assert load_football_data_csv(csv)[0]["odds_basis"] == "closing"
+    with pytest.raises(ClosingTotalsUnavailable):
+        load_football_data_totals_csv(csv)

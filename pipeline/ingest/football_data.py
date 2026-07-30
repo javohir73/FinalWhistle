@@ -170,6 +170,177 @@ def select_odds_family(
     return found[0]
 
 
+class TotalsOddsFamily(NamedTuple):
+    """One over/under column PAIR, with what the publisher says it means."""
+
+    key: str  # shared prefix, recorded as odds_source (e.g. "AvgC")
+    columns: tuple[str, str]  # (over, under) — ORDER IS LOAD-BEARING
+    basis: OddsBasis
+    bookmaker: str
+    line: float  # the goals line these columns price
+
+
+class ClosingTotalsUnavailable(ValueError):
+    """A closing totals family was required and the file has none.
+
+    The over/under analogue of :class:`ClosingOddsUnavailable`, and separate
+    from it because the two markets abstain on *different* files: all 27 club
+    captures carry a closing 1X2 family, but the nine 2016-17..2018-19 files
+    carry no closing totals family at all.
+    """
+
+
+#: Ordered preference of over/under 2.5 families, closing first. Mirrors
+#: :data:`ODDS_FAMILIES` so the totals benchmark and the 1X2 benchmark score
+#: the same book wherever both exist — ``AvgC`` leads both tables.
+#:
+#: **Pinnacle's totals prefix is ``PC``, not ``PSC``.** The 1X2 columns are
+#: ``PSCH/PSCD/PSCA`` but the totals columns are ``PC>2.5``/``PC<2.5``. The
+#: publisher is inconsistent here; this table follows the file, not the
+#: pattern.
+#:
+#: **Betbrain (``BbAv``/``BbMx``) is deliberately absent.** The nine
+#: 2016-17..2018-19 captures carry ``BbMx>2.5``, ``BbAv>2.5``, ``BbMx<2.5``
+#: and ``BbAv<2.5`` — pre-closing prices, and the *only* over/under columns
+#: those files have. Admitting them would widen the sample by ~50% with rows
+#: that are pre-closing to a market this program benchmarks as closing: D0's
+#: founding defect, re-entered through the totals door. They stay out, the
+#: nine files abstain, and a test pins that abstention so including them later
+#: requires a visible change to this table rather than a drifting default.
+TOTALS_FAMILIES: tuple[TotalsOddsFamily, ...] = (
+    TotalsOddsFamily("AvgC", ("AvgC>2.5", "AvgC<2.5"), "closing", "market average", 2.5),
+    TotalsOddsFamily("PC", ("PC>2.5", "PC<2.5"), "closing", "Pinnacle", 2.5),
+    TotalsOddsFamily("B365C", ("B365C>2.5", "B365C<2.5"), "closing", "Bet365", 2.5),
+    TotalsOddsFamily("MaxC", ("MaxC>2.5", "MaxC<2.5"), "closing", "market maximum", 2.5),
+    TotalsOddsFamily("Avg", ("Avg>2.5", "Avg<2.5"), "pre_closing", "market average", 2.5),
+    TotalsOddsFamily("B365", ("B365>2.5", "B365<2.5"), "pre_closing", "Bet365", 2.5),
+)
+
+CLOSING_TOTALS_FAMILIES: tuple[TotalsOddsFamily, ...] = tuple(
+    f for f in TOTALS_FAMILIES if f.basis == "closing"
+)
+
+
+def available_totals_families(columns) -> tuple[TotalsOddsFamily, ...]:
+    """Every family in :data:`TOTALS_FAMILIES` fully present in ``columns``.
+
+    Preference order preserved. Returns ``()`` for a file whose only over/under
+    columns are Betbrain's — by design; see :data:`TOTALS_FAMILIES`.
+    """
+    present = set(columns)
+    return tuple(f for f in TOTALS_FAMILIES if all(c in present for c in f.columns))
+
+
+def select_totals_family(
+    columns, require_basis: Literal["closing", "any"] = "closing"
+) -> TotalsOddsFamily:
+    """Pick the preferred over/under family present in ``columns``.
+
+    Closing-only by default, raising :class:`ClosingTotalsUnavailable` rather
+    than answering a closing-line question with pre-closing prices.
+    """
+    found = available_totals_families(columns)
+    if require_basis == "closing":
+        closing = [f for f in found if f.basis == "closing"]
+        if not closing:
+            raise ClosingTotalsUnavailable(
+                "no CLOSING over/under columns in CSV header; expected one of "
+                + ", ".join(f.key for f in CLOSING_TOTALS_FAMILIES)
+                + (
+                    "; pre-closing families present: " + ", ".join(f.key for f in found)
+                    if found
+                    else "; no recognised over/under columns at all"
+                )
+                + ". Pass require_basis='any' to accept pre-closing prices."
+            )
+        return closing[0]
+    if not found:
+        raise ValueError(
+            "no recognised over/under columns in CSV header; expected one of "
+            + ", ".join(f.key for f in TOTALS_FAMILIES)
+        )
+    return found[0]
+
+
+def load_football_data_totals_csv(
+    path: str,
+    normalize=str.strip,
+    require_basis: Literal["closing", "any"] = "closing",
+) -> list[dict]:
+    """Load a football-data.co.uk CSV into join-ready OVER/UNDER records.
+
+    The over/under sibling of :func:`load_football_data_csv`, with identical
+    row-level discipline: day-first dates, present integer scores, and both
+    prices decimal and > 1.0, NaN rejected before the bound.
+
+    That NaN-before-bound ordering is not stylistic. ``D1_1920.csv`` line 261
+    (``FC Koln 2-4 RB Leipzig``, a realized Over) carries ``AvgC>2.5 = 0.42``,
+    which is not a decimal price at all; de-vigged it would read as
+    ``p_over = 0.871`` and score as one of the market's best calls of the
+    decade. The same row prices sanely under ``PC``, and is still dropped —
+    families are selected per FILE, never per row, or the market series ends up
+    composed of whichever book happened to be clean on the rows the publisher
+    got wrong.
+
+    Returns a list of dicts with keys: date (datetime.date), home_team,
+    away_team, home_score (int), away_score (int), odds_over, odds_under
+    (float), line (float), odds_source (str), odds_basis
+    ("closing"/"pre_closing"), odds_bookmaker (str).
+    """
+    df = pd.read_csv(path)
+    family = select_totals_family(df.columns, require_basis=require_basis)
+    over_col, under_col = family.columns
+
+    dates = pd.to_datetime(df["Date"], dayfirst=True, errors="coerce")
+
+    records: list[dict] = []
+    for i, row in df.iterrows():
+        line = i + 2  # +1 for 0-index, +1 for the header row
+        parsed_date = dates.iloc[i]
+        if pd.isna(parsed_date):
+            log.warning("skipping row %d: unparseable date %r", line, row.get("Date"))
+            continue
+        try:
+            home_score = int(row["FTHG"])
+            away_score = int(row["FTAG"])
+        except (KeyError, TypeError, ValueError):
+            log.warning("skipping row %d: missing/invalid score", line)
+            continue
+
+        try:
+            odds_over = float(row[over_col])
+            odds_under = float(row[under_col])
+        except (KeyError, TypeError, ValueError):
+            log.warning("skipping row %d: missing/invalid %s totals odds", line, family.key)
+            continue
+        if any(x != x for x in (odds_over, odds_under)):
+            log.warning("skipping row %d: blank %s totals odds", line, family.key)
+            continue
+        if min(odds_over, odds_under) <= 1.0:
+            log.warning(
+                "skipping row %d: %s totals odds not all > 1.0 (%r/%r)",
+                line, family.key, odds_over, odds_under,
+            )
+            continue
+
+        records.append(
+            {
+                "date": parsed_date.date(),
+                "home_team": normalize(str(row["HomeTeam"])),
+                "away_team": normalize(str(row["AwayTeam"])),
+                "home_score": home_score,
+                "away_score": away_score,
+                "odds_over": odds_over,
+                "odds_under": odds_under,
+                "line": family.line,
+                "odds_source": family.key,
+                "odds_basis": family.basis,
+                "odds_bookmaker": family.bookmaker,
+            }
+        )
+    return records
+
+
 def load_football_data_csv(
     path: str,
     normalize=str.strip,
