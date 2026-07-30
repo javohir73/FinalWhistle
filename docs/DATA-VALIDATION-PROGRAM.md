@@ -77,3 +77,79 @@ Every phase emits a receipt sufficient to re-run it from a cold clone: the
 exact command, the input fingerprints, the code revision, and the environment.
 Receipts live in the phase's experiment directory. A number without a receipt
 is not a result — it is an anecdote.
+
+---
+
+## E1 — a tempo channel for the club engine (2026-07-30) — NEGATIVE
+
+Engine work, not a D-series data phase. It descends from D0-B's finding and is
+recorded here because this is where the program's state lives.
+
+Pre-registered alone in `3989145`, corrected in `758963a`, both pushed before
+any code. Evidence:
+[`2026-07-30-e1-tempo-channel/EVIDENCE-CARD.md`](experiments/2026-07-30-e1-tempo-channel/EVIDENCE-CARD.md).
+
+**Question.** D0-B showed the served engine has no per-team tempo parameter —
+`λ_h·λ_a ≡ base²`, so the expected total is a function of the rating gap alone
+and Bundesliga priced P(over 2.5) below 0.5 zero times in 612 matches. E1 asked
+whether FR-5's per-team attack/defence offsets, refit per league on club data,
+close that. `(aᵢ + dᵢ)` moves the ratio; `(aᵢ − dᵢ)` moves the total.
+
+**Answer: no, and two stop conditions fired.**
+
+| League | O/U 2.5 delta | 98.3% CI | verdict | cap-saturated |
+|---|---|---|---|---|
+| Bundesliga | −0.0013 | [−0.0030, +0.0004] | UNRESOLVED | 0.0% |
+| EPL | +0.0004 | [−0.0031, +0.0036] | UNRESOLVED | 28.1% |
+| La Liga | −0.0053 | [−0.0111, +0.0009] | UNRESOLVED | 65.4% |
+
+- **S1** — unresolved everywhere. Grid **not** widened, candidate **not**
+  re-specified.
+- **S4** — EPL and La Liga are cap-saturated past the 20% ceiling, so their
+  numbers are a fitting artifact and are **not interpretable**.
+- The §9 Italy/France transfer test was **not run** and those captures were
+  **not downloaded**: §10 stops the phase without proceeding, and there is no
+  selected candidate to transfer.
+
+### Findings worth not rediscovering
+
+- **E1-1.** Bundesliga's null is **clean** — nothing saturated, effect 2.4×
+  below its own MDE₈₀, and a quarter of §7's 0.005-nat practical floor. Even
+  perfectly resolved it would have been "real but not worth serving" under S2.
+  That is the one league where the channel was measured properly and is simply
+  not there at a useful size.
+- **E1-2.** The candidate-vs-control paired sd is **0.052–0.098**, against
+  0.147–0.194 for model-vs-market. Two correlated models differ far less
+  match-to-match than a model and the market do, so MDE₈₀ here is 0.003–0.005.
+  **Use ~0.05–0.10 as the sd prior for any future candidate-vs-control club
+  gate, not the market figure** — it changes required-n by ~9×.
+- **E1-3.** FR-5's ±0.075 cap, derived for internationals from the form
+  layer's ±35 Elo through β, **binds hard on club data** — the La Liga fit sits
+  at exactly ±0.1500 (2 × the cap) for its extreme clubs. Club teams play 34–38
+  matches a season, not 3–7, so the offsets are far better identified and the
+  international ceiling is the wrong size. **This is not a licence to raise
+  it**: the pre-registered cap sensitivity shows the effect is flat or *worse*
+  as the cap widens, which is the opposite of a binding-constraint signature.
+- **E1-4 (trap).** La Liga at cap 0.05 reads "credible" (−0.0045
+  [−0.0088, −0.0002]) and **must not be cited**. Its point estimate is
+  *smaller* than the same league's unresolved 0.10 and 0.15 cells; only the
+  interval is narrower, because a tighter cap mechanically reduces variance.
+  One credible cell out of nine at α=0.0167 is what noise produces. §4 declared
+  these points never eligible to win, in advance, for exactly this reason.
+- **E1-5.** A season-clustered bootstrap over **identical** clusters returns a
+  zero-width interval that reads as certainty. E1's `_interval` now prints
+  `DEGENERATE` instead; `season_clustered_ci`'s docstring had already warned
+  about this and nothing enforced it. Found by E1's own test, not in review.
+
+### What E1 does NOT say
+
+It does not show a tempo channel is worthless — only that *this* channel, under
+*this* cap, at *this* sample size, is not resolvable. D0-B's structural finding
+stands. It also does not vindicate FR-5's original refutation, which was a
+different population, metric and sample size. Both are now null for different
+reasons on different data.
+
+**Nothing was promoted.** `"team_offsets"` is still `null`; `pipeline/leagues.py`
+and `ml/models/model_params.json` are byte-identical to the merge base, enforced
+by test. The only edits to the FR-5 path are the two additive, default-preserving
+changes Appendix A1 permits, both covered by bit-identity tests.

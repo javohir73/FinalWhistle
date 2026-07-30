@@ -86,3 +86,28 @@ def offsets_for(store: dict, team_name: str) -> tuple[float, float]:
         return max(-OFFSET_CAP, min(OFFSET_CAP, v))
 
     return _clamped("atk"), _clamped("def")
+
+
+def policy_with(cap: float = OFFSET_CAP,
+                full_weight_eff: float = FULL_WEIGHT_EFF_MATCHES):
+    """A :func:`shrink_and_cap` with the two policy constants made explicit.
+
+    Returns a callable with the same ``(atk, dfn, n_eff) -> (atk, dfn)`` shape.
+    At the shipped defaults it is **exactly** :func:`shrink_and_cap` — same
+    order of operations, same arithmetic — which a test asserts over a grid of
+    inputs rather than by inspection.
+
+    Nothing on the serving path calls this. It exists so E1's pre-registered
+    grid can vary the shrinkage denominator without duplicating
+    `pipeline/fit_attack_defence.py`'s fitter (see that phase's
+    SELECTION-PRE-REGISTRATION.md, Appendix A1). ``shrink_and_cap`` remains the
+    default everywhere and its constants are unchanged.
+    """
+    def _policy(atk: float, dfn: float, n_eff: float) -> tuple[float, float]:
+        if n_eff <= 0:
+            return 0.0, 0.0
+        ramp = min(1.0, math.sqrt(n_eff / full_weight_eff))
+        clamp = lambda v: max(-cap, min(cap, v)) * ramp  # noqa: E731
+        return clamp(atk), clamp(dfn)
+
+    return _policy
