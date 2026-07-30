@@ -9,7 +9,7 @@ result.
 from __future__ import annotations
 
 import math
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 
@@ -20,6 +20,7 @@ from ml.evaluation.club_totals_benchmark import (
     clustered_deltas,
     constant_rate,
     information_share,
+    information_share_ci,
     market_p_over,
     ou_label,
     score_totals,
@@ -312,3 +313,93 @@ def test_information_share_is_none_when_there_is_no_budget_to_share():
 def test_binary_log_loss_clips_rather_than_returning_infinity():
     assert binary_log_loss(0.0, 1) < float("inf")
     assert binary_log_loss(1.0, 0) < float("inf")
+
+
+# --- fixes from the adversarial review -----------------------------------
+
+def test_the_model_is_priced_at_the_line_the_market_and_label_use():
+    """A 3.5 book must not be scored with a 2.5 model probability.
+
+    The first cut took ``line`` from the signature for the model column while
+    the label and the market came from ``rec["line"]`` — harmless while every
+    family is 2.5, and a silent mispricing the moment one is not.
+    """
+    ms = _fixture_matches()
+    elo, grid = EloConfig(), GridConfig()
+    pre = replay(ms, elo, COMP)
+    at_25 = build_matched_totals(ms, pre, elo, grid, grid, _priced(ms))[0]
+    rows35 = [{**r, "line": 3.5} for r in _priced(ms)]
+    at_35 = build_matched_totals(ms, pre, elo, grid, grid, rows35)[0]
+    # A higher line means fewer matches go over, so P(over) must fall.
+    assert all(b.model_p_over < a.model_p_over for a, b in zip(at_25, at_35))
+    assert all(r.line == 3.5 for r in at_35)
+
+
+def test_mixed_lines_in_one_run_are_refused():
+    ms = _fixture_matches()
+    elo, grid = EloConfig(), GridConfig()
+    pre = replay(ms, elo, COMP)
+    rows = _priced(ms)
+    rows[0] = {**rows[0], "line": 3.5}
+    with pytest.raises(ValueError, match="mix over/under lines"):
+        build_matched_totals(ms, pre, elo, grid, grid, rows)
+
+
+def test_a_duplicate_match_key_raises_instead_of_reporting_zero_unjoined():
+    """A dict index silently overwrites. That would drop a match AND still
+    report unjoined == 0 — a coverage claim true only because the evidence
+    against it was overwritten."""
+    ms = _fixture_matches()
+    dup = ms + [ms[0]]
+    elo, grid = EloConfig(), GridConfig()
+    pre = replay(dup, elo, COMP)
+    with pytest.raises(ValueError, match="duplicate match key"):
+        build_matched_totals(dup, pre, elo, grid, grid, _priced(ms))
+
+
+def test_score_totals_reports_model_minus_constant_with_its_own_deltas():
+    """The comparison `pipeline/leagues.py` cites to justify both shipped
+    overrides. The first cut computed it as a difference of two LEVELS and so
+    reported it with no uncertainty at all."""
+    rows = [_mt(season="2122", label=i % 2) for i in range(10)] + [
+        _mt(season="2324", d=date(2024, 1, 1), label=i % 2, model=0.9 if i % 2 else 0.1)
+        for i in range(10)
+    ]
+    r = score_totals(rows, ["2122"], ["2324"])
+    assert "model_minus_constant" in r
+    d = r["deltas_model_minus_constant"]
+    assert len(d) == r["n_matches"]
+    assert r["model_minus_constant"] == pytest.approx(sum(d) / len(d))
+    # A sharp correct model must beat the constant.
+    assert r["model_minus_constant"] < 0
+
+
+def test_information_share_ci_widens_with_a_noisy_budget():
+    rows = [_mt(season="2324", d=date(2024, 1, 1) + timedelta(days=i), label=i % 2)
+            for i in range(40)]
+    gap = [0.02] * 40
+    budget = [-0.03] * 40
+    tight = information_share_ci(rows, gap, budget, n_bootstrap=200)
+    # A constant delta series has no resampling noise at all.
+    assert tight["ci95"][0] == pytest.approx(tight["ci95"][1])
+    noisy = information_share_ci(
+        rows, gap, [-0.03 if i % 2 else -0.001 for i in range(40)], n_bootstrap=200,
+    )
+    assert noisy["ci95"][1] - noisy["ci95"][0] > 0.0
+
+
+def test_information_share_ci_counts_resamples_with_no_budget():
+    """A budget that can vanish under resampling is the honest reason a share
+    cannot be quoted to a tenth of a percent."""
+    rows = [_mt(season="2324", d=date(2024, 1, 1) + timedelta(days=i), label=i % 2)
+            for i in range(20)]
+    out = information_share_ci(
+        rows, [0.01] * 20, [+0.05] * 20, n_bootstrap=100,
+    )
+    assert out["ci95"] is None
+    assert out["n_undefined"] == 100
+
+
+def test_information_share_ci_rejects_a_length_mismatch():
+    with pytest.raises(ValueError, match="same length"):
+        information_share_ci([_mt()], [1.0, 2.0], [1.0])

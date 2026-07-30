@@ -94,14 +94,21 @@ its shipped per-league overrides were justified against a **constant** —
 yardstick.
 
 **Result — the model is credibly behind the closing over/under line in all
-three leagues**, and unlike #202's 0.000–0.003 nat candidates, this is
-*resolved* at the available sample size:
+three leagues.** That comparison resolves at the available sample size; several
+others in this phase do not, and the evidence card's Appendix B records which
+claims the adversarial review withdrew (22 of 26 findings survived
+verification).
 
 | League | model − market | iso-week CI95 | 1X2 share | **O/U share** |
 |---|---|---|---|---|
-| Bundesliga | +0.0328 | [+0.0215, +0.0438] | 63.8% | **−6.7%** |
-| EPL | +0.0216 | [+0.0081, +0.0350] | 74.4% | **+7.9%** |
-| La Liga | +0.0245 | [+0.0123, +0.0371] | 83.8% | **+29.5%** |
+| Bundesliga | +0.0328 | [+0.0222, +0.0429] | 63.8% | **−6.7%** [−65.4, +22.0] |
+| EPL | +0.0216 | [+0.0089, +0.0349] | 74.4% | **+7.9%** [−77.2, +52.0] |
+| La Liga | +0.0245 | [+0.0123, +0.0367] | 83.8% | **+29.5%** [+4.3, +51.8] |
+
+Intervals at the pre-registered seed 26, iso-week clustered. **The share is a
+ratio of two noisy paired means and only La Liga's excludes zero** — quote the
+band, never the point estimate. The model−market gaps themselves resolve in all
+three leagues.
 
 Measured on the same matches, book, window and served parameters. The gaps in
 nats are similar on both markets (0.020–0.042); the totals *budget* is
@@ -122,18 +129,28 @@ goals.**
   override — the wiring check). #202's totals work was right. It moved the
   model from *much worse than a constant* to *level with a constant*, while the
   market sits 0.023–0.035 better than that constant. **G5 does not fire.**
-- **D0B-3.** Under a fairly-fitted constant, the model is still beaten by a
-  constant on O/U in **EPL and Bundesliga** — the same defect T1.1 was
-  pre-registered to fix. EPL's apparent 0.0018 win over the pre-registered
-  constant is an artifact of an 8.5-point regime shift between the fit window
-  (over-rate 0.5217) and the scored window (0.6066); an oracle constant scores
-  0.6703 against the model's 0.6830.
+- **D0B-3 — WITHDRAWN by the adversarial review.** The first cut claimed the
+  model is still beaten by a constant in EPL and Bundesliga. That comparison was
+  computed as a difference of two log-loss *levels* and had no interval. Given
+  one: Bundesliga **+0.0021 [−0.0082, +0.0134]**, EPL **−0.0018 [−0.0131,
+  +0.0106]** — **neither resolves**, and both sit inside the same 0.000–0.003
+  nat band the card was simultaneously dismissing as unresolvable for #202.
+  Resolving them would need ~31,700 and ~69,900 matches. **Whether the served
+  model beats a constant on O/U is not answerable at this sample size**, in
+  either league; only La Liga's −0.0103 [−0.0203, −0.0010] resolves. The
+  8.5-point EPL regime shift is real and shows its constant is stale, but the
+  "oracle" constant built to show it is fitted in-sample and licenses no
+  conclusion. **No later phase may cite "still beaten by a constant."**
 - **D0B-4 (negative).** De-vig method moves the market LL by ≤ 0.0011 nats and
   book choice (AvgC/PC/B365C/MaxC) by ≤ 0.0015. The headline rests on neither.
-- **D0B-5 (negative).** Dixon–Coles `rho` is **exactly** vacuous on this market
-  — τ touches only cells with total ≤ 2 and is mass-preserving, so it moves
-  neither numerator nor denominator of P(total ≥ 3). Pinned by test. `rho`
-  earns its keep on exact-score and BTTS, nowhere else measured here.
+- **D0B-5 (negative).** Dixon–Coles `rho` is vacuous on this market **to within
+  one ulp**. τ touches only cells with total ≤ 2, so the numerator of
+  P(total ≥ 3) is bit-identical — but τ is mass-preserving only in exact
+  arithmetic, so the denominator moves in the last bit and 670 of 9,594 real
+  rows differ by 1.110e-16. (The first cut said "exactly", and its test passed
+  only because five synthetic λ pairs never tripped the rounding.) Fourteen
+  orders of magnitude below anything resolvable here. `rho` earns its keep on
+  exact-score and BTTS, nowhere else measured.
 - **D0B-6.** The nine 2016-17…2018-19 captures **do** carry over/under columns
   (Betbrain `BbMx`/`BbAv`) — they lack a *closing* family. The earlier claim
   that they had none was wrong and is corrected in the pre-registration

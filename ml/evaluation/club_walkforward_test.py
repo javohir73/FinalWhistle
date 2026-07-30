@@ -330,16 +330,39 @@ def test_totals_probabilities_ignores_the_outcome():
 
 
 @pytest.mark.parametrize("rho", [0.0, -0.06, -0.20])
-def test_dixon_coles_rho_is_exactly_vacuous_on_the_totals_market(rho):
-    """tau touches only cells with total <= 2, and is mass-preserving.
+def test_dixon_coles_rho_is_vacuous_on_the_totals_market_to_within_one_ulp(rho):
+    """tau touches only cells with total <= 2, so it cannot move the NUMERATOR of
+    P(total >= 3) at all -- that part is bit-exact.
 
-    So it moves neither the numerator nor the denominator of P(total >= 3) --
-    exactly, not approximately. Pinned so a future rho change cannot silently
-    move a recorded totals number, and so the pre-registration's A3 claim is
-    checked rather than trusted.
+    It does move the DENOMINATOR: tau is mass-preserving in exact arithmetic but
+    not in floating point, so the grid's total mass shifts in the last bit and
+    the quotient can differ by one ulp. On the real corpus under the served
+    rho=-0.06 that happens on 670 of 9,594 matches, always by 1.110e-16.
+
+    An earlier version of this test asserted EXACT equality and passed only
+    because its five synthetic lambdas never tripped the rounding. The bound is
+    the honest claim, and 1.1e-16 is fourteen orders of magnitude below the
+    smallest effect this study can resolve (~0.01 nats).
     """
     ms = _matches()
     elo = EloConfig()
     pre = replay(ms, elo, COMP)
     base_ps = totals_probabilities(ms, pre, elo, GridConfig(rho=0.0))
-    assert totals_probabilities(ms, pre, elo, GridConfig(rho=rho)) == base_ps
+    got = totals_probabilities(ms, pre, elo, GridConfig(rho=rho))
+    for a, b in zip(got, base_ps):
+        assert abs(a - b) <= 2e-16
+
+
+def test_rho_leaves_the_over_numerator_bit_identical():
+    """The exact half of the claim above, asserted separately so the two cannot
+    be confused: the cells tau touches all have total <= 2, so no mass tau
+    rescales is ever counted toward P(total >= 3)."""
+    from ml.models.poisson import score_matrix
+
+    for lam_h, lam_a in ((1.44, 1.44), (2.4, 0.7), (1.05, 2.05), (1.9736, 1.0509)):
+        num = {}
+        for rho in (0.0, -0.06, -0.20):
+            m = score_matrix(lam_h, lam_a, rho=rho)
+            num[rho] = sum(m[h][a] for h in range(len(m))
+                           for a in range(len(m[h])) if h + a > 2.5)
+        assert num[0.0] == num[-0.06] == num[-0.20]

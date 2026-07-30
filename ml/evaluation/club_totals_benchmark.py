@@ -146,13 +146,37 @@ def build_matched_totals(
     if len(matches) != len(pre):
         raise ValueError(f"matches/pre length mismatch: {len(matches)} vs {len(pre)}")
 
+    # The model must be priced at the line the market and the label use. This
+    # used to take ``line`` from the signature while label and market came from
+    # ``rec["line"]`` — harmless while every family is 2.5, and a silent
+    # mispricing the moment one is not. Exactly the mismatch ``ou_label``'s
+    # docstring claims to prevent, so it is now checked rather than documented.
+    rec_lines = {r["line"] for r in priced}
+    if len(rec_lines) > 1:
+        raise ValueError(
+            f"priced rows mix over/under lines {sorted(rec_lines)}; the model "
+            "column can only be priced at one line per run"
+        )
+    if rec_lines and (only := next(iter(rec_lines))) != line:
+        line = only
+
     served_p = totals_probabilities(matches, pre, elo, served, line)
     control_p = totals_probabilities(matches, pre, elo, control, line)
 
     by_key: dict[tuple, tuple[int, ClubMatch]] = {}
     for i, m in enumerate(matches):
-        if m.date:
-            by_key[(m.date, m.home, m.away)] = (i, m)
+        if not m.date:
+            continue
+        key = (m.date, m.home, m.away)
+        if key in by_key:
+            # A dict index silently overwrites, which would drop a match AND
+            # still report unjoined == 0 — a coverage claim that is true only
+            # because the evidence for its falsity was overwritten.
+            raise ValueError(
+                f"duplicate match key {key} in the replay window; the join "
+                "index would silently drop one of them"
+            )
+        by_key[key] = (i, m)
 
     matched: list[MatchedTotal] = []
     unpriced: list[dict] = []
@@ -279,12 +303,19 @@ def score_totals(
     market = [m.market_p_over for m in rows]
     const = [rate] * len(rows)
 
-    d_mm = [binary_log_loss(a, y) - binary_log_loss(b, y)
-            for a, b, y in zip(model, market, labels)]
-    d_mc = [binary_log_loss(a, y) - binary_log_loss(b, y)
-            for a, b, y in zip(model, control, labels)]
-    d_km = [binary_log_loss(a, y) - binary_log_loss(b, y)
-            for a, b, y in zip(market, const, labels)]
+    def paired(a: list[float], b: list[float]) -> list[float]:
+        return [binary_log_loss(x, y) - binary_log_loss(z, y)
+                for x, z, y in zip(a, b, labels)]
+
+    d_mm = paired(model, market)
+    d_mc = paired(model, control)
+    d_km = paired(market, const)
+    # The comparison the first cut computed as a difference of two LEVELS and
+    # therefore reported with no uncertainty at all. `pipeline/leagues.py`
+    # justifies both shipped `base` overrides by this exact quantity, so it
+    # needs an interval like every other claim, and it turns out not to
+    # survive one.
+    d_mk = paired(model, const)
 
     return {
         "n_matches": len(rows),
@@ -301,12 +332,16 @@ def score_totals(
         # Negative = the shipped override is closer to the market than the
         # pre-override global. IN-SAMPLE for the model; not an edge.
         "model_minus_control": sum(d_mc) / len(d_mc),
+        # Negative = the model beats a constant. THE defect metric #202 cited.
+        "model_minus_constant": sum(d_mk) / len(d_mk),
         # How much the closing line knows about totals beyond the base rate.
         # The denominator that turns a raw gap into a share of the budget.
         "market_minus_constant": sum(d_km) / len(d_km),
         "rows": rows,
         "deltas_model_minus_market": d_mm,
         "deltas_model_minus_control": d_mc,
+        "deltas_model_minus_constant": d_mk,
+        "deltas_market_minus_constant": d_km,
     }
 
 
@@ -317,8 +352,61 @@ def information_share(result: dict) -> float | None:
     market does not beat the constant, because the ratio is then a division by
     a quantity that is not an information budget at all — reporting a
     percentage of it would be a number with no referent.
+
+    **A point estimate of this is nearly meaningless on its own.** It is a
+    ratio of two noisy paired means, so its sampling distribution is wide and
+    skewed — see :func:`information_share_ci`, and never quote the point
+    estimate without it.
     """
     budget = -result["market_minus_constant"]  # constant LL - market LL
     if budget <= 0:
         return None
     return 1.0 - (result["model_minus_market"] / budget)
+
+
+def information_share_ci(
+    rows: Sequence[MatchedTotal],
+    d_model_minus_market: Sequence[float],
+    d_market_minus_constant: Sequence[float],
+    *,
+    by: str = "iso_week",
+    n_bootstrap: int = 2000,
+    seed: int = 26,
+) -> dict:
+    """Cluster bootstrap for :func:`information_share`.
+
+    Resamples whole clusters and recomputes the RATIO inside each resample, so
+    the interval reflects the noise in both the gap and the budget. Draws where
+    the resampled budget is non-positive have no share defined at all; they are
+    counted and reported as ``n_undefined`` rather than dropped silently,
+    because a budget that can vanish under resampling is the honest reason a
+    share cannot be quoted to a tenth of a percent.
+    """
+    import random as _random
+
+    if not (len(rows) == len(d_model_minus_market) == len(d_market_minus_constant)):
+        raise ValueError("rows and both delta series must be the same length")
+    buckets: dict[str, list[tuple[float, float]]] = {}
+    for r, a, b in zip(rows, d_model_minus_market, d_market_minus_constant):
+        buckets.setdefault(r.iso_week if by == "iso_week" else r.season, []).append((a, b))
+
+    keys = sorted(buckets)
+    rng = _random.Random(seed)
+    shares: list[float] = []
+    undefined = 0
+    for _ in range(n_bootstrap):
+        pairs = [v for k in (keys[rng.randrange(len(keys))] for _ in keys)
+                 for v in buckets[k]]
+        gap = sum(a for a, _ in pairs) / len(pairs)
+        budget = -sum(b for _, b in pairs) / len(pairs)
+        if budget <= 0:
+            undefined += 1
+            continue
+        shares.append(1.0 - gap / budget)
+
+    if not shares:
+        return {"ci95": None, "n_undefined": undefined, "n_clusters": len(keys)}
+    shares.sort()
+    lo = shares[int(0.025 * len(shares))]
+    hi = shares[min(len(shares) - 1, int(0.975 * len(shares)))]
+    return {"ci95": (lo, hi), "n_undefined": undefined, "n_clusters": len(keys)}

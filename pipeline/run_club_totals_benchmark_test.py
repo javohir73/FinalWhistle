@@ -16,12 +16,14 @@ import pytest
 
 from pipeline.club_data_manifest import CONFIRM_SEASON, PRE_CONFIRMATION_SEASONS
 from pipeline.run_club_totals_benchmark import (
+    DROP_REASONS,
     FIT_SEASONS,
     LEAGUES,
     SCORED_SEASONS,
     format_report,
     load_division_matches,
     load_division_totals,
+    main,
     run_league,
 )
 
@@ -113,7 +115,10 @@ def test_files_without_a_closing_totals_family_abstain_and_are_named(csv_dir):
     assert {c["file"] for c in abstained} == {
         "E0_1617.csv", "E0_1718.csv", "E0_1819.csv"
     }
-    assert all(c["reason"] == "no_closing_totals_columns" for c in abstained)
+    assert all(
+        c["drops_by_reason"] == {"no_closing_totals_columns": c["rows"]}
+        for c in abstained
+    )
     # The denominator stays visible: an abstained file reports its row count.
     assert all(c["rows"] > 0 and c["usable"] == 0 for c in abstained)
 
@@ -128,6 +133,71 @@ def test_usable_plus_dropped_equals_rows_for_every_file(csv_dir):
     _totals, census = load_division_totals(csv_dir, "E0")
     for c in census:
         assert c["usable"] + c["dropped"] == c["rows"], c["file"]
+
+
+def test_every_drop_is_attributed_to_a_reason_summing_to_the_shortfall(csv_dir):
+    """Section 7 promises a closed set that sums exactly to the shortfall. The
+    first cut reported one bucket named `unusable_price_or_score`, which is a
+    reason-shaped string rather than an attribution."""
+    _totals, census = load_division_totals(csv_dir, "E0")
+    for c in census:
+        assert set(c["drops_by_reason"]) <= set(DROP_REASONS), c["file"]
+        assert sum(c["drops_by_reason"].values()) == c["dropped"], c["file"]
+
+
+def test_booksum_is_recorded_per_priced_file(csv_dir):
+    """Section 10 requires it: an underround book has no Shin solution and falls
+    back to proportional, so a reader must see whether that ever happened."""
+    _totals, census = load_division_totals(csv_dir, "E0")
+    priced = [c for c in census if c["family"] is not None]
+    assert priced
+    for c in priced:
+        assert c["booksum_min"] > 1.0  # the fixture prices 1.90/1.95
+        assert c["n_underround"] == 0
+
+
+def test_every_paired_comparison_carries_an_interval(csv_dir):
+    """The defect the review found: model-vs-constant was reported as a
+    difference of two LEVELS, with no uncertainty, in a document that dismissed
+    other sub-0.003-nat claims as unresolvable."""
+    r = run_league("epl", csv_dir, n_bootstrap=100)
+    for key in ("model_minus_market", "model_minus_constant",
+                "model_minus_control", "market_minus_constant"):
+        e = r["comparisons"][key]
+        assert "mean" in e and e["iso_week"]["ci95"] is not None, key
+        assert "naive_mde_80pct" in e and "resolved" in e, key
+
+
+def test_the_bootstrap_uses_the_pre_registered_seed(csv_dir):
+    """Section 11 fixes seed 26; `season_clustered_ci` defaults to 12345, so the
+    first cut reported intervals drawn with an unregistered seed."""
+    from ml.evaluation.club_totals_benchmark import clustered_deltas
+    from ml.evaluation.club_walkforward import season_clustered_ci
+    from pipeline.run_club_totals_benchmark import BOOTSTRAP_SEED
+
+    assert BOOTSTRAP_SEED == 26
+    r = run_league("epl", csv_dir, n_bootstrap=200, strict_join=False)
+    # Recomputing with the registered seed must reproduce the reported CI; with
+    # the library default it must not (or the seed is not doing anything).
+    import pipeline.run_club_totals_benchmark as mod
+    ms = mod.load_division_matches(csv_dir, "E0")
+    elo, sg, cg = mod._grids("epl")
+    from ml.evaluation.club_totals_benchmark import build_matched_totals, score_totals
+    from ml.evaluation.club_walkforward import replay
+    priced, _ = mod.load_division_totals(csv_dir, "E0")
+    matched, _ = build_matched_totals(ms, replay(ms, elo, "Premier League"),
+                                      elo, sg, cg, priced)
+    sc = score_totals(matched, mod.FIT_SEASONS, mod.SCORED_SEASONS)
+    d = sc["deltas_model_minus_market"]
+    buckets = clustered_deltas(sc["rows"], d, "iso_week")
+    same = season_clustered_ci(buckets, n_bootstrap=200, seed=26)
+    assert same["ci95"] == r["comparisons"]["model_minus_market"]["iso_week"]["ci95"]
+
+
+def test_n_bootstrap_below_one_is_rejected_at_the_boundary(csv_dir):
+    """Zero resamples indexes an empty list deep inside season_clustered_ci."""
+    with pytest.raises(SystemExit):
+        main(["--csv-dir", str(csv_dir), "--league", "epl", "--n-bootstrap", "0"])
 
 
 def test_burn_in_seasons_are_replayed_but_never_scored(csv_dir):
@@ -190,8 +260,13 @@ def test_report_states_the_in_sample_caveat_and_every_denominator(csv_dir):
     text = format_report([run_league("epl", csv_dir, n_bootstrap=50)])
     assert "IN-SAMPLE" in text
     assert "SELECTS NOTHING" in text
-    assert "information budget" in text
-    assert "RESOLVED AT THIS SAMPLE SIZE" in text
+    assert "market - constant" in text  # the information budget row
+    # Each comparison carries a verdict; an unresolvable one must say so.
+    assert "RESOLVED" in text or "UNRESOLVED at this n" in text
+    # The share line appears either with its interval or as an explicit n/a --
+    # this fixture prices every row identically, so the market does not beat the
+    # constant and no share is defined, which must be SAID rather than omitted.
+    assert "information share" in text
     # Abstentions are named in the report, not merely absent from a total.
     assert "E0_1617.csv" in text
 
