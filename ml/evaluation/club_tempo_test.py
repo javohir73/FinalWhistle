@@ -243,18 +243,49 @@ def test_a_neutral_fit_gives_exactly_zero_deltas():
 # --- the frozen grid -----------------------------------------------------
 
 def test_the_selectable_grid_is_the_nine_pre_registered_points():
+    from ml.evaluation.club_tempo import CLUB_OFFSET_CAP
+
     assert len(GRID) == 9
     assert {p.half_life_days for p in GRID} == {180, 365, 730}
     assert {p.n0 for p in GRID} == {10.0, 30.0, 60.0}
-    assert {p.cap for p in GRID} == {0.075}  # cap is NOT on the selectable grid
+    # The cap is FIXED, not on the selectable grid — E2 §3, carrying E1 §4's
+    # rule that moving it mid-run is a second candidate wearing the first
+    # one's name.
+    assert {p.cap for p in GRID} == {CLUB_OFFSET_CAP}
 
 
-def test_cap_sensitivity_points_cannot_be_selected():
-    """§4: reported alongside, never eligible to win. Kept in a separate tuple
-    so a selection loop cannot pick one by iterating the wrong collection."""
+def test_the_club_cap_is_the_pre_registered_dispersion_value():
+    """E2 §1: 1 sd of observed club team-season log scoring dispersion
+    (pooled 0.3068, burn-in only), rounded. Pinned so it cannot drift."""
+    from ml.evaluation.club_tempo import CLUB_OFFSET_CAP
+
+    assert CLUB_OFFSET_CAP == 0.30
+
+
+def test_e1s_grid_is_preserved_and_is_not_what_e2_runs():
+    """A phase that quietly re-ran the old grid would report E1's numbers under
+    E2's name."""
+    from ml.evaluation.club_tempo import E1_GRID
+
+    assert {p.cap for p in E1_GRID} == {0.075}
+    assert not (set(GRID) & set(E1_GRID))
+
+
+def test_only_the_anchor_sensitivity_point_is_also_selectable():
+    """§3: reported alongside, never eligible to win — kept in a separate tuple
+    so a selection loop cannot reach one by iterating the wrong collection.
+
+    The MIDDLE point is the frozen cap itself and therefore coincides with a
+    grid point by construction: it is the bracket's anchor, not a fourth
+    candidate. The two off-anchor points must not be selectable.
+    """
+    from ml.evaluation.club_tempo import CLUB_OFFSET_CAP
+
     assert len(CAP_SENSITIVITY) == 3
-    assert {p.cap for p in CAP_SENSITIVITY} == {0.05, 0.10, 0.15}
-    assert not (set(GRID) & set(CAP_SENSITIVITY))
+    assert {p.cap for p in CAP_SENSITIVITY} == {0.20, CLUB_OFFSET_CAP, 0.45}
+    off_anchor = [p for p in CAP_SENSITIVITY if p.cap != CLUB_OFFSET_CAP]
+    assert len(off_anchor) == 2
+    assert not (set(GRID) & set(off_anchor))
 
 
 def test_selection_is_deterministic_under_a_tie():

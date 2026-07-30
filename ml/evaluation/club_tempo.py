@@ -90,16 +90,40 @@ class TempoPoint:
         return f"hl{self.half_life_days}_n0{self.n0:g}_cap{self.cap:g}"
 
 
-#: §4's SELECTABLE grid — 9 points. Frozen before the run.
+#: E2 §1. One standard deviation of observed club team-season log scoring
+#: dispersion (pooled sd 0.3068 over 232 team-season values, BURN-IN seasons
+#: only), rounded. `exp(0.30) ~= 1.35`.
+#:
+#: FR-5's ±0.075 is derived for INTERNATIONAL football from the form layer's
+#: ±35 Elo through beta, and E1 measured it binding on 69.9-89.2% of
+#: club-seasons — compression, not the tail control `ml/models/team_offsets.py`
+#: says a cap is for. Club teams play 34-38 matches a season rather than 3-7,
+#: so per-team offsets are far better identified and the international ceiling
+#: is simply the wrong size.
+#:
+#: Fixed, not on the grid, not tuned. See that phase's SELECTION-PRE-REGISTRATION
+#: §1, including its disclosure that 0.30 also clears the 20% saturation ceiling.
+CLUB_OFFSET_CAP = 0.30
+
+#: §3's SELECTABLE grid — 9 points. Frozen before the run.
 GRID: tuple[TempoPoint, ...] = tuple(
-    TempoPoint(hl, n0) for hl in (180, 365, 730) for n0 in (10.0, 30.0, 60.0)
+    TempoPoint(hl, n0, CLUB_OFFSET_CAP)
+    for hl in (180, 365, 730) for n0 in (10.0, 30.0, 60.0)
 )
 
-#: §4's cap sensitivity — reported alongside, NEVER eligible to win. Kept in a
+#: §3's cap sensitivity — reported alongside, NEVER eligible to win. Kept in a
 #: separate tuple rather than flagged inside GRID, so a selection loop cannot
-#: pick one by iterating the wrong collection.
+#: pick one by iterating the wrong collection. Bracket chosen to span the frozen
+#: value symmetrically in SATURATION terms (26.7% / 10.4% / ~3%), not by effect.
 CAP_SENSITIVITY: tuple[TempoPoint, ...] = tuple(
-    TempoPoint(365, 30.0, cap) for cap in (0.05, 0.10, 0.15)
+    TempoPoint(365, 30.0, cap) for cap in (0.20, CLUB_OFFSET_CAP, 0.45)
+)
+
+#: E1's grid, kept so its result stays reproducible from this module. NOT used
+#: by E2 — a phase that quietly re-ran the old grid would be reporting E1's
+#: numbers under E2's name.
+E1_GRID: tuple[TempoPoint, ...] = tuple(
+    TempoPoint(hl, n0, 0.075) for hl in (180, 365, 730) for n0 in (10.0, 30.0, 60.0)
 )
 
 #: §8: a club with fewer than this many prior matches gets EXACTLY zero, not a

@@ -181,3 +181,66 @@ reasons on different data.
 and `ml/models/model_params.json` are byte-identical to the merge base, enforced
 by test. The only edits to the FR-5 path are the two additive, default-preserving
 changes Appendix A1 permits, both covered by bit-identity tests.
+
+---
+
+## E2 — a club-derived offset cap (2026-07-31) — REFUTED on the guardrail
+
+Pre-registered alone in `8bb0d72`, pushed before any E2 code. Evidence:
+[`2026-07-31-e2-club-cap/EVIDENCE-CARD.md`](experiments/2026-07-31-e2-club-cap/EVIDENCE-CARD.md).
+
+E1 could not answer its question because FR-5's ±0.075 cap, derived for
+international football, bound on 69.9–89.2% of club-seasons. E2 re-ran the same
+candidate at **`CLUB_OFFSET_CAP = 0.30`** — one standard deviation of observed
+club team-season log scoring dispersion (pooled sd 0.3068, burn-in seasons
+only), fixed by that principle before any run.
+
+**The cap fix worked, and the candidate is refuted anyway.**
+
+| League | O/U 2.5 | 98.3% CI | 1X2 guardrail | 98.3% CI | saturation |
+|---|---|---|---|---|---|
+| Bundesliga | −0.0006 | [−0.0058, +0.0048] | **+0.0049** | **[+0.0007, +0.0090]** | 11.0% |
+| EPL | +0.0021 | [−0.0032, +0.0075] | +0.0041 | [−0.0010, +0.0088] | 19.6% |
+| La Liga | **−0.0080** | **[−0.0148, −0.0007]** | +0.0043 | [−0.0000, +0.0083] | 13.9% |
+
+**S3 fired** — the guardrail is credibly worse in Bundesliga. §8 requires it not
+credibly worse anywhere. La Liga's credible −0.0080 does not survive that, and
+reporting it alone would be picking one league of three on a phase whose stated
+prior was that none would clear.
+
+### Findings worth not rediscovering
+
+- **E2-1 — the parameterisation couples tempo to strength, and that is the
+  refutation.** The 1X2 cost is **+0.0049 / +0.0041 / +0.0043** — positive in
+  all three leagues and tightly clustered — while totals is −0.0006 / +0.0021 /
+  −0.0080, inconsistent. The candidate reliably pays ~0.0044 nats on the ratio
+  to inconsistently maybe gain on the sum. Because `(a+d)` and `(a−d)` are both
+  free, fitting tempo perturbs strength; strength spread rose to sd 0.074–0.088
+  once the cap stopped compressing it. Elo already captures 64–84% of the 1X2
+  budget (D0-B), so that perturbation is close to pure added noise. **No cap
+  value fixes this — it is the parameterisation.**
+- **E2-2.** The cap really was the wrong size: saturation fell **84% → ~15%**,
+  and no club-season is now pinned on both components. E1's complaint was
+  valid; it just was not what was hiding an effect.
+- **E2-3.** Across E1's 0.05–0.15 bracket and E2's 0.20–0.45 bracket the totals
+  effect is **flat over a 9× span of cap values**. That retires the cap as an
+  explanation, permanently. Do not re-open it.
+- **E2-4.** With the cap no longer binding, the walk-forward collapses onto
+  short half-life and weak shrinkage (`hl180`, `n0` 30–60) in every league.
+- **E2-5 (method).** §2 declared "E2 is expected to fail" before the run, from
+  E1's cap-sensitivity signal. It did. Writing the prior down first is what
+  makes the result cheap to interpret rather than a surprise to explain away.
+
+### The next candidate — and it needs its own pre-registration
+
+Constrain **`(a−d) = 0`** so only `(a+d)` is free: a pure tempo channel with no
+strength side-effect, aimed squarely at the coupling E2 identified. §9 forbids
+re-specifying inside E2 and §7 S3 forbids searching for a configuration that
+satisfies both, so this is a new phase. **Whether it is worth one is the
+human's call** — D0-B bracketed the totals headroom widely, and E1 plus E2 have
+now spent two phases on the tempo question without a promotable result.
+
+**Nothing was promoted.** `"team_offsets"` is still `null`; all four §8-guarded
+files are byte-identical to the merge base, enforced by test. The Italy/France
+transfer test remains unrun and those captures undownloaded — no candidate has
+cleared §8, and a cap change does not retroactively give one.
