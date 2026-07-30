@@ -124,6 +124,25 @@ def test_combined_safety_bounds_fail_closed_instead_of_clipping():
         )
 
 
+def test_one_shot_adjustment_iterable_is_materialized_before_it_is_consumed():
+    state = _state()
+    adjustments = (
+        _adjustment(state, "availability", "xi-v2", strength_delta=0.05),
+        _adjustment(state, "xg", "xg-v3", tempo_delta=-0.02),
+    )
+    adjusted = apply_latent_adjustments(
+        state,
+        (item for item in adjustments),
+        model_version="fw-vnext-generator-v1",
+    )
+
+    # A generator is exhausted by the type check, so dropping the materialization
+    # would silently apply nothing instead of failing.
+    assert adjusted.strength_log_ratio == pytest.approx(state.strength_log_ratio + 0.05)
+    assert adjusted.log_total_goals == pytest.approx(state.log_total_goals - 0.02)
+    assert [item.artifact_id for item in adjusted.provenance] == ["xi-v2", "xg-v3"]
+
+
 def test_adjustments_preserve_context_rho_and_uncertainty():
     state = _state()
     adjusted = apply_latent_adjustments(

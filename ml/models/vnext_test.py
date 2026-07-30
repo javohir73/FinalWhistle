@@ -1,4 +1,5 @@
 """Focused contract and parity tests for the additive vNext model core."""
+import math
 from dataclasses import FrozenInstanceError
 from datetime import datetime, timedelta, timezone
 
@@ -143,6 +144,39 @@ def test_pathological_dixon_coles_rho_fails_closed():
     boundary = LatentMatchState(_context(), 0.0, -2.0, rho=1.0)
     with pytest.raises(ValueError, match="invalid Dixon-Coles"):
         ScoreDistribution.from_state(boundary)
+
+
+def test_oversized_score_grid_fails_closed_instead_of_raising_overflow():
+    # max_goals is derived from observed CSV scores by the backtest runner, so a
+    # freak scoreline must not reach math.factorial(171) inside poisson_pmf.
+    state = LatentMatchState(_context(), 0.35, 1.0, rho=-0.08)
+    assert ScoreDistribution.from_state(state, max_goals=170).max_goals == 170
+    with pytest.raises(ValueError, match=r"max_goals must be within \[1, 170\], got 171"):
+        ScoreDistribution.from_state(state, max_goals=171)
+
+
+def test_extreme_but_finite_tempo_fails_closed_instead_of_raising_overflow():
+    # LatentMatchState accepts this tempo because exp(log_total_goals) is finite;
+    # only the grid boundary can reject it.
+    state = LatentMatchState(_context(), 0.0, math.log(1e40))
+    with pytest.raises(ValueError, match="overflows the score grid"):
+        ScoreDistribution.from_state(state)
+
+
+def test_grid_boundary_failure_does_not_blame_rho_when_rho_is_zero():
+    state = LatentMatchState(_context(), 0.0, math.log(1e200), rho=0.0)
+    with pytest.raises(ValueError) as failure:
+        ScoreDistribution.from_state(state)
+    assert "rho" not in str(failure.value)
+
+
+def test_extreme_strength_collapses_the_away_lambda_to_zero_and_is_rejected():
+    # A strength this large rounds the home share to exactly 1.0 in double
+    # precision, so expected_goals hands the grid a zero away rate.
+    state = LatentMatchState(_context(), 40.0, math.log(2.7))
+    assert state.expected_goals == (2.7, 0.0)
+    with pytest.raises(ValueError, match="lambda_away must be finite and positive, got 0.0"):
+        ScoreDistribution.from_state(state)
 
 
 def test_every_market_is_a_marginal_of_the_single_grid():

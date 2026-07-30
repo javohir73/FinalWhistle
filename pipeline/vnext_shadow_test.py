@@ -22,6 +22,7 @@ from pipeline.vnext_shadow import (
     extract_vnext_receipt,
     validate_vnext_receipt,
 )
+from pipeline.vnext_shadow_benchmark import benchmark_stored_vnext_shadow
 
 
 MODEL_VERSION = "poisson-elo-v0.1"
@@ -75,6 +76,29 @@ def _production_payload() -> dict:
         "top_features": [],
         "writeup": {"call": "production only"},
     }
+
+
+def _paired_matches_for(db, spec: VNextShadowSpec, match_id: int) -> int:
+    """Finish one fixture and ask the fail-closed benchmark whether it pairs.
+
+    The repair sweep and the benchmark must agree on what "covered" means, so
+    the sweep's own output is checked against the reader that will score it.
+    """
+    match = db.get(Match, match_id)
+    match.status = "finished"
+    match.score_home = match.score_home_90 = 2
+    match.score_away = match.score_away_90 = 1
+    db.commit()
+    report = benchmark_stored_vnext_shadow(
+        db,
+        champion_version=spec.production_model_version,
+        challenger_tag=spec.model_tag,
+        artifact_identity=spec.artifact_identity,
+        predictor_kind=spec.predictor_kind,
+        payload_mode=spec.predictor_payload_mode,
+        n_bootstrap=200,
+    )
+    return report["paired_matches"]
 
 
 def test_spec_identity_is_canonical_deterministic_and_persistable():
@@ -702,3 +726,94 @@ def test_coverage_repairs_a_tagged_shadow_with_tampered_lineage(db_session):
     assert ensure_prediction_coverage(
         db_session, vnext_shadow_spec=spec
     ) == {"generated": 0, "match_ids": []}
+    assert _paired_matches_for(db_session, spec, damaged.match_id) == 1
+
+
+def test_coverage_repairs_a_tagged_shadow_carrying_no_receipt_at_all(db_session):
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    _move_scheduled_kickoffs_to_future(db_session)
+    spec = VNextShadowSpec(production_model_version=load_params().version)
+    ensure_prediction_coverage(db_session, vnext_shadow_spec=spec)
+    original_shadow_count = db_session.query(Prediction).filter_by(
+        model_version=spec.model_tag, is_shadow=True
+    ).count()
+    stripped = db_session.query(Prediction).filter_by(
+        model_version=spec.model_tag, is_shadow=True
+    ).first()
+    stripped.reasons = []
+    db_session.commit()
+
+    repaired = ensure_prediction_coverage(db_session, vnext_shadow_spec=spec)
+
+    assert repaired == {"generated": 1, "match_ids": [stripped.match_id]}
+    assert extract_vnext_receipt(stripped.reasons) is None
+    assert db_session.query(Prediction).filter_by(
+        model_version=spec.model_tag, is_shadow=True
+    ).count() == original_shadow_count + 1
+    assert ensure_prediction_coverage(
+        db_session, vnext_shadow_spec=spec
+    ) == {"generated": 0, "match_ids": []}
+    assert _paired_matches_for(db_session, spec, stripped.match_id) == 1
+
+
+def test_coverage_repairs_a_tagged_shadow_naming_a_superseded_champion(db_session):
+    from ml.models.params import load_params
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    _move_scheduled_kickoffs_to_future(db_session)
+    spec = VNextShadowSpec(production_model_version=load_params().version)
+    ensure_prediction_coverage(db_session, vnext_shadow_spec=spec)
+    stale = db_session.query(Prediction).filter_by(
+        model_version=spec.model_tag, is_shadow=True
+    ).first()
+    parent = db_session.query(Prediction).filter_by(
+        match_id=stale.match_id,
+        model_version=spec.production_model_version,
+        is_shadow=False,
+    ).one()
+    # The stored receipt stays internally valid; it just stops naming this
+    # fixture's current champion once a fresher forecast lands before kickoff.
+    superseding = Prediction(
+        match_id=parent.match_id,
+        model_version=parent.model_version,
+        prob_home_win=0.5,
+        prob_draw=0.3,
+        prob_away_win=0.2,
+        predicted_score_home=parent.predicted_score_home,
+        predicted_score_away=parent.predicted_score_away,
+        predicted_score_prob=parent.predicted_score_prob,
+        lambda_home=parent.lambda_home,
+        lambda_away=parent.lambda_away,
+        rho=parent.rho,
+        knockout=parent.knockout,
+        confidence=parent.confidence,
+        reasons=[],
+        top_features=[],
+        writeup=None,
+        is_shadow=False,
+    )
+    db_session.add(superseding)
+    db_session.commit()
+    assert extract_vnext_receipt(stale.reasons)[
+        "champion_payload_sha256"
+    ] == champion_row_fingerprint(parent)
+
+    repaired = ensure_prediction_coverage(db_session, vnext_shadow_spec=spec)
+
+    assert repaired == {"generated": 1, "match_ids": [stale.match_id]}
+    current = db_session.query(Prediction).filter_by(
+        match_id=stale.match_id,
+        model_version=spec.model_tag,
+        is_shadow=True,
+    ).order_by(Prediction.created_at.desc(), Prediction.id.desc()).first()
+    assert extract_vnext_receipt(current.reasons)[
+        "champion_payload_sha256"
+    ] == champion_row_fingerprint(superseding)
+    assert ensure_prediction_coverage(
+        db_session, vnext_shadow_spec=spec
+    ) == {"generated": 0, "match_ids": []}
+    assert _paired_matches_for(db_session, spec, stale.match_id) == 1

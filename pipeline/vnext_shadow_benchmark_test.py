@@ -15,6 +15,10 @@ from pipeline.vnext_shadow_benchmark import benchmark_stored_vnext_shadow
 CHAMPION = "poisson-elo-v0.5"
 ARTIFACT_IDENTITY = "0123456789abcdef" * 4
 CHALLENGER = f"fw-vnext-{ARTIFACT_IDENTITY[:31]}"
+PREDICTOR_KIND = "frozen-pure-tempo-v1"
+PAYLOAD_MODE = "calibrated_wdl"
+# A genuinely different artifact that the 40-character tag cannot distinguish.
+FORKED_IDENTITY = f"{ARTIFACT_IDENTITY[:-1]}0"
 
 
 def _fixture(
@@ -84,20 +88,23 @@ def _linked_challenger(
     *,
     created_at: datetime,
     candidate_over_2_5: float = 0.55,
+    artifact_identity: str = ARTIFACT_IDENTITY,
+    predictor_kind: str = PREDICTOR_KIND,
+    payload_mode: str = PAYLOAD_MODE,
 ) -> Prediction:
     cutoff = champion.created_at
     if cutoff.tzinfo is None or cutoff.utcoffset() is None:
         cutoff = cutoff.replace(tzinfo=timezone.utc)
     receipt = {
-        "artifact_identity": ARTIFACT_IDENTITY,
+        "artifact_identity": artifact_identity,
         "candidate_grid_sha256": "1" * 64,
         "candidate_max_goals": 10,
         "candidate_over_2_5": candidate_over_2_5,
         "champion_model_version": CHAMPION,
         "champion_payload_sha256": champion_row_fingerprint(champion),
         "features_as_of": cutoff.isoformat(),
-        "payload_mode": "calibrated_wdl",
-        "predictor_kind": "frozen-pure-tempo-v1",
+        "payload_mode": payload_mode,
+        "predictor_kind": predictor_kind,
         "schema_version": 2,
     }
     return _prediction(
@@ -223,6 +230,100 @@ def test_pairs_latest_exact_rows_before_kickoff_and_uses_regulation_score(db_ses
     assert db_session.query(Prediction).count() == row_count
 
 
+def test_same_tag_prefix_with_a_different_full_identity_is_not_paired(db_session):
+    tournament = Tournament(name="Fork Cup", year=2026)
+    db_session.add(tournament)
+    db_session.flush()
+    match = _fixture(db_session, tournament, 0)
+    before = match.kickoff_utc - timedelta(hours=1)
+    parent = _prediction(
+        db_session,
+        match,
+        CHAMPION,
+        (0.5, 0.3, 0.2),
+        shadow=False,
+        created_at=before,
+    )
+    _linked_challenger(
+        db_session,
+        match,
+        parent,
+        (0.6, 0.3, 0.1),
+        created_at=before + timedelta(minutes=1),
+        artifact_identity=FORKED_IDENTITY,
+    )
+    db_session.commit()
+
+    report = benchmark_stored_vnext_shadow(
+        db_session,
+        champion_version=CHAMPION,
+        challenger_tag=CHALLENGER,
+        artifact_identity=ARTIFACT_IDENTITY,
+        predictor_kind=PREDICTOR_KIND,
+        payload_mode=PAYLOAD_MODE,
+    )
+
+    assert CHALLENGER == f"fw-vnext-{FORKED_IDENTITY[:31]}"
+    assert report["eligible_matches"] == 1
+    assert report["paired_matches"] == 0
+    assert report["invalid_or_unlinked_challenger_rows"] == 1
+    assert report["challenger_artifact"]["artifact_identity"] == ARTIFACT_IDENTITY
+
+
+@pytest.mark.parametrize(
+    "divergent",
+    [
+        {"artifact_identity": FORKED_IDENTITY},
+        {"predictor_kind": "frozen-pure-tempo-v2"},
+        {"payload_mode": "parity"},
+    ],
+)
+def test_first_accepted_receipt_pins_the_artifact_the_report_scores(
+    db_session, divergent
+):
+    tournament = Tournament(name="Pin Cup", year=2026)
+    db_session.add(tournament)
+    db_session.flush()
+    scored = _fixture(db_session, tournament, 0)
+    forked = _fixture(db_session, tournament, 1)
+    for match, overrides in ((scored, {}), (forked, divergent)):
+        before = match.kickoff_utc - timedelta(hours=1)
+        parent = _prediction(
+            db_session,
+            match,
+            CHAMPION,
+            (0.5, 0.3, 0.2),
+            shadow=False,
+            created_at=before,
+        )
+        _linked_challenger(
+            db_session,
+            match,
+            parent,
+            (0.6, 0.3, 0.1),
+            created_at=before + timedelta(minutes=1),
+            **overrides,
+        )
+    db_session.commit()
+
+    report = benchmark_stored_vnext_shadow(
+        db_session,
+        champion_version=CHAMPION,
+        challenger_tag=CHALLENGER,
+        n_bootstrap=200,
+    )
+
+    assert report["eligible_matches"] == 2
+    assert report["paired_matches"] == 1
+    assert report["paired_match_ids"] == [scored.id]
+    assert report["invalid_or_unlinked_challenger_rows"] == 1
+    assert report["challenger_artifact"] == {
+        "artifact_identity": ARTIFACT_IDENTITY,
+        "predictor_kind": PREDICTOR_KIND,
+        "payload_mode": PAYLOAD_MODE,
+    }
+
+
 def test_wrong_shadow_flags_and_post_kickoff_champion_are_ineligible(db_session):
     tournament = Tournament(name="Cup", year=2026)
     db_session.add(tournament)
@@ -331,6 +432,44 @@ def test_tournament_scope_and_clusters_are_explicit(db_session):
     assert all_report["paired_matches"] == 2
     assert scoped["scope"] == {"tournament_id": tournaments[0].id}
     assert scoped["paired_matches"] == 1
+
+
+def test_passing_superiority_gate_is_not_a_second_promotion_authorization(db_session):
+    tournament = Tournament(name="Superior Cup", year=2026)
+    db_session.add(tournament)
+    db_session.flush()
+    for index in range(2):
+        match = _fixture(db_session, tournament, index, final_score=(2, 1))
+        before = match.kickoff_utc - timedelta(hours=1)
+        parent = _prediction(
+            db_session,
+            match,
+            CHAMPION,
+            (0.2, 0.6, 0.2),
+            shadow=False,
+            created_at=before,
+        )
+        _linked_challenger(
+            db_session,
+            match,
+            parent,
+            (0.8, 0.1, 0.1),
+            created_at=before + timedelta(minutes=1),
+        )
+    db_session.commit()
+
+    report = benchmark_stored_vnext_shadow(
+        db_session,
+        champion_version=CHAMPION,
+        challenger_tag=CHALLENGER,
+        policy=PromotionPolicy(min_matches=1, min_clusters=1, min_coverage=0.5),
+        n_bootstrap=200,
+    )
+
+    assert report["paired_matches"] == 2
+    assert report["wdl_guardrail"]["passes_superiority_gate"] is True
+    assert "promote" not in report["wdl_guardrail"]
+    assert report["promotion"]["promote"] is False
 
 
 @pytest.mark.parametrize("champion,challenger", [("same", "same"), ("", "other")])

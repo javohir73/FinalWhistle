@@ -9,8 +9,10 @@ from ml.models.vnext import (
     FixtureIdentity,
     LatentMatchState,
     MatchContext,
+    NO_UNCERTAINTY,
     ScoreDistribution,
     StateProvenance,
+    UncertaintyMetadata,
 )
 from ml.models.vnext_market import (
     MarketEvidence,
@@ -169,6 +171,46 @@ def test_blend_identity_and_full_market_endpoints_are_exact():
         market_distribution.wdl.as_tuple(), abs=1e-15
     )
     assert full.provenance == market.provenance
+
+
+def test_blend_endpoints_carry_distinct_uncertainty_and_a_partial_blend_drops_it():
+    context = _context()
+    fundamental_uncertainty = UncertaintyMetadata(
+        status="externally_supplied",
+        strength_std=0.12,
+        log_total_goals_std=0.09,
+        source="walk-forward bootstrap run 7",
+        sample_count=400,
+    )
+    market_uncertainty = UncertaintyMetadata(
+        status="externally_supplied",
+        strength_std=0.04,
+        log_total_goals_std=0.03,
+        source="closing-line dispersion",
+        sample_count=12,
+    )
+    fundamental = LatentMatchState(
+        context, 0.2, math.log(2.2), rho=-0.06, uncertainty=fundamental_uncertainty
+    )
+    market = LatentMatchState(
+        context, 0.8, math.log(3.0), rho=-0.06, uncertainty=market_uncertainty
+    )
+
+    identity = blend_fundamental_and_market(
+        fundamental, market, strength_weight=0.0, tempo_weight=0.0
+    )
+    full = blend_fundamental_and_market(
+        fundamental, market, strength_weight=1.0, tempo_weight=1.0
+    )
+    partial = blend_fundamental_and_market(
+        fundamental, market, strength_weight=0.5, tempo_weight=1.0
+    )
+
+    assert identity.uncertainty is fundamental_uncertainty
+    assert full.uncertainty is market_uncertainty
+    # Anything between the endpoints has no honest combined uncertainty, so it is
+    # explicitly unestimated rather than inherited from either side.
+    assert partial.uncertainty is NO_UNCERTAINTY
 
 
 def test_market_evidence_rejects_wrong_fixture_and_post_cutoff_times():

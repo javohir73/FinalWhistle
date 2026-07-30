@@ -26,12 +26,14 @@ from ml.evaluation.paired_challenger import (
     promotion_gate,
 )
 from pipeline.vnext_shadow import (
+    PayloadMode,
     champion_row_fingerprint,
     extract_vnext_receipt,
     validate_vnext_receipt,
 )
 
 _KNOCKOUT_STAGES = {"r32", "r16", "qf", "sf", "third_place", "final"}
+_PAYLOAD_MODES = ("raw_distribution", "calibrated_wdl", "parity")
 
 
 def _utc(value: datetime, name: str) -> datetime:
@@ -74,8 +76,16 @@ def _linked_pair_before(
     kickoff: datetime,
     champion_version: str,
     challenger_tag: str,
+    artifact_identity: str | None = None,
+    predictor_kind: str | None = None,
+    payload_mode: PayloadMode | None = None,
 ) -> tuple[Prediction | None, Prediction | None, dict[str, object] | None, int]:
-    """Return the latest receipt-valid challenger and its content-linked parent."""
+    """Return the latest receipt-valid challenger and its content-linked parent.
+
+    The persisted tag truncates the artifact identity to 40 characters, so the
+    full ``(artifact_identity, predictor_kind, payload_mode)`` triple is what
+    actually names a candidate.  A caller that knows the triple pins it here.
+    """
     candidates = sorted(
         (
             row
@@ -103,6 +113,9 @@ def _linked_pair_before(
                 challenger_tag=challenger_tag,
                 champion_model_version=champion_version,
                 kickoff_utc=kickoff,
+                artifact_identity=artifact_identity,
+                predictor_kind=predictor_kind,
+                payload_mode=payload_mode,
             )
             expected_fingerprint = receipt["champion_payload_sha256"]
             challenger_position = _ledger_position(challenger)
@@ -120,6 +133,9 @@ def _linked_pair_before(
                 challenger_tag=challenger_tag,
                 champion_model_version=champion_version,
                 kickoff_utc=kickoff,
+                artifact_identity=artifact_identity,
+                predictor_kind=predictor_kind,
+                payload_mode=payload_mode,
                 champion_payload_sha256=champion_row_fingerprint(parent),
                 champion_created_at=parent.created_at,
                 challenger_created_at=challenger.created_at,
@@ -278,6 +294,9 @@ def benchmark_stored_vnext_shadow(
     *,
     champion_version: str,
     challenger_tag: str,
+    artifact_identity: str | None = None,
+    predictor_kind: str | None = None,
+    payload_mode: PayloadMode | None = None,
     tournament_id: int | None = None,
     policy: PromotionPolicy = PromotionPolicy(),
     n_bootstrap: int = 5_000,
@@ -289,6 +308,11 @@ def benchmark_stored_vnext_shadow(
     forecast before kickoff. Challenger coverage is measured against that set.
     Tournament IDs are the resampling clusters, preventing matches from one
     competition from being treated as independent seasons/tournaments.
+
+    ``challenger_tag`` is only the first 31 characters of the artifact identity,
+    so it cannot on its own tell two candidates apart.  The full triple names
+    the candidate: pass it when known, otherwise the first accepted receipt pins
+    it and every later row must agree.
     """
     for value, name in (
         (champion_version, "champion_version"),
@@ -298,6 +322,14 @@ def benchmark_stored_vnext_shadow(
             raise ValueError(f"{name} must be a non-empty string")
     if champion_version == challenger_tag:
         raise ValueError("champion and challenger versions must differ")
+    for value, name in (
+        (artifact_identity, "artifact_identity"),
+        (predictor_kind, "predictor_kind"),
+    ):
+        if value is not None and (not isinstance(value, str) or not value.strip()):
+            raise ValueError(f"{name} must be a non-empty string when supplied")
+    if payload_mode is not None and payload_mode not in _PAYLOAD_MODES:
+        raise ValueError(f"payload_mode {payload_mode!r} is not a vNext payload mode")
 
     # A diagnostic read must not autoflush unrelated pending caller state.
     with db.no_autoflush:
@@ -353,6 +385,9 @@ def benchmark_stored_vnext_shadow(
     eligible_matches = 0
     excluded_missing_regulation_score = 0
     invalid_or_unlinked_challenger_rows = 0
+    pinned_identity = artifact_identity
+    pinned_kind = predictor_kind
+    pinned_mode = payload_mode
     for match in matches:
         regulation_score = _regulation_score(match)
         if regulation_score is None:
@@ -370,10 +405,19 @@ def benchmark_stored_vnext_shadow(
             kickoff=kickoff,
             champion_version=champion_version,
             challenger_tag=challenger_tag,
+            artifact_identity=pinned_identity,
+            predictor_kind=pinned_kind,
+            payload_mode=pinned_mode,
         )
         invalid_or_unlinked_challenger_rows += invalid
         if champion is None or challenger is None or receipt is None:
             continue
+        # One report scores one candidate.  The tag is a truncated identity, so
+        # pin the full triple from the first accepted receipt: a later row that
+        # shares only the prefix then fails validation and counts as unlinked.
+        pinned_identity = receipt["artifact_identity"]
+        pinned_kind = receipt["predictor_kind"]
+        pinned_mode = receipt["payload_mode"]
         cluster = f"tournament:{match.tournament_id}"
         champions.append(_probabilities(champion))
         challengers.append(_probabilities(challenger))
@@ -398,6 +442,12 @@ def benchmark_stored_vnext_shadow(
     base = {
         "champion_version": champion_version,
         "challenger_tag": challenger_tag,
+        # Name the exact artifact this evidence is about, not just its prefix.
+        "challenger_artifact": {
+            "artifact_identity": pinned_identity,
+            "predictor_kind": pinned_kind,
+            "payload_mode": pinned_mode,
+        },
         "scope": {"tournament_id": tournament_id},
         "total_finished_matches": len(matches),
         "eligible_matches": eligible_matches,

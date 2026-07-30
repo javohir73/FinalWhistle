@@ -40,6 +40,11 @@ from ml.models.poisson import (
 Side = Literal["home", "away"]
 UncertaintyStatus = Literal["not_estimated", "externally_supplied"]
 
+# math.factorial(171) is larger than the largest float, so poisson_pmf raises
+# OverflowError on a grid that deep before a single probability exists.  Callers
+# derive max_goals from observed scores, so the bound has to be enforced here.
+_MAX_GRID_GOALS = 170
+
 
 def _require_finite(value: float, name: str) -> None:
     if not math.isfinite(value):
@@ -429,9 +434,20 @@ class ScoreDistribution:
         cls, state: LatentMatchState, *, max_goals: int = MAX_GOALS
     ) -> "ScoreDistribution":
         """Build and normalize the existing Dixon-Coles grid exactly once."""
-        if max_goals < 1:
-            raise ValueError("max_goals must be at least 1")
+        if max_goals < 1 or max_goals > _MAX_GRID_GOALS:
+            raise ValueError(
+                f"max_goals must be within [1, {_MAX_GRID_GOALS}], got {max_goals}"
+            )
         lambda_home, lambda_away = state.expected_goals
+        for value, name in ((lambda_home, "lambda_home"), (lambda_away, "lambda_away")):
+            if not math.isfinite(value) or value <= 0.0:
+                raise ValueError(f"{name} must be finite and positive, got {value}")
+            # poisson_pmf evaluates lam ** max_goals; probe the exponent rather
+            # than the power so the guard cannot overflow while checking.
+            if max_goals * math.log(value) > 709.0:
+                raise ValueError(
+                    f"{name}={value} overflows the score grid at max_goals={max_goals}"
+                )
         tau = (
             1.0 - lambda_home * lambda_away * state.rho,
             1.0 + lambda_home * state.rho,
@@ -440,7 +456,13 @@ class ScoreDistribution:
         )
         if any(not math.isfinite(value) or value <= 0.0 for value in tau):
             raise ValueError("rho produces an invalid Dixon-Coles low-score multiplier")
-        raw = score_matrix(lambda_home, lambda_away, max_goals=max_goals, rho=state.rho)
+        try:
+            raw = score_matrix(lambda_home, lambda_away, max_goals=max_goals, rho=state.rho)
+        except OverflowError as exc:
+            raise ValueError(
+                f"score grid overflows for lambdas ({lambda_home}, {lambda_away}) "
+                f"at max_goals={max_goals}"
+            ) from exc
         cleaned = [
             [cell if math.isfinite(cell) and cell > 0.0 else 0.0 for cell in row]
             for row in raw
