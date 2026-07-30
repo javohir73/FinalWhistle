@@ -336,3 +336,171 @@ Specifically, and without exception:
 - Any file owned by the scope guards: PR #203's paths, the T1.6 calibrator
   area, or `pipeline/run_calibrator_benchmark.py` and the frozen q3 baseline.
 - D1's venue and travel work. Unrelated; separate branch, separate PR.
+
+---
+
+# APPENDIX A — corrections and additions, appended before any run
+
+**Written 2026-07-30, after a structured recon of the integration seams and
+before the first benchmark run.** Appended, not edited in place, per the
+standing rule. Everything above stands as written; this section says where it
+was wrong and what it missed. The commit that added this appendix contains no
+results either.
+
+## A1. §4 is wrong about the nine excluded files — CORRECTION
+
+§4 says football-data.co.uk *"published no over/under columns for them at
+all."* **That is false**, and it was false when written. Verified by reading
+the headers:
+
+```
+E0_1617, SP1_1718, D1_1819  ->  BbMx>2.5  BbAv>2.5  BbMx<2.5  BbAv<2.5
+```
+
+All nine 2016-17…2018-19 captures carry a **Betbrain** over/under pair — a
+market maximum and a market average. What they do not carry is a **closing**
+totals family: there is no `C`-suffixed totals column in any of them.
+
+The nine files stay excluded, and the row counts, the 6,395 total, and the
+99.98% in §4 are all unaffected — but the *reason* changes, and it changes from
+a weaker claim to a stronger one. They are excluded by §9's closing-line rule,
+which is a rule this program chose, not by an absence in the source data.
+
+That distinction is load-bearing, because it converts a fact into a
+temptation. Betbrain totals would widen the sample from 6,395 to roughly
+9,590 — a ~50% increase — and every one of those added rows would be
+**pre-closing**. Taking them would reproduce D0's founding defect exactly: a
+pre-closing market reported as a closing-line benchmark. So:
+
+- `BbMx` and `BbAv` are **never** added to the closing totals families.
+- A test asserts all nine captures raise `ClosingTotalsUnavailable`, so
+  including them later requires a visible code change and cannot happen by
+  drifting a default.
+- If a future phase wants them, it scores them in a separate, separately
+  labelled `pre_closing` column and never pools the two.
+
+## A2. The model column is IN-SAMPLE, and §4's split does not fix it
+
+§4 splits the seasons so the **constant** baseline is fitted out-of-sample.
+That is necessary and it is not sufficient, because it says nothing about the
+model.
+
+T1.1 selected `base` on **O/U 2.5 log loss** — this phase's exact metric —
+over seasons **1718–2425**. D0-B scores **1920–2425**, a strict subset.
+Therefore EPL's `base = 1.30` and Bundesliga's `base = 1.44` were *chosen on
+the data they are about to be scored on*, on the same metric. The 1X2 benchmark
+had no such alignment; this one does.
+
+Consequences, pre-registered now:
+
+- **A model-beats-market totals result is inflated by construction** and may
+  not be read as an edge. Any write-up that omits this sentence is wrong.
+- O4 already scores `base = 1.20` alongside the shipped value. Its status is
+  hereby upgraded from "descriptive re-measurement" to **the primary control**:
+  `pipeline.leagues.club_baseline_params_for(code)` is out-of-sample with
+  respect to T1.1, the shipped column is not, and **the difference between the
+  two columns is a measurement of the in-sample advantage, not of skill.**
+- The only clean holdout for totals is 2026-27. `2526` is consumed. This phase
+  therefore yields **information, not a decision** — which §12 already required
+  for other reasons, and now requires for this one too.
+
+## A3. Dixon–Coles ρ is exactly vacuous on this market — measured, pre-run
+
+τ touches only the cells (0,0), (0,1), (1,0), (1,1), every one of which has a
+total ≤ 2, and τ is mass-preserving, so it moves neither the numerator nor the
+denominator of P(total ≥ 3). Measured across ρ ∈ {0, −0.06, −0.20}:
+
+| λ pair | max |Δ P(over 2.5)| |
+|---|---|
+| (1.80, 1.20) | `0.000e+00` |
+| (2.40, 0.70) | `0.000e+00` |
+| (1.44, 1.44) | `0.000e+00` |
+| (1.05, 2.05) | `0.000e+00` |
+
+Not "negligible" — **exactly zero**, bit-for-bit. The served `rho = −0.06`
+cannot affect any number this phase reports. A ρ-invariance test is added so a
+future ρ change cannot silently move a recorded totals number, and so this
+claim is checked rather than trusted.
+
+## A4. `λ_h · λ_a ≡ base²` — measured at every served base
+
+Confirmed to 10 decimal places at `base` ∈ {1.20, 1.30, 1.44} and rating gaps
+{−300, 0, +150, +400}. The instructive part is the **sums**:
+
+| base | total at parity | total at a 400-pt gap |
+|---|---|---|
+| 1.20 (La Liga) | 2.400 | 3.298 |
+| 1.30 (EPL) | 2.600 | 3.573 |
+| 1.44 (Bundesliga) | 2.880 | 3.957 |
+
+The engine can only predict a high-scoring match by predicting a **mismatch**.
+Two evenly-matched high-scoring teams receive the league floor. Recorded here
+as a measured property of the served code, before any market comparison — so
+that if the totals gap turns out large, this is a pre-existing observation
+rather than a story assembled to explain it. It remains **out of scope** (§14):
+no tempo channel is built in this phase.
+
+## A5. `pipeline/run_club_benchmark.py` scores a model nobody serves
+
+[`pipeline/run_club_benchmark.py:98`](../../../pipeline/run_club_benchmark.py)
+calls `model_probs(rep["pre_home"], rep["pre_away"], False)` — three positional
+arguments, every keyword left at its default. Those defaults
+([`ml/evaluation/backtest.py:22-26`](../../../ml/evaluation/backtest.py)) are
+`base = 1.35`, `beta = 0.0019`, `home_adv = HOME_ADVANTAGE`, `rho = 0.0`,
+`temperature = 1.0`, **and no calibrator**.
+
+Production serves `base` 1.30 / 1.20 / 1.44, `beta = 0.0021`, `rho = −0.06`,
+`home_adv` 60 / 80 / 60, and a segmented vector-scaling calibrator. The two
+configurations share no parameter except `home_adv`, and only for two leagues.
+
+D0-B therefore **does not reuse that call site**. It builds its model column
+from `pipeline.leagues.club_params_for(code)` and
+`LEAGUES[code]["home_advantage"]`, and writes the resolved parameters into the
+receipt so the scored configuration is stated rather than assumed.
+
+Whether the 1X2 closing-line gaps recorded in `docs/MODEL-EXPERIMENTS.md`
+(+0.0312 / +0.0279 / +0.0326) came from this runner or from the separate audit
+harness is **not yet established**, and D0-B does not assume it. It is logged
+as an open question for the human; if they did come from here, those three
+numbers describe an unserved model and need restating. D0-B neither fixes that
+runner nor edits those numbers — out of scope, and not this phase's call.
+
+## A6. Two traps that would silently corrupt the run
+
+**A6.1 — a corrupt price that the guard catches.** `D1_1920.csv` line 261,
+`01/06/2020 FC Koln 2–4 RB Leipzig` (six goals, an Over), carries
+`AvgC>2.5 = 0.42`. A decimal price below 1.0 is not a price. Without the
+existing `min(...) <= 1.0` guard the proportional de-vig gives
+`p_over ≈ 0.871` on a match that was over — scoring as one of the market's
+best predictions of the decade. This is D0's NaN finding (P1) arriving through
+a different door, and it is the single row missing from §4's 6,396.
+
+Note `PC>2.5 = 1.47` on the same row: the match **is** recoverable from
+Pinnacle. It will not be recovered. Per-file family selection is fixed by §9;
+switching family per row would compose the market series out of whichever book
+happened to be clean, which is a selection effect concentrated on exactly the
+rows the publisher got wrong. The row is dropped and counted.
+
+**A6.2 — a loader that would fetch the burnt holdout.**
+`pipeline/experiment_club_eval.py::load_matches` iterates `SEASON_CODES`, which
+includes `"2526"`, and **falls back to a live network download when the cached
+file is absent**. The three `*_2526` captures are not on disk. Pointing that
+loader at `data/raw/club` would download the consumed confirmation season.
+
+D0-B does not reuse it. It uses a scoped loader over `pre_confirmation_keys()`
+with **no network fallback**, and a test monkeypatches `urlopen` to fail the
+test if any fetch is attempted.
+
+## A7. Interval choice — restated, because the recon disagreed with it
+
+The recon recommended season-clustered as primary. §11 declared
+**iso-week-clustered** as primary, with season-clustered reported alongside.
+
+§11 stands. Six season-clusters per league under-covers badly, and the repo's
+own precedent chose the calendar week for exactly this reason
+(`docs/MODEL-EXPERIMENTS.md`: *"one held-out season is a single season-cluster,
+so a season bootstrap would resample the same cluster every draw and return a
+zero-width CI"*). Changing the primary after seeing an argument for the other
+one — with no result yet in hand — is still the shape of post-hoc selection,
+and both intervals are reported either way. This paragraph exists so the
+disagreement is on the record rather than resolved silently.
