@@ -508,6 +508,7 @@ export interface NrlMatch {
   score_home: number | null;
   score_away: number | null;
   status: string;
+  minute?: number | null;
   prediction: NrlPrediction | null;
 }
 export interface NrlRound {

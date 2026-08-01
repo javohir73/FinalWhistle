@@ -20,8 +20,8 @@ const EMPTY: Record<Filter, string> = {
 
 /** Client island: segmented Upcoming/Live/Finished over the SSR-seeded fixtures.
  *  A 30s local clock tick runs unconditionally so a match self-promotes into the
- *  live strip at kickoff even if none was live on first paint; the 60s data
- *  refetch (scores land via the 15-min live poller) stays gated on ≥1 live match. */
+ *  live strip at kickoff even if none was live on first paint; the 30s data
+ *  refetch stays gated on ≥1 live match. */
 export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
   const [fixtures, setFixtures] = useState(initial);
   const [filter, setFilter] = useState<Filter>("Upcoming");
@@ -37,13 +37,16 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
     return () => clearInterval(tick);
   }, []);
 
-  // Data refetch: network, only while live — scores land via the 15-min live
-  // poller, so there's nothing to gain from polling the API when nothing's on.
+  // Data refetch: network, only while live. Refresh immediately when a match
+  // enters the window (or the page opens mid-match), then keep polling. The
+  // immediate call is important because the SSR seed can be up to 5m old.
   useEffect(() => {
     if (live.length === 0) return;
-    const tick = setInterval(() => {
-      getNrlMatches().then(setFixtures).catch(() => {});
-    }, 60_000);
+    const refresh = () => {
+      Promise.resolve(getNrlMatches()).then(setFixtures).catch(() => {});
+    };
+    refresh();
+    const tick = setInterval(refresh, 30_000);
     return () => clearInterval(tick);
   }, [live.length]);
 

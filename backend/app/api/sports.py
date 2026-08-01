@@ -21,6 +21,7 @@ from app.api.model_record import wilson_ci95
 from app.db import get_db
 from app.models import (
     NrlMatchStat,
+    NrlLiveState,
     NrlTryEvent,
     SportMatch,
     SportPrediction,
@@ -89,9 +90,22 @@ def nrl_matches(round: int | None = None, season: int | None = None,
     for p in preds:
         latest_pred_by_match.setdefault(p.match_id, p)
 
+    live_by_match = {
+        state.match_id: state
+        for state in db.query(NrlLiveState).filter(NrlLiveState.match_id.in_(match_ids)).all()
+    }
+
     rounds: dict[int, list[dict]] = {}
     for m, home_name, away_name in rows:
         pred = latest_pred_by_match.get(m.id)
+        live_state = live_by_match.get(m.id)
+        status = m.status
+        score_home, score_away = m.score_home, m.score_away
+        minute = None
+        if status != "finished" and live_state is not None:
+            status = "finished" if live_state.status == "final" else "in_play"
+            score_home, score_away = live_state.score_home, live_state.score_away
+            minute = live_state.minute
         pred_out = None
         if pred is not None:
             pred_out = {
@@ -112,9 +126,10 @@ def nrl_matches(round: int | None = None, season: int | None = None,
             "away": away_name,
             "home_team_id": m.home_team_id,
             "away_team_id": m.away_team_id,
-            "score_home": m.score_home,
-            "score_away": m.score_away,
-            "status": m.status,
+            "score_home": score_home,
+            "score_away": score_away,
+            "status": status,
+            "minute": minute,
             "prediction": pred_out,
         })
 

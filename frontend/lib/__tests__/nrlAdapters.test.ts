@@ -61,6 +61,16 @@ describe("nrlMatchToSummary", () => {
     expect(s.score_home).toBe(24);
     expect(s.score_away).toBe(12);
   });
+
+  it("passes live status, score and minute to the shared scoreboard", () => {
+    const s = nrlMatchToSummary(match({
+      status: "in_play", minute: 42, score_home: 18, score_away: 12,
+    }));
+    expect(s.status).toBe("in_play");
+    expect(s.minute).toBe(42);
+    expect(s.score_home).toBe(18);
+    expect(s.score_away).toBe(12);
+  });
 });
 
 describe("nrlMatchHref", () => {

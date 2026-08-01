@@ -12,7 +12,7 @@ from sqlalchemy.pool import StaticPool
 from app.cache import cache
 from app.db import Base, get_db
 from app.main import app
-from app.models import SportMatch, SportPrediction, SportPredictionResult, SportTeam
+from app.models import NrlLiveState, SportMatch, SportPrediction, SportPredictionResult, SportTeam
 
 
 def _make_session():
@@ -108,6 +108,31 @@ def test_matches_filters_by_round(client):
     assert len(body["rounds"]) == 1
     assert body["rounds"][0]["round"] == 2
     assert len(body["rounds"][0]["matches"]) == 1
+
+
+def test_matches_overlays_latest_live_score_and_clock(client):
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+    match = SportMatch(
+        sport="nrl", season=2026, round=1, match_no=1,
+        kickoff_utc=datetime(2026, 3, 5, 9, tzinfo=timezone.utc),
+        home_team_id=storm.id, away_team_id=eels.id, status="scheduled",
+    )
+    db.add(match)
+    db.flush()
+    db.add(NrlLiveState(
+        match_id=match.id, status="live", minute=42,
+        score_home=18, score_away=12, live_home_prob=0.74,
+    ))
+    db.commit()
+
+    body = c.get("/api/nrl/matches", params={"season": 2026}).json()
+    live = body["rounds"][0]["matches"][0]
+    assert live["status"] == "in_play"
+    assert live["minute"] == 42
+    assert (live["score_home"], live["score_away"]) == (18, 12)
 
 
 def test_matches_unknown_round_404s(client):

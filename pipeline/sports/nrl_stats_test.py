@@ -12,11 +12,13 @@ import requests
 
 from app.models import NrlMatchStat, NrlTryEvent, SportMatch, SportTeam
 from pipeline.sports.nrl_stats import (
+    LivePayload,
     MatchStatsPayload,
     NrlComStatsProvider,
     TeamStatsLine,
     TryEventLine,
     parse_draw_fixtures,
+    parse_live_payload,
     parse_match_stats,
     upsert_match_stats,
 )
@@ -99,6 +101,30 @@ def test_parse_draw_fixtures_lists_round_matches():
 
 def test_parse_draw_fixtures_returns_empty_on_garbage():
     assert parse_draw_fixtures({}) == []
+
+
+def test_parse_live_payload_reads_recorded_full_time_document():
+    assert parse_live_payload(_load("match_2025_r01_a.json")) == LivePayload(
+        status="final", minute=80, score_home=30, score_away=8,
+    )
+
+
+def test_parse_live_payload_maps_live_clock_and_score():
+    assert parse_live_payload({
+        "matchMode": "Live", "matchState": "SecondHalf", "gameSeconds": 2537,
+        "homeTeam": {"score": 18}, "awayTeam": {"score": 12},
+    }) == LivePayload(status="live", minute=42, score_home=18, score_away=12)
+
+
+def test_parse_live_payload_maps_upcoming_without_fabricating_visible_score():
+    assert parse_live_payload({
+        "matchMode": "Pre", "matchState": "Upcoming", "gameSeconds": 0,
+        "homeTeam": {"score": None}, "awayTeam": {"score": None},
+    }) == LivePayload(status="pre", minute=None, score_home=0, score_away=0)
+
+
+def test_parse_live_payload_rejects_malformed_live_document():
+    assert parse_live_payload({"matchMode": "Live", "homeTeam": [], "awayTeam": {}}) is None
 
 
 # --- StatsProvider: rate-limited default provider (Task 3) -----------------
@@ -231,10 +257,17 @@ def test_provider_throttles_at_least_one_second_between_requests(monkeypatch):
     assert any(s >= 0.99 for s in sleeps)
 
 
-def test_wave3_stubs_are_honest():
+def test_remaining_team_list_stub_and_unresolvable_live_are_honest():
     provider = NrlComStatsProvider()
     assert provider.fetch_team_list(2025, 1) == []
     assert provider.fetch_live(2025, 1, 1) is None
+
+
+def test_provider_fetches_and_parses_live_state(monkeypatch):
+    provider, calls, _ = _provider_with_recorded_http(monkeypatch, sleeps=[])
+    payload = provider.fetch_live(2025, 1, 1)
+    assert payload == LivePayload(status="final", minute=80, score_home=30, score_away=8)
+    assert len(calls) == 2
 
 
 # --- idempotent upsert (Task 5) --------------------------------------------
