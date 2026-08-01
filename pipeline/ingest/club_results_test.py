@@ -290,10 +290,60 @@ def test_sync_finished_aet_fixture_uses_regulation_score(db_session, monkeypatch
     match = db_session.query(Match).filter_by(provider_fixture_id=502).one()
     assert (match.score_home, match.score_away) == (3, 2)
     assert (match.score_home_90, match.score_away_90) == (2, 2)
+    assert match.is_neutral is False
     row = db_session.query(HistoricalMatch).filter_by(
         competition="UEFA Champions League"
     ).one()
     assert (row.score_a, row.score_b) == (2, 2)
+    assert row.is_neutral is False
+
+
+def test_sync_finished_ucl_final_preserves_neutral_venue(db_session, monkeypatch):
+    from app.models import Tournament
+
+    monkeypatch.setattr(
+        ls_mod,
+        "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {
+                    "id": 503,
+                    "date": "2027-06-05T19:00:00+00:00",
+                    "status": {"short": "FT"},
+                },
+                "league": {"round": "Final"},
+                "teams": {
+                    "home": {"id": 541, "name": "Real Madrid"},
+                    "away": {"id": 50, "name": "Manchester City"},
+                },
+                "goals": {"home": 2, "away": 1},
+            }
+        ],
+    )
+    load_league_structure(
+        db_session,
+        teams_file=None,
+        api_key="x",
+        tournament_name="UEFA Champions League 2026-27",
+        group_name="Champions League",
+        league_id=2,
+        season=2026,
+        group_round_prefixes=("League Stage",),
+    )
+    tournament = db_session.query(Tournament).filter_by(
+        name="UEFA Champions League 2026-27"
+    ).one()
+
+    sync_finished_matches_to_history(
+        db_session, tournament, competition="UEFA Champions League"
+    )
+
+    match = db_session.query(Match).filter_by(provider_fixture_id=503).one()
+    row = db_session.query(HistoricalMatch).filter_by(
+        competition="UEFA Champions League"
+    ).one()
+    assert match.is_neutral is True
+    assert row.is_neutral is True
 
 
 # ---------------------------------------------------------------------------

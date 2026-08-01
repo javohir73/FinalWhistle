@@ -225,7 +225,10 @@ def sync_finished_matches_to_history(
                 score_a=m.score_home_90 if m.score_home_90 is not None else m.score_home,
                 score_b=m.score_away_90 if m.score_away_90 is not None else m.score_away,
                 competition=competition,
-                is_neutral=False,
+                # Preserve the fixture's venue classification. Domestic and
+                # qualifying matches remain non-neutral, while a one-match
+                # UCL final must not gain home advantage in the Elo replay.
+                is_neutral=m.is_neutral,
             )
         )
         existing.add(key)
