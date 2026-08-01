@@ -59,14 +59,17 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     fails the whole run, exactly as it always has.
     """
     from app.models import Tournament
-    from pipeline.compute_club_elo import compute_and_store_club_elo, unrated_roster_teams
+    from pipeline.compute_club_elo import (
+        club_elo_ratings,
+        compute_and_store_club_elo,
+        unrated_roster_teams,
+    )
     from pipeline.generate_predictions import generate_predictions
     from pipeline.ingest.club_results import sync_finished_matches_to_history
     from pipeline.ingest.league_structure import load_league_structure
     from pipeline.league_activation import ensure_club_history
     from pipeline.leagues import (
         ACTIVE_LEAGUES,
-        CLUB_MODEL_VERSION,
         LEAGUES,
         club_baseline_params_for,
         club_params_for,
@@ -105,6 +108,7 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
                 lambda cfg=cfg: load_league_structure(
                     db, teams_file=cfg["teams_file"], tournament_name=cfg["tournament_name"],
                     group_name=cfg["group_name"], league_id=cfg["league_id"], season=cfg["season"],
+                    group_round_prefixes=cfg.get("group_round_prefixes"),
                 ),
             )
             tournament = db.get(Tournament, league_summary["tournament_id"])
@@ -157,13 +161,15 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
             db, cfg["tournament_name"], cfg["group_name"]
         )
         expected_cold_starts = set(cfg["cold_start_teams"])
-        unexpected = sorted(set(unrated) - expected_cold_starts)
+        dynamic_cold_starts = set(unrated) if cfg.get("allow_unrated_roster") else set()
+        unexpected = sorted(set(unrated) - expected_cold_starts - dynamic_cold_starts)
         step(
             f"{_prefix(code)}roster_audit",
             lambda code=code, unrated=unrated, unexpected=unexpected: {
                 "league": code,
                 "unrated": unrated,
                 "expected_cold_starts": sorted(set(unrated) & expected_cold_starts),
+                "dynamic_cold_starts": sorted(dynamic_cold_starts),
                 "unexpected_unrated": unexpected,
             },
         )
@@ -178,12 +184,20 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
         prediction_ready.append((code, tournament))
 
     for code, tournament in prediction_ready:
+        cfg = LEAGUES[code]
+        params = club_params_for(code)
+        base_strengths = club_elo_ratings(
+            db,
+            home_advantage=cfg["home_advantage"],
+            competition=cfg["club_competition"],
+        )
         step(
             f"{_prefix(code)}predictions",
-            lambda t=tournament, code=code: generate_predictions(
-                db, model_version=CLUB_MODEL_VERSION,
+            lambda t=tournament, code=code, cfg=cfg, params=params,
+            base_strengths=base_strengths: generate_predictions(
+                db, model_version=params.version,
                 n_sims=n_sims, tournament_id=t.id,
-                params=club_params_for(code),
+                params=params,
                 # v0.1 twin: the per-league refit's live A/B. Offline evidence
                 # for it is one confirmation season; this accrues the real one.
                 baseline_params=club_baseline_params_for(code),
@@ -191,13 +205,25 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
                 # so this adds no rows and changes nothing served
                 # (docs/BUNDESLIGA-CALIBRATOR-LIVE-VALIDATION.md).
                 shadow_variants=club_shadow_variants_for(code),
+                base_strengths=base_strengths,
+                standings_advance_count=cfg.get("standings_advance_count", 2),
             ),
         )
 
     # Also not tournament-scoped (learning_loop._finished_matches has no
     # tournament filter) -- one call evaluates every league's finished
     # matches against the model's own frozen predictions.
-    step("learning_loop", lambda: run_learning_loop(db, CLUB_MODEL_VERSION))
+    served_versions = list(dict.fromkeys(
+        club_params_for(code).version for code, _tournament in prediction_ready
+    ))
+
+    def _learning_loop_all_versions() -> dict:
+        results = {version: run_learning_loop(db, version) for version in served_versions}
+        if len(results) == 1:
+            return next(iter(results.values()))
+        return results
+
+    step("learning_loop", _learning_loop_all_versions)
 
     # New: score-prediction grading pass (League Score Predictions design
     # doc) -- grades HUMAN picks, a separate table/module from the model's

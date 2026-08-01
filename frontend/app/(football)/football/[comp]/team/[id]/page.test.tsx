@@ -38,3 +38,11 @@ it("points the canonical at the live /football/{comp}/team/{id} URL, not the red
   // Title still comes through from the legacy generateMetadata.
   expect(meta.title).toContain("Brazil");
 });
+
+it("keeps Champions League team canonicals in the UCL namespace", async () => {
+  mockGet.mockResolvedValue(teamProfile);
+  const meta = await generateMetadata({ params: Promise.resolve({ comp: "ucl", id: "10" }) });
+
+  expect(mockGet).toHaveBeenCalledWith("10", "ucl");
+  expect(meta.alternates?.canonical).toBe("/football/ucl/team/10");
+});

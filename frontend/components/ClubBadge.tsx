@@ -6,6 +6,76 @@ interface ClubIdentity {
   logoSrc: string;
 }
 
+/** API-Football's verified 2026-27 Champions League participants. The first
+ *  set is the live qualifying field returned on 2026-08-01; the remainder are
+ *  automatic league-phase qualifiers without an existing domestic asset.
+ *  Provider ids are stable asset keys across display-name changes. */
+const UCL_CLUB_LOGOS: Record<string, string> = {
+  Lyon: "/clubs/ucl/80.png",
+  "Heart Of Midlothian": "/clubs/ucl/254.png",
+  "Vikingur Reykjavik": "/clubs/ucl/278.png",
+  "Bodo/Glimt": "/clubs/ucl/327.png",
+  "Gornik Zabrze": "/clubs/ucl/340.png",
+  "Lech Poznan": "/clubs/ucl/347.png",
+  "The New Saints": "/clubs/ucl/354.png",
+  Aarhus: "/clubs/ucl/406.png",
+  "NEC Nijmegen": "/clubs/ucl/413.png",
+  "Olympiakos Piraeus": "/clubs/ucl/553.png",
+  "Hapoel Beer Sheva": "/clubs/ucl/563.png",
+  "Vardar Skopje": "/clubs/ucl/574.png",
+  "FK Crvena Zvezda": "/clubs/ucl/598.png",
+  Fenerbahçe: "/clubs/ucl/611.png",
+  "Dinamo Zagreb": "/clubs/ucl/620.png",
+  "Sparta Praha": "/clubs/ucl/628.png",
+  "Universitatea Craiova": "/clubs/ucl/632.png",
+  "Sturm Graz": "/clubs/ucl/637.png",
+  "Levski Sofia": "/clubs/ucl/646.png",
+  "Shamrock Rovers": "/clubs/ucl/652.png",
+  "Slovan Bratislava": "/clubs/ucl/656.png",
+  "Kairat Almaty": "/clubs/ucl/664.png",
+  "Lincoln Red Imps FC": "/clubs/ucl/667.png",
+  Sutjeska: "/clubs/ucl/673.png",
+  "Flora Tallinn": "/clubs/ucl/687.png",
+  "KI Klaksvik": "/clubs/ucl/701.png",
+  "FC Thun": "/clubs/ucl/1012.png",
+  KuPS: "/clubs/ucl/1165.png",
+  "Union St. Gilloise": "/clubs/ucl/1393.png",
+  "Mjallby AIF": "/clubs/ucl/2240.png",
+  "Tre Fiori": "/clubs/ucl/2260.png",
+  Petrocub: "/clubs/ucl/2271.png",
+  "Gyori ETO FC": "/clubs/ucl/2402.png",
+  "Egnatia Rrogozhinë": "/clubs/ucl/3327.png",
+  "Inter Club d'Escaldes": "/clubs/ucl/3342.png",
+  "Borac Banja Luka": "/clubs/ucl/3364.png",
+  "Omonia Nicosia": "/clubs/ucl/3402.png",
+  Saburtalo: "/clubs/ucl/3502.png",
+  "Ararat-Armenia": "/clubs/ucl/3683.png",
+  "Kauno Žalgiris": "/clubs/ucl/3872.png",
+  Celje: "/clubs/ucl/4360.png",
+  Floriana: "/clubs/ucl/4625.png",
+  Larne: "/clubs/ucl/5354.png",
+  "ML Vitebsk": "/clubs/ucl/7808.png",
+  Riga: "/clubs/ucl/10124.png",
+  "Sabah FA": "/clubs/ucl/13976.png",
+  Drita: "/clubs/ucl/14281.png",
+  "Atert Bissen": "/clubs/ucl/15847.png",
+  "Club Brugge KV": "/clubs/ucl/569.png",
+  Como: "/clubs/ucl/895.png",
+  Feyenoord: "/clubs/ucl/209.png",
+  Galatasaray: "/clubs/ucl/645.png",
+  Inter: "/clubs/ucl/505.png",
+  Lens: "/clubs/ucl/116.png",
+  Lille: "/clubs/ucl/79.png",
+  Napoli: "/clubs/ucl/492.png",
+  "Paris Saint Germain": "/clubs/ucl/85.png",
+  "FC Porto": "/clubs/ucl/212.png",
+  "PSV Eindhoven": "/clubs/ucl/197.png",
+  "AS Roma": "/clubs/ucl/497.png",
+  "Shakhtar Donetsk": "/clubs/ucl/550.png",
+  "Slavia Praha": "/clubs/ucl/560.png",
+  "Sporting CP": "/clubs/ucl/228.png",
+};
+
 /** Self-hosted club identities used by every active domestic-league dataset.
  *  Unknown/future clubs still degrade to the previous colored monogram. */
 const CLUBS: Record<string, ClubIdentity> = {
@@ -130,6 +200,13 @@ const CLUB_ALIASES: Record<string, string> = {
   Hoffenheim: "1899 Hoffenheim",
   "Mainz 05": "FSV Mainz 05",
   "Schalke 04": "FC Schalke 04",
+  "Club Brugge": "Club Brugge KV",
+  Paris: "Paris Saint Germain",
+  PSG: "Paris Saint Germain",
+  Porto: "FC Porto",
+  PSV: "PSV Eindhoven",
+  Roma: "AS Roma",
+  Shakhtar: "Shakhtar Donetsk",
 };
 
 export function ClubBadge({
@@ -142,7 +219,17 @@ export function ClubBadge({
   className?: string;
 }) {
   const canonicalName = name ? (CLUB_ALIASES[name] ?? name) : null;
-  const club = canonicalName ? CLUBS[canonicalName] : undefined;
+  const uclLogo = canonicalName ? UCL_CLUB_LOGOS[canonicalName] : undefined;
+  const club = canonicalName
+    ? CLUBS[canonicalName] ??
+      (uclLogo
+        ? {
+            code: canonicalName.replace(/[^A-Za-z0-9]/g, "").slice(0, 3).toUpperCase(),
+            color: "#1c3f94",
+            logoSrc: uclLogo,
+          }
+        : undefined)
+    : undefined;
   const code = club?.code ?? (name ?? "?").slice(0, 3).toUpperCase();
 
   if (club) {

@@ -64,6 +64,10 @@ it.each([
   ["/play", "Play"], // the hub itself lights Play
   ["/tips", "Play"], // Play subsumes the league-tips route (activePrefix)
   ["/football/wc26/bracket", "Play"], // ...and the projected-bracket route the user actually lands on (legacy /brackets 301s here)
+  ["/football/ucl", "Home"],
+  ["/football/ucl/fixtures", "Fixtures"],
+  ["/football/ucl/match/31", "Fixtures"],
+  ["/football/ucl/standings", "League phase"],
   ["/leaderboard", "You"], // cross-cutting, not namespaced in P1
   ["/about", "You"], // relocated info pages light the You hub
   ["/methodology", "You"],

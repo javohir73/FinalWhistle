@@ -11,7 +11,7 @@ from app.cache import cache
 from app.config import settings
 from app.db import Base, get_db
 from app.main import app
-from app.models import Group, GroupTeam, Match, Prediction, Team, Tournament
+from app.models import Group, GroupTeam, HistoricalMatch, Match, Prediction, Team, Tournament
 from pipeline.generate_predictions import generate_predictions
 from pipeline.ingest.wc26_structure import load_structure
 
@@ -123,6 +123,78 @@ def test_teams_list_and_profile(client):
     assert prof.status_code == 200
     assert "recent_form" in prof.json()
     assert client.get("/api/teams/999999").status_code == 404
+
+
+def test_ucl_qualifier_teams_are_scoped_by_fixtures_without_entering_standings(client):
+    """A qualifying club has a working list/profile route even though it is
+    deliberately absent from the league-phase GroupTeam table."""
+    gen = app.dependency_overrides[get_db]()
+    db = next(gen)
+    tournament = Tournament(
+        name="UEFA Champions League 2026-27",
+        year=2026,
+        host_countries="",
+        home_advantage_mode="home",
+    )
+    home = Team(name="Lyon", provider_team_id=80, is_host=False)
+    away = Team(name="Sparta Praha", provider_team_id=628, is_host=False)
+    domestic = Tournament(name="Premier League 2026-27", year=2026, host_countries="")
+    domestic_group = Group(tournament=domestic, name="Premier League")
+    domestic_opp = Team(name="Domestic opponent", is_host=False)
+    ucl_opp = Team(name="UCL opponent", is_host=False)
+    db.add_all([tournament, domestic, domestic_group, home, away, domestic_opp, ucl_opp])
+    db.flush()
+    db.add(GroupTeam(group_id=domestic_group.id, team_id=home.id))
+    db.add_all([
+        HistoricalMatch(
+            date=datetime(2026, 7, 20, tzinfo=timezone.utc),
+            team_a_id=home.id,
+            team_b_id=domestic_opp.id,
+            score_a=0,
+            score_b=3,
+            competition="Premier League",
+            is_neutral=False,
+        ),
+        HistoricalMatch(
+            date=datetime(2026, 7, 10, tzinfo=timezone.utc),
+            team_a_id=home.id,
+            team_b_id=ucl_opp.id,
+            score_a=2,
+            score_b=0,
+            competition="UEFA Champions League",
+            is_neutral=False,
+        ),
+    ])
+    db.add(
+        Match(
+            tournament_id=tournament.id,
+            group_id=None,
+            stage="qualifying",
+            team_home_id=home.id,
+            team_away_id=away.id,
+            kickoff_utc=datetime(2026, 8, 11, 19, 0, tzinfo=timezone.utc),
+            is_neutral=False,
+            status="scheduled",
+        )
+    )
+    db.commit()
+    home_id = home.id
+    db.close()
+    cache.clear()
+
+    teams = client.get("/api/teams?competition=ucl")
+    assert teams.status_code == 200
+    assert {team["name"] for team in teams.json()} == {"Lyon", "Sparta Praha"}
+    profile = client.get(f"/api/teams/{home_id}?competition=ucl")
+    assert profile.status_code == 200
+    assert profile.json()["group_id"] is None
+    assert [row["opponent"] for row in profile.json()["recent_form"]] == ["UCL opponent"]
+    domestic_profile = client.get(f"/api/teams/{home_id}?competition=epl")
+    assert domestic_profile.status_code == 200
+    assert domestic_profile.json()["group_name"] == "Premier League"
+    assert [row["opponent"] for row in domestic_profile.json()["recent_form"]] == [
+        "Domestic opponent"
+    ]
 
 
 def test_groups(client):

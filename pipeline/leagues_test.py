@@ -1,10 +1,10 @@
-"""Tests for the active three-league registry."""
+"""Tests for the active football competition registry."""
 from pipeline import leagues as leagues_mod
 from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES, PHASE_2_PENDING_ACTIVATION, club_competitions
 
 
-def test_all_three_leagues_are_active_in_pipeline_order():
-    assert ACTIVE_LEAGUES == ["epl", "laliga", "bundesliga"]
+def test_all_four_leagues_are_active_in_pipeline_order():
+    assert ACTIVE_LEAGUES == ["epl", "laliga", "bundesliga", "ucl"]
 
 
 def test_no_registered_phase_2_league_remains_pending():
@@ -46,6 +46,17 @@ def test_epl_config_matches_the_live_2026_27_roster():
     assert cfg["cold_start_teams"] == ("Coventry",)
 
 
+def test_ucl_config_uses_verified_cross_border_provider_identity():
+    cfg = LEAGUES["ucl"]
+    assert cfg["league_id"] == 2
+    assert cfg["season"] == 2026
+    assert cfg["history_source"] == "api_football"
+    assert cfg["history_seasons"] == (2022, 2023, 2024, 2025)
+    assert cfg["club_division"] is None
+    assert cfg["group_round_prefixes"] == ("League Stage",)
+    assert cfg["standings_advance_count"] == 24
+
+
 def test_every_leagues_entry_has_a_unique_club_competition():
     """club_competitions()'s notin_() set only protects the international
     replay if every league's discriminator is actually distinct."""
@@ -58,7 +69,9 @@ def test_club_competitions_covers_every_registered_league_not_just_active_ones()
     international exclusion in pipeline/compute_elo.py must never treat a
     not-yet-active league's rows as international just because
     ACTIVE_LEAGUES hasn't grown yet."""
-    assert club_competitions() == frozenset({"Premier League", "La Liga", "Bundesliga"})
+    assert club_competitions() == frozenset(
+        {"Premier League", "La Liga", "Bundesliga", "UEFA Champions League"}
+    )
 
 
 def test_club_competitions_reflects_monkeypatched_registry_additions(monkeypatch):
@@ -149,9 +162,14 @@ def test_unconfirmed_candidates_did_not_sneak_into_any_league():
             )
 
 
-def test_every_league_serves_the_same_club_model_version():
-    for code in LEAGUES:
+def test_domestic_leagues_keep_the_shared_club_model_version():
+    for code in ("epl", "laliga", "bundesliga"):
         assert leagues_mod.club_params_for(code).version == leagues_mod.CLUB_MODEL_VERSION
+
+
+def test_ucl_has_truthful_first_version_lineage_and_no_fake_baseline():
+    assert leagues_mod.club_params_for("ucl").version == "poisson-elo-ucl-v0.1"
+    assert leagues_mod.club_baseline_params_for("ucl") is None
 
 
 def test_shadow_baseline_is_the_previous_version_with_no_overrides():

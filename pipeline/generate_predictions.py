@@ -1034,6 +1034,7 @@ def _simulate_standings(
     db: Session, group: Group, model_version: str, n_sims: int,
     strengths: dict[int, float] | None = None,
     params: ModelParams | None = None,
+    advance_count: int = 2,
 ) -> None:
     params = params or load_params()
     members = [gt.team for gt in group.group_teams]
@@ -1051,6 +1052,7 @@ def _simulate_standings(
 
     results = simulate_group(
         team_elos, fixtures, n_sims=n_sims, seed=2026,
+        advance_count=advance_count,
         base=params.base, beta=params.beta, rho=params.rho,
         # Combined xG team offsets + split form-channel offsets (model v2
         # C1): the SAME per-team sum build_payload applies to the match
@@ -1183,6 +1185,8 @@ def generate_predictions(
     baseline_params: ModelParams | None = None,
     shadow_variants: dict[str, ModelParams] | None = None,
     vnext_shadow_spec: "VNextShadowSpec | None" = None,
+    base_strengths: dict[int, float] | None = None,
+    standings_advance_count: int = 2,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1224,6 +1228,12 @@ def generate_predictions(
     ``vnext_shadow_spec`` is an explicit shadow-only canary. None (the default)
     imports no vNext integration code and writes no vNext row. When supplied,
     its exact content-addressed tag is appended after all existing twins.
+
+    ``base_strengths`` and ``standings_advance_count`` are competition-scoped
+    overrides for shared-table tournaments. They let the Champions League use
+    its own historical replay on clubs that also appear in a domestic league,
+    and model its top-24 league-phase progression without changing the
+    domestic/WC defaults.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -1232,7 +1242,7 @@ def generate_predictions(
 
     params = params or load_params()
     active_model_version = model_version or params.version
-    strengths = effective_elos(db)
+    strengths = effective_elos(db, base_ratings=base_strengths)
 
     booster = None
     if params.wdl_blend:
@@ -1317,7 +1327,15 @@ def generate_predictions(
         groups_q = groups_q.filter_by(tournament_id=tournament_id)
     groups = groups_q.all()
     for group in groups:
-        _simulate_standings(db, group, active_model_version, n_sims, strengths=strengths, params=params)
+        _simulate_standings(
+            db,
+            group,
+            active_model_version,
+            n_sims,
+            strengths=strengths,
+            params=params,
+            advance_count=standings_advance_count,
+        )
 
     teams_simulated = _simulate_tournament(
         db, tournament_sims, strengths=strengths, params=params, tournament_id=tournament_id

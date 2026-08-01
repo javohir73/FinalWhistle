@@ -86,6 +86,18 @@ def test_no_update_without_finished_matches(db_session):
     assert effective_elos(db_session) == base
 
 
+def test_effective_elos_keeps_supplied_competition_boundary(db_session):
+    domestic = Team(name="Domestic overlap", elo_rating=1840.0)
+    known_ucl = Team(name="Known UCL club", elo_rating=1720.0)
+    db_session.add_all([domestic, known_ucl])
+    db_session.commit()
+
+    ratings = effective_elos(db_session, base_ratings={known_ucl.id: 1615.0})
+
+    assert ratings[known_ucl.id] == 1615.0
+    assert ratings[domestic.id] == 1500.0
+
+
 def test_completed_match_updates_ratings_and_stores_metrics(db_session):
     _seed(db_session)
     m = _first_group_match(db_session)

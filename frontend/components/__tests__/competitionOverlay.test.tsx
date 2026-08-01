@@ -46,6 +46,10 @@ it("separates sports into sections and links every football competition", () => 
     "href",
     "/football/bundesliga",
   );
+  expect(screen.getByRole("link", { name: /UEFA Champions League UCL/i })).toHaveAttribute(
+    "href",
+    "/football/ucl",
+  );
 });
 
 it("Escape closes the dialog and returns focus to the trigger", () => {

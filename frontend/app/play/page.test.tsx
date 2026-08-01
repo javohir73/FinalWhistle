@@ -100,12 +100,13 @@ it("renders the prototype slate grouped by competition", async () => {
     "Premier League",
     "La Liga",
     "Bundesliga",
+    "UEFA Champions League",
     "World Cup 2026",
     "NRL",
   ]) {
     expect(screen.getByRole("heading", { name })).toBeInTheDocument();
   }
-  expect(document.querySelectorAll("[data-competition-logo]")).toHaveLength(10);
+  expect(document.querySelectorAll("[data-competition-logo]")).toHaveLength(11);
 });
 
 it("seeds the NRL group with the current round when the tipsheet loads", async () => {
@@ -176,10 +177,15 @@ it("degrades the bracket card to a plain link when the knockout odds are unavail
   expect(bracketLink).not.toHaveTextContent("Predicted champion");
 });
 
-it("mounts one fixed league tips picker for every active football league", async () => {
+it("mounts tips pickers only for leagues with real matchweeks", async () => {
   render(await PlayPage());
 
   expect(screen.getByTestId("picker-epl")).toHaveTextContent("epl");
   expect(screen.getByTestId("picker-laliga")).toHaveTextContent("laliga");
   expect(screen.getByTestId("picker-bundesliga")).toHaveTextContent("bundesliga");
+  expect(screen.queryByTestId("picker-ucl")).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /View Champions League fixtures/i })).toHaveAttribute(
+    "href",
+    "/football/ucl/fixtures",
+  );
 });

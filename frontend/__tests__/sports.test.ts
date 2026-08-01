@@ -70,6 +70,7 @@ describe("sport config", () => {
 describe("competition registry", () => {
   it("resolves the active competition from the pathname, longest basePath wins", () => {
     expect(competitionFromPathname("/football/epl/fixtures")).toBe("epl");
+    expect(competitionFromPathname("/football/ucl/match/42")).toBe("ucl");
     expect(competitionFromPathname("/football/wc26")).toBe("wc26");
     expect(competitionFromPathname("/football/wc26/match/42")).toBe("wc26");
     expect(competitionFromPathname("/nrl/ladder")).toBe("nrl");
@@ -101,6 +102,7 @@ describe("competition registry", () => {
     expect(isWiredCompetition("epl")).toBe(true);
     expect(isWiredCompetition("laliga")).toBe(true);
     expect(isWiredCompetition("bundesliga")).toBe(true);
+    expect(isWiredCompetition("ucl")).toBe(true);
     expect(isWiredCompetition("bogus")).toBe(false);
   });
 
@@ -112,6 +114,7 @@ describe("competition registry", () => {
     expect(isWiredFootballCompetition("wc26")).toBe(true);
     expect(isWiredFootballCompetition("nrl")).toBe(false);
     expect(isWiredFootballCompetition("epl")).toBe(true);
+    expect(isWiredFootballCompetition("ucl")).toBe(true);
     expect(isWiredFootballCompetition("bogus")).toBe(false);
   });
 
@@ -120,6 +123,14 @@ describe("competition registry", () => {
     expect(COMPETITIONS.wc26.hasGroups).toBe(true);
     expect(COMPETITIONS.epl.format).toBe("league");
     expect(COMPETITIONS.epl.hasBracket).toBe(false);
+  });
+
+  it("exposes the Champions League league phase without inventing a bracket", () => {
+    expect(COMPETITIONS.ucl.format).toBe("league");
+    expect(COMPETITIONS.ucl.hasBracket).toBe(false);
+    expect(COMPETITIONS.ucl.hasGroups).toBe(false);
+    expect(COMPETITIONS.ucl.hasTips).toBe(false);
+    expect(COMPETITIONS.ucl.terms.standings).toBe("League phase");
   });
 
   it("gives each sport its own terminology (Fixtures/Standings vs Matches/Ladder)", () => {
@@ -132,6 +143,7 @@ describe("competition registry", () => {
       "epl",
       "laliga",
       "bundesliga",
+      "ucl",
       "wc26",
     ]);
     expect(competitionsForSport("nrl").map((c) => c.id)).toEqual(["nrl"]);
@@ -139,6 +151,7 @@ describe("competition registry", () => {
 
   it("gives every competition its own accent token", () => {
     expect(COMPETITIONS.epl.accentVar).toBe("--accent-epl");
+    expect(COMPETITIONS.ucl.accentVar).toBe("--accent-ucl");
   });
 
   // Floodlight P1 slice p1-s4: SiteNav/BottomNav now derive their links from
@@ -188,6 +201,7 @@ describe("competition registry", () => {
     expect(isCompetitionHomeHref("/football/wc26")).toBe(true);
     expect(isCompetitionHomeHref("/nrl")).toBe(true);
     expect(isCompetitionHomeHref("/football/wc26/fixtures")).toBe(false);
+    expect(isCompetitionHomeHref("/football/ucl")).toBe(true);
   });
 
   // Floodlight P1 slice p1-s5: validates a localStorage-read pin (lib/competitionPrefs.ts)

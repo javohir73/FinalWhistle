@@ -218,8 +218,12 @@ def sync_finished_matches_to_history(
                 date=m.kickoff_utc,
                 team_a_id=m.team_home_id,
                 team_b_id=m.team_away_id,
-                score_a=m.score_home,
-                score_b=m.score_away,
+                # AET/PEN fixtures keep their public final total on
+                # score_home/away but the prediction model is a 90-minute
+                # market. Prefer the regulation pair when the provider
+                # supplied it (league_structure writes these fields).
+                score_a=m.score_home_90 if m.score_home_90 is not None else m.score_home,
+                score_b=m.score_away_90 if m.score_away_90 is not None else m.score_away,
                 competition=competition,
                 is_neutral=False,
             )

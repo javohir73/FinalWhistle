@@ -79,6 +79,21 @@ it("keeps the Play link (never Bracket/Tips) when the active tournament has no b
   expect(screen.getByRole("link", { name: "Standings" })).toBeInTheDocument();
 });
 
+it("uses Champions League league-phase navigation without advertising a bracket", () => {
+  mockPath = "/football/ucl";
+  renderNav(LEAGUE);
+  expect(screen.getByRole("button", { name: "UCL" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "League phase" })).toHaveAttribute(
+    "href",
+    "/football/ucl/standings",
+  );
+  expect(screen.getByRole("link", { name: "Fixtures" })).toHaveAttribute(
+    "href",
+    "/football/ucl/fixtures",
+  );
+  expect(screen.queryByRole("link", { name: "Bracket" })).not.toBeInTheDocument();
+});
+
 it("swaps the NRL fifth link for the shared Play hub -> /play (leaderboard alias dropped from nav, not the route)", () => {
   mockPath = "/nrl";
   renderNav();

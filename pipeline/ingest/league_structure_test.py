@@ -180,12 +180,13 @@ def test_matchweek_updates_on_re_ingestion_after_reschedule(db_session, monkeypa
 # ---------------------------------------------------------------------------
 
 def _fixture_with_ids(fid, home_name, home_id, away_name, away_id, *,
-                       status="NS", kickoff="2026-08-21T19:00:00+00:00"):
+                       status="NS", kickoff="2026-08-21T19:00:00+00:00",
+                       round_=None):
     """Like _fixture() above but also carries teams.home/away.id -- the real
     api-sports v3 payload always includes this (_fixture_fields discards it;
     a teams_file=None league needs it to derive Team rows without a second
     /teams HTTP call)."""
-    return {
+    fixture = {
         "fixture": {"id": fid, "date": kickoff, "status": {"short": status}},
         "teams": {
             "home": {"id": home_id, "name": home_name},
@@ -193,6 +194,88 @@ def _fixture_with_ids(fid, home_name, home_id, away_name, away_id, *,
         },
         "goals": {"home": None, "away": None},
     }
+    if round_ is not None:
+        fixture["league"] = {"round": round_}
+    return fixture
+
+
+def test_ucl_qualifiers_are_fixtures_not_league_phase_table_rows(db_session, monkeypatch):
+    """Before the league-phase draw, qualifiers render and can be predicted,
+    but cannot create standings members or tips matchweeks."""
+    monkeypatch.setattr(
+        ls_mod,
+        "fetch_fixtures",
+        lambda *a, **k: [
+            _fixture_with_ids(
+                8801, "Lyon", 80, "Sparta Praha", 628,
+                round_="3rd Qualifying Round",
+            ),
+            _fixture_with_ids(
+                8802, "Arsenal", 42, "Real Madrid", 541,
+                round_="League Stage - 1",
+            ),
+            _fixture_with_ids(
+                8803, "Arsenal", 42, "Real Madrid", 541,
+                round_="Round of 16",
+            ),
+        ],
+    )
+
+    load_league_structure(
+        db_session,
+        teams_file=None,
+        api_key="x",
+        tournament_name="UEFA Champions League 2026-27",
+        group_name="Champions League",
+        league_id=2,
+        season=2026,
+        group_round_prefixes=("League Stage",),
+    )
+
+    group = db_session.query(Group).filter_by(name="Champions League").one()
+    member_names = {
+        gt.team.name for gt in db_session.query(GroupTeam).filter_by(group_id=group.id).all()
+    }
+    assert member_names == {"Arsenal", "Real Madrid"}
+
+    qualifier = db_session.query(Match).filter_by(provider_fixture_id=8801).one()
+    assert qualifier.group_id is None
+    assert qualifier.stage == "qualifying"
+    assert qualifier.matchweek is None
+
+    league_phase = db_session.query(Match).filter_by(provider_fixture_id=8802).one()
+    assert league_phase.group_id == group.id
+    assert league_phase.stage == "group"
+    assert league_phase.matchweek == 1
+
+    knockout = db_session.query(Match).filter_by(provider_fixture_id=8803).one()
+    assert knockout.group_id is None
+    assert knockout.stage == "knockout"
+    assert knockout.matchweek is None
+
+
+def test_ucl_final_is_neutral_on_create_and_update(db_session, monkeypatch):
+    payload = [_fixture_with_ids(8810, "Arsenal", 42, "Real Madrid", 541, round_="Final")]
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: payload)
+
+    kwargs = {
+        "teams_file": None,
+        "api_key": "x",
+        "tournament_name": "UEFA Champions League 2026-27",
+        "group_name": "Champions League",
+        "league_id": 2,
+        "season": 2026,
+        "group_round_prefixes": ("League Stage",),
+    }
+    load_league_structure(db_session, **kwargs)
+    final = db_session.query(Match).filter_by(provider_fixture_id=8810).one()
+    assert final.stage == "knockout"
+    assert final.is_neutral is True
+
+    final.is_neutral = False
+    db_session.commit()
+    load_league_structure(db_session, **kwargs)
+    assert final.is_neutral is True
 
 
 def test_derives_teams_from_fixtures_payload_when_no_teams_file(db_session, monkeypatch):

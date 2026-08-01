@@ -32,6 +32,7 @@ it.each([
   ["Premier League", "Arsenal", "Chelsea", "/clubs/epl/arsenal.png", "/clubs/epl/chelsea.png"],
   ["La Liga", "Levante", "Athletic Club", "/clubs/laliga/levante.png", "/clubs/laliga/athletic-club.png"],
   ["Bundesliga", "Bayern München", "VfB Stuttgart", "/clubs/bundesliga/bayern-munchen.png", "/clubs/bundesliga/vfb-stuttgart.png"],
+  ["Champions League", "Arsenal", "Barcelona", "/clubs/epl/arsenal.png", "/clubs/laliga/barcelona.png"],
 ])(
   "shows both %s club crests in the prediction card",
   (group, home, away, homeSrc, awaySrc) => {

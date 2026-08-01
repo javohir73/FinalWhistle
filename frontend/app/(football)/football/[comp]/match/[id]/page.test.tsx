@@ -54,3 +54,11 @@ it("still resolves per-competition once other football competitions go live", as
 
   expect(meta.alternates?.canonical).toBe("/football/epl/match/7");
 });
+
+it("keeps Champions League match canonicals in the UCL namespace", async () => {
+  mockGet.mockResolvedValue(prediction);
+  const meta = await generateMetadata({ params: Promise.resolve({ comp: "ucl", id: "9" }) });
+
+  expect(mockGet).toHaveBeenCalledWith("9", "ucl");
+  expect(meta.alternates?.canonical).toBe("/football/ucl/match/9");
+});

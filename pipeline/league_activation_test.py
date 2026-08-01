@@ -75,3 +75,38 @@ def test_truncated_source_fails_before_predictions(db_session):
             _config(minimum=3),
             downloader=lambda **_kwargs: _frame(),
         )
+
+
+def test_ucl_uses_explicit_api_football_history_strategy(db_session):
+    calls = []
+
+    def downloader(**kwargs):
+        calls.append(kwargs)
+        return [
+            {
+                "fixture_id": 100,
+                "date": datetime(2025, 9, 17, tzinfo=timezone.utc),
+                "home_id": 42,
+                "home_name": "Arsenal",
+                "away_id": 541,
+                "away_name": "Real Madrid",
+                "score_home": 2,
+                "score_away": 1,
+                "is_neutral": False,
+            }
+        ]
+
+    config = {**LEAGUES["ucl"], "history_min_matches": 1}
+    result = ensure_club_history(db_session, config, downloader=downloader)
+
+    assert result["matches"] == 1
+    assert calls == [
+        {
+            "api_key": "",
+            "league": 2,
+            "seasons": (2022, 2023, 2024, 2025),
+        }
+    ]
+    assert db_session.query(HistoricalMatch).filter_by(
+        competition="UEFA Champions League"
+    ).count() == 1

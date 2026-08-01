@@ -110,10 +110,11 @@ export function switchSportHref(pathname: string, target: SportId): string {
  * ========================================================================= */
 
 /** One entry per football league/tournament, plus NRL as its own "competition"
- *  so nav/gating code can treat all five uniformly. WC26 is the only
- *  knockout-format entry (hasBracket/hasGroups); the four league-format
- *  entries (epl/laliga/bundesliga/nrl) share the Tips slot instead. */
-export type CompetitionId = "epl" | "laliga" | "bundesliga" | "wc26" | "nrl";
+ *  so nav/gating code can treat them uniformly. WC26 is the only
+ *  knockout-format entry (hasBracket/hasGroups). UCL currently exposes its
+ *  league-phase standings, fixtures, and tips; a knockout bracket stays hidden
+ *  until the backend has a real bracket tree to serve. */
+export type CompetitionId = "epl" | "laliga" | "bundesliga" | "ucl" | "wc26" | "nrl";
 
 /** A contiguous rank band on a standings/ladder table, e.g. "positions 1-4
  *  qualify for the Champions League." Consumed by the P2 StandingsTable to
@@ -269,6 +270,50 @@ export const COMPETITIONS: Record<CompetitionId, Competition> = {
       },
     ],
   },
+  ucl: {
+    id: "ucl",
+    sport: "football",
+    label: "UEFA Champions League",
+    shortLabel: "UCL",
+    logoSrc: "/competitions/ucl.png",
+    basePath: "/football/ucl",
+    accentVar: "--accent-ucl",
+    // The current surface covers the league phase. Knockout fixtures can
+    // continue to render on the fixture/detail pages, but no projected bracket
+    // is advertised until a competition-scoped tree is available.
+    format: "league",
+    hasBracket: false,
+    hasGroups: false,
+    // Qualifying fixtures have no league-stage matchweek. Enable score tips
+    // only once real league-stage rounds exist; match model predictions remain
+    // available on fixture and match pages throughout qualifying.
+    hasTips: false,
+    enabled: true,
+    terms: { fixtures: "Fixtures", standings: "League phase" },
+    zones: [
+      { from: 1, to: 8, label: "Round of 16", tone: "cl" },
+      { from: 9, to: 24, label: "Knockout phase play-offs", tone: "europa" },
+    ],
+    navLinks: [
+      { href: "/football/ucl", label: "Home", activePrefixes: ["/football/ucl/team"] },
+      {
+        href: "/football/ucl/fixtures",
+        label: "Fixtures",
+        activePrefixes: ["/football/ucl/fixtures", "/football/ucl/match"],
+      },
+      { href: "/play", label: "Play", activePrefixes: ["/tips", "/brackets"] },
+      {
+        href: "/football/ucl/standings",
+        label: "League phase",
+        activePrefixes: ["/football/ucl/standings"],
+      },
+      {
+        href: "/leaderboard",
+        label: "You",
+        activePrefixes: ["/about", "/methodology", "/privacy", "/terms", "/record"],
+      },
+    ],
+  },
   wc26: {
     id: "wc26",
     sport: "football",
@@ -379,7 +424,7 @@ export const DEFAULT_COMPETITION: CompetitionId = "wc26";
 export function competitionFromPathname(pathname: string): CompetitionId {
   if (pathname === "/nrl" || pathname.startsWith("/nrl/")) return "nrl";
 
-  const footballIds: CompetitionId[] = ["epl", "laliga", "bundesliga", "wc26"];
+  const footballIds: CompetitionId[] = ["epl", "laliga", "bundesliga", "ucl", "wc26"];
   let best: CompetitionId | null = null;
   for (const id of footballIds) {
     const base = COMPETITIONS[id].basePath;

@@ -5,7 +5,7 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
-from app.models import HistoricalMatch, Team
+from app.models import HistoricalMatch, Match, Team
 from pipeline.ingest import league_structure as ls_mod
 from pipeline.ingest.club_results import (
     BASE_URL,
@@ -244,6 +244,56 @@ def test_sync_finished_matches_scopes_to_the_passed_competition(db_session, monk
     # Never landed under the EPL default -- a stray bug here would silently
     # blend La Liga's history into EPL's club Elo replay.
     assert db_session.query(HistoricalMatch).filter_by(competition=CLUB_COMPETITION).count() == 0
+
+
+def test_sync_finished_aet_fixture_uses_regulation_score(db_session, monkeypatch):
+    from app.models import Tournament
+
+    monkeypatch.setattr(
+        ls_mod,
+        "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {
+                    "id": 502,
+                    "date": "2026-07-28T19:00:00+00:00",
+                    "status": {"short": "AET"},
+                },
+                "league": {"round": "2nd Qualifying Round"},
+                "teams": {
+                    "home": {"id": 80, "name": "Lyon"},
+                    "away": {"id": 628, "name": "Sparta Praha"},
+                },
+                "goals": {"home": 3, "away": 2},
+                "score": {"fulltime": {"home": 2, "away": 2}},
+            }
+        ],
+    )
+    load_league_structure(
+        db_session,
+        teams_file=None,
+        api_key="x",
+        tournament_name="UEFA Champions League 2026-27",
+        group_name="Champions League",
+        league_id=2,
+        season=2026,
+        group_round_prefixes=("League Stage",),
+    )
+    tournament = db_session.query(Tournament).filter_by(
+        name="UEFA Champions League 2026-27"
+    ).one()
+
+    sync_finished_matches_to_history(
+        db_session, tournament, competition="UEFA Champions League"
+    )
+
+    match = db_session.query(Match).filter_by(provider_fixture_id=502).one()
+    assert (match.score_home, match.score_away) == (3, 2)
+    assert (match.score_home_90, match.score_away_90) == (2, 2)
+    row = db_session.query(HistoricalMatch).filter_by(
+        competition="UEFA Champions League"
+    ).one()
+    assert (row.score_a, row.score_b) == (2, 2)
 
 
 # ---------------------------------------------------------------------------
