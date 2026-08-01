@@ -24,6 +24,10 @@ it("renders one clear route into every supported competition", () => {
     "href",
     "/football/bundesliga",
   );
+  expect(screen.getByRole("link", { name: /UEFA Champions League/ })).toHaveAttribute(
+    "href",
+    "/football/ucl",
+  );
   expect(screen.getByRole("link", { name: /World Cup 2026/ })).toHaveAttribute(
     "href",
     "/football/wc26",

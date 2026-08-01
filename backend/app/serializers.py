@@ -504,16 +504,20 @@ def group_to_out(db: Session, group) -> schemas.GroupOut:
     return schemas.GroupOut(id=group.id, name=group.name, standings=standings)
 
 
-def team_profile(db: Session, team: Team, form_n: int = 8) -> schemas.TeamProfileOut:
-    rows = (
-        db.query(HistoricalMatch)
-        .filter(
-            (HistoricalMatch.team_a_id == team.id) | (HistoricalMatch.team_b_id == team.id)
-        )
-        .order_by(HistoricalMatch.date.desc())
-        .limit(form_n)
-        .all()
+def team_profile(
+    db: Session,
+    team: Team,
+    form_n: int = 8,
+    *,
+    tournament_id: int | None = None,
+    history_competition: str | None = None,
+) -> schemas.TeamProfileOut:
+    form_query = db.query(HistoricalMatch).filter(
+        (HistoricalMatch.team_a_id == team.id) | (HistoricalMatch.team_b_id == team.id)
     )
+    if history_competition is not None:
+        form_query = form_query.filter(HistoricalMatch.competition == history_competition)
+    rows = form_query.order_by(HistoricalMatch.date.desc()).limit(form_n).all()
     form: list[schemas.FormResultOut] = []
     wins = goals_for = goals_against = 0
     for m in rows:
@@ -555,12 +559,14 @@ def team_profile(db: Session, team: Team, form_n: int = 8) -> schemas.TeamProfil
     if not weaknesses:
         weaknesses.append("No glaring weakness")
 
-    gt = (
+    group_query = (
         db.query(GroupTeam, Group)
         .join(Group, Group.id == GroupTeam.group_id)
         .filter(GroupTeam.team_id == team.id)
-        .first()
     )
+    if tournament_id is not None:
+        group_query = group_query.filter(Group.tournament_id == tournament_id)
+    gt = group_query.first()
     group_id = gt[1].id if gt else None
     group_name = gt[1].name if gt else None
 

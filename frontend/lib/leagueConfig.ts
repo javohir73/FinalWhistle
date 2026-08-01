@@ -11,11 +11,12 @@ const LEAGUE_LABELS: Record<string, string> = {
   epl: "Premier League",
   laliga: "La Liga",
   bundesliga: "Bundesliga",
+  ucl: "UEFA Champions League",
 };
 
 export function leagueLabel(league: string): string {
   return LEAGUE_LABELS[league] ?? league.toUpperCase();
 }
 
-/** Active /tips leagues in the same order as pipeline/leagues.py. */
+/** Active /tips leagues. UCL joins after real league-stage matchweeks load. */
 export const ACTIVE_LEAGUES: string[] = ["epl", "laliga", "bundesliga"];

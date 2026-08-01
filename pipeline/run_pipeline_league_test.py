@@ -7,7 +7,17 @@ import pandas as pd
 import pytest
 
 from app.config import settings
-from app.models import HistoricalMatch, LeagueScorePrediction, Match, Prediction, Team, TipPlayer, Tournament
+from app.models import (
+    Group,
+    HistoricalMatch,
+    LeagueScorePrediction,
+    Match,
+    Prediction,
+    Standing,
+    Team,
+    TipPlayer,
+    Tournament,
+)
 from pipeline import leagues as leagues_mod
 from pipeline.leagues import CLUB_MODEL_VERSION
 from pipeline.ingest import league_structure as ls_mod
@@ -121,6 +131,60 @@ def test_wc_path_stays_default_when_pipeline_target_unset(db_session):
     tournament = db_session.query(Tournament).filter_by(name="FIFA World Cup 2026").one()
     assert tournament.home_advantage_mode == "host_bonus"
 
+
+def test_ucl_pipeline_predicts_qualifiers_without_fake_table_or_baseline(
+    db_session, monkeypatch
+):
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(leagues_mod, "ACTIVE_LEAGUES", ["ucl"])
+    monkeypatch.setattr(
+        ls_mod,
+        "fetch_fixtures",
+        lambda *a, **k: [
+            {
+                "fixture": {
+                    "id": 7001,
+                    "date": "2026-07-28T19:00:00+00:00",
+                    "status": {"short": "FT"},
+                },
+                "league": {"round": "2nd Qualifying Round"},
+                "teams": {
+                    "home": {"id": 80, "name": "Lyon"},
+                    "away": {"id": 628, "name": "Sparta Praha"},
+                },
+                "goals": {"home": 2, "away": 1},
+            },
+            {
+                "fixture": {
+                    "id": 7002,
+                    "date": "2026-08-11T19:00:00+00:00",
+                    "status": {"short": "NS"},
+                },
+                "league": {"round": "3rd Qualifying Round"},
+                "teams": {
+                    "home": {"id": 628, "name": "Sparta Praha"},
+                    "away": {"id": 80, "name": "Lyon"},
+                },
+                "goals": {"home": None, "away": None},
+            },
+        ],
+    )
+
+    summary = run_pipeline(db_session, n_sims=20)
+
+    assert summary["predictions"]["matches_predicted"] == 1
+    production = db_session.query(Prediction).filter_by(is_shadow=False).one()
+    assert production.model_version == "poisson-elo-ucl-v0.1"
+    assert db_session.query(Prediction).filter(
+        Prediction.model_version.like("%+baseline")
+    ).count() == 0
+
+    qualifier = db_session.query(Match).filter_by(provider_fixture_id=7002).one()
+    assert qualifier.group_id is None
+    assert qualifier.stage == "qualifying"
+    assert qualifier.matchweek is None
+    group = db_session.query(Group).filter_by(name="Champions League").one()
+    assert db_session.query(Standing).filter_by(group_id=group.id).count() == 0
 
 # ---------------------------------------------------------------------------
 # League Score Predictions design doc: score-prediction grading step

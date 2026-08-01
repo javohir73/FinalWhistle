@@ -43,6 +43,7 @@
   --accent-epl: 283 60% 55%;        /* purple */
   --accent-laliga: 8 78% 63%;       /* coral */
   --accent-bundesliga: 0 75% 52%;   /* red */
+  --accent-ucl: 224 82% 52%;        /* UEFA blue */
   --accent-wc26: 224 64% 56%;       /* indigo (WC26 not specified in plan; neutral non-lime) */
   --accent-nrl: 174 60% 40%;        /* teal */
   --comp-accent: var(--accent-wc26);/* default; overlay/eyebrow set per comp */

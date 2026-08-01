@@ -17,6 +17,19 @@ def test_qualification_probs_in_range_and_two_advance_on_average():
     assert abs(sum(r["qualification_prob"] for r in res.values()) - 2.0) < 0.01
 
 
+def test_advance_count_supports_shared_table_competitions():
+    elos = {1: 2000, 2: 1800, 3: 1600, 4: 1400}
+    res = simulate_group(
+        elos,
+        _round_robin([1, 2, 3, 4]),
+        n_sims=500,
+        seed=42,
+        rho=0.0,
+        advance_count=3,
+    )
+    assert abs(sum(r["qualification_prob"] for r in res.values()) - 3.0) < 0.01
+
+
 def test_stronger_team_more_likely_to_qualify():
     elos = {1: 2000, 2: 1800, 3: 1600, 4: 1400}
     res = simulate_group(elos, _round_robin([1, 2, 3, 4]), n_sims=2000, seed=7, rho=0.0)

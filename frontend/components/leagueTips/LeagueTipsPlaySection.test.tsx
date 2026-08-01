@@ -34,6 +34,7 @@ it("shows every active league in the switcher", () => {
   for (const league of ["Premier League", "La Liga", "Bundesliga"]) {
     expect(screen.getByRole("button", { name: league })).toBeInTheDocument();
   }
+  expect(screen.queryByRole("button", { name: "UEFA Champions League" })).not.toBeInTheDocument();
 });
 
 it("can suppress the switcher when a parent renders one fixed league", () => {

@@ -24,6 +24,11 @@ const FOOTBALL_COMPETITIONS: Array<{
     description: "Bundesliga teams, fixtures and tables.",
   },
   {
+    id: "ucl",
+    region: "Europe",
+    description: "League-phase fixtures, standings and score predictions.",
+  },
+  {
     id: "wc26",
     region: "International",
     description: "The complete World Cup tournament view.",
@@ -136,7 +141,7 @@ export function PlatformHome() {
           <span className="hidden text-sm text-muted sm:block">Football</span>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {FOOTBALL_COMPETITIONS.map(({ id, region, description }) => {
             const competition = COMPETITIONS[id];
             return (

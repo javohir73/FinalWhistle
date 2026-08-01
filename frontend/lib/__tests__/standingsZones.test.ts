@@ -62,4 +62,14 @@ describe("competition standings zones", () => {
     expect(zoneForRank(zones, 18)?.label).toBe("Relegation");
     expect(zoneForRank(zones, 20)?.label).toBe("Relegation");
   });
+
+  it("uses the Champions League's league-phase qualification bands", () => {
+    const zones = COMPETITIONS.ucl.zones;
+
+    expect(zoneForRank(zones, 1)?.label).toBe("Round of 16");
+    expect(zoneForRank(zones, 8)?.label).toBe("Round of 16");
+    expect(zoneForRank(zones, 9)?.label).toBe("Knockout phase play-offs");
+    expect(zoneForRank(zones, 24)?.label).toBe("Knockout phase play-offs");
+    expect(zoneForRank(zones, 25)).toBeNull();
+  });
 });

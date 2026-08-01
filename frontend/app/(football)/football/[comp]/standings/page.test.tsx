@@ -9,6 +9,13 @@ it("renders a competition-scoped standings surface for EPL", async () => {
   expect(element.props.comp).toBe("epl");
 });
 
+it("renders the Champions League league-phase standings surface", async () => {
+  const element = await CompStandingsPage({
+    params: Promise.resolve({ comp: "ucl" }),
+  });
+  expect(element.props.comp).toBe("ucl");
+});
+
 it("notFound()s for WC26 — its standings live at /groups, not here", async () => {
   await expect(
     CompStandingsPage({ params: Promise.resolve({ comp: "wc26" }) }),

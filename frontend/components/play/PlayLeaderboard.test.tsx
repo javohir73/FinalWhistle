@@ -74,7 +74,7 @@ it("switching to the NRL filter mounts NrlTipsLeaderboard seeded from the curren
   expect(screen.queryByText("EplTipster")).not.toBeInTheDocument();
 });
 
-it("mounts an active additional league on its own resolved matchweek", async () => {
+it("mounts active score-tip leagues on their own resolved matchweek", async () => {
   renderBoard({
     footballLeagues: ["epl", "laliga", "bundesliga"],
     footballMatchweeks: { epl: 4, laliga: 7, bundesliga: 3 },
@@ -84,6 +84,8 @@ it("mounts an active additional league on its own resolved matchweek", async () 
   const laliga = screen.getByRole("button", { name: /La Liga/i });
   fireEvent.click(laliga);
   expect(mockLeague).toHaveBeenCalledWith("laliga", 7);
+
+  expect(screen.queryByRole("button", { name: /UEFA Champions League/i })).not.toBeInTheDocument();
 });
 
 it("holds the football board back until the matchweek is known (its own loading state)", () => {

@@ -62,6 +62,42 @@ def _club_matches(db: Session, competition: str = CLUB_COMPETITION) -> list[Hist
     )
 
 
+def club_elo_ratings(
+    db: Session,
+    home_advantage: float = CLUB_HOME_ADVANTAGE,
+    *,
+    competition: str = CLUB_COMPETITION,
+) -> dict[int, float]:
+    """Replay one competition and return its canonical per-team ratings.
+
+    The mapping lets a cross-border competition share Team rows with domestic
+    leagues without whichever replay ran last determining every competition's
+    predictions.
+    """
+    rows = _club_matches(db, competition=competition)
+    teams = {team.id: team for team in db.query(Team).all()}
+    canonical_ids = {team.name: team.id for team in teams.values()}
+
+    def replay_team_id(team_id: int) -> int:
+        team = teams.get(team_id)
+        if team is None:
+            return team_id
+        return canonical_ids.get(normalize_team_name(team.name), team_id)
+
+    matches = [
+        MatchInput(
+            home_id=replay_team_id(r.team_a_id),
+            away_id=replay_team_id(r.team_b_id),
+            score_home=r.score_a,
+            score_away=r.score_b,
+            competition=r.competition,
+            is_neutral=r.is_neutral,
+        )
+        for r in rows
+    ]
+    return run_elo(matches, home_advantage=home_advantage)
+
+
 def compute_and_store_club_elo(
     db: Session,
     home_advantage: float = CLUB_HOME_ADVANTAGE,
@@ -76,11 +112,11 @@ def compute_and_store_club_elo(
     leagues pass their own pipeline.leagues.LEAGUES[...] values instead --
     see pipeline/run_pipeline.py's per-league club_elo step.
 
-    Scoped to ``competition`` only via _club_matches' filter — never reads or
-    writes another league's (or the international replay's) rating
-    (pipeline/compute_elo.py's own query symmetrically excludes every
-    registered club_competition, so none of them ever clobber each other
-    regardless of run order; see pipeline/compute_club_elo_test.py).
+    Scoped to ``competition`` only via _club_matches' filter. Cross-border
+    competitions can share Team rows with domestic leagues, so the daily
+    pipeline also passes ``club_elo_ratings`` directly into prediction
+    generation; whichever replay persists last cannot change another
+    competition's frozen forecast.
 
     Also persists ``home_advantage`` onto the ``tournament_name`` Tournament
     row's home_advantage_value (Opus review of PR #171, item 3): _host_adv
@@ -92,29 +128,9 @@ def compute_and_store_club_elo(
     own fitted magnitude (or whatever ``home_advantage`` this call used).
     """
     rows = _club_matches(db, competition=competition)
-    # Historical rows can predate a newly discovered provider-name alias. Map
-    # their stored Team IDs onto the current canonical Team row at replay time
-    # so adding an alias repairs production on the next Elo run without a
-    # destructive historical-data rewrite. Example: the 2016-17 E0 source
-    # stored "Hull", while the 2026-27 live roster uses "Hull City".
-    teams = {team.id: team for team in db.query(Team).all()}
-    canonical_ids = {team.name: team.id for team in teams.values()}
-
-    def replay_team_id(team_id: int) -> int:
-        team = teams.get(team_id)
-        if team is None:
-            return team_id
-        return canonical_ids.get(normalize_team_name(team.name), team_id)
-
-    matches = [
-        MatchInput(
-            home_id=replay_team_id(r.team_a_id), away_id=replay_team_id(r.team_b_id),
-            score_home=r.score_a, score_away=r.score_b,
-            competition=r.competition, is_neutral=False,
-        )
-        for r in rows
-    ]
-    ratings = run_elo(matches, home_advantage=home_advantage)
+    ratings = club_elo_ratings(
+        db, home_advantage=home_advantage, competition=competition
+    )
 
     updated = 0
     for team_id, rating in ratings.items():
@@ -130,7 +146,7 @@ def compute_and_store_club_elo(
     db.commit()
 
     return {
-        "matches_replayed": len(matches),
+        "matches_replayed": len(rows),
         "teams_rated": updated,
         "home_advantage": home_advantage,
     }

@@ -51,9 +51,37 @@ def ensure_club_history(
             "minimum": minimum,
         }
 
-    fetch = downloader or download_club_results_df
-    frame = fetch(division=config["club_division"])
-    loaded = load_club_results(db, frame, competition=competition)
+    source = config.get("history_source", "football_data")
+    if source == "football_data":
+        division = config["club_division"]
+        if not division:
+            raise RuntimeError(f"{competition} has no football-data division configured")
+        fetch = downloader or download_club_results_df
+        frame = fetch(division=division)
+        loaded = load_club_results(db, frame, competition=competition)
+    elif source == "api_football":
+        from app.config import settings
+        from pipeline.ingest.api_football_club_results import (
+            download_finished_fixtures,
+            load_api_football_club_results,
+        )
+
+        seasons = config.get("history_seasons")
+        if not seasons:
+            raise RuntimeError(f"{competition} has no explicit API-Football history seasons")
+        if not settings.api_football_api_key and downloader is None:
+            raise RuntimeError(
+                f"{competition} historical backfill requires API_FOOTBALL_API_KEY"
+            )
+        fetch = downloader or download_finished_fixtures
+        rows = fetch(
+            api_key=settings.api_football_api_key,
+            league=config["league_id"],
+            seasons=seasons,
+        )
+        loaded = load_api_football_club_results(db, rows, competition=competition)
+    else:
+        raise RuntimeError(f"unsupported historical source {source!r} for {competition}")
     after = _history_count(db, competition)
     if after < minimum:
         raise RuntimeError(

@@ -18,15 +18,15 @@ single "whichever competition is currently live" switch used by odds/
 live-scores/injuries (see league_structure.py's own comment on LEAGUE_ID/
 SEASON), not a per-competition registry.
 
-Phase 2 was activated locally on 2026-07-27 after validating the 2026-27
-provider fixture sets, API quota, ten-season SP1/D1 history, provider-name
-aliases, and league-specific home-advantage fits. Production remains governed
-by the repository stop gate: this registry change does not switch
-``PIPELINE_TARGET`` or deploy anything by itself.
+The domestic Phase 2 leagues were activated locally on 2026-07-27 after
+validating their provider fixture sets, API quota, ten-season SP1/D1 history,
+provider-name aliases, and league-specific home-advantage fits. UCL activation
+evidence is recorded separately in
+docs/experiments/2026-08-01-ucl-activation/EVIDENCE-CARD.md.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Literal, NotRequired, TypedDict
 
 from pipeline.ingest import league_structure as _epl
 from pipeline.ingest.club_results import CLUB_COMPETITION as _epl_club_competition
@@ -56,9 +56,17 @@ class LeagueConfig(TypedDict):
     # football-data.co.uk's division code for this league's CSV backfill
     # (mmz4281/{season}/{division}.csv) -- E0/SP1/D1 are public, stable
     # identifiers, not derived/guessed data.
-    club_division: str
+    club_division: str | None
+    # Historical ratings source. Domestic leagues use football-data.co.uk;
+    # cross-border competitions such as the Champions League use the same
+    # API-Football identity as their live fixture ingest because no domestic
+    # division CSV can represent their field.
+    history_source: NotRequired[Literal["football_data", "api_football"]]
+    # Completed API-Football seasons fetched when history_source is
+    # ``api_football``. Kept explicit so a refresh never guesses a season.
+    history_seasons: NotRequired[tuple[int, ...]]
     # Minimum historical rows expected before the daily league pipeline can
-    # skip the idempotent football-data.co.uk backfill.
+    # skip the configured idempotent history backfill.
     history_min_matches: int
     # League-specific value selected by the held-out fit documented below.
     home_advantage: float
@@ -66,16 +74,30 @@ class LeagueConfig(TypedDict):
     # ml/models/model_params.json, which is fitted on INTERNATIONAL football.
     # Empty dict = serve the global values unchanged.
     #
-    # Every entry here cleared the club gate in docs/MODEL-EXPERIMENTS.md
+    # Every DOMESTIC entry here cleared the club gate in docs/MODEL-EXPERIMENTS.md
     # ("Club program"): selected walk-forward over 2016-17..2024-25 clustered
     # by season, then confirmed once on the quarantined 2025-26 season. A
     # parameter that was only selected, and failed to replicate on the
     # confirmation season, is NOT here -- see that document's post-confirmation
     # ship list before adding one.
     model_params: dict[str, float]
+    model_version: NotRequired[str]
+    shadow_baseline: NotRequired[bool]
     # Current-roster clubs with no top-flight row in the ten-season source
     # window. They intentionally use the model's documented cold start.
     cold_start_teams: tuple[str, ...]
+    # A cross-border qualifying field changes throughout the summer. Unknown
+    # entrants may use the engine's documented 1500 cold start rather than
+    # blocking predictions for the entire competition.
+    allow_unrated_roster: NotRequired[bool]
+    # Number of teams considered to have progressed from the shared table.
+    # Domestic defaults remain two for backwards compatibility; the UCL
+    # league phase advances 24 (top eight direct, 9-24 into the play-offs).
+    standings_advance_count: NotRequired[int]
+    # If set, only fixtures whose provider round begins with one of these
+    # labels belong to the shared standings table. All fixtures are still
+    # ingested and predicted.
+    group_round_prefixes: NotRequired[tuple[str, ...]]
 
 
 # EPL's values are read off league_structure.py's/club_results.py's own
@@ -147,11 +169,41 @@ LEAGUES: dict[str, LeagueConfig] = {
         "model_params": {"base": 1.44},
         "cold_start_teams": ("SV Elversberg",),
     },
+    "ucl": {
+        "tournament_name": "UEFA Champions League 2026-27",
+        "group_name": "Champions League",
+        # API-Football's stable UEFA Champions League identity. Its season
+        # parameter is the starting calendar year, hence 2026 for 2026-27.
+        "league_id": 2,
+        "season": 2026,
+        "teams_file": None,
+        "club_competition": "UEFA Champions League",
+        "club_division": None,
+        "history_source": "api_football",
+        # Four fully completed editions. This keeps the one-time activation
+        # backfill bounded to four provider calls while spanning both the old
+        # group format and the current league-phase format.
+        "history_seasons": (2022, 2023, 2024, 2025),
+        "history_min_matches": 450,
+        # No competition-specific fit has cleared the model gate yet. Keep
+        # the served club default and record the absence of an override.
+        "home_advantage": 60.0,
+        "model_params": {},
+        # UCL has not gone through the domestic v0.2 parameter-fit program.
+        # Keep its public record in a truthful, separate first-version ledger
+        # and do not log a baseline twin when there is no predecessor.
+        "model_version": "poisson-elo-ucl-v0.1",
+        "shadow_baseline": False,
+        "cold_start_teams": (),
+        "allow_unrated_roster": True,
+        "standings_advance_count": 24,
+        "group_round_prefixes": ("League Stage",),
+    },
 }
 
 # All locally activated football leagues, in the display/pipeline order shared
 # with frontend/lib/leagueConfig.ts.
-ACTIVE_LEAGUES: list[str] = ["epl", "laliga", "bundesliga"]
+ACTIVE_LEAGUES: list[str] = ["epl", "laliga", "bundesliga", "ucl"]
 
 # Retained as an explicit compatibility/status field for tooling that reported
 # the former activation gate.
@@ -181,7 +233,8 @@ PHASE_2_ACTIVATION_CHECKLIST: tuple[str, ...] = (
     "compute_and_store_club_elo -- EPL's CLUB_HOME_ADVANTAGE (60.0) is not "
     "assumed to carry over (see that module's docstring).",
     "4. Founder API-Football-quota check (design doc Phasing section): "
-    "verified that three active leagues fit the configured daily allowance.",
+    "verify every active competition plus any bounded one-time history "
+    "backfill fits the configured daily allowance.",
 )
 
 
@@ -191,7 +244,7 @@ PHASE_2_ACTIVATION_CHECKLIST: tuple[str, ...] = (
 # walk-forward selection clustered by season, one confirmation run on a
 # quarantined season).
 #
-# All three leagues carry the v0.2 tag even though La Liga's fitted result was
+# All three domestic leagues carry the v0.2 tag even though La Liga's fitted result was
 # "no change from the global values" -- v0.2 names the PROCESS (per-league
 # fitting) rather than a specific delta, and a single version across the three
 # keeps one ledger on the record page. Safe to renumber wholesale because no
@@ -217,15 +270,18 @@ def club_params_for(code: str) -> "ModelParams":
     from ml.models.params import load_params
 
     overrides = LEAGUES[code]["model_params"]
-    return replace(load_params(), version=CLUB_MODEL_VERSION, **overrides)
+    version = LEAGUES[code].get("model_version", CLUB_MODEL_VERSION)
+    return replace(load_params(), version=version, **overrides)
 
 
-def club_baseline_params_for(code: str) -> "ModelParams":
-    """The v0.1 shadow twin: global params, no per-league overrides."""
+def club_baseline_params_for(code: str) -> "ModelParams | None":
+    """The v0.1 shadow twin, or None for a competition with no predecessor."""
     from dataclasses import replace
 
     from ml.models.params import load_params
 
+    if not LEAGUES[code].get("shadow_baseline", True):
+        return None
     return replace(load_params(), version=CLUB_SHADOW_BASELINE_VERSION)
 
 

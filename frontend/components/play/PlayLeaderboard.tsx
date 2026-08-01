@@ -9,7 +9,7 @@ import { COMPETITIONS, type Competition, type CompetitionId } from "@/lib/sports
 import { cn } from "@/lib/utils";
 
 /** The competitions the filter offers: every tips-carrying league-format comp,
- *  in registry order (epl, laliga, bundesliga, nrl). WC26 is dropped -- its
+ *  in registry order (epl, laliga, bundesliga, ucl, nrl). WC26 is dropped -- its
  *  "tips" are the knockout bracket (composed in the Football group), not a
  *  score-tip leaderboard, so it has no board to hoist here. */
 const TIPS_COMPETITIONS: Competition[] = Object.values(COMPETITIONS).filter(

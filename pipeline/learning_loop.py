@@ -419,7 +419,9 @@ def update_tournament_state(db: Session) -> int:
     return updated
 
 
-def effective_elos(db: Session) -> dict[int, float]:
+def effective_elos(
+    db: Session, base_ratings: dict[int, float] | None = None,
+) -> dict[int, float]:
     """Strength map used by prediction generation and the simulators:
     historical base + tournament Elo delta + capped form adjustment.
 
@@ -429,6 +431,11 @@ def effective_elos(db: Session) -> dict[int, float]:
     PER-TEAM log-lambda offsets applied in the goals model instead (see
     pipeline/generate_predictions.py's build_payload), so adding the legacy
     scalar on top would double-count the same signal (model v2 C1).
+
+    ``base_ratings`` supplies a competition-scoped historical replay for
+    cross-border club competitions whose Team rows overlap domestic leagues.
+    Omitted preserves the stored-Team-rating behavior for every existing
+    caller.
     """
     include_legacy_form = not load_params().form_channels
     adjustments = {}
@@ -437,8 +444,17 @@ def effective_elos(db: Session) -> dict[int, float]:
         if include_legacy_form:
             adj += s.form_adjustment or 0.0
         adjustments[s.team_id] = adj
+    def base_for(team: Team) -> float:
+        if base_ratings is None:
+            return estimate_strength(team)[0]
+        # A supplied map is an explicit competition boundary. Falling back to
+        # Team.elo_rating here can leak whichever domestic/cross-border replay
+        # persisted last into a different competition. Missing entrants use
+        # the club model's documented neutral cold start instead.
+        return base_ratings.get(team.id, 1500.0)
+
     return {
-        t.id: estimate_strength(t)[0] + adjustments.get(t.id, 0.0)
+        t.id: base_for(t) + adjustments.get(t.id, 0.0)
         for t in db.query(Team).all()
     }
 

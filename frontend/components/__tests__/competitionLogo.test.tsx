@@ -10,4 +10,12 @@ describe("CompetitionLogo", () => {
     expect(shell).not.toHaveClass("bg-white/95", "ring-1");
     expect(shell?.querySelector("img")).toHaveClass("h-full", "w-full", "object-contain");
   });
+
+  it("uses the self-hosted Champions League mark", () => {
+    const { container } = render(<CompetitionLogo competition="ucl" size={32} />);
+    expect(container.querySelector('[data-competition-logo="ucl"] img')).toHaveAttribute(
+      "src",
+      "/competitions/ucl.png",
+    );
+  });
 });

@@ -8,12 +8,10 @@ import { Eyebrow } from "@/components/Eyebrow";
 import { ErrorState, Empty } from "@/components/States";
 import type { ActiveTournament, Group } from "@/lib/types";
 
-/** Canonical standings surface for league-format football competitions
- *  (epl/laliga/bundesliga). Dormant in P2: those comps are data-gated
- *  (COMPETITIONS[*].enabled === false), so page.tsx 404s until they ship --
- *  this is the forward-plumbing they light up for free. Mirrors GroupsClient's
+/** Canonical standings surface for league-format football competitions,
+ *  including the Champions League's single-table league phase. Mirrors GroupsClient's
  *  league path (a single Group holds the whole table) but paints the comp's
- *  CL/Europa/relegation zone stripes via COMPETITIONS[comp].zones. WC26 keeps
+ *  competition-specific zone stripes via COMPETITIONS[comp].zones. WC26 keeps
  *  its multi-group /groups grid and 404s here (see page.tsx). Frontend-only
  *  phase: when the single-league shape isn't present we degrade to an honest
  *  empty state rather than invent an endpoint. */

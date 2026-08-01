@@ -106,7 +106,13 @@ def _derive_teams_from_fixtures(raw_fixtures: list[dict]) -> list[dict]:
     return [{"name": name, "code": None, "api_football_id": tid} for tid, name in seen.items()]
 
 
-def _seed_teams(db: Session, group: Group, teams_data: list[dict]) -> dict[str, Team]:
+def _seed_teams(
+    db: Session,
+    group: Group,
+    teams_data: list[dict],
+    *,
+    group_member_provider_ids: set[int] | None = None,
+) -> dict[str, Team]:
     """Upsert every team in teams_data (whichever source produced it) and add
     it to ``group``. Factored out of load_league_structure so both the
     teams_file and the derive-from-fixtures paths share one upsert loop —
@@ -115,11 +121,16 @@ def _seed_teams(db: Session, group: Group, teams_data: list[dict]) -> dict[str, 
     for t in teams_data:
         team = _upsert_team(db, t["name"], t.get("code"), t["api_football_id"])
         team_by_name[team.name] = team
-        exists = db.query(GroupTeam).filter_by(
-            group_id=group.id, team_id=team.id
-        ).one_or_none()
-        if exists is None:
-            db.add(GroupTeam(group_id=group.id, team_id=team.id))
+        belongs_to_group = (
+            group_member_provider_ids is None
+            or t["api_football_id"] in group_member_provider_ids
+        )
+        if belongs_to_group:
+            exists = db.query(GroupTeam).filter_by(
+                group_id=group.id, team_id=team.id
+            ).one_or_none()
+            if exists is None:
+                db.add(GroupTeam(group_id=group.id, team_id=team.id))
     return team_by_name
 
 
@@ -199,12 +210,81 @@ def _parse_matchweek(round_str: str | None) -> int | None:
     return int(m.group(1)) if m else None
 
 
+def _round_name(fx: dict) -> str | None:
+    league = fx.get("league") or (fx.get("fixture") or {}).get("league") or {}
+    value = league.get("round")
+    return value.strip() if isinstance(value, str) and value.strip() else None
+
+
+def _is_group_round(fx: dict, prefixes: tuple[str, ...] | None) -> bool:
+    """Whether a fixture belongs to the displayed shared table.
+
+    ``prefixes=None`` preserves domestic-league behavior (every fixture is a
+    table fixture). An explicit prefix list is fail-closed: before the UCL
+    league-phase draw, qualifying fixtures do not silently become table rows.
+    """
+    if prefixes is None:
+        return True
+    round_name = (_round_name(fx) or "").casefold()
+    return any(round_name.startswith(prefix.casefold()) for prefix in prefixes)
+
+
+def _stage_for_fixture(fx: dict, prefixes: tuple[str, ...] | None) -> str:
+    """Map provider round text to an honest platform stage.
+
+    Domestic leagues retain their historical ``group`` value. A configured
+    shared-table cup distinguishes league-phase, qualifying/play-off, and
+    knockout fixtures so downstream UI and tips never infer a table round from
+    an unrelated trailing number such as "Round of 16".
+    """
+    if prefixes is None or _is_group_round(fx, prefixes):
+        return "group"
+    round_name = (_round_name(fx) or "").casefold()
+    if "qualifying" in round_name or round_name in {"play-offs", "playoffs"}:
+        return "qualifying"
+    return "knockout"
+
+
+def _is_neutral_fixture(fx: dict) -> bool:
+    """UEFA's one-match final is played at a preselected neutral venue."""
+    return (_round_name(fx) or "").casefold() == "final"
+
+
+def _group_member_ids(
+    fixtures: list[dict], prefixes: tuple[str, ...] | None,
+) -> set[int] | None:
+    if prefixes is None:
+        return None
+    members: set[int] = set()
+    for fx in fixtures:
+        if not _is_group_round(fx, prefixes):
+            continue
+        teams = fx.get("teams") or {}
+        for side in ("home", "away"):
+            provider_id = (teams.get(side) or {}).get("id")
+            if isinstance(provider_id, int):
+                members.add(provider_id)
+    return members
+
+
 def _fixture_fields(
     fx: dict,
-) -> tuple[int, str, str, datetime, str, int | None, int | None, int | None] | None:
+) -> tuple[
+    int,
+    str,
+    str,
+    datetime,
+    str,
+    int | None,
+    int | None,
+    int | None,
+    int | None,
+    int | None,
+] | None:
     """Extract (fixture_id, home_name, away_name, kickoff_utc, status,
     score_home, score_away, matchweek) from one raw api-sports /fixtures
-    response item, or None if malformed."""
+    response item, followed by optional regulation-time home/away scores for
+    AET/PEN fixtures, or None if malformed."""
     fixture = fx.get("fixture") or {}
     fid = fixture.get("id")
     date = fixture.get("date")
@@ -216,6 +296,12 @@ def _fixture_fields(
         return None
     kickoff = datetime.fromisoformat(date.replace("Z", "+00:00"))
     goals = fx.get("goals") or {}
+    score_home_90 = score_away_90 = None
+    if status in {"AET", "PEN"}:
+        fulltime = (fx.get("score") or {}).get("fulltime") or {}
+        if isinstance(fulltime.get("home"), int) and isinstance(fulltime.get("away"), int):
+            score_home_90 = fulltime["home"]
+            score_away_90 = fulltime["away"]
     # Same league.round lookup + fallback as api_football.py's _to_item
     # (the football-data-v4-shaping layer for the live-scores path).
     league = fx.get("league") or fixture.get("league") or {}
@@ -225,6 +311,7 @@ def _fixture_fields(
         _STATUS.get(status, "scheduled"),
         goals.get("home"), goals.get("away"),
         matchweek,
+        score_home_90, score_away_90,
     )
 
 
@@ -237,6 +324,7 @@ def load_league_structure(
     group_name: str = GROUP_NAME,
     league_id: int = LEAGUE_ID,
     season: int = SEASON,
+    group_round_prefixes: tuple[str, ...] | None = None,
 ) -> dict:
     """Load one league's structure (default: EPL 2026-27). The keyword-only
     tournament_name/group_name/league_id/season let pipeline/run_pipeline.py's
@@ -267,7 +355,14 @@ def load_league_structure(
         tournament = _get_or_create_tournament(db, tournament_name)
         group = _get_or_create_group(db, tournament, group_name)
         raw_fixtures = fetch_fixtures(api_key, league=league_id, season=season)
-        team_by_name = _seed_teams(db, group, _derive_teams_from_fixtures(raw_fixtures))
+        team_by_name = _seed_teams(
+            db,
+            group,
+            _derive_teams_from_fixtures(raw_fixtures),
+            group_member_provider_ids=_group_member_ids(
+                raw_fixtures, group_round_prefixes
+            ),
+        )
 
     existing_by_fixture: dict[int, Match] = {
         m.provider_fixture_id: m
@@ -285,7 +380,21 @@ def load_league_structure(
         if parsed is None:
             skipped += 1
             continue
-        fid, home_name, away_name, kickoff, status, score_home, score_away, matchweek = parsed
+        (
+            fid,
+            home_name,
+            away_name,
+            kickoff,
+            status,
+            score_home,
+            score_away,
+            matchweek,
+            score_home_90,
+            score_away_90,
+        ) = parsed
+        is_group_round = _is_group_round(fx, group_round_prefixes)
+        if not is_group_round:
+            matchweek = None
         home = team_by_name.get(normalize_team_name(home_name))
         away = team_by_name.get(normalize_team_name(away_name))
         if home is None or away is None:
@@ -297,21 +406,26 @@ def load_league_structure(
         if match is None:
             match = Match(
                 tournament_id=tournament.id,
-                group_id=group.id,
-                stage="group",
+                group_id=group.id if is_group_round else None,
+                stage=_stage_for_fixture(fx, group_round_prefixes),
                 provider_fixture_id=fid,
                 team_home_id=home.id,
                 team_away_id=away.id,
-                is_neutral=False,
+                is_neutral=_is_neutral_fixture(fx),
             )
             db.add(match)
             created += 1
         else:
             updated += 1
+        match.group_id = group.id if is_group_round else None
+        match.stage = _stage_for_fixture(fx, group_round_prefixes)
+        match.is_neutral = _is_neutral_fixture(fx)
         match.kickoff_utc = kickoff
         match.status = status
         match.score_home = score_home
         match.score_away = score_away
+        match.score_home_90 = score_home_90
+        match.score_away_90 = score_away_90
         # Unconditional, same as the fields above -- a fixture correction
         # (round moved by broadcaster reshuffle) must re-land on every
         # subsequent ingestion, not just the first time this row is created.

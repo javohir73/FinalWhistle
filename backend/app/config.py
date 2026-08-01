@@ -44,8 +44,9 @@ class Settings(BaseSettings):
 
     # League pivot (docs/LEAGUE-PIVOT-PLAN.md D7): which competition
     # pipeline.run_pipeline.run_pipeline targets. "wc26" (default — every
-    # existing step, byte-identical) or "league" (Premier League 2026-27:
-    # league_structure + club Elo + club-model predictions/learning-loop;
+    # existing step, byte-identical) or "league" (the active registry in
+    # pipeline/leagues.py: structure + competition-scoped club Elo +
+    # club-model predictions/learning-loop;
     # WC-only steps like KO venues/bracket sim are skipped). Flipping this in
     # prod is the WS-C cutover (stop-gated) — config stays single-competition,
     # not a toggle for running both at once.

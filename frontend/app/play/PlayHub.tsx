@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { CompetitionLogo } from "@/components/CompetitionLogo";
 import { LeagueTipsPlaySection } from "@/components/leagueTips/LeagueTipsPlaySection";
@@ -64,6 +65,21 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
           </div>
         </PlayCompetitionSection>
       ))}
+
+      <PlayCompetitionSection competition="ucl" subtitle="League-phase score predictions">
+        <div className="glass mt-3 rounded-2xl p-4">
+          <p className="text-[13px] text-muted">
+            Score tips open when the league-phase matchweeks are loaded. Qualifying model
+            predictions are available now on the fixtures page.
+          </p>
+          <Link
+            href="/football/ucl/fixtures"
+            className="mt-3 inline-flex text-sm font-semibold text-accent hover:underline"
+          >
+            View Champions League fixtures →
+          </Link>
+        </div>
+      </PlayCompetitionSection>
 
       {hasBrackets && (
         <PlayCompetitionSection competition="wc26" subtitle="Knockout bracket">
