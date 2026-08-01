@@ -67,6 +67,7 @@ it("Live tab shows only in-window matches", () => {
 it("shows the per-tab empty state", () => {
   render(<MatchesClient initial={{ ...fixtures, rounds: [] }} />);
   expect(screen.getByText("No upcoming fixtures yet.")).toBeInTheDocument();
+  expect(getNrlMatches).toHaveBeenCalledTimes(1); // stale SSR data refreshes even with no live game
 });
 
 it("self-promotes a match into the live strip at kickoff, from the clock tick alone", () => {
