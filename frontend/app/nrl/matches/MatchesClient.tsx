@@ -37,15 +37,15 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
     return () => clearInterval(tick);
   }, []);
 
-  // Data refetch: network, only while live. Refresh immediately when a match
-  // enters the window (or the page opens mid-match), then keep polling. The
-  // immediate call is important because the SSR seed can be up to 5m old.
+  // Always refresh once on mount (and when liveness changes), because the SSR
+  // seed can be up to 5m old even after a just-finished match has left the live
+  // window. Repeated network polling remains gated to live matches only.
   useEffect(() => {
-    if (live.length === 0) return;
     const refresh = () => {
       Promise.resolve(getNrlMatches()).then(setFixtures).catch(() => {});
     };
     refresh();
+    if (live.length === 0) return;
     const tick = setInterval(refresh, 30_000);
     return () => clearInterval(tick);
   }, [live.length]);
