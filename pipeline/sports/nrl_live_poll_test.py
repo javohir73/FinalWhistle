@@ -85,6 +85,21 @@ def test_poll_match_returns_none_when_provider_has_nothing(db_session):
     assert poll_match(db_session, m, RecordedFixtureStatsProvider(), now=now) is None
 
 
+def test_final_live_payload_immediately_finishes_core_match(db_session):
+    now = datetime(2026, 3, 5, 12, 0, tzinfo=timezone.utc)
+    m = _make_match(db_session, kickoff=now - timedelta(minutes=100))
+    db_session.commit()
+
+    result = poll_match(db_session, m, RecordedFixtureStatsProvider(live={
+        (2026, 1, 1): LivePayload(status="final", minute=80, score_home=24, score_away=18),
+    }), now=now)
+
+    assert result is not None
+    db_session.refresh(m)
+    assert m.status == "finished"
+    assert (m.score_home, m.score_away) == (24, 18)
+
+
 def test_poll_live_matches_never_raises_on_provider_error(db_session):
     now = datetime(2026, 3, 5, 12, 0, tzinfo=timezone.utc)
     _make_match(db_session, kickoff=now - timedelta(minutes=20))

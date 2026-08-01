@@ -1,7 +1,7 @@
 "use client";
 
 /** Wave 3 "live" intel section: polls GET /api/nrl/matches/{id}/live every
- *  60s via `useFetch` + `getNrlLiveClient` and hands the resolved payload to
+ *  30s via `useFetch` + `getNrlLiveClient` and hands the resolved payload to
  *  the presentational LiveSectionClient (in-flow card + fixed pinned strip
  *  while in progress). Team names / match id come straight off the Wave 1
  *  match detail already threaded through `IntelSectionProps`
@@ -14,7 +14,7 @@ import type { NrlLive } from "@/lib/types";
 import type { IntelSectionProps } from "./sections";
 import { LiveSectionClient } from "./LiveSectionClient";
 
-const POLL_MS = 60_000;
+const POLL_MS = 30_000;
 
 export default function LiveSection({ detail }: IntelSectionProps) {
   const m = detail.match;

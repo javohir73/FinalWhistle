@@ -24,8 +24,16 @@ const fixtures: NrlMatchesResponse = {
   ],
 };
 
+beforeEach(() => {
+  jest.clearAllMocks();
+  // Keep background refreshes pending unless a test specifically resolves one;
+  // this mirrors an in-flight request and avoids post-assertion state updates.
+  (getNrlMatches as jest.Mock).mockReturnValue(new Promise(() => {}));
+});
+
 it("defaults to Upcoming with the live strip pinned on top", () => {
   render(<MatchesClient initial={fixtures} />);
+  expect(getNrlMatches).toHaveBeenCalledTimes(1); // no 60s wait before the first refresh
   expect(screen.getByText(/live now/i)).toBeInTheDocument();        // pinned strip label
   // Compact MatchCards collapse both sides onto one name line, so match a
   // substring rather than an exact team-name node.
@@ -73,8 +81,6 @@ it("self-promotes a match into the live strip at kickoff, from the clock tick al
       ]},
     ],
   };
-  (getNrlMatches as jest.Mock).mockResolvedValue(soon); // refetch effect starts once live; keep it harmless
-
   render(<MatchesClient initial={soon} />);
   expect(screen.queryByText(/live now/i)).not.toBeInTheDocument();
 

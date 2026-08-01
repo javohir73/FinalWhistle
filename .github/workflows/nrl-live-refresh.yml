@@ -45,13 +45,15 @@ jobs:
             exit 0
           fi
           ok=0
-          for i in $(seq 1 14); do
+          # Sixteen ticks at 55s spacing cover ~13m45s; the next scheduled run
+          # then takes over without the old multi-minute blind spot.
+          for i in $(seq 1 16); do
             code=$(curl -sS -o /tmp/nrl_live.json -w "%{http_code}" -m 60 \
               -X POST "${API_URL%/}/api/internal/nrl-refresh-live" \
               -H "X-Recompute-Token: ${RECOMPUTE_TOKEN}" || echo 000)
-            echo "[$i/14] HTTP ${code} $(cat /tmp/nrl_live.json 2>/dev/null || true)"
+            echo "[$i/16] HTTP ${code} $(cat /tmp/nrl_live.json 2>/dev/null || true)"
             if [ "${code}" -ge 200 ] && [ "${code}" -lt 300 ]; then ok=1; fi
-            if [ "$i" -lt 14 ]; then sleep 55; fi
+            if [ "$i" -lt 16 ]; then sleep 55; fi
           done
           if [ "${ok}" != 1 ]; then
             echo "All NRL live pings failed this run (transient API error or misconfig)."

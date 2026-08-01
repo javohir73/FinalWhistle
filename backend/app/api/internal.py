@@ -110,12 +110,12 @@ def nrl_refresh_live(
     the occasional Monday game -- see .github/workflows/nrl-live-refresh.yml)."""
     _require_token(x_recompute_token)
     from pipeline.sports.nrl_live_poll import poll_live_matches
-    from pipeline.sports.nrl_stats import NrlComStatsProvider
+    from pipeline.sports.nrl_stats import NrlComStatsProvider, _db_team_names
 
-    # NrlComStatsProvider.fetch_live is an honest None-stub until a real live
-    # feed lands, so this endpoint currently reports polled=0 and is safe to
-    # call any time.
-    summary = poll_live_matches(db, NrlComStatsProvider())
+    summary = poll_live_matches(
+        db,
+        NrlComStatsProvider(team_names=_db_team_names(db)),
+    )
     if summary["polled"]:
         cache.clear()
     return {"status": "ok", "live": summary}

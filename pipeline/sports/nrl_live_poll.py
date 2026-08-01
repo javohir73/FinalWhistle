@@ -129,6 +129,16 @@ def poll_match(db: Session, match: SportMatch, provider: StatsProvider, now: dat
     state.score_away = payload.score_away
     state.live_home_prob = live_prob
 
+    # The daily fixture ingest is intentionally much slower than the live
+    # poller. Land the authoritative final score on the core match row now so
+    # every fixtures/ladder surface stops showing the match as upcoming as soon
+    # as NRL.com reports full time. The normal ingest remains idempotent and
+    # will confirm the same result on its next pass.
+    if payload.status == "final":
+        match.status = "finished"
+        match.score_home = payload.score_home
+        match.score_away = payload.score_away
+
     if prev_score is not None:
         # Per-side attribution: an event is logged for each side whose score
         # INCREASED vs the previous observation (both can fire in one poll).

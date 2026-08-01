@@ -28,11 +28,10 @@ lookup" in three ways (see SOURCE.md for the full derivation):
     are absent — not zero — before that and on non-scoring event types).
 
 Wave 2 Task 3 adds the default StatsProvider (NrlComStatsProvider):
-fetch_match_stats is fully implemented (rate-limited HTTP against the
-NRL.com endpoints adopted by the Task 1 spike, round-draw caching, and the
-same never-raises convention as nrl_ingest.py). fetch_team_list and
-fetch_live remain honest Wave 3 stubs ([] / None) — Wave 3 implements them
-and the idempotent upsert/backfill CLI on top of this module.
+fetch_match_stats and fetch_live use the same rate-limited NRL.com match-centre
+document, round-draw cache, and never-raises convention as nrl_ingest.py.
+fetch_team_list remains an honest empty implementation until that source is
+wired.
 """
 from __future__ import annotations
 
@@ -361,6 +360,58 @@ def parse_draw_fixtures(doc: dict) -> list[dict]:
     return out
 
 
+def parse_live_payload(doc: dict) -> LivePayload | None:
+    """Pure: NRL.com match-centre document -> the frozen live contract.
+
+    ``matchMode`` is the provider's stable lifecycle field (Pre/Live/Post).
+    ``matchState`` is retained as a fallback because recorded documents and
+    provider rollouts have used more detailed phase names there. A malformed
+    live/final document is ignored rather than turning missing scores into a
+    false 0-0.
+    """
+    if not isinstance(doc, dict):
+        return None
+
+    mode = str(doc.get("matchMode") or "").strip().lower()
+    state = str(doc.get("matchState") or "").strip().lower()
+    if mode == "pre" or state in {"upcoming", "prematch", "pre"}:
+        return LivePayload(status="pre", minute=None, score_home=0, score_away=0)
+
+    if mode == "post" or state in {"fulltime", "full time", "final", "finished"}:
+        status = "final"
+    elif mode == "live" or state:
+        status = "live"
+    else:
+        return None
+
+    home_team = doc.get("homeTeam")
+    away_team = doc.get("awayTeam")
+    if not isinstance(home_team, dict) or not isinstance(away_team, dict):
+        return None
+    home_score = home_team.get("score")
+    away_score = away_team.get("score")
+    if (
+        isinstance(home_score, bool)
+        or isinstance(away_score, bool)
+        or not isinstance(home_score, (int, float))
+        or not isinstance(away_score, (int, float))
+    ):
+        return None
+
+    game_seconds = doc.get("gameSeconds")
+    minute = (
+        max(0, int(game_seconds) // 60)
+        if isinstance(game_seconds, (int, float)) and not isinstance(game_seconds, bool)
+        else None
+    )
+    return LivePayload(
+        status=status,
+        minute=minute,
+        score_home=int(home_score),
+        score_away=int(away_score),
+    )
+
+
 # --------------------------------------------------------------------------
 # Default StatsProvider: rate-limited HTTP against the NRL.com endpoints
 # adopted by the Task 1 spike. See SOURCE.md for full provenance.
@@ -429,10 +480,11 @@ class NrlComStatsProvider:
 
     # -- StatsProvider -----------------------------------------------------
 
-    def fetch_match_stats(self, season: int, round_no: int, match_no: int) -> MatchStatsPayload | None:
+    def _match_document(self, season: int, round_no: int, match_no: int) -> dict | None:
+        """Resolve our fixture identity and fetch its match-centre document."""
         try:
             names = self._team_names(season, round_no, match_no)
-        except Exception as exc:  # noqa: BLE001 - a callback failure must never abort a run
+        except Exception as exc:  # noqa: BLE001 - preserve the never-raises contract
             log.warning("nrl_stats: team_names callback raised for %s r%s m%s: %s",
                         season, round_no, match_no, exc)
             return None
@@ -450,15 +502,18 @@ class NrlComStatsProvider:
                         home, away, season, round_no)
             return None
         doc = self._get_json(_MATCH_DATA_URL.format(path=fixture["match_path"]))
-        if not isinstance(doc, dict):
-            return None
-        return parse_match_stats(doc)
+        return doc if isinstance(doc, dict) else None
+
+    def fetch_match_stats(self, season: int, round_no: int, match_no: int) -> MatchStatsPayload | None:
+        doc = self._match_document(season, round_no, match_no)
+        return parse_match_stats(doc) if doc is not None else None
 
     def fetch_team_list(self, season: int, round_no: int) -> list[TeamListEntry]:
         return []  # Wave 3 implements (team-lists ingest); honest empty until then
 
     def fetch_live(self, season: int, round_no: int, match_no: int) -> LivePayload | None:
-        return None  # Wave 3 implements (live layer); honest None until then
+        doc = self._match_document(season, round_no, match_no)
+        return parse_live_payload(doc) if doc is not None else None
 
 
 # --------------------------------------------------------------------------

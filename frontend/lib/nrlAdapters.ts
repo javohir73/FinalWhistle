@@ -2,10 +2,7 @@
  *  props (MatchCard's MatchSummary, StandingsTable's row). No React, SSR-safe,
  *  so server and client NRL surfaces share one translation. NRL semantics stay
  *  intact: a 3-way probability bar with a naturally-small draw (never zeroed),
- *  margin chips, and the (season, round, match_no) match href. Live minute/
- *  period is deliberately not modelled here -- the list API only knows
- *  scheduled/finished, so liveness lives in nrlLive/MatchesClient and the
- *  match-centre is P4. */
+ *  margin chips, and the (season, round, match_no) match href. */
 
 import type { LadderRow, MatchSummary, NrlMatch } from "./types";
 import type { StandingsTableRow } from "@/components/StandingsTable";
@@ -21,9 +18,9 @@ function favouredSide(m: NrlMatch): string | null {
   return null;
 }
 
-/** NrlMatch -> MatchSummary for the shared MatchCard. status collapses to
- *  finished-vs-scheduled (the shared card's only distinction); the live-only,
- *  football-shaped fields (minute/period/penalties/goal_events) stay empty.
+/** NrlMatch -> MatchSummary for the shared MatchCard. The live poller's
+ *  in_play status and minute pass through so shared cards show the current
+ *  score instead of the frozen pre-match percentage.
  *  probabilities keep all three outcomes so the W/D/L bar renders the small
  *  draw segment; predicted_score/confidence are null (NrlPrediction has
  *  neither), venue city/country too (the list payload carries no locale). */
@@ -38,10 +35,10 @@ export function nrlMatchToSummary(m: NrlMatch): MatchSummary {
     venue_city: null,
     venue_country: null,
     is_neutral: false,
-    status: m.status === "finished" ? "finished" : "scheduled",
+    status: m.status === "finished" ? "finished" : m.status === "in_play" ? "in_play" : "scheduled",
     score_home: m.score_home,
     score_away: m.score_away,
-    minute: null,
+    minute: m.minute ?? null,
     period: null,
     injury_time: null,
     penalty_home: null,
