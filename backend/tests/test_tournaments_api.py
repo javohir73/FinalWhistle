@@ -1,5 +1,6 @@
 """Tests for GET /api/tournaments/active (league pivot D6)."""
-import pytest
+from datetime import datetime, timezone
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -8,7 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.cache import cache
 from app.db import Base, get_db
 from app.main import app
-from app.models import Match
+from app.models import Match, Team, Tournament
 from pipeline.ingest import league_structure as ls_mod
 from pipeline.ingest.league_structure import load_league_structure
 from pipeline.ingest.wc26_structure import load_structure
@@ -82,6 +83,46 @@ def test_epl_with_scheduled_matches_resolves_to_league(monkeypatch):
     assert data["name"] == "Premier League 2026-27"
     assert data["format"] == "league"
     assert data["has_brackets"] is False
+    app.dependency_overrides.clear()
+    cache.clear()
+
+
+def test_ucl_qualifier_does_not_advertise_a_bracket():
+    def seed(db):
+        tournament = Tournament(
+            name="UEFA Champions League 2026-27",
+            year=2026,
+            host_countries="",
+            home_advantage_mode="home",
+        )
+        home = Team(name="Mjallby AIF", is_host=False)
+        away = Team(name="Slovan Bratislava", is_host=False)
+        db.add_all([tournament, home, away])
+        db.flush()
+        db.add(
+            Match(
+                tournament_id=tournament.id,
+                stage="qualifying",
+                match_no=None,
+                team_home_id=home.id,
+                team_away_id=away.id,
+                kickoff_utc=datetime(2026, 8, 5, tzinfo=timezone.utc),
+                status="scheduled",
+                is_neutral=False,
+            )
+        )
+        db.commit()
+
+    client = _make_client(seed)
+    scoped = client.get("/api/tournaments/ucl")
+    assert scoped.status_code == 200
+    assert scoped.json()["format"] == "league"
+    assert scoped.json()["has_brackets"] is False
+
+    active = client.get("/api/tournaments/active")
+    assert active.status_code == 200
+    assert active.json()["name"] == "UEFA Champions League 2026-27"
+    assert active.json()["has_brackets"] is False
     app.dependency_overrides.clear()
     cache.clear()
 

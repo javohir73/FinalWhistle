@@ -19,9 +19,16 @@ _ACTIVE_TTL_SECONDS = 60
 
 
 def _tournament_payload(db: Session, tournament: Tournament) -> dict:
+    # A non-group fixture is not automatically a supported bracket. Qualifiers
+    # and externally ingested cup knockouts have no platform bracket topology;
+    # only matches assigned a canonical match_no can back the bracket API/UI.
     has_brackets = (
         db.query(Match)
-        .filter(Match.tournament_id == tournament.id, Match.stage != "group")
+        .filter(
+            Match.tournament_id == tournament.id,
+            Match.stage != "group",
+            Match.match_no.isnot(None),
+        )
         .count()
         > 0
     )
