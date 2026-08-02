@@ -357,6 +357,73 @@ def test_post_results_chain_scopes_mixed_world_cup_and_ucl_groups(db_session):
     )
 
 
+def test_tracked_chain_rolls_back_all_tournament_predictions_on_late_failure(
+    db_session, monkeypatch
+):
+    """A later competition failure must not commit earlier prediction rows."""
+    load_structure(db_session)
+    _set_elos(db_session)
+
+    ucl = Tournament(
+        name="UEFA Champions League 2026-27",
+        year=2026,
+        host_countries="",
+        home_advantage_mode="home",
+        home_advantage_value=60.0,
+    )
+    home = Team(name="Transactional UCL Home", elo_rating=1500.0)
+    away = Team(name="Transactional UCL Away", elo_rating=1500.0)
+    db_session.add_all([ucl, home, away])
+    db_session.flush()
+    db_session.add(Group(tournament_id=ucl.id, name="Champions League"))
+    db_session.add_all(
+        [
+            Match(
+                tournament_id=ucl.id,
+                stage="qualifying",
+                status="finished",
+                team_home_id=home.id,
+                team_away_id=away.id,
+                score_home=1,
+                score_away=0,
+                kickoff_utc=datetime.now(timezone.utc) - timedelta(days=7),
+            ),
+            Match(
+                tournament_id=ucl.id,
+                stage="qualifying",
+                status="scheduled",
+                team_home_id=away.id,
+                team_away_id=home.id,
+                kickoff_utc=datetime.now(timezone.utc) + timedelta(days=7),
+            ),
+        ]
+    )
+    db_session.commit()
+
+    import pipeline.generate_predictions as gp
+
+    real_build_payload = gp.build_payload
+
+    def fail_for_ucl(db, match, *args, **kwargs):
+        if match.tournament_id == ucl.id:
+            raise RuntimeError("late UCL generation failure")
+        return real_build_payload(db, match, *args, **kwargs)
+
+    monkeypatch.setattr(gp, "build_payload", fail_for_ucl)
+
+    with pytest.raises(RuntimeError, match="late UCL generation failure"):
+        run_tracked_post_results_chain(
+            db_session,
+            MV,
+            trigger="test",
+            n_sims=20,
+            tournament_sims=10,
+        )
+
+    assert db_session.query(Prediction).count() == 0
+    assert chain_pending(db_session) is True
+
+
 def test_tracked_chain_writes_success_watermark(db_session):
     """A COMPLETED chain records success and covers the finished-match count,
     so retry triggers know nothing is owed."""

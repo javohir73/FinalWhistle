@@ -523,6 +523,7 @@ def _regenerate_tournament_predictions(
                 n_sims=n_sims,
                 tournament_sims=tournament_sims,
                 tournament_id=tournament.id,
+                commit=False,
             )
         else:
             code, cfg = registered
@@ -542,10 +543,12 @@ def _regenerate_tournament_predictions(
                     competition=cfg["club_competition"],
                 ),
                 standings_advance_count=cfg.get("standings_advance_count", 2),
+                commit=False,
             )
         for key in ("matches_predicted", "groups_simulated", "tournament_teams"):
             totals[key] += result[key]
         totals["tournaments_simulated"] += 1
+    db.commit()
     return totals
 
 

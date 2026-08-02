@@ -1185,6 +1185,7 @@ def generate_predictions(
     vnext_shadow_spec: "VNextShadowSpec | None" = None,
     base_strengths: dict[int, float] | None = None,
     standings_advance_count: int = 2,
+    commit: bool = True,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1232,6 +1233,10 @@ def generate_predictions(
     its own historical replay on clubs that also appear in a domestic league,
     and model its top-24 league-phase progression without changing the
     domestic/WC defaults.
+
+    ``commit=False`` lets a multi-tournament orchestrator keep every scoped
+    pass in one transaction. The default preserves every existing standalone
+    caller's commit behavior.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -1339,7 +1344,10 @@ def generate_predictions(
         db, tournament_sims, strengths=strengths, params=params, tournament_id=tournament_id
     )
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return {
         "matches_predicted": predicted,
         "groups_simulated": len(groups),
