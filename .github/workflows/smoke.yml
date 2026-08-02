@@ -37,13 +37,24 @@ jobs:
 
           check "$API/api/health" "application/json"
           check "$SITE/"
-          check "$SITE/matches"
-          check "$SITE/brackets"
-          check "$SITE/my-bracket"
-          check "$SITE/match/1"
-          check "$SITE/team/1"
-          check "$SITE/groups/1"
+          # World Cup canonical routes. The legacy paths intentionally return
+          # 307/308 redirects, so probing them as if they were pages creates
+          # false smoke failures even when their destinations are healthy.
+          check "$SITE/football/wc26/fixtures"
+          check "$SITE/football/wc26/bracket"
+          check "$SITE/football/wc26/match/1"
+          check "$SITE/football/wc26/team/1"
+          check "$SITE/football/wc26/groups/1"
           check "$SITE/match/1/opengraph-image" "image/png"
+
+          # Champions League: competition shell, fixture board, roster, and
+          # the prediction-bearing fixture feed must all stay reachable.
+          check "$SITE/football/ucl"
+          check "$SITE/football/ucl/fixtures"
+          check "$API/api/tournaments/ucl" "application/json"
+          check "$API/api/teams?competition=ucl" "application/json"
+          check "$API/api/matches/upcoming?competition=ucl" "application/json"
+
           check "$API/api/nrl/matches" "application/json"
           check "$API/api/nrl/projections" "application/json"
           check "$SITE/nrl"
