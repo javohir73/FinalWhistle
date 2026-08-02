@@ -74,12 +74,23 @@ it("keeps VS and the normal prediction copy before kickoff", async () => {
 it("shows the updating result and labels the prediction as pre-match while live", async () => {
   mockLive.mockResolvedValue(livePayload({ minute: 42, score_home: 12, score_away: 6 }));
   renderHero();
-  expect(await screen.findByRole("status", { name: /live match/i })).toHaveTextContent(
-    "LIVE · 42′",
-  );
+  expect(await screen.findByRole("status", {
+    name: "Live match: Wests Tigers 12–6 Warriors, 42′",
+  })).toHaveTextContent("LIVE · 42′");
   expect(screen.getByText("12–6")).toBeInTheDocument();
   expect(screen.getByText(/Pre-match model pick · Warriors 67%/)).toBeInTheDocument();
   expect(screen.queryByText(/ML model margin/)).not.toBeInTheDocument();
+});
+
+it("formats a partial live score without adding punctuation for a missing minute", async () => {
+  mockLive.mockResolvedValue(livePayload({ minute: null, score_home: 12, score_away: null }));
+  renderHero();
+
+  expect(await screen.findByRole("status", {
+    name: "Live match: Wests Tigers 12–– Warriors",
+  })).toHaveTextContent("LIVE");
+  expect(screen.getByRole("status")).not.toHaveTextContent("·");
+  expect(screen.getByText("12––")).toBeInTheDocument();
 });
 
 it("preserves the full-time score and model verdict", () => {

@@ -24,7 +24,7 @@ export function NrlMatchHero({
     isLive || liveState?.status === "final" ? liveState.score_home : match.score_home;
   const scoreAway =
     isLive || liveState?.status === "final" ? liveState.score_away : match.score_away;
-  const score = scoreHome != null && scoreAway != null ? `${scoreHome}–${scoreAway}` : "–";
+  const score = `${scoreHome ?? "–"}–${scoreAway ?? "–"}`;
   const p = match.prediction;
   const favoured = p ? (p.p_home >= p.p_away ? home : away) : null;
   const favouredProb = p ? Math.max(p.p_home, p.p_away) : null;
@@ -42,7 +42,10 @@ export function NrlMatchHero({
         <p className="mb-4 text-center">
           <span
             role="status"
-            aria-label="Live match"
+            aria-label={
+              `Live match: ${home} ${score} ${away}` +
+              (liveState.minute != null ? `, ${liveState.minute}′` : "")
+            }
             className="inline-flex items-center gap-1.5 rounded-full bg-loss/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
           >
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden />

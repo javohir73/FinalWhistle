@@ -1,6 +1,6 @@
 /** LiveSection presents the shared live-match state as a scoreboard card and,
  *  while play is in progress, a fixed strip portalled to document.body. */
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import LiveSection from "./LiveSection";
 import { LiveMatchProvider } from "./LiveMatchProvider";
 import { getNrlLiveClient } from "@/lib/api";
@@ -80,12 +80,33 @@ it("renders the shared live payload without starting another request", async () 
 
   // The pinned strip is fixed-positioned and portalled to document.body so a
   // live match is visible on initial load regardless of section DOM order.
-  const strip = await screen.findByRole("status", { name: /live score/i });
+  const score = await screen.findByText("Broncos 12–6 Storm");
+  const strip = score.parentElement;
   expect(strip).toBeInTheDocument();
-  expect(strip).toHaveTextContent("Broncos 12–6 Storm");
+  expect(strip).toHaveAttribute("aria-hidden", "true");
+  expect(screen.queryByRole("status", { name: /live score/i })).not.toBeInTheDocument();
   expect(screen.getByText("71%")).toBeInTheDocument();
   expect(screen.getByText(/12–6/)).toBeInTheDocument();
   expect(mockLive).toHaveBeenCalledTimes(1);
+});
+
+it("formats a partial score and omits the missing minute from both live indicators", async () => {
+  mockLive.mockResolvedValue(livePayload({
+    minute: null, score_home: 12, score_away: null,
+  }));
+
+  render(
+    <LiveMatchProvider match={scheduledMatch}>
+      <LiveSection detail={detail("in_play")} probHistory={null} />
+    </LiveMatchProvider>,
+  );
+
+  const score = await screen.findByText("Broncos 12–– Storm");
+  const strip = score.parentElement!;
+  expect(within(strip).getByText("LIVE")).toBeInTheDocument();
+  expect(strip).not.toHaveTextContent("null");
+  expect(strip).not.toHaveTextContent("·");
+  expect(screen.getAllByText("–")).toHaveLength(2);
 });
 
 it("renders a Final card with no live badge and no pinned strip once the match ends", async () => {
