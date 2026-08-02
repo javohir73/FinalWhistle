@@ -1092,15 +1092,10 @@ def _simulate_tournament(
     """Run the full group→knockout Monte-Carlo and persist per-team round/title
     probabilities. Returns the number of teams with odds written.
 
-    ``tournament_id`` scopes the group/knockout scan to one tournament (league
-    pivot D5/D6): without it every Group row in the DB is considered, which is
-    the original WC26-only behavior (byte-identical — the existing call site
-    in generate_predictions() never passes it) but would otherwise merge a
-    league's single group into the international bracket count once EPL data
-    shares the DB with the archived WC26 rows. A league's one group makes
-    ``len(groups) < 12`` below true regardless, so bracket sim still skips
-    cleanly, but scoping avoids polluting `groups`/`fixtures` with a
-    non-tournament group in the meantime.
+    ``tournament_id`` scopes the group/knockout scan to one tournament. The
+    post-results chain always supplies it because the production database
+    contains WC26 and multiple club competitions; mixing those rows would feed
+    an unrelated or incomplete group into the World Cup bracket engine.
     """
     params = params or load_params()
     groups: dict[str, list[int]] = {}
@@ -1128,8 +1123,11 @@ def _simulate_tournament(
                                           score=_played_score(m)))
         fixtures[letter] = fx
 
-    # Need the full 12-group structure to run the bracket; skip cleanly otherwise.
-    if len(groups) < 12:
+    # Need one complete 12-group World Cup structure. A pre-draw league-phase
+    # group can legitimately exist with zero members; never let that partial
+    # structure reach simulate_tournament(), whose bracket rules require a
+    # winner, runner-up and third-placed team from every group.
+    if len(groups) != 12 or any(len(members) < 4 for members in groups.values()):
         return 0
 
     hosts = {t.name: t.id for t in db.query(Team).filter_by(is_host=True).all()}

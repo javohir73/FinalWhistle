@@ -42,6 +42,7 @@ from app.models import (
     PredictionResult,
     Team,
     TeamTournamentState,
+    Tournament,
 )
 from ml.evaluation.match_metrics import evaluate_match
 from ml.features.build_features import estimate_strength
@@ -474,6 +475,80 @@ def run_learning_loop(db: Session, model_version: str) -> dict:
     return summary
 
 
+def _regenerate_tournament_predictions(
+    db: Session,
+    model_version: str,
+    *,
+    n_sims: int,
+    tournament_sims: int,
+) -> dict:
+    """Regenerate every loaded competition behind an explicit DB boundary.
+
+    The database now contains WC26 and several club competitions. A single
+    unscoped call would merge their Group rows before bracket simulation.
+    Registered leagues also need their own fitted parameters and historical
+    Elo replay, so mirror the daily league pipeline's prediction inputs here.
+    """
+    from pipeline.compute_club_elo import club_elo_ratings
+    from pipeline.generate_predictions import generate_predictions
+    from pipeline.leagues import (
+        LEAGUES,
+        club_baseline_params_for,
+        club_params_for,
+        club_shadow_variants_for,
+    )
+
+    league_by_tournament = {
+        cfg["tournament_name"]: (code, cfg) for code, cfg in LEAGUES.items()
+    }
+    totals = {
+        "matches_predicted": 0,
+        "groups_simulated": 0,
+        "tournament_teams": 0,
+        "tournaments_simulated": 0,
+    }
+    tournaments = (
+        db.query(Tournament)
+        .join(Match, Match.tournament_id == Tournament.id)
+        .distinct()
+        .order_by(Tournament.id)
+        .all()
+    )
+    for tournament in tournaments:
+        registered = league_by_tournament.get(tournament.name)
+        if registered is None:
+            result = generate_predictions(
+                db,
+                model_version=model_version,
+                n_sims=n_sims,
+                tournament_sims=tournament_sims,
+                tournament_id=tournament.id,
+            )
+        else:
+            code, cfg = registered
+            params = club_params_for(code)
+            result = generate_predictions(
+                db,
+                model_version=params.version,
+                n_sims=n_sims,
+                tournament_sims=tournament_sims,
+                tournament_id=tournament.id,
+                params=params,
+                baseline_params=club_baseline_params_for(code),
+                shadow_variants=club_shadow_variants_for(code),
+                base_strengths=club_elo_ratings(
+                    db,
+                    home_advantage=cfg["home_advantage"],
+                    competition=cfg["club_competition"],
+                ),
+                standings_advance_count=cfg.get("standings_advance_count", 2),
+            )
+        for key in ("matches_predicted", "groups_simulated", "tournament_teams"):
+            totals[key] += result[key]
+        totals["tournaments_simulated"] += 1
+    return totals
+
+
 def run_post_results_chain(
     db: Session,
     model_version: str,
@@ -492,15 +567,17 @@ def run_post_results_chain(
     """
     from app.scoring import recompute_scores, knockout_results_from_db
     from pipeline.backfill_90min import backfill_90min_scores
-    from pipeline.generate_predictions import generate_predictions
 
     # Heal 90-minute scores BEFORE evaluating: result rows are append-only, so
     # a match evaluated on the wrong basis can never be re-scored — the
     # goal-events reconstruction must run first (cheap: NULL rows only).
     summary: dict = {"backfill_90min": backfill_90min_scores(db)}
     summary["learning"] = run_learning_loop(db, model_version)
-    summary["predictions"] = generate_predictions(
-        db, n_sims=n_sims, tournament_sims=tournament_sims
+    summary["predictions"] = _regenerate_tournament_predictions(
+        db,
+        model_version,
+        n_sims=n_sims,
+        tournament_sims=tournament_sims,
     )
     summary["brackets"] = recompute_scores(db, knockout_results=knockout_results_from_db(db))
     return summary

@@ -1030,6 +1030,28 @@ def test_sims_bit_identical_when_form_channels_none_regardless_of_ledger(db_sess
     assert before_tournament == after_tournament
 
 
+def test_tournament_simulation_skips_incomplete_scoped_group_structure(db_session):
+    """Twelve group rows are insufficient when one group has no entrants."""
+    from app.models import Group, GroupTeam, TournamentOdds
+    from pipeline.generate_predictions import _simulate_tournament
+
+    load_structure(db_session)
+    _set_elos(db_session)
+    group = db_session.query(Group).order_by(Group.id).first()
+    tournament_id = group.tournament_id
+    db_session.query(GroupTeam).filter_by(group_id=group.id).delete(
+        synchronize_session=False
+    )
+    db_session.commit()
+
+    simulated = _simulate_tournament(
+        db_session, n_sims=20, tournament_id=tournament_id
+    )
+
+    assert simulated == 0
+    assert db_session.query(TournamentOdds).count() == 0
+
+
 def test_build_payload_knockout_block_for_ko_stage(db_session):
     """stage != group gets the v0.5 knockout block: advance probabilities that
     sum to 1, a path split that sums to each side's advance probability, and

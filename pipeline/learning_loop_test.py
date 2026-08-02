@@ -12,12 +12,15 @@ import pytest
 
 from app.chain_status import chain_pending, get_chain_status
 from app.models import (
+    Group,
     HistoricalMatch,
     Match,
     Prediction,
     PredictionResult,
     Team,
     TeamTournamentState,
+    Tournament,
+    TournamentOdds,
 )
 from ml.ratings.tournament import FORM_CAP_ELO
 from pipeline.generate_predictions import generate_predictions
@@ -308,6 +311,50 @@ def test_post_results_chain_runs_end_to_end_and_rescores(db_session):
     assert summary["predictions"]["matches_predicted"] > 0
     assert "brackets" in summary  # leaderboard rescoring ran (0 brackets is fine)
     assert db_session.query(PredictionResult).filter_by(is_shadow=False).count() == 1
+
+
+def test_post_results_chain_scopes_mixed_world_cup_and_ucl_groups(db_session):
+    """An empty pre-draw UCL table must never enter the WC bracket engine."""
+    _seed(db_session)
+
+    ucl = Tournament(
+        name="UEFA Champions League 2026-27",
+        year=2026,
+        host_countries="",
+        home_advantage_mode="home",
+        home_advantage_value=60.0,
+    )
+    home = Team(name="UCL Qualifier Home", elo_rating=1500.0)
+    away = Team(name="UCL Qualifier Away", elo_rating=1500.0)
+    db_session.add_all([ucl, home, away])
+    db_session.flush()
+    db_session.add(Group(tournament_id=ucl.id, name="Champions League"))
+    db_session.add(
+        Match(
+            tournament_id=ucl.id,
+            stage="qualifying",
+            status="finished",
+            team_home_id=home.id,
+            team_away_id=away.id,
+            score_home=2,
+            score_away=1,
+            kickoff_utc=datetime.now(timezone.utc) - timedelta(hours=3),
+        )
+    )
+    db_session.commit()
+
+    summary = run_post_results_chain(
+        db_session, MV, n_sims=30, tournament_sims=20
+    )
+
+    assert summary["predictions"]["tournaments_simulated"] == 2
+    assert summary["predictions"]["tournament_teams"] == 48
+    assert (
+        db_session.query(TournamentOdds)
+        .filter(TournamentOdds.team_id.in_([home.id, away.id]))
+        .count()
+        == 0
+    )
 
 
 def test_tracked_chain_writes_success_watermark(db_session):
