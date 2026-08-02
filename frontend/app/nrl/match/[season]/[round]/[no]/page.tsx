@@ -6,13 +6,13 @@ import {
 } from "@/lib/api";
 import { APP_NAME } from "@/lib/constants";
 import { pct } from "@/lib/format";
-import { ClubBadge } from "@/components/ClubBadge";
-import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ladderRowsToStandings } from "@/lib/nrlAdapters";
 import { LocalKickoff } from "@/components/LocalKickoff";
 import { ShareButton } from "@/components/ShareButton";
+import { LiveMatchProvider } from "./LiveMatchProvider";
 import { MatchIntelClient } from "./MatchIntelClient";
+import { NrlMatchHero } from "./NrlMatchHero";
 import type { NrlMatch } from "@/lib/types";
 
 export const revalidate = 300;
@@ -101,170 +101,77 @@ export default async function NrlMatchDetailPage({
   const home = match.home ?? "TBC";
   const away = match.away ?? "TBC";
   const p = match.prediction;
-  const finished = match.status === "finished";
-  const hasScore = match.score_home != null && match.score_away != null;
-  const favoured = p ? (p.p_home >= p.p_away ? home : away) : null;
-  const favouredProb = p ? Math.max(p.p_home, p.p_away) : null;
-  // Post-match verdict: did the model's favoured side win? (A drawn game with
-  // no draw lean counts as a miss, same as the football cards.)
-  const called =
-    finished && p && match.score_home != null && match.score_away != null
-      ? (p.p_home > p.p_away && match.score_home > match.score_away) ||
-        (p.p_away > p.p_home && match.score_away > match.score_home)
-      : null;
   const clubRows = (ladder?.rows ?? []).filter(
     (r) => r.name === match.home || r.name === match.away,
   );
 
   return (
-    <div className="fade-up mx-auto max-w-2xl space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <Link
-          href="/nrl/matches"
-          className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
-        >
-          <span aria-hidden>←</span> All fixtures
-        </Link>
-        <span className="font-display text-[13px] font-semibold text-muted">
-          Round {ids.round} · {ids.season}
-        </span>
-        <ShareButton title={`${home} vs ${away} — NRL round ${ids.round} prediction`} />
-      </div>
-
-      <LocalKickoff iso={match.kickoff_utc} venue={match.venue} />
-
-      {/* Matchup scoreboard: badges + score (or "vs"), then the AI's call. */}
-      <section className="glass rounded-2xl p-6">
-        {finished && (
-          <p className="mb-4 text-center">
-            <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
-              Full time
-            </span>
-          </p>
-        )}
-        <div className="flex items-center justify-center gap-6">
-          <TeamCol name={home} teamId={match.home_team_id ?? null} />
-          <span className="font-display text-2xl font-extrabold tabular-nums text-muted">
-            {finished && hasScore ? `${match.score_home}–${match.score_away}` : "vs"}
+    <LiveMatchProvider match={match}>
+      <div className="fade-up mx-auto max-w-2xl space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href="/nrl/matches"
+            className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-foreground"
+          >
+            <span aria-hidden>←</span> All fixtures
+          </Link>
+          <span className="font-display text-[13px] font-semibold text-muted">
+            Round {ids.round} · {ids.season}
           </span>
-          <TeamCol name={away} teamId={match.away_team_id ?? null} />
+          <ShareButton title={`${home} vs ${away} — NRL round ${ids.round} prediction`} />
         </div>
 
-        {p && (
-          <>
-            {!finished && favoured && (
-              <p className="mt-5 text-center text-sm font-semibold text-lime-deep">
-                {favoured} to win · {pct(favouredProb)}
-              </p>
-            )}
-            {called != null && (
-              <p
-                className={`mt-5 text-center text-xs font-semibold ${
-                  called ? "text-lime-deep" : "text-loss"
-                }`}
-              >
-                <span aria-hidden>{called ? "✓" : "✕"}</span>{" "}
-                {called ? "Called it" : "Upset — we missed it"}
-              </p>
-            )}
+        <LocalKickoff iso={match.kickoff_utc} venue={match.venue} />
 
-            {/* Shared W/D/L bar — the role="img" aria-label prints the three
-                percentages (a11y floor). Two-way NRL contests keep the 3-way
-                bar; the draw segment naturally renders small. */}
-            <div className="mt-4">
-              <ProbabilityBar
-                probabilities={{ home_win: p.p_home, draw: p.p_draw, away_win: p.p_away }}
-                homeLabel={home}
-                awayLabel={away}
-                showLabels
-              />
-            </div>
+        <NrlMatchHero match={match} home={home} away={away} />
 
-            {p.expected_margin != null && !finished && (
-              <p className="mt-4 text-center">
-                <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
-                  <span className="mr-1.5 font-semibold text-muted">ML model margin</span>
-                  {marginLabel(p.expected_margin, home, away)}
-                </span>
-              </p>
-            )}
-          </>
+        {/* A fixture the model hasn't frozen yet (predictions freeze in the
+            lead-up to each round) — matchup renders above, never a 404. */}
+        {!p && match.status !== "finished" && (
+          <section className="glass rounded-2xl p-6 text-center">
+            <h2 className="font-display text-base font-bold text-foreground">
+              ML model prediction on the way
+            </h2>
+            <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
+              The model freezes its call for this match in the lead-up to the round.
+              Check back closer to kickoff.
+            </p>
+          </section>
         )}
-      </section>
 
-      {/* A fixture the model hasn't frozen yet (predictions freeze in the
-          lead-up to each round) — matchup renders above, never a 404. */}
-      {!p && !finished && (
-        <section className="glass rounded-2xl p-6 text-center">
-          <h2 className="font-display text-base font-bold text-foreground">
-            ML model prediction on the way
-          </h2>
-          <p className="mx-auto mt-1.5 max-w-md text-sm leading-relaxed text-muted">
-            The model freezes its call for this match in the lead-up to the round.
-            Check back closer to kickoff.
-          </p>
-        </section>
-      )}
+        {detail && (
+          <MatchIntelClient detail={detail} probHistory={probHistory} />
+        )}
 
-      {detail && (
-        <MatchIntelClient detail={detail} probHistory={probHistory} />
-      )}
+        {/* Season context: the two clubs' ladder rows. */}
+        {clubRows.length > 0 && (
+          <section className="glass rounded-2xl p-6">
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="font-display text-lg font-bold">Season so far</h2>
+              <Link href="/nrl/ladder" className="text-xs font-semibold text-lime-deep">
+                Full ladder →
+              </Link>
+            </div>
+            <StandingsTable
+              standings={ladderRowsToStandings(clubRows)}
+              zones={[]}
+              badge="club"
+              teamBasePath="/nrl/team"
+              teamHeader="Club"
+              columns={["wl", "diff", "pts"]}
+            />
+          </section>
+        )}
 
-      {/* Season context: the two clubs' ladder rows. */}
-      {clubRows.length > 0 && (
-        <section className="glass rounded-2xl p-6">
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold">Season so far</h2>
-            <Link href="/nrl/ladder" className="text-xs font-semibold text-lime-deep">
-              Full ladder →
-            </Link>
-          </div>
-          <StandingsTable
-            standings={ladderRowsToStandings(clubRows)}
-            zones={[]}
-            badge="club"
-            teamBasePath="/nrl/team"
-            teamHeader="Club"
-            columns={["wl", "diff", "pts"]}
-          />
-        </section>
-      )}
-
-      <p className="text-center text-xs leading-relaxed text-muted">
-        {p ? (
-          <>
-            Prediction frozen at kickoff · graded after full time · model {p.model_version} ·{" "}
-          </>
-        ) : null}
-        {disclaimer}
-      </p>
-    </div>
+        <p className="text-center text-xs leading-relaxed text-muted">
+          {p ? (
+            <>
+              Prediction frozen at kickoff · graded after full time · model {p.model_version} ·{" "}
+            </>
+          ) : null}
+          {disclaimer}
+        </p>
+      </div>
+    </LiveMatchProvider>
   );
-}
-
-/** Badge + name column; links to the club profile when the id is known
- *  (an old cached payload may predate team ids — degrade to plain text). */
-function TeamCol({ name, teamId }: { name: string; teamId: number | null }) {
-  const inner = (
-    <>
-      <ClubBadge name={name} size={48} />
-      <span className="font-display text-sm font-bold">{name}</span>
-    </>
-  );
-  return teamId != null ? (
-    <Link
-      href={`/nrl/team/${teamId}`}
-      className="flex flex-col items-center gap-2 text-center underline-offset-2 hover:underline"
-    >
-      {inner}
-    </Link>
-  ) : (
-    <div className="flex flex-col items-center gap-2 text-center">{inner}</div>
-  );
-}
-
-/** expected_margin is home-minus-away points; read it out as the favoured side. */
-function marginLabel(margin: number, home: string, away: string): string {
-  if (margin === 0) return "dead level";
-  return `${margin > 0 ? home : away} by ${Math.abs(margin).toFixed(1)}`;
 }

@@ -1,14 +1,16 @@
 /** NRL match detail page tests — server component (SSR) output. */
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import NrlMatchDetailPage from "./page";
 import {
-  getNrlLadderServer, getNrlMatchDetailServer, getNrlProbHistoryServer, getNrlRoundServer,
+  getNrlLadderServer, getNrlLiveClient, getNrlMatchDetailServer, getNrlProbHistoryServer,
+  getNrlRoundServer,
 } from "@/lib/api";
 import type { NrlMatch, NrlMatchDetail, NrlMatchesResponse } from "@/lib/types";
 
 jest.mock("@/lib/api");
 const mockRound = getNrlRoundServer as jest.MockedFunction<typeof getNrlRoundServer>;
 const mockLadder = getNrlLadderServer as jest.MockedFunction<typeof getNrlLadderServer>;
+const mockLive = getNrlLiveClient as jest.MockedFunction<typeof getNrlLiveClient>;
 const mockDetail = getNrlMatchDetailServer as jest.MockedFunction<typeof getNrlMatchDetailServer>;
 const mockProbHistory = getNrlProbHistoryServer as jest.MockedFunction<typeof getNrlProbHistoryServer>;
 
@@ -71,16 +73,36 @@ const roundPayload = (m: NrlMatch): NrlMatchesResponse => ({
 const params = (season = "2026", round = "19", no = "3") =>
   Promise.resolve({ season, round, no });
 
+async function renderPage() {
+  const page = await NrlMatchDetailPage({ params: params() });
+  await act(async () => { render(page); });
+}
+
 beforeEach(() => {
   mockRound.mockResolvedValue(roundPayload(match));
   mockLadder.mockResolvedValue(null);
+  mockLive.mockResolvedValue({
+    status: "pre", minute: null, score_home: null, score_away: null,
+    live_home_prob: 0.5, events: [],
+  });
   mockDetail.mockResolvedValue(null);
   mockProbHistory.mockResolvedValue(null);
 });
 afterEach(() => jest.resetAllMocks());
 
+it("updates the match hero from the shared live endpoint", async () => {
+  mockLive.mockResolvedValue({
+    status: "live", minute: 42, score_home: 12, score_away: 6,
+    live_home_prob: 0.71, events: [],
+  });
+  await renderPage();
+
+  expect(await screen.findByText("12–6")).toBeInTheDocument();
+  expect(screen.getByRole("status", { name: /live match/i })).toHaveTextContent("42′");
+});
+
 it("server-renders the matchup, the AI's call, margin and disclaimer", async () => {
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(screen.getAllByText("Wests Tigers").length).toBeGreaterThanOrEqual(1);
   expect(screen.getAllByText("Warriors").length).toBeGreaterThanOrEqual(1);
@@ -107,7 +129,7 @@ it("shows the final score and grades the call once finished", async () => {
   mockRound.mockResolvedValue(
     roundPayload({ ...match, status: "finished", score_home: 12, score_away: 26 }),
   );
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(screen.getByText("12–26")).toBeInTheDocument();
   expect(screen.getByText("Full time")).toBeInTheDocument();
@@ -121,13 +143,13 @@ it("marks a result the model got wrong as a miss", async () => {
   mockRound.mockResolvedValue(
     roundPayload({ ...match, status: "finished", score_home: 30, score_away: 8 }),
   );
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
   expect(screen.getByText(/we missed it/)).toBeInTheDocument();
 });
 
 it("renders a prediction-pending view (not 404) when the match has no prediction yet", async () => {
   mockRound.mockResolvedValue(roundPayload({ ...match, prediction: null }));
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(screen.getAllByText("Wests Tigers").length).toBeGreaterThanOrEqual(1);
   expect(screen.getByText(/prediction on the way/i)).toBeInTheDocument();
@@ -143,7 +165,7 @@ it("shows the two clubs' ladder rows when the ladder is available", async () => 
     ],
     disclaimer: "For analytics and entertainment only. Not betting advice.",
   });
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(screen.getByText("Season so far")).toBeInTheDocument();
   // Only the two clubs in this matchup — not the rest of the ladder.
@@ -179,7 +201,7 @@ it("calls notFound() for non-numeric params without hitting the API", async () =
 
 it("renders the Match Intelligence sections when the detail endpoint has data", async () => {
   mockDetail.mockResolvedValue(detail);
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   // "Overview"/"Model" each appear twice (the sticky-nav pill AND the
   // section's own <h2>) -- query by heading role so the assertion is
@@ -209,7 +231,7 @@ it("renders a fixture-specific scoreline only when the API promotes it", async (
       score_model_version: "nrl-score-v1",
     },
   });
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(await screen.findByText("Predicted score")).toBeInTheDocument();
   expect(screen.getByText(/Wests Tigers 18–26 Warriors/)).toBeInTheDocument();
@@ -217,7 +239,7 @@ it("renders a fixture-specific scoreline only when the API promotes it", async (
 });
 
 it("renders without the Match Intelligence sections when the detail endpoint is unavailable", async () => {
-  render(await NrlMatchDetailPage({ params: params() }));
+  await renderPage();
 
   expect(screen.queryByRole("heading", { name: "Overview" })).not.toBeInTheDocument();
   // The existing matchup content still renders (backward compatible).
