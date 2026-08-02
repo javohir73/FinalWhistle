@@ -1092,15 +1092,10 @@ def _simulate_tournament(
     """Run the full group→knockout Monte-Carlo and persist per-team round/title
     probabilities. Returns the number of teams with odds written.
 
-    ``tournament_id`` scopes the group/knockout scan to one tournament (league
-    pivot D5/D6): without it every Group row in the DB is considered, which is
-    the original WC26-only behavior (byte-identical — the existing call site
-    in generate_predictions() never passes it) but would otherwise merge a
-    league's single group into the international bracket count once EPL data
-    shares the DB with the archived WC26 rows. A league's one group makes
-    ``len(groups) < 12`` below true regardless, so bracket sim still skips
-    cleanly, but scoping avoids polluting `groups`/`fixtures` with a
-    non-tournament group in the meantime.
+    ``tournament_id`` scopes the group/knockout scan to one tournament. The
+    post-results chain always supplies it because the production database
+    contains WC26 and multiple club competitions; mixing those rows would feed
+    an unrelated or incomplete group into the World Cup bracket engine.
     """
     params = params or load_params()
     groups: dict[str, list[int]] = {}
@@ -1128,8 +1123,11 @@ def _simulate_tournament(
                                           score=_played_score(m)))
         fixtures[letter] = fx
 
-    # Need the full 12-group structure to run the bracket; skip cleanly otherwise.
-    if len(groups) < 12:
+    # Need one complete 12-group World Cup structure. A pre-draw league-phase
+    # group can legitimately exist with zero members; never let that partial
+    # structure reach simulate_tournament(), whose bracket rules require a
+    # winner, runner-up and third-placed team from every group.
+    if len(groups) != 12 or any(len(members) < 4 for members in groups.values()):
         return 0
 
     hosts = {t.name: t.id for t in db.query(Team).filter_by(is_host=True).all()}
@@ -1187,6 +1185,7 @@ def generate_predictions(
     vnext_shadow_spec: "VNextShadowSpec | None" = None,
     base_strengths: dict[int, float] | None = None,
     standings_advance_count: int = 2,
+    commit: bool = True,
 ) -> dict:
     """Predict every upcoming match with both teams set — all group fixtures plus
     any drawn knockout ties — simulate every group's standings, and run the
@@ -1234,6 +1233,10 @@ def generate_predictions(
     its own historical replay on clubs that also appear in a domestic league,
     and model its top-24 league-phase progression without changing the
     domestic/WC defaults.
+
+    ``commit=False`` lets a multi-tournament orchestrator keep every scoped
+    pass in one transaction. The default preserves every existing standalone
+    caller's commit behavior.
     """
     # Tournament-adjusted strengths (base Elo + conservative delta + capped
     # form) so match predictions and both simulations move together once the
@@ -1341,7 +1344,10 @@ def generate_predictions(
         db, tournament_sims, strengths=strengths, params=params, tournament_id=tournament_id
     )
 
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return {
         "matches_predicted": predicted,
         "groups_simulated": len(groups),
