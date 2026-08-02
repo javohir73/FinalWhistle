@@ -15,7 +15,7 @@ import type { NrlLive } from "@/lib/types";
  *  transform makes that ancestor the containing block for `position: fixed`
  *  descendants — a strip rendered in place would anchor to the wrapper and
  *  scroll away with it instead of pinning to the viewport. Pure function of
- *  already-fetched data — LiveSection.tsx owns the 60s-polling fetch. */
+ *  already-fetched data — LiveMatchProvider owns the 30-second polling feed. */
 export function LiveSectionClient({
   home, away, live,
 }: { home: string; away: string; live: NrlLive }) {
@@ -26,16 +26,17 @@ export function LiveSectionClient({
       ? createPortal(
           <div
             className="pointer-events-none fixed inset-x-0 top-14 z-40 px-4"
-            role="status"
-            aria-label="Live score"
           >
-            <div className="pointer-events-auto mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-border bg-surface/95 px-4 py-2 text-sm shadow-xl backdrop-blur">
+            <div
+              aria-hidden="true"
+              className="pointer-events-auto mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-border bg-surface/95 px-4 py-2 text-sm shadow-xl backdrop-blur"
+            >
               <span className="flex items-center gap-1.5 font-semibold text-foreground">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
-                LIVE {live.minute}&apos;
+                LIVE{live.minute != null ? ` · ${live.minute}′` : ""}
               </span>
               <span className="tabular-nums text-foreground">
-                {home} {live.score_home}&ndash;{live.score_away} {away}
+                {home} {live.score_home ?? "–"}&ndash;{live.score_away ?? "–"} {away}
               </span>
               <span className="font-bold tabular-nums text-lime-deep">{pct(live.live_home_prob)}</span>
             </div>
@@ -53,7 +54,7 @@ export function LiveSectionClient({
           {isLive && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-loss">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden />
-              Live &middot; {live.minute}&apos;
+              Live{live.minute != null ? ` · ${live.minute}′` : ""}
             </span>
           )}
         </div>

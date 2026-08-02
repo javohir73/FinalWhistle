@@ -246,9 +246,9 @@ export const getNrlConditionalProjectionsServer = (season: number) =>
   getServer<NrlConditionalProjectionsResponse>(`/api/nrl/projections/conditional?season=${season}`, 300);
 export const getNrlProbHistoryServer = (id: number | string) =>
   getServer<NrlProbHistory>(`/api/nrl/matches/${id}/prob-history`, 300);
-/** Wave 3 live layer: polled every 60s by the match page's Live section
+/** Wave 3 live layer: polled every 30s by the match page's shared provider
  *  (a client island — browser calls go through the /backend-api rewrite,
- *  and nothing server-renders this section, so there is no SSR variant). */
+ *  and no server-side live fetch is needed). */
 export async function getNrlLiveClient(matchId: number): Promise<NrlLive> {
   return getJson<NrlLive>(`/api/nrl/matches/${matchId}/live`);
 }
