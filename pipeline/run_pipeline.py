@@ -140,16 +140,27 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     # single "club_elo" key regardless of league count; with exactly one
     # league configured, its value is that league's own flat summary dict,
     # byte-for-byte the shape every existing test already asserts against.
+    # teams.elo_rating is one shared column and every replay writes it, so the
+    # last writer owns a club that plays in two competitions. Run the
+    # cross-border competitions FIRST and the domestic ones last: a club with
+    # domestic history ends on its ten-season rating, while a qualifying-round
+    # club no domestic league covers keeps the cross-border one. Sorting here
+    # rather than relying on ACTIVE_LEAGUES order means reordering that list
+    # cannot silently reintroduce the clobber. Summary keys stay registry-order.
     def _club_elo_all_leagues() -> dict:
-        results = {
+        by_precedence = sorted(
+            configured, key=lambda item: item[1].get("owns_served_rating", True)
+        )
+        summaries = {
             code: compute_and_store_club_elo(
                 db,
                 home_advantage=cfg["home_advantage"],
                 competition=cfg["club_competition"],
                 tournament_name=cfg["tournament_name"],
             )
-            for code, cfg in configured
+            for code, cfg in by_precedence
         }
+        results = {code: summaries[code] for code, _cfg in configured}
         return results[configured[0][0]] if len(configured) == 1 else results
 
     step("club_elo", _club_elo_all_leagues)

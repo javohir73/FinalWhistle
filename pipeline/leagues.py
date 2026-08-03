@@ -83,6 +83,14 @@ class LeagueConfig(TypedDict):
     model_params: dict[str, float]
     model_version: NotRequired[str]
     shadow_baseline: NotRequired[bool]
+    # Whether this competition owns the shared teams.elo_rating column that
+    # /api/teams serves and orders by. Domestic leagues do (default). A
+    # cross-border competition shares Team rows with them off a much shorter
+    # replay, so it must not be the last to write that column: this flag is
+    # the sort key run_pipeline._club_elo_all_leagues replays them by, non-
+    # owners first. It does NOT gate the write itself -- a club no domestic
+    # league covers still gets its rating from the cross-border replay.
+    owns_served_rating: NotRequired[bool]
     # Current-roster clubs with no top-flight row in the ten-season source
     # window. They intentionally use the model's documented cold start.
     cold_start_teams: tuple[str, ...]
@@ -194,6 +202,9 @@ LEAGUES: dict[str, LeagueConfig] = {
         # and do not log a baseline twin when there is no predecessor.
         "model_version": "poisson-elo-ucl-v0.1",
         "shadow_baseline": False,
+        # Shares Team rows with epl/laliga/bundesliga. Four seasons from a 1500
+        # cold start must not overwrite their ten-season served ratings.
+        "owns_served_rating": False,
         "cold_start_teams": (),
         "allow_unrated_roster": True,
         "standings_advance_count": 24,
