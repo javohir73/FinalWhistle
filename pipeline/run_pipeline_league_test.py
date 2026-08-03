@@ -186,6 +186,34 @@ def test_ucl_pipeline_predicts_qualifiers_without_fake_table_or_baseline(
     group = db_session.query(Group).filter_by(name="Champions League").one()
     assert db_session.query(Standing).filter_by(group_id=group.id).count() == 0
 
+def test_club_elo_replays_cross_border_competitions_before_domestic_ones(
+    db_session, monkeypatch
+):
+    """teams.elo_rating is one shared column, so the last replay to write owns
+    a club playing in two competitions. UCL must therefore run BEFORE the
+    domestic leagues, and reordering ACTIVE_LEAGUES must not change that."""
+    from pipeline import compute_club_elo as club_elo_mod
+
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(leagues_mod, "ACTIVE_LEAGUES", ["ucl", "epl", "laliga"])
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [])
+
+    replayed: list[str] = []
+
+    def _record(_db, *, competition, tournament_name, **_kw):
+        replayed.append(competition)
+        return {"matches_replayed": 0, "teams_rated": 0, "home_advantage": 0.0}
+
+    monkeypatch.setattr(club_elo_mod, "compute_and_store_club_elo", _record)
+
+    summary = run_pipeline(db_session, n_sims=5)
+
+    assert replayed[0] == "UEFA Champions League"
+    assert set(replayed[1:]) == {"Premier League", "La Liga"}
+    # Summary keys stay in registry order regardless of replay order.
+    assert list(summary["club_elo"]) == ["ucl", "epl", "laliga"]
+
+
 # ---------------------------------------------------------------------------
 # League Score Predictions design doc: score-prediction grading step
 # ---------------------------------------------------------------------------

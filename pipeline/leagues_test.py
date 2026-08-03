@@ -7,6 +7,16 @@ def test_all_four_leagues_are_active_in_pipeline_order():
     assert ACTIVE_LEAGUES == ["epl", "laliga", "bundesliga", "ucl"]
 
 
+def test_only_domestic_leagues_own_the_shared_served_elo_column():
+    """teams.elo_rating is one shared column across every competition. A
+    cross-border competition shares Team rows with the domestic leagues off a
+    much shorter replay, so it must defer rather than overwrite theirs."""
+    for code in ACTIVE_LEAGUES:
+        cfg = LEAGUES[code]
+        cross_border = cfg.get("history_source") == "api_football"
+        assert cfg.get("owns_served_rating", True) is not cross_border, code
+
+
 def test_no_registered_phase_2_league_remains_pending():
     assert PHASE_2_PENDING_ACTIVATION == []
     for code in ("laliga", "bundesliga"):

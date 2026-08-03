@@ -118,6 +118,23 @@ def compute_and_store_club_elo(
     generation; whichever replay persists last cannot change another
     competition's frozen forecast.
 
+    That protects the FORECAST, not the SERVED rating. teams.elo_rating is one
+    shared column that /api/teams returns and orders by, and this function
+    always writes it for every club ``competition`` rates -- so when two
+    competitions share a Team row, the LAST writer owns the served value. That
+    precedence is resolved by run order, not here: pipeline.leagues marks
+    cross-border competitions ``owns_served_rating: False`` and
+    run_pipeline._club_elo_all_leagues runs them FIRST, so a domestic league's
+    ten-season replay overwrites the four-season Champions League one. With the
+    order reversed, a club that plays both serves a rating hundreds of points
+    off its domestic one, on a column /api/teams also sorts the team list by --
+    so the ordering it expresses stops being comparable across clubs.
+
+    Writing unconditionally is deliberate: a club that plays in no registered
+    domestic league -- most of the summer qualifying field -- has the
+    cross-border replay as its only source, and skipping already-rated clubs
+    would freeze those ratings at their first-ever run.
+
     Also persists ``home_advantage`` onto the ``tournament_name`` Tournament
     row's home_advantage_value (Opus review of PR #171, item 3): _host_adv
     (pipeline/generate_predictions.py) already prefers that column over the

@@ -286,3 +286,144 @@ def test_unrated_roster_teams_flags_a_club_the_backfill_never_reached(db_session
 def test_unrated_roster_teams_returns_empty_for_an_unknown_tournament_or_group(db_session):
     """Nothing to check yet (league_structure hasn't run) -- never raises."""
     assert unrated_roster_teams(db_session, "Not A Real League 2026-27", "Not A Real Group") == []
+
+
+def _seed_two_competition_history(db):
+    """One club (Arsenal) playing in BOTH a domestic league and a cross-border
+    one, plus a club that only ever appears in the cross-border competition."""
+    arsenal = Team(name="Arsenal", is_host=False)
+    burnley = Team(name="Burnley", is_host=False)
+    psg = Team(name="Paris Saint Germain", is_host=False)
+    db.add_all([arsenal, burnley, psg])
+    db.flush()
+
+    rows = []
+    # A long, one-sided domestic record: Arsenal ends well above the 1500 start.
+    for i in range(20):
+        rows.append(
+            HistoricalMatch(
+                date=pd.Timestamp(f"2016-08-{(i % 28) + 1:02d}", tz="UTC"),
+                team_a_id=arsenal.id, team_b_id=burnley.id,
+                score_a=4, score_b=0, competition=CLUB_COMPETITION, is_neutral=False,
+            )
+        )
+    # A short cross-border record where Arsenal is beaten from a 1500 cold start.
+    for i in range(4):
+        rows.append(
+            HistoricalMatch(
+                date=pd.Timestamp(f"2022-09-{(i % 28) + 1:02d}", tz="UTC"),
+                team_a_id=psg.id, team_b_id=arsenal.id,
+                score_a=4, score_b=0, competition="UEFA Champions League", is_neutral=False,
+            )
+        )
+    db.add_all(rows)
+    db.commit()
+    return arsenal.id, burnley.id, psg.id
+
+
+def _replay_cross_border(db):
+    return compute_and_store_club_elo(
+        db,
+        competition="UEFA Champions League",
+        tournament_name="UEFA Champions League 2026-27",
+    )
+
+
+def _replay_domestic(db):
+    return compute_and_store_club_elo(
+        db, competition=CLUB_COMPETITION, tournament_name=TOURNAMENT_NAME
+    )
+
+
+def test_domestic_replay_wins_the_shared_column_when_it_runs_last(db_session):
+    """teams.elo_rating is a single shared column that /api/teams serves AND
+    sorts on. run_pipeline replays cross-border competitions first so the
+    longer domestic replay owns the served value; a UCL replay landing last
+    would put Arsenal below Burnley on the Premier League team list."""
+    arsenal_id, burnley_id, _ = _seed_two_competition_history(db_session)
+
+    _replay_cross_border(db_session)
+    _replay_domestic(db_session)
+
+    arsenal = db_session.get(Team, arsenal_id).elo_rating
+    burnley = db_session.get(Team, burnley_id).elo_rating
+    assert arsenal > burnley
+
+    # The regression itself: the shipped order ran UCL last, so the shared
+    # column ended up holding the four-season cold-start value instead of the
+    # ten-season one -- a materially different number on a public surface.
+    _replay_cross_border(db_session)
+    clobbered = db_session.get(Team, arsenal_id).elo_rating
+    assert clobbered < arsenal
+    assert arsenal - clobbered > 100
+
+
+def test_cross_border_replay_rates_clubs_no_domestic_league_covers(db_session):
+    """A qualifying-round club that plays in no registered domestic league has
+    the cross-border replay as its only rating source. The domestic replay must
+    leave it alone rather than the pair cancelling each other out."""
+    _, _, psg_id = _seed_two_competition_history(db_session)
+
+    _replay_cross_border(db_session)
+    rated = db_session.get(Team, psg_id).elo_rating
+    assert rated is not None
+
+    _replay_domestic(db_session)
+    assert db_session.get(Team, psg_id).elo_rating == rated
+
+
+def test_cross_border_only_clubs_keep_being_refreshed_by_later_runs(db_session):
+    """Precedence must come from run ORDER, not from skipping already-rated
+    clubs: a 'don't overwrite what's set' rule would freeze every
+    qualifying-round club at its first-ever rating and never track results."""
+    _, _, psg_id = _seed_two_competition_history(db_session)
+
+    _replay_cross_border(db_session)
+    first = db_session.get(Team, psg_id).elo_rating
+
+    heavy_defeat_opponent = _seed_extra_opponent(db_session)
+    db_session.add(
+        HistoricalMatch(
+            date=pd.Timestamp("2023-03-01", tz="UTC"),
+            team_a_id=psg_id, team_b_id=heavy_defeat_opponent,
+            score_a=0, score_b=6, competition="UEFA Champions League", is_neutral=False,
+        )
+    )
+    db_session.commit()
+
+    _replay_cross_border(db_session)
+    assert db_session.get(Team, psg_id).elo_rating < first
+
+
+def test_owning_replay_still_refreshes_an_already_rated_club(db_session):
+    """Every replay writes unconditionally, so a league keeps tracking its own
+    clubs as new results land rather than sticking at 'already set'."""
+    arsenal_id, _, _ = _seed_two_competition_history(db_session)
+
+    compute_and_store_club_elo(
+        db_session, competition=CLUB_COMPETITION, tournament_name=TOURNAMENT_NAME
+    )
+    first = db_session.get(Team, arsenal_id).elo_rating
+
+    db_session.add(
+        HistoricalMatch(
+            date=pd.Timestamp("2017-05-01", tz="UTC"),
+            team_a_id=arsenal_id, team_b_id=_seed_extra_opponent(db_session),
+            score_a=0, score_b=5, competition=CLUB_COMPETITION, is_neutral=False,
+        )
+    )
+    db_session.commit()
+
+    compute_and_store_club_elo(
+        db_session, competition=CLUB_COMPETITION, tournament_name=TOURNAMENT_NAME
+    )
+    assert db_session.get(Team, arsenal_id).elo_rating < first
+
+
+def _seed_extra_opponent(db):
+    opponent = Team(name="Leicester City", is_host=False)
+    db.add(opponent)
+    db.flush()
+    return opponent.id
+
+
