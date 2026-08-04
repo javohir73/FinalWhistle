@@ -11,7 +11,9 @@ const mockLive = getNrlLiveClient as jest.MockedFunction<typeof getNrlLiveClient
 const scheduledMatch: NrlMatch = {
   id: 42,
   match_no: 3,
-  kickoff_utc: "2026-07-11T09:35:00+00:00",
+  // In the live window: the hero only believes a "live" payload while the
+  // match could actually be running (see the stale-state tests below).
+  kickoff_utc: new Date(Date.now() - 40 * 60_000).toISOString(),
   venue: "Leichhardt Oval",
   home: "Wests Tigers",
   away: "Warriors",
@@ -99,4 +101,31 @@ it("preserves the full-time score and model verdict", () => {
   expect(screen.getByText("Full time")).toBeInTheDocument();
   expect(screen.getByText("12–26")).toBeInTheDocument();
   expect(screen.getByText(/Called it/)).toBeInTheDocument();
+});
+
+// --- stale/contradictory live states must not produce a LIVE pill ----------
+
+it("never renders LIVE and Full time together — full time wins", async () => {
+  // A stale live-state row can survive grading: the match row says finished
+  // while /live still answers "live". Two truths, one pill.
+  mockLive.mockResolvedValue(livePayload({ minute: 74, score_home: 12, score_away: 26 }));
+  renderHero(finishedMatch);
+  await act(async () => {});
+  expect(screen.getByText("Full time")).toBeInTheDocument();
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});
+
+it("does not pin LIVE on a match far past its window", async () => {
+  // Poller died mid-match, ingest lagging: /live keeps answering "live"
+  // with a frozen minute. The hero bounds liveness by kickoff, same as
+  // every other NRL surface, so it degrades to the pre-match header.
+  const staleMatch: NrlMatch = {
+    ...scheduledMatch,
+    kickoff_utc: new Date(Date.now() - 5 * 60 * 60_000).toISOString(), // 5h ago
+  };
+  mockLive.mockResolvedValue(livePayload({ minute: 63, score_home: 18, score_away: 12 }));
+  renderHero(staleMatch);
+  await act(async () => {});
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(screen.getByText("vs")).toBeInTheDocument();
 });

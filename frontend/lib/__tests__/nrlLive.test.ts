@@ -66,3 +66,28 @@ describe("grouping", () => {
     expect(finishedRounds([{ round: 22, matches: [match({})] }])).toEqual([]);
   });
 });
+
+describe("in_play matches", () => {
+  // The API emits "in_play" when a live-state row overlays a fixture. Within
+  // the window it belongs to the live strip; outside it (a stalled poller left
+  // the overlay behind), the match must still appear SOMEWHERE — an earlier
+  // version filtered upcoming to status === "scheduled" and finished to
+  // "finished", so an out-of-window in_play match vanished from all three tabs.
+  it("shows in the live strip while inside the window", () => {
+    const rounds: NrlRound[] = [{ round: 20, matches: [
+      match({ match_no: 9, status: "in_play", kickoff_utc: "2026-07-18T06:30:00Z" }),
+    ]}];
+    expect(liveNow(rounds, NOW)).toEqual([
+      { round: 20, match: expect.objectContaining({ match_no: 9 }) },
+    ]);
+    expect(upcomingRounds(rounds, NOW)).toEqual([]);
+  });
+  it("never vanishes: out-of-window in_play lands in upcoming", () => {
+    const rounds: NrlRound[] = [{ round: 20, matches: [
+      match({ match_no: 9, status: "in_play", kickoff_utc: "2026-07-18T02:00:00Z" }), // 5h ago
+    ]}];
+    expect(liveNow(rounds, NOW)).toEqual([]);
+    expect(finishedRounds(rounds)).toEqual([]);
+    expect(upcomingRounds(rounds, NOW)[0].matches.map((m) => m.match_no)).toEqual([9]);
+  });
+});

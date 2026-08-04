@@ -18,7 +18,9 @@ const livePayload = (overrides: Partial<NrlLive> = {}): NrlLive => ({
 });
 
 const scheduledMatch: NrlMatch = {
-  id: 42, match_no: 3, kickoff_utc: "2026-08-02T04:00:00Z",
+  // In the poll window: interval ticks only fetch while new data can actually
+  // arrive (see the "does not poll" tests below).
+  id: 42, match_no: 3, kickoff_utc: new Date(Date.now() - 20 * 60_000).toISOString(),
   venue: "Ocean Protect Stadium", home: "Sharks", away: "Rabbitohs",
   home_team_id: 1, away_team_id: 2, score_home: null, score_away: null,
   status: "scheduled", prediction: null,
@@ -173,6 +175,51 @@ it("does not poll a finished match", async () => {
   render(<LiveMatchProvider match={finishedMatch}><Probe /></LiveMatchProvider>);
   await act(async () => { jest.advanceTimersByTime(120_000); });
   expect(mockLive).toHaveBeenCalledTimes(1); // the one replacement fetch, no interval
+});
+
+// --- polling only runs while new data can actually arrive -------------------
+//
+// The backend poller writes NrlLiveState only inside the match window, so a
+// 30-second client poll outside it can never observe a change. A tab parked
+// on a fixture days out (or on a match whose poller died hours ago) was
+// hitting the Render free tier every 30s indefinitely, for a payload the UI
+// discards. The interval keeps ticking — a parked tab still wakes up at
+// kickoff — but each tick is a wall-clock check, not an HTTP request.
+
+it("does not poll a fixture days before kickoff, but wakes up at kickoff", async () => {
+  jest.useFakeTimers();
+  const farFuture: NrlMatch = {
+    ...scheduledMatch,
+    kickoff_utc: new Date(Date.now() + 5 * 24 * 60 * 60_000).toISOString(),
+  };
+  mockLive.mockResolvedValue(livePayload({ status: "pre", minute: null }));
+
+  render(<LiveMatchProvider match={farFuture}><Probe /></LiveMatchProvider>);
+  await act(async () => {});
+  expect(mockLive).toHaveBeenCalledTimes(1); // the initial load only
+
+  await act(async () => { jest.advanceTimersByTime(60 * 60_000); }); // 1h parked
+  expect(mockLive).toHaveBeenCalledTimes(1); // ticks skipped — no HTTP
+
+  // ...five days later the same interval starts fetching again.
+  await act(async () => { jest.advanceTimersByTime(5 * 24 * 60 * 60_000); });
+  expect(mockLive.mock.calls.length).toBeGreaterThan(1);
+});
+
+it("stops fetching for a match far past its window even if the payload never says final", async () => {
+  jest.useFakeTimers();
+  const stale: NrlMatch = {
+    ...scheduledMatch,
+    kickoff_utc: new Date(Date.now() - 5 * 60 * 60_000).toISOString(), // 5h ago
+  };
+  mockLive.mockResolvedValue(livePayload({ minute: 63, score_home: 18, score_away: 12 }));
+
+  render(<LiveMatchProvider match={stale}><Probe /></LiveMatchProvider>);
+  await act(async () => {});
+  expect(mockLive).toHaveBeenCalledTimes(1); // initial load still surfaces the state
+
+  await act(async () => { jest.advanceTimersByTime(10 * 60_000); });
+  expect(mockLive).toHaveBeenCalledTimes(1); // frozen row — nothing new can arrive
 });
 
 it("keeps the seed when the finished-match fetch fails", async () => {

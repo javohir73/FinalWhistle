@@ -117,7 +117,9 @@ def test_matches_overlays_latest_live_score_and_clock(client):
     eels = _team(db, "Eels")
     match = SportMatch(
         sport="nrl", season=2026, round=1, match_no=1,
-        kickoff_utc=datetime(2026, 3, 5, 9, tzinfo=timezone.utc),
+        # In the live window: the overlay only trusts a "live" row while the
+        # poller could still be writing it (see the staleness tests below).
+        kickoff_utc=datetime.now(timezone.utc) - timedelta(minutes=40),
         home_team_id=storm.id, away_team_id=eels.id, status="scheduled",
     )
     db.add(match)
@@ -133,6 +135,64 @@ def test_matches_overlays_latest_live_score_and_clock(client):
     assert live["status"] == "in_play"
     assert live["minute"] == 42
     assert (live["score_home"], live["score_away"]) == (18, 12)
+
+
+def test_matches_does_not_overlay_a_stale_live_state(client):
+    """A poller that died mid-match leaves NrlLiveState stuck at "live" while
+    the twice-weekly ingest lags the real result for days. Overlaying that row
+    froze a completed game at in_play/minute-63 on the fixture board while the
+    ladder and team profiles (which filter on SportMatch.status) already
+    disagreed. Past the live window the overlay must stand down and serve the
+    base fixture row, so every NRL surface tells the same story."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+    match = SportMatch(
+        sport="nrl", season=2026, round=1, match_no=1,
+        kickoff_utc=datetime.now(timezone.utc) - timedelta(hours=4),
+        home_team_id=storm.id, away_team_id=eels.id, status="scheduled",
+    )
+    db.add(match)
+    db.flush()
+    db.add(NrlLiveState(
+        match_id=match.id, status="live", minute=63,
+        score_home=18, score_away=12, live_home_prob=0.9,
+    ))
+    db.commit()
+
+    body = c.get("/api/nrl/matches", params={"season": 2026}).json()
+    row = body["rounds"][0]["matches"][0]
+    assert row["status"] == "scheduled"
+    assert row["minute"] is None
+    assert (row["score_home"], row["score_away"]) == (None, None)
+
+
+def test_matches_final_live_state_overlays_regardless_of_age(client):
+    """A "final" state row is a recorded result, not a liveness claim -- it has
+    no staleness window. Rows persisted before the poller wrote match.status
+    itself (pre-#219) must keep surfacing as finished."""
+    c, TestingSession = client
+    db = TestingSession()
+    storm = _team(db, "Storm")
+    eels = _team(db, "Eels")
+    match = SportMatch(
+        sport="nrl", season=2026, round=1, match_no=1,
+        kickoff_utc=datetime.now(timezone.utc) - timedelta(days=3),
+        home_team_id=storm.id, away_team_id=eels.id, status="scheduled",
+    )
+    db.add(match)
+    db.flush()
+    db.add(NrlLiveState(
+        match_id=match.id, status="final", minute=80,
+        score_home=20, score_away=10, live_home_prob=1.0,
+    ))
+    db.commit()
+
+    body = c.get("/api/nrl/matches", params={"season": 2026}).json()
+    row = body["rounds"][0]["matches"][0]
+    assert row["status"] == "finished"
+    assert (row["score_home"], row["score_away"]) == (20, 10)
 
 
 def test_matches_unknown_round_404s(client):
