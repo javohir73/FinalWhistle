@@ -15,7 +15,7 @@
 - Production output with all new flags at defaults (`use_odds: false`) must be **bit-identical** to today. A regression test proves it.
 - The writeup generator is **pure and deterministic**: no clock, no randomness, no DB access inside `ml/explain/writeup.py`. It never raises; it returns `None` on thin inputs.
 - `model_params.json` `version` stays `"poisson-elo-v0.5"`; `use_odds` ships `false`; `w_odds` stays `0.35` (armed, shadow-only). **No promotion in this work.**
-- Do not rename anything `pitchprophet-*`; the repo is private — push nothing to public destinations.
+- Do not rename anything `pitchprophet-*`. *(Correction 2026-08-04: this plan originally said "the repo is private" — it is public; see CLAUDE.md → Repo gotchas.)*
 - Match each file's existing idiom: rich docstrings with FR/spec references, comment density, naming.
 - Test commands: Python `.venv/bin/python -m pytest <path> -v` from the repo root; frontend `cd frontend && npx jest <file>`; full gate `make test` (root).
 - Every commit message ends with: `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`

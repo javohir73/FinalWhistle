@@ -85,7 +85,13 @@ silently substitute — stop and ask before continuing.
 
 - `pitchprophet-*` names (Render service/DB, prod API host) are **legacy but
   load-bearing** — they map to live resources. Do not rename.
-- The repo is **private**. Never push code, logs, or data to a public destination.
+- The repo is **public** (`javohir73/FinalWhistle` on GitHub). Every push, PR
+  body, commit message, and evidence doc publishes immediately. Never commit
+  secrets, tokens, `.env` values, database URLs, or personal data — scan the
+  diff before pushing. The `pitchprophet-*` hostnames above are already
+  public-facing and fine to reference; provider API keys are not.
+  (Older docs under `docs/superpowers/plans/` claim the repo is private —
+  they are wrong; this line is the authority.)
 - Model version string: `poisson-elo-v0.5` (`ml/models/model_params.json`).
 
 ## Skill routing
