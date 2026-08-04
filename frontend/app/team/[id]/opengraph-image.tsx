@@ -1,18 +1,22 @@
 import { ImageResponse } from "next/og";
 import { Shell, OgFlag, OG_SIZE, OG_CONTENT_TYPE, ogFooter, C } from "@/lib/og";
 import { getTeamServer } from "@/lib/api";
-import { getTournament } from "@/lib/tournament";
+import { getTournamentForRoute } from "@/lib/tournament";
 import { flagUrl } from "@/lib/flags";
 
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 export const alt = "Team profile — FinalWhistle";
 
-export default async function Image({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
+// ``comp`` is present only when this component serves the namespaced
+// /football/{comp}/team/:id route (see that segment's re-export shim).
+export default async function Image({
+  params,
+}: { params: Promise<{ id: string; comp?: string }> }) {
+  const { id, comp } = await params;
   const [data, tournament] = await Promise.all([
     getTeamServer(id).catch(() => null),
-    getTournament(),
+    getTournamentForRoute(comp),
   ]);
 
   if (!data) {
