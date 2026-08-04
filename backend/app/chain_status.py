@@ -76,10 +76,19 @@ def record_attempt(db: Session, trigger: str) -> None:
 
 def record_success(db: Session, covered_finished: int, trigger: str | None = None) -> dict:
     """Advance the success watermark — call ONLY after the full chain
-    (evaluate -> ratings -> predictions -> brackets) completed."""
+    (evaluate -> ratings -> predictions -> brackets) completed.
+
+    Also clears the error fields, so they mean "failures since the last
+    success" rather than "the last failure ever". Before this, a one-off
+    IndexError kept reading as a live fault in /api/health days after the
+    chain recovered (the 2026-08-02 incident fixed by #225 was still on
+    display two days later), and monitoring could not assert on the field
+    because it never went quiet."""
     row = _get_or_create(db)
     row.last_success_at = _now()
     row.covered_finished = covered_finished
+    row.last_error_at = None
+    row.last_error = None
     if trigger is not None:
         row.last_trigger = trigger
     db.commit()

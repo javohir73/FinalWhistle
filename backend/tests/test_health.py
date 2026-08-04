@@ -82,6 +82,33 @@ def test_health_reports_learning_chain_heartbeat():
         app.dependency_overrides.clear()
 
 
+def test_health_clears_the_error_fields_once_the_chain_recovers():
+    """last_error means "failures since the last success". A resolved incident
+    must stop reading as a live fault: the 2026-08-02 IndexError was still on
+    display in /api/health two days after #225 fixed it, and monitoring could
+    never assert on the field because it never went quiet."""
+    from app.chain_status import record_failure, record_success
+
+    c, session_factory = _client_with_db()
+    try:
+        s = session_factory()
+        record_failure(s, IndexError("list index out of range"))
+
+        chain = c.get("/api/health").json()["learning_chain"]
+        assert chain["last_error"] == "IndexError: list index out of range"
+        assert chain["last_error_at"] is not None
+
+        record_success(s, covered_finished=0, trigger="test")
+        s.close()
+
+        chain = c.get("/api/health").json()["learning_chain"]
+        assert chain["last_error"] is None
+        assert chain["last_error_at"] is None
+        assert chain["last_success_at"] is not None
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_health_reports_prediction_coverage():
     """FR-1.3: a scheduled match with teams, kicking off within 48h, and no
     frozen prediction row must surface as prediction_coverage.missing so
