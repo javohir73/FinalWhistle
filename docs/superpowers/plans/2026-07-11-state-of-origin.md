@@ -21,7 +21,7 @@
 - Frontend: Origin is **not** a third sport and **not** a sixth nav tab (BottomNav is a fixed five-tab design). Entry is a card on `/nrl`.
 - Run Python tests with `.venv/bin/python -m pytest` from the repo root. Frontend: `cd frontend && npm run typecheck && npm run lint && npm test`.
 - Work on branch `feat/state-of-origin`. Commit after every task (steps say when).
-- The repo is private; the seed data file is public-record sports results and fine to commit.
+- The seed data file is public-record sports results and fine to commit. *(Correction 2026-08-04: this plan originally said "the repo is private" — it is public; see CLAUDE.md → Repo gotchas.)*
 
 ---
 
