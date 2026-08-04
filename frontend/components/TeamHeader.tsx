@@ -50,7 +50,7 @@ export function TeamHeader({
   badge?: "flag" | "club";
   showFavorite?: boolean;
   meta?: string | null;
-  tiles?: { label: string; value: string }[];
+  tiles?: { label: string; value: string; gloss?: string }[];
 }) {
   // `comp` is part of the header's contract (league pages pass their own) but
   // the wash is comp-neutral lime today; kept so the accent hook lands here later.
@@ -76,10 +76,17 @@ export function TeamHeader({
   // (including `[]`, which prints no tiles).
   const footballTiles = [
     team.elo_rating != null
-      ? { label: "Elo", value: String(Math.round(team.elo_rating)) }
+      ? {
+          label: "Elo",
+          value: String(Math.round(team.elo_rating)),
+          // "Elo" is rating-system jargon a first-time fan can't parse — gloss
+          // it at point of use (title tooltip + accessible name); the numbers
+          // themselves are explained in full on /methodology.
+          gloss: "Elo — strength rating computed from match results; higher is stronger",
+        }
       : null,
     team.fifa_rank != null ? { label: "FIFA rank", value: `#${team.fifa_rank}` } : null,
-  ].filter(Boolean) as { label: string; value: string }[];
+  ].filter(Boolean) as { label: string; value: string; gloss?: string }[];
   const statTiles = tiles === undefined ? footballTiles : tiles;
 
   return (
@@ -123,12 +130,16 @@ export function TeamHeader({
           {statTiles.map((t) => (
             <div
               key={t.label}
+              title={t.gloss}
               className="flex-1 rounded-[12px] border border-border bg-surface/80 px-2.5 py-2.5"
             >
               <p className="font-display text-[17px] font-extrabold tabular-nums text-foreground">
                 {t.value}
               </p>
-              <p className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.06em] text-muted">
+              <p
+                className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.06em] text-muted"
+                aria-label={t.gloss}
+              >
                 {t.label}
               </p>
             </div>

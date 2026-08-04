@@ -171,3 +171,26 @@ describe("TeamHeader", () => {
     expect(screen.queryByText("1900")).toBeNull();
   });
 });
+
+describe("Elo gloss", () => {
+  it("expands the Elo tile for first-time fans (tooltip + accessible name)", () => {
+    render(
+      <TeamHeader
+        team={makeTeam()}
+        groupName="Group C"
+        comp="wc26"
+        backHref="/groups"
+        backLabel="Standings"
+      />,
+    );
+    const label = screen.getByText("Elo");
+    expect(label).toHaveAttribute(
+      "aria-label",
+      "Elo — strength rating computed from match results; higher is stronger",
+    );
+    expect(label.closest("div")).toHaveAttribute(
+      "title",
+      expect.stringContaining("strength rating"),
+    );
+  });
+});

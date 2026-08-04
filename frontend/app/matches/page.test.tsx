@@ -46,7 +46,7 @@ afterEach(() => {
 it("shows loading then the match cards", async () => {
   mockGet.mockResolvedValue([match(1, "Brazil", "Scotland", "Group C")]);
   render(<MatchesPage />);
-  expect(screen.getByRole("status")).toBeInTheDocument();
+  expect(screen.getByRole("status", { name: "Loading predictions…" })).toBeInTheDocument();
   await waitFor(() => expect(screen.getByText(/Scotland/)).toBeInTheDocument());
 });
 
@@ -110,8 +110,12 @@ it("pins live (in-play) matches in a 'Live now' section at the top", async () =>
   // The live match is surfaced, and the "Live now" heading precedes the
   // scheduled match in the DOM (pinned to the top, not buried by kickoff order).
   const live = screen.getByText("Live now");
-  const scheduledTeam = screen.getByText(/Uruguay/);
+  const scheduledTeam = screen.getAllByText(/Uruguay/)[0];
   expect(live.compareDocumentPosition(scheduledTeam) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+  // The always-mounted polite region announces the live scoreline — the
+  // visible cards are static markup to assistive tech.
+  expect(screen.getByText("Live now: Brazil 1–1 Morocco")).toHaveClass("sr-only");
 });
 
 it("opens an inline timezone picker from the location chip instead of navigating", async () => {
@@ -195,7 +199,7 @@ it("narrows to in-play games under the Live filter", async () => {
   fireEvent.click(screen.getByRole("tab", { name: "Live" }));
   // Only the live match remains; the finished one is filtered out.
   expect(screen.getByText("Live now")).toBeInTheDocument();
-  expect(screen.getByText(/Morocco/)).toBeInTheDocument(); // away team of the live match
+  expect(screen.getAllByText(/Morocco/).length).toBeGreaterThan(0); // away team of the live match
   expect(screen.queryByText(/Switzerland/)).not.toBeInTheDocument();
 });
 
@@ -212,7 +216,7 @@ it("pins live on the default view but drops it under the Finished filter", async
   render(<MatchesPage />);
   // Live game is pinned on the default (Upcoming) view so it's never buried.
   await waitFor(() => expect(screen.getByText("Live now")).toBeInTheDocument());
-  expect(screen.getByText(/Morocco/)).toBeInTheDocument(); // away team of the live match
+  expect(screen.getAllByText(/Morocco/).length).toBeGreaterThan(0); // away team of the live match
 
   // Under Finished the live pin drops and the full-time result shows instead.
   fireEvent.click(screen.getByRole("tab", { name: "Finished" }));

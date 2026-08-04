@@ -170,14 +170,46 @@ describe("MatchCard (NRL slots: badge / href / margin)", () => {
     expect(screen.getByText("Japan")).toBeInTheDocument();
   });
 
-  it("renders a signed margin chip on a scheduled compact card", () => {
+  it("names the outcome the compact lead percentage belongs to", () => {
+    // "49%" alone was ambiguous — lead is max(home, draw, away), so the bare
+    // number could describe any of the three outcomes.
+    const homeLed = makeMatch(); // 65/20/15 → Argentina
+    const { rerender } = render(<MatchCard match={homeLed} variant="compact" />);
+    expect(screen.getByText("65%")).toBeInTheDocument();
+    expect(screen.getAllByText(/Argentina/).length).toBeGreaterThan(1); // names row + lead label
+
+    rerender(
+      <MatchCard
+        match={makeMatch({ probabilities: { home_win: 0.2, draw: 0.5, away_win: 0.3 } })}
+        variant="compact"
+      />,
+    );
+    expect(screen.getByText("50%")).toBeInTheDocument();
+    expect(screen.getByText("Draw")).toBeInTheDocument();
+
+    rerender(
+      <MatchCard
+        match={makeMatch({ probabilities: { home_win: 0.1, draw: 0.2, away_win: 0.7 } })}
+        variant="compact"
+      />,
+    );
+    expect(screen.getByText("70%")).toBeInTheDocument();
+    expect(screen.getAllByText(/Japan/).length).toBeGreaterThan(1);
+  });
+
+  it("reads the margin chip as the favoured side, not a signed number", () => {
+    // "margin -5.5" assumed the reader knows home-minus-away; the chip now
+    // names who is favoured and by how much.
     const positive = makeMatch();
     const { rerender } = render(
       <MatchCard match={positive} variant="compact" margin={5.5} />,
     );
-    expect(screen.getByText("margin +5.5")).toBeInTheDocument();
+    expect(screen.getByText("Argentina by 5.5")).toBeInTheDocument();
 
     rerender(<MatchCard match={positive} variant="compact" margin={-5.5} />);
-    expect(screen.getByText("margin -5.5")).toBeInTheDocument();
+    expect(screen.getByText("Japan by 5.5")).toBeInTheDocument();
+
+    rerender(<MatchCard match={positive} variant="compact" margin={0} />);
+    expect(screen.getByText("dead level")).toBeInTheDocument();
   });
 });

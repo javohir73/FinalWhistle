@@ -224,3 +224,55 @@ describe("explicit rank (filtered, non-contiguous subset)", () => {
     expect(screen.getByText("14")).toBeInTheDocument();
   });
 });
+
+describe("empty table honesty", () => {
+  // A zone legend above zero rows reads as a broken table (the live pre-draw
+  // UCL league phase) — it must wait for rows it can point at.
+  it("suppresses the zone legend when there are no rows", () => {
+    const zones = [
+      { label: "Round of 16", tone: "win", fromRank: 1, toRank: 8 },
+    ] as never;
+    const { rerender } = render(<StandingsTable standings={[]} zones={zones} />);
+    expect(screen.queryByText("Round of 16")).toBeNull();
+
+    rerender(
+      <StandingsTable
+        standings={[{ team_id: 1, team: "Arsenal" } as never]}
+        zones={zones}
+      />,
+    );
+    expect(screen.getByText("Round of 16")).toBeInTheDocument();
+  });
+});
+
+describe("column-header glosses", () => {
+  it("expands format-knowledge headers for first-time fans", () => {
+    render(
+      <StandingsTable
+        standings={[{ team_id: 16, team: "Warriors", wins: 12, losses: 6, diff: 101, points: 28 } as never]}
+        zones={[]}
+        columns={["wl", "diff", "pts", "top8"]}
+      />,
+    );
+    expect(
+      screen.getByRole("columnheader", {
+        name: "Projected chance of finishing in the top 8 and making the finals",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("glosses the Top 2 qualification header", () => {
+    render(
+      <StandingsTable
+        standings={[{ team_id: 1, team: "Brazil", projected_points: 9, qualification_prob: 0.9 } as never]}
+        zones={[]}
+        showQualification
+      />,
+    );
+    expect(
+      screen.getByRole("columnheader", {
+        name: "Chance of finishing in the top two and qualifying",
+      }),
+    ).toBeInTheDocument();
+  });
+});

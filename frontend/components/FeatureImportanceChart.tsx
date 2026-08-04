@@ -43,7 +43,9 @@ export function FeatureImportanceChart({ features }: { features: FeatureWeight[]
           />
           <Bar dataKey="weight" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}>
             {data.map((_, i) => (
-              <Cell key={i} fill="#a4e34a" fillOpacity={1 - i * 0.14} />
+              // recharts needs a literal (SVG attrs don't resolve CSS vars);
+              // this is the --win token value, not a second lime.
+              <Cell key={i} fill="hsl(84 78% 55%)" fillOpacity={1 - i * 0.14} />
             ))}
             <LabelList
               dataKey="weight"

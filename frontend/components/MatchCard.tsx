@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { MatchSummary } from "@/lib/types";
-import { formatScore, pct } from "@/lib/format";
+import { expectedMarginLabel, formatScore, pct, topOutcome } from "@/lib/format";
 import { liveLabel, isLiveNow } from "@/lib/liveLabel";
 import { predictionVerdict, prematchCall } from "@/lib/verdict";
 import { ShootoutNote, BasisTag } from "@/components/ShootoutNote";
@@ -167,12 +167,13 @@ export function MatchCard({
             ) : (
               // NRL fixtures carry an expected margin, not a scoreline; the chip
               // stands in for the predicted-score slot on non-finished matches.
+              // Read out as the favoured side ("Sharks by 4.0") — a signed
+              // "margin -4.0" assumed the reader knows home-minus-away.
               margin != null &&
               !finished && (
                 <span className="rounded-lg bg-surface-2 px-2 py-0.5 font-bold tabular-nums text-foreground">
                   <span className="mr-1 font-semibold text-muted">ML model</span>
-                  margin {margin > 0 ? "+" : ""}
-                  {margin.toFixed(1)}
+                  {expectedMarginLabel(margin, teams.home, teams.away)}
                 </span>
               )
             )}
@@ -237,6 +238,11 @@ function CompactRow({
   const lead = probs
     ? Math.max(probs.home_win, probs.draw, probs.away_win)
     : null;
+  // The bare number was ambiguous — 49% of WHAT? Name the outcome it belongs
+  // to (home side, away side, or the draw) right under it.
+  const leadOutcome = probs ? topOutcome(probs) : null;
+  const leadLabel =
+    leadOutcome === "home" ? teams.home : leadOutcome === "away" ? teams.away : "Draw";
   const hasScore = match.score_home != null && match.score_away != null;
   const showScore = hasScore && (live || finished);
   const verdict = finished ? predictionVerdict(match) : null;
@@ -265,12 +271,17 @@ function CompactRow({
           </span>
         ) : (
           lead != null && (
-            <span
-              className={`shrink-0 font-display text-lg font-extrabold tabular-nums ${
-                lead >= 0.6 ? "text-lime-deep" : "text-muted"
-              }`}
-            >
-              {pct(lead)}
+            <span className="flex shrink-0 flex-col items-end">
+              <span
+                className={`font-display text-lg font-extrabold leading-tight tabular-nums ${
+                  lead >= 0.6 ? "text-lime-deep" : "text-muted"
+                }`}
+              >
+                {pct(lead)}
+              </span>
+              <span className="max-w-[84px] truncate text-[9px] font-semibold uppercase tracking-wide text-muted">
+                {leadLabel}
+              </span>
             </span>
           )
         )}
@@ -290,11 +301,11 @@ function CompactRow({
       )}
       {margin != null && !finished && (
         // NRL's expected-margin chip, a new line under the bar for dense rows.
+        // Same humane form as the full card: favoured side, not a signed number.
         <div className="mt-2">
           <span className="rounded-lg bg-surface-2 px-2 py-0.5 font-bold tabular-nums text-foreground">
             <span className="mr-1 font-semibold text-muted">ML model</span>
-            margin {margin > 0 ? "+" : ""}
-            {margin.toFixed(1)}
+            {expectedMarginLabel(margin, teams.home, teams.away)}
           </span>
         </div>
       )}

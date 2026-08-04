@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ClubBadge } from "@/components/ClubBadge";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
-import { pct } from "@/lib/format";
+import { expectedMarginLabel, pct } from "@/lib/format";
 import { isNrlLiveNow } from "@/lib/nrlLive";
 import type { NrlMatch } from "@/lib/types";
 import { useLiveMatch } from "./LiveMatchProvider";
@@ -43,17 +43,21 @@ export function NrlMatchHero({
 
   return (
     <section className="glass rounded-2xl p-6">
+      {/* One always-mounted live region carrying the SCORE, not just the badge.
+          Screen readers announce content CHANGES inside an existing region —
+          a region that mounts at kickoff, or one whose aria-label changes, is
+          unreliably announced (and the old version announced only the minute,
+          never the score). Empty while not live, so it says nothing early. */}
+      <p className="sr-only" role="status">
+        {isLive
+          ? `Live match: ${home} ${score} ${away}` +
+            (liveState.minute != null ? `, ${liveState.minute}′` : "")
+          : ""}
+      </p>
       {isLive && (
-        <p className="mb-4 text-center">
-          <span
-            role="status"
-            aria-label={
-              `Live match: ${home} ${score} ${away}` +
-              (liveState.minute != null ? `, ${liveState.minute}′` : "")
-            }
-            className="inline-flex items-center gap-1.5 rounded-full bg-loss/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
-          >
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden />
+        <p className="mb-4 text-center" aria-hidden="true">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
             LIVE{liveState.minute != null ? ` · ${liveState.minute}′` : ""}
           </span>
         </p>
@@ -112,7 +116,7 @@ export function NrlMatchHero({
             <p className="mt-4 text-center">
               <span className="rounded-lg bg-surface-2 px-2.5 py-1 text-xs font-bold tabular-nums text-foreground">
                 <span className="mr-1.5 font-semibold text-muted">ML model margin</span>
-                {marginLabel(p.expected_margin, home, away)}
+                {expectedMarginLabel(p.expected_margin, home, away)}
               </span>
             </p>
           )}
@@ -143,8 +147,3 @@ function TeamCol({ name, teamId }: { name: string; teamId: number | null }) {
   );
 }
 
-/** expected_margin is home-minus-away points; read it out as the favoured side. */
-function marginLabel(margin: number, home: string, away: string): string {
-  if (margin === 0) return "dead level";
-  return `${margin > 0 ? home : away} by ${Math.abs(margin).toFixed(1)}`;
-}

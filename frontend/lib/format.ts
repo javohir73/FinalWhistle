@@ -21,3 +21,12 @@ export function formatScore(home: number | null, away: number | null): string {
   if (home == null || away == null) return "—";
   return `${home}–${away}`;
 }
+
+/** expected_margin is home-minus-away points; read it out as the favoured
+ *  side ("Sharks by 4.0") instead of a signed number whose convention the
+ *  reader has to know. Shared by the NRL match hero and the fixture-card
+ *  margin chip. */
+export function expectedMarginLabel(margin: number, home: string, away: string): string {
+  if (margin === 0) return "dead level";
+  return `${margin > 0 ? home : away} by ${Math.abs(margin).toFixed(1)}`;
+}
