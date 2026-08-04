@@ -30,7 +30,11 @@ const finishedMatch: NrlMatch = {
 function Probe() {
   const state = useLiveMatch();
   if (state.status !== "success") return <span>{state.status}</span>;
-  return <span>{state.data.status}:{state.data.minute}:{state.data.score_home}–{state.data.score_away}</span>;
+  return (
+    <span>
+      {state.data.status}:{state.data.minute}:{state.data.score_home}–{state.data.score_away}:{state.data.events.length}ev
+    </span>
+  );
 }
 
 function deferred<T>() {
@@ -55,11 +59,11 @@ it("publishes live data and keeps it when a later poll fails", async () => {
     .mockRejectedValueOnce(new Error("temporary outage"));
 
   render(<LiveMatchProvider match={scheduledMatch}><Probe /></LiveMatchProvider>);
-  expect(await screen.findByText("live:18:6–0")).toBeInTheDocument();
+  expect(await screen.findByText("live:18:6–0:0ev")).toBeInTheDocument();
 
   await act(async () => { jest.advanceTimersByTime(30_000); });
   expect(mockLive).toHaveBeenCalledTimes(2);
-  expect(screen.getByText("live:18:6–0")).toBeInTheDocument();
+  expect(screen.getByText("live:18:6–0:0ev")).toBeInTheDocument();
 });
 
 it("publishes a successful 30-second refresh", async () => {
@@ -69,11 +73,11 @@ it("publishes a successful 30-second refresh", async () => {
     .mockResolvedValueOnce(livePayload({ minute: 49, score_home: 12, score_away: 6 }));
 
   render(<LiveMatchProvider match={scheduledMatch}><Probe /></LiveMatchProvider>);
-  expect(await screen.findByText("live:18:6–0")).toBeInTheDocument();
+  expect(await screen.findByText("live:18:6–0:0ev")).toBeInTheDocument();
 
   await act(async () => { jest.advanceTimersByTime(30_000); });
   expect(mockLive).toHaveBeenCalledTimes(2);
-  expect(screen.getByText("live:49:12–6")).toBeInTheDocument();
+  expect(screen.getByText("live:49:12–6:0ev")).toBeInTheDocument();
 });
 
 it("stops polling after a refresh reports the final score", async () => {
@@ -86,10 +90,10 @@ it("stops polling after a refresh reports the final score", async () => {
     .mockResolvedValue(final);
 
   render(<LiveMatchProvider match={scheduledMatch}><Probe /></LiveMatchProvider>);
-  expect(await screen.findByText("live:79:18–18")).toBeInTheDocument();
+  expect(await screen.findByText("live:79:18–18:0ev")).toBeInTheDocument();
 
   await act(async () => { jest.advanceTimersByTime(30_000); });
-  expect(screen.getByText("final:80:18–24")).toBeInTheDocument();
+  expect(screen.getByText("final:80:18–24:0ev")).toBeInTheDocument();
 
   await act(async () => { jest.advanceTimersByTime(60_000); });
   expect(mockLive).toHaveBeenCalledTimes(2);
@@ -112,12 +116,12 @@ it("does not let an older overlapping response replace a newer score", async () 
   await act(async () => {
     newer.resolve(livePayload({ minute: 49, score_home: 12, score_away: 6 }));
   });
-  expect(screen.getByText("live:49:12–6")).toBeInTheDocument();
+  expect(screen.getByText("live:49:12–6:0ev")).toBeInTheDocument();
 
   await act(async () => {
     older.resolve(livePayload({ minute: 18, score_home: 6, score_away: 0 }));
   });
-  expect(screen.getByText("live:49:12–6")).toBeInTheDocument();
+  expect(screen.getByText("live:49:12–6:0ev")).toBeInTheDocument();
 });
 
 it("does not let an older request failure replace a newer score", async () => {
@@ -129,14 +133,54 @@ it("does not let an older request failure replace a newer score", async () => {
 
   render(<LiveMatchProvider match={scheduledMatch}><Probe /></LiveMatchProvider>);
   await act(async () => { jest.advanceTimersByTime(30_000); });
-  expect(await screen.findByText("live:49:12–6")).toBeInTheDocument();
+  expect(await screen.findByText("live:49:12–6:0ev")).toBeInTheDocument();
 
   await act(async () => { older.reject(new Error("stale outage")); });
-  expect(screen.getByText("live:49:12–6")).toBeInTheDocument();
+  expect(screen.getByText("live:49:12–6:0ev")).toBeInTheDocument();
 });
 
-it("seeds a finished match without waiting for the endpoint", () => {
+// --- finished matches: instant seed, then the persisted record ------------
+//
+// The seed is a fabrication (empty timeline, 1/0 probability) built from the
+// core match row so the hero paints with no loading flash. The persisted
+// NrlLiveState/NrlLiveEvent record must still replace it — an earlier version
+// returned early on the seed, which permanently hid every finished match's
+// try timeline and closing probability.
+
+it("seeds a finished match instantly, then replaces the seed with the persisted timeline", async () => {
+  const pending = deferred<NrlLive>();
+  mockLive.mockReturnValueOnce(pending.promise);
+
   render(<LiveMatchProvider match={finishedMatch}><Probe /></LiveMatchProvider>);
-  expect(screen.getByText("final:80:12–26")).toBeInTheDocument();
-  expect(mockLive).not.toHaveBeenCalled();
+  // Synchronous first paint from the seed — the fetch is still in flight.
+  expect(screen.getByText("final:80:12–26:0ev")).toBeInTheDocument();
+
+  await act(async () => {
+    pending.resolve(livePayload({
+      status: "final", minute: 80, score_home: 12, score_away: 26,
+      live_home_prob: 0.08,
+      events: [{ minute: 44, type: "score", team: "away", player: null, prob_after: 0.2 }],
+    }));
+  });
+  expect(screen.getByText("final:80:12–26:1ev")).toBeInTheDocument();
+  expect(mockLive).toHaveBeenCalledTimes(1);
+});
+
+it("does not poll a finished match", async () => {
+  jest.useFakeTimers();
+  mockLive.mockResolvedValue(livePayload({ status: "final", minute: 80, score_home: 12, score_away: 26 }));
+
+  render(<LiveMatchProvider match={finishedMatch}><Probe /></LiveMatchProvider>);
+  await act(async () => { jest.advanceTimersByTime(120_000); });
+  expect(mockLive).toHaveBeenCalledTimes(1); // the one replacement fetch, no interval
+});
+
+it("keeps the seed when the finished-match fetch fails", async () => {
+  mockLive.mockRejectedValueOnce(new Error("endpoint down"));
+
+  render(<LiveMatchProvider match={finishedMatch}><Probe /></LiveMatchProvider>);
+  await act(async () => {}); // flush the rejected fetch
+  // Still the seed, and still a success state — never an error screen over a
+  // score we already know from the match row.
+  expect(screen.getByText("final:80:12–26:0ev")).toBeInTheDocument();
 });

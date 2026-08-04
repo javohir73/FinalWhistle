@@ -14,6 +14,11 @@ const LiveMatchContext = createContext<LiveMatchState | null>(null);
 
 export function LiveMatchProvider({ match, children }: { match: NrlMatch; children: ReactNode }) {
   const finished = match.status === "finished";
+  // First-paint seed for a finished match: built from the core match row so
+  // the hero renders a final score with no loading flash. It is a FABRICATION
+  // (empty timeline, 1/0 probability) and must not be the last word -- the
+  // single fetch below replaces it with the persisted closing probability and
+  // the try-by-try NrlLiveEvent timeline.
   const initial = useMemo(
     () => finished && match.score_home != null && match.score_away != null
       ? {
@@ -33,19 +38,18 @@ export function LiveMatchProvider({ match, children }: { match: NrlMatch; childr
   const [attempt, setAttempt] = useState(0);
   const requestSequence = useRef(0);
   const latestApplied = useRef(0);
-  const terminal = useRef(initial?.status === "final");
+  const terminal = useRef(false);
 
   useEffect(() => {
     let active = true;
     let interval: ReturnType<typeof setInterval> | undefined;
-    terminal.current = initial?.status === "final";
+    terminal.current = false;
 
     if (initial) {
       setState({ status: "success", data: initial });
-      return () => { active = false; };
+    } else {
+      setState((previous) => previous.status === "success" ? previous : { status: "loading" });
     }
-
-    setState((previous) => previous.status === "success" ? previous : { status: "loading" });
 
     const load = (silent: boolean) => {
       if (terminal.current) return;
@@ -66,11 +70,16 @@ export function LiveMatchProvider({ match, children }: { match: NrlMatch; childr
         });
     };
 
-    load(false);
-    interval = setInterval(() => load(true), POLL_MS);
+    // A finished match fetches ONCE, silently: the seed above is already on
+    // screen, the persisted payload replaces it when it lands, and a failed
+    // fetch keeps the seed rather than surfacing an error. No interval -- a
+    // recorded result cannot change. Everything else polls every POLL_MS
+    // until a refresh reports final.
+    load(Boolean(initial));
+    if (!initial) interval = setInterval(() => load(true), POLL_MS);
     return () => {
       active = false;
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     };
   }, [attempt, initial, match.id]);
 
