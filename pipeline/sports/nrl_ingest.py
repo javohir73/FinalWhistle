@@ -8,8 +8,11 @@ scoped by sport="nrl".
 
 Mirrors pipeline.ingest.injuries's best-effort idiom: fetch_season NEVER raises
 (any HTTP/timeout/JSON error is logged and answered with []), parse_row is pure
-(None for malformed rows), and upsert_season never overwrites a stored finished
-match — a result, once recorded, is not clobbered by a stale re-fetch.
+(None for malformed rows), and upsert_season does not overwrite a result THIS
+feed recorded — fixturedownload is a third-party mirror, so a stale re-fetch
+must not clobber one. The single exception is a provisional score written by
+the live poller, which has no other way to be corrected; see
+_is_provisional_live_result.
 upsert_season itself may still raise (it's a library function); the
 best-effort boundary lives in main()'s per-season CLI loop, which rolls back
 and moves on to the next season, so one bad season can't abort the backfill.
@@ -23,7 +26,7 @@ from datetime import datetime, timezone
 import requests
 from sqlalchemy.orm import Session
 
-from app.models import SportMatch, SportTeam
+from app.models import NrlLiveState, SportMatch, SportTeam
 
 log = logging.getLogger(__name__)
 
@@ -125,6 +128,33 @@ def _get_or_create_team(
     return team
 
 
+def _is_provisional_live_result(
+    match: SportMatch, parsed: dict, live_poller_final_ids: set[int]
+) -> bool:
+    """True for the one case where a finished row must still be rewritten: the
+    stored result came from the live poller and this feed now disagrees.
+
+    nrl_live_poll.poll_match lands full time on the core match row as soon as
+    NRL.com's match centre reports it -- hours before this twice-weekly ingest,
+    so the ladder and fixture board stop showing a played game as upcoming.
+    That score is PROVISIONAL: a try disallowed on review, or an abandoned
+    game, revises it afterwards. The poller cannot repair its own write either,
+    because it only polls inside the kickoff+110min window, long closed by
+    then. Without this, the first number NRL.com happened to publish was
+    permanent -- in the ladder, in grading, and in the Elo replay.
+
+    A result THIS feed recorded stays immutable: fixturedownload is a
+    third-party mirror, and a stale re-fetch must never rewrite it.
+    """
+    if match.id not in live_poller_final_ids:
+        return False
+    if parsed["status"] != "finished":
+        return False  # a feed row that lost its scores must not un-finish a match
+    return (match.score_home, match.score_away) != (
+        parsed["score_home"], parsed["score_away"]
+    )
+
+
 def upsert_season(
     db: Session,
     year: int,
@@ -137,9 +167,11 @@ def upsert_season(
     each parsed team name to its canonical form and skips rows with a name
     missing from the map (see origin_ingest, which passes both).
 
-    Creates SportTeams on first sight by (sport, name). NEVER overwrites a
-    stored finished match (freshness-guard spirit) — a scheduled row gaining
-    scores flips to finished, but a finished match is immutable once written.
+    Creates SportTeams on first sight by (sport, name). A scheduled row gaining
+    scores flips to finished; a finished match is then immutable, EXCEPT when
+    the stored result was written by the live poller and this feed disagrees
+    with it (_is_provisional_live_result) — that is the only repair path a
+    revised NRL.com scoreline has.
     Malformed rows are skipped silently (parse_row already logs nothing; the
     caller sees them simply absent from the counts).
 
@@ -157,6 +189,14 @@ def upsert_season(
     updated = 0
     team_cache: dict[str, SportTeam] = {}
     seen_in_batch: set[tuple[int, int]] = set()
+    # One query rather than one per finished match: which matches carry a
+    # poller-written final result (see _is_provisional_live_result). NrlLiveState
+    # is nrl-only, so other sports keep the plain immutable-once-finished rule.
+    live_poller_final_ids: set[int] = (
+        {mid for (mid,) in db.query(NrlLiveState.match_id).filter(NrlLiveState.status == "final")}
+        if sport == SPORT
+        else set()
+    )
 
     for raw in rows:
         parsed = parse_row(raw)
@@ -204,7 +244,9 @@ def upsert_season(
             created += 1
             continue
 
-        if match.status == "finished":
+        if match.status == "finished" and not _is_provisional_live_result(
+            match, parsed, live_poller_final_ids
+        ):
             continue  # freshness guard: a recorded result is never clobbered
 
         # round is no longer part of change-detection: match was looked up by

@@ -129,11 +129,18 @@ def poll_match(db: Session, match: SportMatch, provider: StatsProvider, now: dat
     state.score_away = payload.score_away
     state.live_home_prob = live_prob
 
-    # The daily fixture ingest is intentionally much slower than the live
-    # poller. Land the authoritative final score on the core match row now so
-    # every fixtures/ladder surface stops showing the match as upcoming as soon
-    # as NRL.com reports full time. The normal ingest remains idempotent and
-    # will confirm the same result on its next pass.
+    # The fixture ingest is intentionally much slower than the live poller.
+    # Land the final score on the core match row now so every fixtures/ladder
+    # surface stops showing the match as upcoming as soon as NRL.com reports
+    # full time.
+    #
+    # This score is PROVISIONAL: NRL.com revises one after a video review, and
+    # an abandoned game gets re-scored. Nothing here can repair that -- once
+    # the match leaves its kickoff+110min window this poller never revisits it.
+    # The repair path is nrl_ingest.upsert_season, whose freshness guard makes
+    # a deliberate exception for the rows written here (see
+    # nrl_ingest._is_provisional_live_result). Do not write a final result onto
+    # a match row from anywhere else without giving it the same way back out.
     if payload.status == "final":
         match.status = "finished"
         match.score_home = payload.score_home
