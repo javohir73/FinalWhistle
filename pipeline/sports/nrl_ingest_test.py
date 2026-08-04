@@ -3,7 +3,9 @@
 fetch_season/parse_row/upsert_season mirror pipeline.ingest.injuries's
 never-raises, best-effort idiom: fetch never raises (returns [] + logs on any
 error), parse is pure (None for malformed rows), and upsert is idempotent and
-never overwrites a stored finished match (freshness-guard spirit).
+never overwrites a finished match this feed recorded (freshness-guard spirit).
+The one exception, covered at the end of this file: a provisional score the
+live poller wrote stays repairable, because nothing else can fix it.
 """
 import sys
 from datetime import datetime, timezone
@@ -12,7 +14,7 @@ import requests
 
 import app.db
 import pipeline.sports.nrl_ingest as nrl_ingest
-from app.models import SportMatch, SportTeam
+from app.models import NrlLiveState, SportMatch, SportTeam
 from pipeline.sports.nrl_ingest import fetch_season, parse_row, upsert_season
 
 # Verified live shape from https://fixturedownload.com/feed/json/nrl-2026
@@ -202,7 +204,9 @@ def test_upsert_season_late_score_flips_scheduled_to_finished(db_session):
     assert match.score_away == 16
 
 
-def test_upsert_season_never_overwrites_a_finished_match(db_session):
+def test_upsert_season_never_overwrites_a_feed_recorded_result(db_session):
+    """fixturedownload is a third-party mirror, so a stale re-fetch must never
+    rewrite a result this same feed already recorded."""
     upsert_season(db_session, 2026, [SAMPLE])  # finished, 28-18
 
     changed = dict(SAMPLE, HomeTeamScore=99, AwayTeamScore=1)
@@ -212,6 +216,67 @@ def test_upsert_season_never_overwrites_a_finished_match(db_session):
     match = db_session.query(SportMatch).filter_by(sport="nrl", match_no=1).one()
     assert match.score_home == 28
     assert match.score_away == 18
+
+
+# ---- provisional live-poller results stay repairable ----
+#
+# nrl_live_poll.poll_match lands a final score on the core match row as soon as
+# NRL.com reports full time, hours before this twice-weekly ingest runs. That
+# score is PROVISIONAL: a try can be disallowed on review, and an abandoned
+# game can be re-scored. The poller cannot fix it either -- it only runs inside
+# the kickoff+110min window, which has closed by then. So the ingest is the only
+# repair path left, and the freshness guard above must not swallow it.
+
+def _feed_recorded_match(db):
+    upsert_season(db, 2026, [SAMPLE])  # finished, 28-18
+    return db.query(SportMatch).filter_by(sport="nrl", season=2026, match_no=1).one()
+
+
+def _overwrite_with_live_poller_result(db, match, score_home, score_away):
+    """Exactly what poll_match leaves behind at full time: a final
+    NrlLiveState plus the provisional score on the core row."""
+    db.add(NrlLiveState(
+        match_id=match.id, status="final", minute=80,
+        score_home=score_home, score_away=score_away, live_home_prob=1.0,
+    ))
+    match.score_home, match.score_away = score_home, score_away
+    db.commit()
+
+
+def test_upsert_season_corrects_a_provisional_live_poller_score(db_session):
+    match = _feed_recorded_match(db_session)
+    _overwrite_with_live_poller_result(db_session, match, 12, 6)
+
+    corrected = dict(SAMPLE, HomeTeamScore=12, AwayTeamScore=4)
+    counts = upsert_season(db_session, 2026, [corrected])
+
+    assert counts == {"created": 0, "updated": 1}
+    db_session.refresh(match)
+    assert (match.score_home, match.score_away) == (12, 4)
+    assert match.status == "finished"
+
+
+def test_upsert_season_does_not_rewrite_a_live_poller_score_the_feed_agrees_with(db_session):
+    """Otherwise every finished match would be rewritten on every pass."""
+    match = _feed_recorded_match(db_session)
+    _overwrite_with_live_poller_result(db_session, match, 28, 18)
+
+    counts = upsert_season(db_session, 2026, [SAMPLE])
+    assert counts == {"created": 0, "updated": 0}
+
+
+def test_upsert_season_never_regresses_a_live_poller_result_to_scheduled(db_session):
+    """A feed row that has lost its scores must not un-finish a played match."""
+    match = _feed_recorded_match(db_session)
+    _overwrite_with_live_poller_result(db_session, match, 12, 6)
+
+    scoreless = dict(SAMPLE, HomeTeamScore=None, AwayTeamScore=None, Winner="")
+    counts = upsert_season(db_session, 2026, [scoreless])
+
+    assert counts == {"created": 0, "updated": 0}
+    db_session.refresh(match)
+    assert match.status == "finished"
+    assert (match.score_home, match.score_away) == (12, 6)
 
 
 def test_upsert_season_skips_malformed_rows(db_session):

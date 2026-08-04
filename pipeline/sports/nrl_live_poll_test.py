@@ -228,3 +228,35 @@ def test_poll_match_handles_none_minute_with_null_kickoff(db_session):
     state = db_session.query(NrlLiveState).filter_by(match_id=m.id).one()
     assert state.minute is None
     assert state.score_home == 4
+
+
+def test_a_provisional_final_written_here_is_still_repairable_by_the_ingest(db_session):
+    """poll_match writes full time onto the core match row so the ladder and
+    fixture board stop showing a played game as upcoming. That score is
+    provisional -- NRL.com revises one after a video review or an abandoned
+    game -- and this poller cannot fix it, because by then the match has left
+    the kickoff+110min window it polls. The twice-weekly fixture ingest is the
+    only repair path left, so it has to be able to write through."""
+    from pipeline.sports.nrl_ingest import upsert_season
+
+    now = datetime(2026, 3, 5, 12, 0, tzinfo=timezone.utc)
+    m = _make_match(db_session, kickoff=now - timedelta(minutes=100))
+    db_session.commit()
+
+    poll_match(db_session, m, RecordedFixtureStatsProvider(live={
+        (2026, 1, 1): LivePayload(status="final", minute=80, score_home=12, score_away=6),
+    }), now=now)
+
+    db_session.refresh(m)
+    assert m.status == "finished"
+    assert (m.score_home, m.score_away) == (12, 6)
+
+    # The official feed later publishes the reviewed scoreline.
+    upsert_season(db_session, 2026, [{
+        "MatchNumber": 1, "RoundNumber": 1, "DateUtc": "2026-03-05 10:20:00Z",
+        "Location": "Suncorp Stadium", "HomeTeam": "Broncos", "AwayTeam": "Storm",
+        "Group": None, "HomeTeamScore": 12, "AwayTeamScore": 4, "Winner": "Broncos",
+    }])
+
+    db_session.refresh(m)
+    assert (m.score_home, m.score_away) == (12, 4)
