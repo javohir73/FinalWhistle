@@ -100,7 +100,7 @@ it("updates the match hero from the shared live endpoint", async () => {
   await renderPage();
 
   expect(await screen.findByText("12–6")).toBeInTheDocument();
-  expect(screen.getByRole("status", { name: /live match/i })).toHaveTextContent("42′");
+  expect(screen.getByText(/Live match: .*42′/)).toBeInTheDocument();
 });
 
 it("server-renders the matchup, the AI's call, margin and disclaimer", async () => {

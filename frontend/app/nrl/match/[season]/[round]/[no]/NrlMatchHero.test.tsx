@@ -76,9 +76,12 @@ it("keeps VS and the normal prediction copy before kickoff", async () => {
 it("shows the updating result and labels the prediction as pre-match while live", async () => {
   mockLive.mockResolvedValue(livePayload({ minute: 42, score_home: 12, score_away: 6 }));
   renderHero();
-  expect(await screen.findByRole("status", {
-    name: "Live match: Wests Tigers 12–6 Warriors, 42′",
-  })).toHaveTextContent("LIVE · 42′");
+  // The live region carries the SCORE as content (content changes announce;
+  // aria-label changes don't); the visible badge is decorative.
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Live match: Wests Tigers 12–6 Warriors, 42′",
+  );
+  expect(screen.getByText("LIVE · 42′")).toBeInTheDocument();
   expect(screen.getByText("12–6")).toBeInTheDocument();
   expect(screen.getByText(/Pre-match model pick · Warriors 67%/)).toBeInTheDocument();
   expect(screen.queryByText(/ML model margin/)).not.toBeInTheDocument();
@@ -88,10 +91,11 @@ it("formats a partial live score without adding punctuation for a missing minute
   mockLive.mockResolvedValue(livePayload({ minute: null, score_home: 12, score_away: null }));
   renderHero();
 
-  expect(await screen.findByRole("status", {
-    name: "Live match: Wests Tigers 12–– Warriors",
-  })).toHaveTextContent("LIVE");
-  expect(screen.getByRole("status")).not.toHaveTextContent("·");
+  expect(await screen.findByRole("status")).toHaveTextContent(
+    "Live match: Wests Tigers 12–– Warriors",
+  );
+  expect(screen.getByText("LIVE")).toBeInTheDocument();
+  expect(screen.getByText("LIVE")).not.toHaveTextContent("·");
   expect(screen.getByText("12––")).toBeInTheDocument();
 });
 
@@ -112,7 +116,8 @@ it("never renders LIVE and Full time together — full time wins", async () => {
   renderHero(finishedMatch);
   await act(async () => {});
   expect(screen.getByText("Full time")).toBeInTheDocument();
-  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(screen.queryByText(/LIVE/)).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toBeEmptyDOMElement(); // region stays mounted, silent
 });
 
 it("does not pin LIVE on a match far past its window", async () => {
@@ -126,6 +131,7 @@ it("does not pin LIVE on a match far past its window", async () => {
   mockLive.mockResolvedValue(livePayload({ minute: 63, score_home: 18, score_away: 12 }));
   renderHero(staleMatch);
   await act(async () => {});
-  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  expect(screen.queryByText(/LIVE/)).not.toBeInTheDocument();
+  expect(screen.getByRole("status")).toBeEmptyDOMElement();
   expect(screen.getByText("vs")).toBeInTheDocument();
 });

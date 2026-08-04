@@ -25,6 +25,9 @@ const ICONS: Record<string, React.ReactNode> = {
   Bracket: <path d="M4 5h6v6M4 19h6v-6M10 8h5v8h-5M15 12h5" strokeLinejoin="round" strokeLinecap="round" />,
   Ladder: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
   Standings: <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
+  // UCL's standings tab label — same table glyph; without an entry here it was
+  // the one text-only item in an otherwise icon+label BottomNav.
+  "League phase": <path d="M4 6h16M4 12h16M4 18h10" strokeLinecap="round" />,
   Record: <path d="M4 19l6-7 4 3 6-8" strokeLinejoin="round" strokeLinecap="round" />,
   Football: (
     <>

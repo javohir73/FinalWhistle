@@ -77,6 +77,16 @@ it.each([
   expect(current()).toContain(label);
 });
 
+it("gives every competition tab an icon, including League phase", () => {
+  // "League phase" (UCL's standings label) was the one text-only item in an
+  // otherwise icon+label bar — NavIcon had no glyph mapped for the label.
+  renderAt("/football/ucl/standings");
+  for (const link of screen.getAllByRole("link")) {
+    expect(link.querySelector("svg")).not.toBeNull();
+  }
+  expect(screen.getByRole("link", { name: /League phase/ })).toBeInTheDocument();
+});
+
 it.each([
   ["/nrl", "Home"],
   ["/nrl/matches", "Matches"],

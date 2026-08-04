@@ -33,6 +33,11 @@ export function StandingsClient({
   const competition = COMPETITIONS[comp];
   const leagueMode =
     tournament.format === "league" && state.status === "success" && state.data.length === 1;
+  // A cross-border competition's table group exists before its draw is made
+  // (UCL ships with an empty league-phase group all summer). Zero rows must
+  // read as "no draw yet", not as a broken table — and the subtitle must not
+  // claim live updates over nothing.
+  const hasRows = leagueMode && state.data[0].standings.length > 0;
 
   return (
     <div>
@@ -41,7 +46,11 @@ export function StandingsClient({
         <h1 className="mt-1 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
           {competition.terms.standings}
         </h1>
-        <p className="mt-2 max-w-xl text-muted">Live standings, updated as results come in.</p>
+        <p className="mt-2 max-w-xl text-muted">
+          {state.status === "success" && !hasRows
+            ? "The table appears here once the draw is made and fixtures load."
+            : "Live standings, updated as results come in."}
+        </p>
       </header>
 
       {state.status === "loading" && (
@@ -53,7 +62,7 @@ export function StandingsClient({
       )}
       {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
       {state.status === "success" &&
-        (leagueMode ? (
+        (hasRows ? (
           <div className="glass rounded-2xl p-5 sm:p-6">
             <StandingsTable
               standings={state.data[0].standings}
@@ -62,6 +71,12 @@ export function StandingsClient({
               teamBasePath={`${competition.basePath}/team`}
             />
           </div>
+        ) : leagueMode ? (
+          // The table group exists but carries no rows yet (pre-draw). An
+          // honest sentence beats a bare TEAM/GD/PTS header over nothing.
+          <Empty
+            label={`No ${competition.terms.standings.toLowerCase()} table yet — it fills in once the ${competition.label} draw is made.`}
+          />
         ) : (
           <Empty label={`${competition.label} standings are not available yet.`} />
         ))}

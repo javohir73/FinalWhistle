@@ -35,14 +35,23 @@ const QUAL_COL = "w-[5.5rem] sm:w-36";
 export type StandingsColumn = "gd" | "pts" | "wl" | "diff" | "played" | "top8";
 
 /** Header label + width for each numeric column. All right-aligned; the widths
- *  keep the header row and the body cells in the same grid. */
-const NUMERIC_HEADERS: Record<StandingsColumn, { label: string; width: string }> = {
-  gd: { label: "GD", width: "w-10" },
-  pts: { label: "Pts", width: "w-10" },
-  wl: { label: "W–L", width: "w-12" },
-  diff: { label: "Diff", width: "w-10" },
-  played: { label: "P", width: "w-10" },
-  top8: { label: "Top 8%", width: "w-14" },
+ *  keep the header row and the body cells in the same grid. `gloss` expands a
+ *  format-knowledge label for first-time fans (title tooltip + accessible
+ *  name); columns whose label says it all omit it. */
+const NUMERIC_HEADERS: Record<
+  StandingsColumn,
+  { label: string; width: string; gloss?: string }
+> = {
+  gd: { label: "GD", width: "w-10", gloss: "Goal difference" },
+  pts: { label: "Pts", width: "w-10", gloss: "Points" },
+  wl: { label: "W–L", width: "w-12", gloss: "Wins–losses" },
+  diff: { label: "Diff", width: "w-10", gloss: "Points difference" },
+  played: { label: "P", width: "w-10", gloss: "Games played" },
+  top8: {
+    label: "Top 8%",
+    width: "w-14",
+    gloss: "Projected chance of finishing in the top 8 and making the finals",
+  },
 };
 
 /** Shared right-aligned value-cell class (matches the existing GD cell). */
@@ -207,6 +216,8 @@ export function StandingsTable({
                 <span
                   key={key}
                   role="columnheader"
+                  title={NUMERIC_HEADERS[key].gloss}
+                  aria-label={NUMERIC_HEADERS[key].gloss}
                   className={cn(NUMERIC_HEADERS[key].width, "text-right")}
                 >
                   {NUMERIC_HEADERS[key].label}
@@ -214,12 +225,19 @@ export function StandingsTable({
               ))
             ) : (
               <>
-                <span role="columnheader" className="w-10 text-right">GD</span>
-                <span role="columnheader" className="w-10 text-right">Pts</span>
+                <span role="columnheader" title="Goal difference" aria-label="Goal difference" className="w-10 text-right">GD</span>
+                <span role="columnheader" title="Points" aria-label="Points" className="w-10 text-right">Pts</span>
               </>
             )}
             {showQualification && (
-              <span role="columnheader" className={cn(QUAL_COL, "text-right")}>Top 2</span>
+              <span
+                role="columnheader"
+                title="Chance of finishing in the top two and qualifying"
+                aria-label="Chance of finishing in the top two and qualifying"
+                className={cn(QUAL_COL, "text-right")}
+              >
+                Top 2
+              </span>
             )}
           </div>
         </div>
@@ -288,7 +306,9 @@ export function StandingsTable({
         </div>
       </div>
 
-      {zones.length > 0 && (
+      {/* Zone legend only makes sense above rows it can point at — an empty
+          table with an orphan legend reads as broken, not pre-draw. */}
+      {zones.length > 0 && standings.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3">
           {zones.map((z) => (
             <span

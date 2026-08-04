@@ -81,9 +81,9 @@ it("lists the round's remaining fixtures on the shared spine, feature excluded",
 
   // The spine carries the round as its heading and the non-featured fixture.
   expect(screen.getByText("Round 20")).toBeInTheDocument();
-  expect(screen.getByText(/Panthers/)).toBeInTheDocument();
+  expect(screen.getAllByText(/Panthers/).length).toBeGreaterThan(0);
   // That fixture links to its (season, round, match_no) detail page.
-  expect(screen.getByText(/Panthers/).closest("a")).toHaveAttribute(
+  expect(screen.getAllByText(/Panthers/)[0].closest("a")).toHaveAttribute(
     "href",
     "/nrl/match/2026/20/2",
   );

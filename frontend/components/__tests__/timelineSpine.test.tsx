@@ -59,21 +59,23 @@ it("renders each day heading and every match's team names", () => {
   expect(screen.getByText("Matchday 1")).toBeInTheDocument();
   expect(screen.getByText("Matchday 2")).toBeInTheDocument();
 
-  expect(screen.getByText(/Brazil/)).toBeInTheDocument();
-  expect(screen.getByText(/Scotland/)).toBeInTheDocument();
-  expect(screen.getByText(/Spain/)).toBeInTheDocument();
-  expect(screen.getByText(/Uruguay/)).toBeInTheDocument();
+  // getAllByText: the compact card also names the favoured side under its
+  // lead percentage, so a team can legitimately appear twice per card.
+  expect(screen.getAllByText(/Brazil/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Scotland/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Spain/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/Uruguay/).length).toBeGreaterThan(0);
 });
 
 it("marks a live row's spine dot with border-loss and an upcoming row's with border-border", () => {
   render(<TimelineSpine days={days} tz="UTC" />);
 
-  const liveRow = screen.getByText(/Brazil/).closest(".relative")!;
+  const liveRow = screen.getAllByText(/Brazil/)[0].closest(".relative")!;
   const liveDot = liveRow.querySelector(":scope > span");
   expect(liveDot).toHaveClass("border-loss");
   expect(liveDot).not.toHaveClass("border-border");
 
-  const upcomingRow = screen.getByText(/Spain/).closest(".relative")!;
+  const upcomingRow = screen.getAllByText(/Spain/)[0].closest(".relative")!;
   const upcomingDot = upcomingRow.querySelector(":scope > span");
   expect(upcomingDot).toHaveClass("border-border");
   expect(upcomingDot).not.toHaveClass("border-loss");
@@ -91,11 +93,11 @@ it("forwards badge / cardHref / cardMargin onto the keyed card, defaulting the r
   );
 
   // The keyed match (id 2) gets the NRL link and its margin chip.
-  const keyed = screen.getByText(/Spain/).closest("a");
+  const keyed = screen.getAllByText(/Spain/)[0].closest("a");
   expect(keyed).toHaveAttribute("href", "/nrl/match/2026/19/2");
-  expect(screen.getByText("margin +7.5")).toBeInTheDocument();
+  expect(screen.getByText("Spain by 7.5")).toBeInTheDocument();
 
   // An unkeyed match falls back to the football default link and no chip.
-  const unkeyed = screen.getByText(/Brazil/).closest("a");
+  const unkeyed = screen.getAllByText(/Brazil/)[0].closest("a");
   expect(unkeyed).toHaveAttribute("href", "/match/1");
 });

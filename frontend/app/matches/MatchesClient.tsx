@@ -245,6 +245,21 @@ export function MatchesClient({
         })}
       </div>
 
+      {/* Always-mounted polite region so score/liveness changes in the pinned
+          strip are announced — the visible cards are static markup to AT. Empty
+          (silent) whenever nothing is live. */}
+      <p className="sr-only" role="status">
+        {liveMatches.length > 0
+          ? `Live now: ${liveMatches
+              .map((m) =>
+                m.score_home != null && m.score_away != null
+                  ? `${m.teams.home} ${m.score_home}–${m.score_away} ${m.teams.away}`
+                  : `${m.teams.home} v ${m.teams.away}`,
+              )
+              .join("; ")}`
+          : ""}
+      </p>
+
       {state.status === "loading" && <Loading label="Loading predictions…" />}
       {state.status === "error" && <ErrorState message={state.message} onRetry={state.retry} />}
       {state.status === "success" &&
