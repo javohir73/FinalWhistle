@@ -145,3 +145,56 @@ def test_live_finished_match_overrides_stale_non_final_live_state():
         assert body["events"][0]["team"] == "home"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_live_stale_live_state_on_a_scheduled_match_is_served_as_final():
+    """The poller stops writing at kickoff+110min, and the twice-weekly fixture
+    ingest can lag the finished status for days. A row still claiming "live"
+    well past any plausible golden point is frozen mid-match data from a poller
+    that died -- serve the poller's last word as final, so the match hero does
+    not pin LIVE for days and clients stop polling a frozen row."""
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        now = datetime.now(timezone.utc)
+        m = SportMatch(sport="nrl", season=2026, round=1, match_no=1, status="scheduled",
+                        kickoff_utc=now - timedelta(hours=4))
+        db.add(m); db.flush()
+        db.add(NrlLiveState(match_id=m.id, status="live", minute=63,
+                             score_home=18, score_away=12, live_home_prob=0.9))
+        db.add(NrlLiveEvent(match_id=m.id, minute=12, type="score", team="home",
+                             player=None, prob_after=0.75))
+        db.commit()
+
+        body = client.get(f"/api/nrl/matches/{m.id}/live").json()
+        assert body["status"] == "final"
+        assert body["minute"] == 80
+        # The state's last word, not the (empty) scheduled match row.
+        assert (body["score_home"], body["score_away"]) == (18, 12)
+        assert body["live_home_prob"] == 1.0
+        assert len(body["events"]) == 1
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_live_state_in_golden_point_grace_is_still_live():
+    """kickoff+110 is the poller's own write window, not the limit of a real
+    game -- golden point can stretch past it. The staleness cutoff carries a
+    grace period, so a genuinely running thriller is not demoted to final the
+    second the write window closes."""
+    client, TestingSession = _client()
+    try:
+        db = TestingSession()
+        now = datetime.now(timezone.utc)
+        m = SportMatch(sport="nrl", season=2026, round=1, match_no=1, status="scheduled",
+                        kickoff_utc=now - timedelta(minutes=115))
+        db.add(m); db.flush()
+        db.add(NrlLiveState(match_id=m.id, status="live", minute=82,
+                             score_home=18, score_away=18, live_home_prob=0.5))
+        db.commit()
+
+        body = client.get(f"/api/nrl/matches/{m.id}/live").json()
+        assert body["status"] == "live"
+        assert body["minute"] == 82
+    finally:
+        app.dependency_overrides.clear()

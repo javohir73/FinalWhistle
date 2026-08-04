@@ -19,6 +19,27 @@ router = APIRouter(prefix="/api/nrl", tags=["nrl-live"])
 MATCH_MINUTES = 80
 _WINDOW_AHEAD = timedelta(minutes=5)
 _MATCH_DURATION = timedelta(minutes=110)
+# Grace beyond the poller's write window before a "live" row stops being
+# believed. kickoff+110 is when the POLLER stops writing, not when a real game
+# must end -- golden point can stretch past it -- so the cutoff sits a full
+# golden-point period later. Past that, a row still claiming "live" is frozen
+# mid-match data from a poller that died, not a game in progress.
+_LIVE_STATE_GRACE = timedelta(minutes=30)
+
+
+def live_state_is_stale(kickoff_utc: datetime | None, now: datetime) -> bool:
+    """True when a status=="live" NrlLiveState row can no longer be believed:
+    the poller stopped writing at kickoff+_MATCH_DURATION, so past the grace
+    cutoff the row is provably frozen. Shared by this endpoint and the
+    fixtures-list overlay (app.api.sports) so every NRL surface draws the
+    same line. Only ever applied to "live" rows -- a "final" row is a recorded
+    result and has no staleness window. An undated match cannot be bounded and
+    is never called stale."""
+    if kickoff_utc is None:
+        return False
+    if kickoff_utc.tzinfo is None:  # SQLite round-trips DateTime as naive
+        kickoff_utc = kickoff_utc.replace(tzinfo=timezone.utc)
+    return now > kickoff_utc + _MATCH_DURATION + _LIVE_STATE_GRACE
 
 
 def _pregame_prob(db: Session, match_id: int) -> float:
@@ -61,6 +82,16 @@ def nrl_match_live(match_id: int, db: Session = Depends(get_db)):
         # alone below since its stored scores/prob are the poller's last word.
         status, minute = "final", MATCH_MINUTES
         score_home, score_away = match.score_home, match.score_away
+        live_home_prob = 1.0 if (score_home or 0) > (score_away or 0) else 0.0
+    elif state is not None and state.status == "live" and live_state_is_stale(kickoff_utc, now):
+        # The match row still says scheduled (the twice-weekly ingest can lag
+        # a result for days) but the "live" claim is past the staleness cutoff:
+        # the poller died mid-match and this row is frozen. Serve its last word
+        # as final -- same philosophy as the finished-fallback above -- so the
+        # hero stops pinning LIVE and clients stop polling a frozen row. The
+        # ingest corrects the score later if the last poll missed anything.
+        status, minute = "final", MATCH_MINUTES
+        score_home, score_away = state.score_home, state.score_away
         live_home_prob = 1.0 if (score_home or 0) > (score_away or 0) else 0.0
     elif state is not None:
         status, minute = state.status, state.minute

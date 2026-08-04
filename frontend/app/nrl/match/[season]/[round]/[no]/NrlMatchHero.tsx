@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ClubBadge } from "@/components/ClubBadge";
 import { ProbabilityBar } from "@/components/ProbabilityBar";
 import { pct } from "@/lib/format";
+import { isNrlLiveNow } from "@/lib/nrlLive";
 import type { NrlMatch } from "@/lib/types";
 import { useLiveMatch } from "./LiveMatchProvider";
 
@@ -18,8 +19,12 @@ export function NrlMatchHero({
 }) {
   const state = useLiveMatch();
   const liveState = state.status === "success" ? state.data : null;
-  const isLive = liveState?.status === "live";
   const isFinal = liveState?.status === "final" || match.status === "finished";
+  // Mutually exclusive with isFinal (a graded match row + a stale live row
+  // must not stack LIVE over Full time), and bounded by the kickoff window
+  // like every other NRL surface -- a poller that died mid-match leaves /live
+  // answering "live" with a frozen minute indefinitely.
+  const isLive = !isFinal && liveState?.status === "live" && isNrlLiveNow(match);
   const scoreHome =
     isLive || liveState?.status === "final" ? liveState.score_home : match.score_home;
   const scoreAway =

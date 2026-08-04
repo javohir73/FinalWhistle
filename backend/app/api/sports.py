@@ -12,12 +12,14 @@ against the ledger, upcoming fixtures with the club's win chance).
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import or_
 from sqlalchemy.orm import aliased, Session
 
 from app.api.model_record import wilson_ci95
+from app.api.nrl_live import live_state_is_stale
 from app.db import get_db
 from app.models import (
     NrlMatchStat,
@@ -95,6 +97,7 @@ def nrl_matches(round: int | None = None, season: int | None = None,
         for state in db.query(NrlLiveState).filter(NrlLiveState.match_id.in_(match_ids)).all()
     }
 
+    now = datetime.now(timezone.utc)
     rounds: dict[int, list[dict]] = {}
     for m, home_name, away_name in rows:
         pred = latest_pred_by_match.get(m.id)
@@ -103,9 +106,20 @@ def nrl_matches(round: int | None = None, season: int | None = None,
         score_home, score_away = m.score_home, m.score_away
         minute = None
         if status != "finished" and live_state is not None:
-            status = "finished" if live_state.status == "final" else "in_play"
-            score_home, score_away = live_state.score_home, live_state.score_away
-            minute = live_state.minute
+            if live_state.status == "final":
+                # A recorded result -- no staleness window (pre-#219 rows where
+                # the poller didn't yet write match.status itself).
+                status = "finished"
+                score_home, score_away = live_state.score_home, live_state.score_away
+                minute = live_state.minute
+            elif not live_state_is_stale(m.kickoff_utc, now):
+                status = "in_play"
+                score_home, score_away = live_state.score_home, live_state.score_away
+                minute = live_state.minute
+            # else: a "live" row past the staleness cutoff is frozen mid-match
+            # data from a poller that died. Stand down to the base fixture row
+            # so this board agrees with the ladder and team profiles, which
+            # filter on SportMatch.status and never saw the overlay.
         pred_out = None
         if pred is not None:
             pred_out = {

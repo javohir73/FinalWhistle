@@ -17,7 +17,9 @@ const mockProbHistory = getNrlProbHistoryServer as jest.MockedFunction<typeof ge
 const match: NrlMatch = {
   id: 42,
   match_no: 3,
-  kickoff_utc: "2026-07-11T09:35:00+00:00",
+  // In the live window: the hero only believes a "live" payload while the
+  // match could actually be running (NrlMatchHero bounds by kickoff).
+  kickoff_utc: new Date(Date.now() - 40 * 60_000).toISOString(),
   venue: "Leichhardt Oval",
   home: "Wests Tigers",
   away: "Warriors",

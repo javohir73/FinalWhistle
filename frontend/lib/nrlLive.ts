@@ -34,13 +34,17 @@ export function liveNow(
     .sort((a, b) => byKickoff(1)(a.match, b.match));
 }
 
-/** Scheduled and not in the live window — round asc, kickoff asc within. */
+/** Not finished and not in the live window — round asc, kickoff asc within.
+ *  Deliberately status-agnostic beyond "finished": an "in_play" overlay left
+ *  behind by a stalled poller (out of window, ingest lagging) must land HERE
+ *  rather than vanish — filtering on status === "scheduled" once erased such
+ *  a match from all three tabs at once. */
 export function upcomingRounds(rounds: NrlRound[], now: Date = new Date()): RoundGroup[] {
   return rounds
     .map((r) => ({
       round: r.round,
       matches: r.matches
-        .filter((m) => m.status === "scheduled" && !isNrlLiveNow(m, now))
+        .filter((m) => m.status !== "finished" && !isNrlLiveNow(m, now))
         .sort(byKickoff(1)),
     }))
     .filter((g) => g.matches.length > 0)
