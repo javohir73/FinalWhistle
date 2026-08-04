@@ -127,6 +127,58 @@ def test_parse_live_payload_rejects_malformed_live_document():
     assert parse_live_payload({"matchMode": "Live", "homeTeam": [], "awayTeam": {}}) is None
 
 
+# --- matchState is a fallback, and an unrecognized one is not "live" -------
+#
+# matchState used to be read as "any non-empty value means live". NRL.com also
+# serves Postponed / Abandoned / Cancelled / Deferred there, so a game that was
+# never played parsed as a live scoreboard, which nrl_live_poll then persisted
+# as an NrlLiveState and /api/nrl/matches served as status "in_play".
+
+def _state_doc(state, score_home=6, score_away=4):
+    """A match-centre document carrying matchState only -- no matchMode, which
+    is the case the fallback exists for."""
+    return {
+        "matchState": state,
+        "homeTeam": {"score": score_home},
+        "awayTeam": {"score": score_away},
+    }
+
+
+def test_parse_live_payload_ignores_a_match_that_was_never_played():
+    for state in ("Postponed", "Abandoned", "Cancelled", "Deferred", "Washout"):
+        assert parse_live_payload(_state_doc(state)) is None, state
+
+
+def test_parse_live_payload_still_reads_the_real_in_play_phases():
+    for state in ("FirstHalf", "SecondHalf", "HalfTime", "ExtraTime", "GoldenPoint"):
+        payload = parse_live_payload(_state_doc(state))
+        assert payload is not None, state
+        assert payload.status == "live", state
+        assert (payload.score_home, payload.score_away) == (6, 4), state
+
+
+def test_parse_live_payload_still_reads_final_and_pre_states():
+    assert parse_live_payload(_state_doc("FullTime")).status == "final"
+    assert parse_live_payload(_state_doc("Upcoming")).status == "pre"
+
+
+def test_parse_live_payload_lets_match_mode_carry_an_unknown_phase_name():
+    """matchMode is the provider's stable lifecycle field. Tightening the
+    matchState fallback must not make a NEW phase name stop polling, so long
+    as the document still says Live."""
+    assert parse_live_payload({
+        "matchMode": "Live", "matchState": "SomeNewPhaseNameNrlInvents",
+        "gameSeconds": 1200, "homeTeam": {"score": 10}, "awayTeam": {"score": 6},
+    }) == LivePayload(status="live", minute=20, score_home=10, score_away=6)
+
+
+def test_parse_live_payload_logs_an_unrecognized_state_rather_than_guessing(caplog):
+    """A silent None would hide a provider rollout."""
+    with caplog.at_level("INFO", logger="pipeline.sports.nrl_stats"):
+        assert parse_live_payload(_state_doc("Postponed")) is None
+    assert any("postponed" in r.getMessage().lower() for r in caplog.records)
+
+
 # --- StatsProvider: rate-limited default provider (Task 3) -----------------
 
 class _Resp:

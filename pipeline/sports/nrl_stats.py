@@ -360,28 +360,56 @@ def parse_draw_fixtures(doc: dict) -> list[dict]:
     return out
 
 
+# ``matchState`` phase names, lower-cased. Enumerated rather than treating any
+# non-empty value as in-play: NRL.com also serves Postponed / Abandoned /
+# Cancelled / Deferred here, and reading those as "live" turned a match that
+# was never played into a live scoreboard (nrl_live_poll persists it as an
+# NrlLiveState, and /api/nrl/matches then serves the fixture as "in_play").
+# Anything unrecognized is not a guess worth making -- see parse_live_payload.
+_PRE_STATES = frozenset({"upcoming", "prematch", "pre match", "pre"})
+_FINAL_STATES = frozenset({"fulltime", "full time", "final", "finished"})
+_LIVE_STATES = frozenset({
+    "live", "inprogress", "in progress",
+    "firsthalf", "first half", "secondhalf", "second half",
+    "halftime", "half time",
+    "extratime", "extra time", "goldenpoint", "golden point",
+})
+
+
 def parse_live_payload(doc: dict) -> LivePayload | None:
     """Pure: NRL.com match-centre document -> the frozen live contract.
 
-    ``matchMode`` is the provider's stable lifecycle field (Pre/Live/Post).
-    ``matchState`` is retained as a fallback because recorded documents and
-    provider rollouts have used more detailed phase names there. A malformed
-    live/final document is ignored rather than turning missing scores into a
-    false 0-0.
+    ``matchMode`` is the provider's stable lifecycle field (Pre/Live/Post) and
+    remains the primary signal. ``matchState`` is only a FALLBACK for when the
+    document carries a more detailed phase name and no mode, so restricting it
+    to the known phases above costs nothing when a genuinely new phase name
+    ships: ``matchMode: "Live"`` still classifies it. What it buys is that an
+    off-lifecycle state (postponed, abandoned) no longer parses as in-play.
+
+    An unrecognized state is logged rather than silently dropped, so a provider
+    rollout shows up as a real signal instead of live coverage quietly ending.
+    A malformed live/final document is ignored rather than turning missing
+    scores into a false 0-0.
     """
     if not isinstance(doc, dict):
         return None
 
     mode = str(doc.get("matchMode") or "").strip().lower()
     state = str(doc.get("matchState") or "").strip().lower()
-    if mode == "pre" or state in {"upcoming", "prematch", "pre"}:
+    if mode == "pre" or state in _PRE_STATES:
         return LivePayload(status="pre", minute=None, score_home=0, score_away=0)
 
-    if mode == "post" or state in {"fulltime", "full time", "final", "finished"}:
+    if mode == "post" or state in _FINAL_STATES:
         status = "final"
-    elif mode == "live" or state:
+    elif mode == "live" or state in _LIVE_STATES:
         status = "live"
     else:
+        if state:
+            log.info(
+                "nrl match centre: ignoring unrecognized matchState %r (matchMode %r) "
+                "-- not treated as in-play",
+                state, mode or None,
+            )
         return None
 
     home_team = doc.get("homeTeam")
