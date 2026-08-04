@@ -51,9 +51,11 @@ def test_gate_honors_served_params():
 
 
 def test_draw_cal_gate_runs_and_reports_a_verdict():
+    from ml.models.params import load_params
     from pipeline.experiment_model_eval import run_draw_cal_gate
     res = run_draw_cal_gate(_rows(), tail_years=2, test_since=2018, n_boot=50, min_bucket=20)
-    assert res["served_version"] == "poisson-elo-v0.5"
+    # The gate must report the engine it actually evaluated: the shipped one.
+    assert res["served_version"] == load_params().version
     assert "base_log_loss" in res and "cal_log_loss" in res
     assert "delta_log_loss" in res and "ll_ci" in res and len(res["ll_ci"]) == 2
     assert "delta_rps" in res
@@ -115,10 +117,12 @@ def test_wdl_and_grid_threads_eff_gap():
 # --- Phase 5: per-team attack/defence offsets gate (FR-5.1..FR-5.3) ----------
 
 def test_team_offsets_gate_runs_and_reports_a_verdict():
+    from ml.models.params import load_params
     from pipeline.experiment_model_eval import run_team_offsets_gate
 
     res = run_team_offsets_gate(_rows(), test_since=2018, n_boot=50)
-    assert res["served_version"] == "poisson-elo-v0.5"
+    # The gate must report the engine it actually evaluated: the shipped one.
+    assert res["served_version"] == load_params().version
     assert res["test_n"] > 0 and res["editions"] > 0
     for key in ("base_top1", "cand_top1", "d_top1", "t1_ci",
                 "base_exact_nll", "cand_exact_nll", "d_exact_nll", "es_ci",

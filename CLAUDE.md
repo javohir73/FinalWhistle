@@ -92,7 +92,7 @@ silently substitute — stop and ask before continuing.
   public-facing and fine to reference; provider API keys are not.
   (Older docs under `docs/superpowers/plans/` claim the repo is private —
   they are wrong; this line is the authority.)
-- Model version string: `poisson-elo-v0.5` (`ml/models/model_params.json`).
+- Model version string: `poisson-elo-v0.6` (`ml/models/model_params.json`).
 
 ## Skill routing
 
