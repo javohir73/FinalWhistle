@@ -18,48 +18,119 @@ jobs:
         run: |
           set -u
           fail=0
-          # Retry wrapper (Render free tier can cold-start ~20s).
-          check() { # <url> [expected-content-type-substring]
-            url="$1"; ct_want="${2:-}"
+
+          # Retry wrapper (Render free tier can cold-start ~20s). Asserts the
+          # status, optionally the content-type, and optionally a string that
+          # must appear in the BODY.
+          #
+          # The body assertion is the point of this file. Every football and NRL
+          # page catches its API failure and renders an honest empty state
+          # (`.catch(() => null)` in the server components), so a totally dead
+          # backend still answers 200 with a valid HTML shell. A status-only
+          # probe stays green straight through that outage — which is the
+          # inverse of this repo's rule that an outage must read as an outage at
+          # the page, not the API alone. Each needle below is therefore
+          # something ONLY the API can put on the page.
+          check() { # <url> [content-type-substring] [body-substring]
+            url="$1"; ct_want="${2:-}"; body_want="${3:-}"
+            tmp=$(mktemp)
             for attempt in 1 2 3 4 5; do
-              out=$(curl -s -o /dev/null -m 40 -w "%{http_code} %{content_type}" "$url")
+              out=$(curl -s -o "$tmp" -m 40 -w "%{http_code} %{content_type}" "$url")
               code=${out%% *}; ct=${out#* }
-              if [ "$code" = "200" ] && { [ -z "$ct_want" ] || printf '%s' "$ct" | grep -q "$ct_want"; }; then
-                echo "✓ $url ($out)"
-                return 0
+              if [ "$code" = "200" ] \
+                && { [ -z "$ct_want" ] || printf '%s' "$ct" | grep -q "$ct_want"; } \
+                && { [ -z "$body_want" ] || grep -qF -- "$body_want" "$tmp"; }; then
+                echo "✓ $url ($out)${body_want:+ [contains: $body_want]}"
+                rm -f "$tmp"; return 0
               fi
               echo "… retry $attempt: $url ($out)"
               sleep 12
             done
-            echo "✗ FAILED: $url (last: $out)"
+            echo "✗ FAILED: $url (last: $out)${body_want:+ — body missing '$body_want'}"
+            rm -f "$tmp"
             fail=1
           }
 
-          check "$API/api/health" "application/json"
+          # The legacy paths deliberately 307/308 into the canonical routes.
+          # #223 removed them from this file to stop false failures, which also
+          # removed the only thing watching next.config.mjs's redirects() block:
+          # drop it and every bookmark and indexed URL below starts 404ing
+          # silently. Assert the redirect instead of the destination.
+          check_redirect() { # <path> <expected-destination-path>
+            url="$SITE$1"; want="$SITE$2"
+            for attempt in 1 2 3 4 5; do
+              out=$(curl -s -o /dev/null -m 40 -w "%{http_code} %{redirect_url}" "$url")
+              code=${out%% *}; loc=${out#* }
+              case "$code" in
+                301|302|307|308)
+                  if [ "$loc" = "$want" ]; then
+                    echo "✓ $url -> $loc ($code)"
+                    return 0
+                  fi ;;
+              esac
+              echo "… retry $attempt: $url ($out)"
+              sleep 12
+            done
+            echo "✗ FAILED redirect: $url (last: $out, expected -> $want)"
+            fail=1
+          }
+
+          # ---- API ------------------------------------------------------------
+          # health carries its own outage signal in the payload, so assert on it
+          # rather than on "the endpoint answered".
+          #
+          # Deliberately NOT asserted here: learning_chain.last_error. It is
+          # sticky — never cleared on a later success — so it still holds the
+          # IndexError from the 2026-08-02 incident that #225 fixed, and
+          # asserting null would fail on arrival. A last_success_at recency
+          # bound is no good either: the chain is legitimately quiet whenever no
+          # match has finished (verified — a 2-day gap between NRL rounds is
+          # healthy). Making that field assertable needs a backend change to
+          # clear it on success; until then it is a dashboard field, not a probe.
+          check "$API/api/health" "application/json" '"status":"ok"'
+          check "$API/api/health" "application/json" '"missing":0'
+
+          # Non-empty payload assertions: each needle is a per-row field, so an
+          # empty array (200 []) no longer passes as healthy.
+          check "$API/api/tournaments/ucl" "application/json" '"UEFA Champions League'
+          check "$API/api/teams?competition=ucl" "application/json" '"elo_rating"'
+          check "$API/api/matches/upcoming?competition=ucl" "application/json" '"match_id"'
+          check "$API/api/nrl/matches" "application/json" '"score_home"'
+          check "$API/api/nrl/projections" "application/json" '"team"'
+
+          # ---- World Cup pages -------------------------------------------------
+          # WC26 is a completed tournament, so its data is frozen: Mexico is a
+          # host that played in Group A, which makes it a stable needle rather
+          # than one that rots when a roster or draw changes.
           check "$SITE/"
-          # World Cup canonical routes. The legacy paths intentionally return
-          # 307/308 redirects, so probing them as if they were pages creates
-          # false smoke failures even when their destinations are healthy.
-          check "$SITE/football/wc26/fixtures"
-          check "$SITE/football/wc26/bracket"
-          check "$SITE/football/wc26/match/1"
-          check "$SITE/football/wc26/team/1"
-          check "$SITE/football/wc26/groups/1"
+          check "$SITE/football/wc26/fixtures" "" "Mexico"
+          check "$SITE/football/wc26/bracket" "" "Mexico"
+          check "$SITE/football/wc26/match/1" "" "Mexico"
+          check "$SITE/football/wc26/team/1" "" "Mexico"
+          check "$SITE/football/wc26/groups/1" "" "Mexico"
           check "$SITE/match/1/opengraph-image" "image/png"
 
-          # Champions League: competition shell, fixture board, roster, and
-          # the prediction-bearing fixture feed must all stay reachable.
+          # Legacy → canonical redirects (see check_redirect).
+          check_redirect "/matches" "/football/wc26/fixtures"
+          check_redirect "/brackets" "/football/wc26/bracket"
+          check_redirect "/match/1" "/football/wc26/match/1"
+          check_redirect "/team/1" "/football/wc26/team/1"
+          check_redirect "/groups/1" "/football/wc26/groups/1"
+          check_redirect "/my-bracket" "/football/wc26/bracket"
+
+          # ---- Champions League ------------------------------------------------
+          # No page-body needle here on purpose: the qualifying field turns over
+          # every round, so any club name would rot within weeks — exactly the
+          # false-failure pattern #223 had to clean up. The UCL API checks above
+          # already fail on a backend outage, which is what these pages render.
           check "$SITE/football/ucl"
           check "$SITE/football/ucl/fixtures"
-          check "$API/api/tournaments/ucl" "application/json"
-          check "$API/api/teams?competition=ucl" "application/json"
-          check "$API/api/matches/upcoming?competition=ucl" "application/json"
 
-          check "$API/api/nrl/matches" "application/json"
-          check "$API/api/nrl/projections" "application/json"
+          # ---- NRL -------------------------------------------------------------
+          # Foundation clubs — stable across seasons.
           check "$SITE/nrl"
-          check "$SITE/nrl/matches"
-          check "$SITE/nrl/ladder"
-          check "$SITE/nrl/round/1"
+          check "$SITE/nrl/matches" "" "Broncos"
+          check "$SITE/nrl/ladder" "" "Broncos"
+          check "$SITE/nrl/round/1" "" "Storm"
 
           exit $fail
