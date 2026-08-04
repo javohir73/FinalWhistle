@@ -3,7 +3,7 @@
  *  with a parallel backend workstream, so every caller here must degrade
  *  gracefully until it does — this file is the one place that fallback lives. */
 import { getActiveTournamentServer, getCompetitionTournamentServer } from "./api";
-import { COMPETITIONS, type CompetitionId } from "./sports";
+import { COMPETITIONS, isWiredFootballCompetition, type CompetitionId } from "./sports";
 import type { ActiveTournament } from "./types";
 
 export const WC26_FALLBACK: ActiveTournament = {
@@ -51,4 +51,21 @@ export async function getCompetitionTournament(
     format: config.format === "league" ? "league" : "knockout",
     has_brackets: config.hasBracket,
   };
+}
+
+/** Tournament naming for a surface that may or may not carry a competition in
+ * its URL -- the OG image convention files, which one component serves for
+ * both `/match/:id` and `/football/:comp/match/:id`.
+ *
+ * The namespaced routes MUST name their own competition. getTournament()
+ * answers "which tournament is active right now", and once the Champions
+ * League was activated that made it the answer for every competition: a
+ * World Cup share card came back captioned "UEFA Champions League 2026-27".
+ * A legacy route has no comp segment and keeps the active-tournament copy it
+ * has always had.
+ */
+export function getTournamentForRoute(comp?: string): Promise<ActiveTournament> {
+  return comp !== undefined && isWiredFootballCompetition(comp)
+    ? getCompetitionTournament(comp)
+    : getTournament();
 }

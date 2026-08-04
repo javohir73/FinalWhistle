@@ -4,9 +4,10 @@
 // without this file, /football/wc26/match/:id fell back to the site-wide
 // generic app/opengraph-image.tsx instead of the per-match flags +
 // prediction-% card. Re-exports app/match/[id]/opengraph-image.tsx wholesale
-// (same trick as the generateMetadata re-export): its Image component only
-// destructures { id } off params, so the wider { comp, id } param shape here
-// passes straight through untouched. Unguarded by isWiredFootballCompetition
-// for the same reason generateMetadata is left unguarded -- an OG image for
-// an invalid comp is harmless.
+// (same trick as the generateMetadata re-export): that Image component reads
+// { id } plus an OPTIONAL { comp }, so the wider param shape here is what
+// makes the card name this competition instead of whichever tournament is
+// globally active. Unguarded by isWiredFootballCompetition for the same
+// reason generateMetadata is left unguarded -- an OG image for an invalid
+// comp is harmless, and getTournamentForRoute ignores an unknown segment.
 export { default, size, contentType, alt } from "@/app/match/[id]/opengraph-image";
