@@ -1,7 +1,15 @@
-# Poll live in-game scores during World Cup match windows (free alternative to a
-# Render cron). POSTs to the API's token-guarded /api/internal/refresh-live, which
-# pulls live scores + status from football-data.org and updates the fixtures the
-# site reads. The frontend already re-fetches every 30s, so updates surface fast.
+# Poll live in-game scores during match windows (free alternative to a Render
+# cron). POSTs to the API's token-guarded /api/internal/refresh-live, which
+# runs the per-league API-Football pass (every registered league — UCL and the
+# domestic leagues — with a match in its live window) plus the legacy
+# single-competition provider, and updates the fixtures the site reads. The
+# frontend already re-fetches every 30s, so updates surface fast.
+#
+# This runs YEAR-ROUND on purpose: the server itself gates provider calls by
+# live window (pipeline/ingest/live_scores.py), so an idle ping costs one DB
+# query and zero provider calls — and the same ping retries an owed learning
+# chain. Do NOT re-add a tournament date gate here; that is how the platform
+# went dark for every competition after the 2026 World Cup ended.
 #
 # GitHub's minimum schedule interval is 5 minutes, so each run loops internally
 # (~1-minute cadence) to cover the gap to the next tick. This repo is public, so
@@ -10,9 +18,10 @@
 # SETUP (one time) — GitHub → repo → Settings → Secrets and variables → Actions:
 #   - API_URL          the deployed API base, e.g. https://pitchprophet-api.onrender.com
 #   - RECOMPUTE_TOKEN  the SAME value as the backend's RECOMPUTE_TOKEN env var
-# The backend must also have FOOTBALL_DATA_API_KEY set and LIVE_MODE_ENABLED=true
-# (verify with: curl <API_URL>/api/health → "live_updates":"ready"). Until the two
-# secrets above exist this workflow safely no-ops. For tighter-than-1-min updates,
+# The backend must also have LIVE_MODE_ENABLED=true plus API_FOOTBALL_API_KEY
+# (league pass) and/or FOOTBALL_DATA_API_KEY (legacy pass) — verify with:
+# curl <API_URL>/api/health → "live_updates":"ready". Until the two secrets
+# above exist this workflow safely no-ops. For tighter-than-1-min updates,
 # point an external uptime cron (e.g. cron-job.org) at the same endpoint instead.
 name: refresh-live
 
@@ -36,12 +45,6 @@ jobs:
           RECOMPUTE_TOKEN: ${{ secrets.RECOMPUTE_TOKEN }}
         run: |
           set -u
-          # Only run during the tournament so it isn't pinging forever afterwards.
-          today=$(date -u +%Y-%m-%d)
-          if [[ "$today" < "2026-06-11" || "$today" > "2026-07-20" ]]; then
-            echo "Outside the World Cup window ($today) — skipping."
-            exit 0
-          fi
           if [ -z "${API_URL:-}" ] || [ -z "${RECOMPUTE_TOKEN:-}" ]; then
             echo "API_URL / RECOMPUTE_TOKEN secrets not set — skipping."
             echo "Add them under Settings → Secrets and variables → Actions to enable live polling."

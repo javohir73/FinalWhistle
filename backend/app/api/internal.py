@@ -95,7 +95,11 @@ def refresh_live(
 
     summary = run_live(db)
     maybe_run_post_results_chain(db, summary, trigger="internal")  # never raises
-    cache.clear()
+    # The cron now runs year-round (the server self-gates provider calls by
+    # live window), so only a pass that changed something may evict the API
+    # cache — an idle 1-minute ping must not keep the cache permanently cold.
+    if summary.get("updated") or summary.get("post_results"):
+        cache.clear()
     return {"status": "ok", "live": summary}
 
 

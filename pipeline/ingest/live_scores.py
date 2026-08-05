@@ -11,15 +11,37 @@ football-data.org v4: GET /v4/competitions/{code}/matches, auth via the
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import requests
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.models import Match, Team
+from app.models import Match, Team, Tournament
 from pipeline.team_mapping import normalize_team_name
 
 log = logging.getLogger(__name__)
+
+# The live window: scores could plausibly be changing right now. Shared with
+# app/live_refresh.in_live_window (single source of truth — the app-layer gate
+# and the per-league polling below must never disagree on what "live" means).
+_WINDOW_BACK = timedelta(hours=3)  # kicked off recently → may be in play
+_WINDOW_AHEAD = timedelta(minutes=5)  # kicking off imminently → flip promptly
+
+
+def live_window_clause(now: datetime):
+    """SQLAlchemy predicate: matches whose live state could be changing — in
+    play, or scheduled with a kickoff in the recent past / imminent future
+    (covering the scheduled→in-play transition our DB hasn't seen yet)."""
+    return or_(
+        Match.status == "in_play",
+        and_(
+            Match.status == "scheduled",
+            Match.kickoff_utc.isnot(None),
+            Match.kickoff_utc >= now - _WINDOW_BACK,
+            Match.kickoff_utc <= now + _WINDOW_AHEAD,
+        ),
+    )
 
 BASE_URL = "https://api.football-data.org/v4"
 
@@ -460,8 +482,106 @@ def update_live_scores(db: Session, api_matches: list[dict]) -> dict:
     }
 
 
+def _league_live_targets(db: Session, now: datetime | None = None) -> list[dict]:
+    """Registered leagues whose tournament has a match in the live window.
+
+    Each entry carries the league's API-Football identity so the caller can
+    poll exactly the competitions that could be changing right now — an idle
+    league (no fixture in window) costs zero provider calls. A league whose
+    tournament isn't in this database yet (not activated) is skipped."""
+    from pipeline.leagues import ACTIVE_LEAGUES, LEAGUES  # lazy: keep the web
+    # process's import path light (this module is imported per-request).
+
+    now = now or datetime.now(timezone.utc)
+    targets: list[dict] = []
+    for code in ACTIVE_LEAGUES:
+        cfg = LEAGUES[code]
+        tournament = (
+            db.query(Tournament.id).filter_by(name=cfg["tournament_name"]).first()
+        )
+        if tournament is None:
+            continue
+        in_window = (
+            db.query(Match.id)
+            .filter(Match.tournament_id == tournament.id, live_window_clause(now))
+            .first()
+            is not None
+        )
+        if in_window:
+            targets.append(
+                {"code": code, "league_id": cfg["league_id"], "season": cfg["season"]}
+            )
+    return targets
+
+
+def _refresh_league_live(db: Session, now: datetime | None = None) -> dict:
+    """API-Football league pass: fetch + apply scores for every registered
+    league with a match in the live window. Returns {} when there is nothing
+    to do (no key, or no league in window), so the caller can fall back to
+    the legacy single-competition summary unchanged.
+
+    League fixtures resolve by provider_fixture_id (set at ingest by
+    pipeline/ingest/league_structure.py), so a team pair that exists in two
+    competitions (a club in its league AND in Europe) can never misroute an
+    update. One /fixtures call per in-window league per pass; /fixtures/events
+    stays bounded by attach_events' own goal-delta / interval rules. A feed
+    failure is recorded per league and never sinks the other leagues."""
+    from app.config import settings
+
+    key = settings.api_football_api_key
+    if not key:
+        return {}
+    targets = _league_live_targets(db, now)
+    if not targets:
+        return {}
+
+    from pipeline.ingest.api_football import attach_events, fetch_fixtures, to_feed
+
+    total: dict = {"updated": 0, "live": 0, "finished": 0, "newly_finished": 0,
+                   "leagues": {}}
+    for target in targets:
+        try:
+            feed = attach_events(
+                db,
+                to_feed(fetch_fixtures(key, target["league_id"], target["season"])),
+                key,
+            )
+        except Exception as exc:  # noqa: BLE001 — one league's feed hiccup is isolated
+            log.warning("league live fetch failed for %s: %s", target["code"], exc)
+            total["leagues"][target["code"]] = {"error": str(exc)}
+            continue
+        summary = update_live_scores(db, feed)
+        total["leagues"][target["code"]] = summary
+        for k in ("updated", "live", "finished", "newly_finished"):
+            total[k] += summary.get(k, 0)
+    return total
+
+
 def refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:
-    """Fetch + apply live scores for the configured provider. No-op (never
+    """Fetch + apply live scores: the per-league API-Football pass (every
+    registered league with a match in its live window), then the legacy
+    single-competition pass for the configured provider (the international
+    tournament). Never raises; each pass degrades independently.
+
+    With no league in window the return value is byte-identical to the legacy
+    pass alone (including its skip/error markers), so pre-league callers and
+    tests see exactly the historical shapes."""
+    league_summary = _refresh_league_live(db)
+    legacy_summary = _legacy_refresh_live(db, api_key, competition)
+    if not league_summary:
+        return legacy_summary
+    merged = dict(league_summary)
+    merged["legacy"] = legacy_summary
+    if not (legacy_summary.get("skipped") or legacy_summary.get("error")):
+        for k in ("updated", "live", "finished", "newly_finished"):
+            merged[k] = merged.get(k, 0) + legacy_summary.get(k, 0)
+        if legacy_summary.get("predictions_generated"):
+            merged["predictions_generated"] = legacy_summary["predictions_generated"]
+    return merged
+
+
+def _legacy_refresh_live(db: Session, api_key: str | None = None, competition: str | None = None) -> dict:
+    """The single-competition pass for the configured provider. No-op (never
     raises) when no key is set. Both 'football_data' and 'api_football' are
     wired; an unknown provider is skipped loudly. Honours config.live_provider
     so the selected provider and the key in use always agree.

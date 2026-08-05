@@ -20,9 +20,8 @@ from __future__ import annotations
 import logging
 import threading
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
-from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
 from app.cache import cache
@@ -33,8 +32,6 @@ from app.models import Match
 log = logging.getLogger(__name__)
 
 MIN_INTERVAL_SECONDS = 60.0
-_WINDOW_BACK = timedelta(hours=3)  # kicked off recently → may be in play
-_WINDOW_AHEAD = timedelta(minutes=5)  # kicking off imminently → flip promptly
 
 _lock = threading.Lock()
 _last_attempt = 0.0  # time.monotonic() of the last upstream attempt
@@ -43,23 +40,14 @@ _last_attempt = 0.0  # time.monotonic() of the last upstream attempt
 def in_live_window(db: Session) -> bool:
     """True when live scores could plausibly be changing right now: a match is
     in play, or a scheduled match kicked off recently / kicks off imminently
-    (covering the scheduled→in-play transition our DB hasn't seen yet)."""
+    (covering the scheduled→in-play transition our DB hasn't seen yet).
+    The predicate lives in pipeline.ingest.live_scores (live_window_clause) so
+    this gate and the per-league polling always agree on what "live" means."""
+    from pipeline.ingest.live_scores import live_window_clause  # late: avoid cycles
+
     now = datetime.now(timezone.utc)
     return (
-        db.query(Match.id)
-        .filter(
-            or_(
-                Match.status == "in_play",
-                and_(
-                    Match.status == "scheduled",
-                    Match.kickoff_utc.isnot(None),
-                    Match.kickoff_utc >= now - _WINDOW_BACK,
-                    Match.kickoff_utc <= now + _WINDOW_AHEAD,
-                ),
-            )
-        )
-        .first()
-        is not None
+        db.query(Match.id).filter(live_window_clause(now)).first() is not None
     )
 
 
