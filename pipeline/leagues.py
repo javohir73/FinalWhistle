@@ -193,15 +193,25 @@ LEAGUES: dict[str, LeagueConfig] = {
         # group format and the current league-phase format.
         "history_seasons": (2022, 2023, 2024, 2025),
         "history_min_matches": 450,
-        # No competition-specific fit has cleared the model gate yet. Keep
-        # the served club default and record the absence of an override.
+        # home_adv refit was NOT credible (U2_home_adv: Δ +0.0010, CI
+        # straddles 0 — docs/experiments/2026-08-06-ucl-base-fit): the served
+        # club default stands, same outcome as EPL's and Bundesliga's fits.
         "home_advantage": 60.0,
-        "model_params": {},
-        # UCL has not gone through the domestic v0.2 parameter-fit program.
-        # Keep its public record in a truthful, separate first-version ledger
-        # and do not log a baseline twin when there is no predecessor.
-        "model_version": "poisson-elo-ucl-v0.1",
-        "shadow_baseline": False,
+        # base 1.20 -> 1.44: the UCL's own Track-1 goal-rate fit
+        # (pipeline/experiment_ucl_eval.py). Selection credibly better on
+        # walk-forward O/U (Δ −0.0332, CI [−0.0462, −0.0191]); CONFIRMED on
+        # the quarantined 2025 edition on BOTH metrics (1X2 Δ −0.0119,
+        # CI [−0.0170, −0.0061]; O/U Δ −0.0356, CI [−0.0640, −0.0005]).
+        # Observed 2.97 goals/match across 2022-2024 vs 2.40 implied by the
+        # inherited base — docs/experiments/2026-08-06-ucl-base-fit.
+        "model_params": {"base": 1.44},
+        # v0.2 = the UCL's own parameter fit (same process-naming convention
+        # as CLUB_MODEL_VERSION below). v0.1 — the unfitted club defaults —
+        # becomes the live +baseline twin so the promotion is measurable in
+        # live conditions, exactly like the domestic v0.1 -> v0.2 refit.
+        "model_version": "poisson-elo-ucl-v0.2",
+        "shadow_baseline": True,
+        "shadow_baseline_version": "poisson-elo-ucl-v0.1",
         # Shares Team rows with epl/laliga/bundesliga. Four seasons from a 1500
         # cold start must not overwrite their ten-season served ratings.
         "owns_served_rating": False,
@@ -286,14 +296,19 @@ def club_params_for(code: str) -> "ModelParams":
 
 
 def club_baseline_params_for(code: str) -> "ModelParams | None":
-    """The v0.1 shadow twin, or None for a competition with no predecessor."""
+    """The previous-version shadow twin, or None for a competition with no
+    predecessor. The twin is always the GLOBAL params with no league
+    overrides — that is what every league served before its own fit. A league
+    with its own version ledger (UCL) names its predecessor explicitly via
+    ``shadow_baseline_version``; the domestic leagues share the club twin."""
     from dataclasses import replace
 
     from ml.models.params import load_params
 
     if not LEAGUES[code].get("shadow_baseline", True):
         return None
-    return replace(load_params(), version=CLUB_SHADOW_BASELINE_VERSION)
+    version = LEAGUES[code].get("shadow_baseline_version", CLUB_SHADOW_BASELINE_VERSION)
+    return replace(load_params(), version=version)
 
 
 #: Calibrator artifacts that MAY be shadowed, per league. A league absent here

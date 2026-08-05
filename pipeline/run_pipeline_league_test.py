@@ -132,7 +132,7 @@ def test_wc_path_stays_default_when_pipeline_target_unset(db_session):
     assert tournament.home_advantage_mode == "host_bonus"
 
 
-def test_ucl_pipeline_predicts_qualifiers_without_fake_table_or_baseline(
+def test_ucl_pipeline_predicts_qualifiers_with_v02_engine_and_v01_twin(
     db_session, monkeypatch
 ):
     monkeypatch.setattr(settings, "pipeline_target", "league")
@@ -174,10 +174,12 @@ def test_ucl_pipeline_predicts_qualifiers_without_fake_table_or_baseline(
 
     assert summary["predictions"]["matches_predicted"] == 1
     production = db_session.query(Prediction).filter_by(is_shadow=False).one()
-    assert production.model_version == "poisson-elo-ucl-v0.1"
+    assert production.model_version == "poisson-elo-ucl-v0.2"
+    # The unfitted v0.1 predecessor rides along as the +baseline twin (scoped
+    # to the UCL's own ledger), so the base refit is measurable live.
     assert db_session.query(Prediction).filter(
-        Prediction.model_version.like("%+baseline")
-    ).count() == 0
+        Prediction.model_version == "poisson-elo-ucl-v0.2+baseline"
+    ).count() == 1
 
     qualifier = db_session.query(Match).filter_by(provider_fixture_id=7002).one()
     assert qualifier.group_id is None

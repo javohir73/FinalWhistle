@@ -177,9 +177,27 @@ def test_domestic_leagues_keep_the_shared_club_model_version():
         assert leagues_mod.club_params_for(code).version == leagues_mod.CLUB_MODEL_VERSION
 
 
-def test_ucl_has_truthful_first_version_lineage_and_no_fake_baseline():
-    assert leagues_mod.club_params_for("ucl").version == "poisson-elo-ucl-v0.1"
-    assert leagues_mod.club_baseline_params_for("ucl") is None
+def test_ucl_serves_its_fitted_base_under_its_own_v02_ledger():
+    """The UCL's Track-1 goal-rate fit (docs/experiments/2026-08-06-ucl-base-fit):
+    base 1.44 confirmed on the quarantined 2025 edition, both metrics. The
+    home-adv refit was not credible, so only base may be overridden."""
+    assert leagues_mod.LEAGUES["ucl"]["model_params"] == {"base": 1.44}
+    assert leagues_mod.LEAGUES["ucl"]["home_advantage"] == 60.0
+    assert leagues_mod.club_params_for("ucl").version == "poisson-elo-ucl-v0.2"
+    assert leagues_mod.club_params_for("ucl").base == 1.44
+
+
+def test_ucl_baseline_twin_is_the_unfitted_v01_predecessor():
+    """The pre-fit engine (global params, no overrides) rides along as the
+    live +baseline twin, exactly like the domestic v0.1 -> v0.2 refit."""
+    from ml.models.params import load_params
+
+    baseline = leagues_mod.club_baseline_params_for("ucl")
+    assert baseline is not None
+    assert baseline.version == "poisson-elo-ucl-v0.1"
+    # The whole point of the twin: it must NOT carry the refit.
+    assert baseline.base == load_params().base
+    assert baseline.base != leagues_mod.club_params_for("ucl").base
 
 
 def test_shadow_baseline_is_the_previous_version_with_no_overrides():
