@@ -96,11 +96,24 @@ def test_translated_feed_applies_through_update_live_scores(db_session):
     assert m.score_home == 2 and m.score_away == 1
 
 
+def _wc_match_into_window(db):
+    """Pull the Mexico-South Africa fixture into the live window so the legacy
+    pass's idle gate (a non-league match in window) lets the fetch run."""
+    from datetime import datetime, timedelta, timezone
+
+    from app.models import Match, Team
+    h = db.query(Team).filter_by(name="Mexico").one()
+    a = db.query(Team).filter_by(name="South Africa").one()
+    m = db.query(Match).filter_by(team_home_id=h.id, team_away_id=a.id).one()
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=30)
+    db.commit()
+
 def test_refresh_live_routes_to_api_football_when_selected(db_session, monkeypatch):
     from app.config import settings as app_settings
     import pipeline.ingest.api_football as af
 
     load_structure(db_session)
+    _wc_match_into_window(db_session)
     monkeypatch.setattr(app_settings, "live_provider", "api_football")
     monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
     monkeypatch.setattr(af, "fetch_fixtures",
@@ -186,6 +199,7 @@ def test_refresh_live_api_football_stores_scorers(db_session, monkeypatch):
     import pipeline.ingest.api_football as af
 
     load_structure(db_session)
+    _wc_match_into_window(db_session)
     monkeypatch.setattr(app_settings, "live_provider", "api_football")
     monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
     monkeypatch.setattr(af, "fetch_fixtures",
@@ -295,6 +309,7 @@ def test_refresh_live_api_football_stores_cards(db_session, monkeypatch):
     import pipeline.ingest.api_football as af
 
     load_structure(db_session)
+    _wc_match_into_window(db_session)
     monkeypatch.setattr(app_settings, "live_provider", "api_football")
     monkeypatch.setattr(app_settings, "api_football_api_key", "dummy-key")
     monkeypatch.setattr(af, "fetch_fixtures",

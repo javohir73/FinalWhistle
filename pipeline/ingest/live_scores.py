@@ -514,6 +514,30 @@ def _league_live_targets(db: Session, now: datetime | None = None) -> list[dict]
     return targets
 
 
+def _nonleague_in_live_window(db: Session, now: datetime | None = None) -> bool:
+    """A live-window match outside every registered league's tournament — the
+    international feed's territory, i.e. the only thing the legacy
+    single-competition pass could still usefully refresh."""
+    from pipeline.leagues import LEAGUES  # lazy, same as _league_live_targets
+
+    now = now or datetime.now(timezone.utc)
+    league_tournament_ids = [
+        tid
+        for (tid,) in db.query(Tournament.id)
+        .filter(Tournament.name.in_([cfg["tournament_name"] for cfg in LEAGUES.values()]))
+        .all()
+    ]
+    q = db.query(Match.id).filter(live_window_clause(now))
+    if league_tournament_ids:
+        q = q.filter(
+            or_(
+                Match.tournament_id.is_(None),
+                Match.tournament_id.notin_(league_tournament_ids),
+            )
+        )
+    return q.first() is not None
+
+
 def _refresh_league_live(db: Session, now: datetime | None = None) -> dict:
     """API-Football league pass: fetch + apply scores for every registered
     league with a match in the live window. Returns {} when there is nothing
@@ -595,18 +619,29 @@ def _legacy_refresh_live(db: Session, api_key: str | None = None, competition: s
         log.info("live scores skipped: no API key for provider %r", provider)
         return {"skipped": "no_api_key", "updated": 0, "live": 0, "finished": 0}
 
+    if provider not in ("football_data", "api_football"):
+        log.warning("live scores skipped: unknown provider %r", provider)
+        return {"skipped": f"unknown_provider:{provider}",
+                "updated": 0, "live": 0, "finished": 0}
+
+    # Idle gate: the legacy feed's remaining territory is matches OUTSIDE the
+    # registered league tournaments (the international competition — leagues
+    # are the per-league pass's job). With none of those in the live window,
+    # fetching would only re-deliver long-finished matches: a provider call
+    # per pass forever, and a summary whose non-zero "updated" count makes
+    # every idle cron tick evict the API cache. Skip before touching the
+    # network — this is the self-gating the year-round cron relies on.
+    if not _nonleague_in_live_window(db):
+        return {"skipped": "idle", "updated": 0, "live": 0, "finished": 0}
+
     try:
         if provider == "football_data":
             comp = competition or settings.football_data_competition
             api_matches = fetch_matches(key, comp)
-        elif provider == "api_football":
+        else:  # api_football (validated above)
             from pipeline.ingest.api_football import fetch_fixtures, to_feed, attach_events
             api_matches = attach_events(db, to_feed(fetch_fixtures(
                 key, settings.api_football_league, settings.api_football_season)), key)
-        else:
-            log.warning("live scores skipped: unknown provider %r", provider)
-            return {"skipped": f"unknown_provider:{provider}",
-                    "updated": 0, "live": 0, "finished": 0}
     except Exception as exc:  # noqa: BLE001 - never break the cron on a feed hiccup
         log.warning("live scores fetch failed: %s", exc)
         return {"error": str(exc), "updated": 0, "live": 0, "finished": 0}

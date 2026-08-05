@@ -488,9 +488,18 @@ def _spread_elos(db):
     db.commit()
 
 
+def _pull_into_live_window(db, match_no=89):
+    """Move one WC fixture's kickoff into the live window so the legacy pass's
+    idle gate (non-league match in window) lets the fetch run."""
+    m = db.query(Match).filter_by(match_no=match_no).one()
+    m.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=30)
+    db.commit()
+
+
 def test_refresh_live_generates_prediction_for_newly_assigned_ko_match(db_session, monkeypatch):
     load_structure(db_session)
     _spread_elos(db_session)
+    _pull_into_live_window(db_session)
     feed = _ko_fixture_feed(db_session)
     monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", lambda key, comp=None: feed)
 
@@ -507,6 +516,7 @@ def test_refresh_live_survives_prediction_generation_failure(db_session, monkeyp
     must never break score ingestion (the next pass or the daily run retries)."""
     load_structure(db_session)
     _spread_elos(db_session)
+    _pull_into_live_window(db_session)
     feed = _ko_fixture_feed(db_session)
     monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", lambda key, comp=None: feed)
 
@@ -796,6 +806,10 @@ def test_league_pass_merges_with_active_legacy_provider(db_session, monkeypatch)
     from app.config import settings as app_settings
 
     load_structure(db_session)
+    # A WC fixture in the live window keeps the legacy pass's idle gate open.
+    mexico = _match_for(db_session, "Mexico", "South Africa")
+    mexico.kickoff_utc = datetime.now(timezone.utc) - timedelta(minutes=30)
+    db_session.commit()
     _seed_league_fixture(db_session, "ucl", fid=9007,
                          kickoff=datetime.now(timezone.utc) - timedelta(minutes=30))
 
@@ -816,3 +830,49 @@ def test_league_pass_merges_with_active_legacy_provider(db_session, monkeypatch)
     assert summary["live"] == 1
     assert summary["newly_finished"] == 1
     assert summary["legacy"]["updated"] == 1
+
+
+def test_legacy_pass_idles_when_no_nonleague_match_in_window(db_session, monkeypatch):
+    """Outside any international window the legacy pass makes ZERO provider
+    calls and reports zero updates — the year-round cron's idle tick must not
+    re-deliver 104 finished World Cup matches (which would also evict the API
+    cache every minute via its non-zero 'updated' count)."""
+    from app.config import settings as app_settings
+
+    load_structure(db_session)  # every WC26 kickoff is in the past — idle
+    monkeypatch.setattr(app_settings, "live_provider", "football_data")
+    monkeypatch.setattr(app_settings, "football_data_api_key", "fd-key")
+
+    def explode(*a, **kw):
+        raise AssertionError("legacy pass must not fetch while idle")
+
+    monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", explode)
+
+    summary = refresh_live(db_session)
+    assert summary["skipped"] == "idle"
+    assert summary["updated"] == 0
+
+
+def test_league_window_does_not_wake_the_legacy_pass(db_session, monkeypatch):
+    """A league match in window is the league pass's job — the legacy
+    single-competition feed stays asleep (its territory is non-league)."""
+    from app.config import settings as app_settings
+
+    _seed_league_fixture(db_session, "ucl", fid=9008,
+                         kickoff=datetime.now(timezone.utc) - timedelta(minutes=30))
+    monkeypatch.setattr(app_settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr(app_settings, "live_provider", "football_data")
+    monkeypatch.setattr(app_settings, "football_data_api_key", "fd-key")
+
+    def explode(*a, **kw):
+        raise AssertionError("legacy pass must not fetch for a league window")
+
+    monkeypatch.setattr("pipeline.ingest.live_scores.fetch_matches", explode)
+    monkeypatch.setattr(
+        "pipeline.ingest.api_football.fetch_fixtures",
+        lambda key, league, season, **kw: [_raw_af_fixture(9008, "Alpha FC", "Beta SC")])
+    monkeypatch.setattr("pipeline.ingest.api_football.attach_events", _no_events)
+
+    summary = refresh_live(db_session)
+    assert summary["leagues"]["ucl"]["finished"] == 1
+    assert summary["legacy"]["skipped"] == "idle"
