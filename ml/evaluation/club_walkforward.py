@@ -212,17 +212,28 @@ def loss_1x2(matches: Sequence[ClubMatch], pre: Sequence[tuple[float, float]],
     return out
 
 
-def loss_totals(matches: Sequence[ClubMatch], pre: Sequence[tuple[float, float]],
-                elo: EloConfig, grid: GridConfig, line: float = 2.5,
-                rest_deltas: Sequence[float] | None = None) -> list[float]:
-    """Per-match NLL of the realized Over/Under outcome at ``line``.
+def totals_probabilities(matches: Sequence[ClubMatch], pre: Sequence[tuple[float, float]],
+                         elo: EloConfig, grid: GridConfig, line: float = 2.5,
+                         rest_deltas: Sequence[float] | None = None) -> list[float]:
+    """Per-match model P(total goals > ``line``), index-aligned with ``matches``.
 
-    Read off the same Dixon-Coles grid the served markets use, not a
-    independent-Poisson shortcut, so the number matches what ml/models/markets.py
-    would price.
+    The probability :func:`loss_totals` has always computed and then thrown
+    away. Extracted so a benchmark can score the *same* number the gate scored
+    — same grid, same normalization, same clip.
+
+    Deliberately NOT implemented by calling ``ml.models.markets.over_under`` or
+    ``poisson.goal_markets``: the former sums ``x_i / T`` where this sums
+    ``x_i`` then divides once (they differ in the last bit, ~1.1e-16), and the
+    latter rounds to 4 dp at source. Either substitution would perturb every
+    recorded T1.1 number while looking like a refactor.
+
+    ``matches`` is accepted but unused — the model probability is a function of
+    the ratings alone, not the outcome. It stays in the signature so this and
+    :func:`loss_totals` bind identically under ``walk_forward``'s positional
+    call, and so the returned list is unambiguously aligned to a match list.
     """
     out: list[float] = []
-    for i, (m, p) in enumerate(zip(matches, pre)):
+    for i, p in enumerate(pre):
         lam_h, lam_a = _lambdas(p, grid, elo.home_adv,
                                 rest_deltas[i] if rest_deltas else 0.0)
         matrix = score_matrix(lam_h, lam_a, rho=grid.rho)
@@ -233,10 +244,28 @@ def loss_totals(matches: Sequence[ClubMatch], pre: Sequence[tuple[float, float]]
             if h + a > line
         )
         total = sum(sum(row) for row in matrix)
-        p_over = min(max(p_over / total, _EPS), 1.0 - _EPS)
-        over = (m.goals_home + m.goals_away) > line
-        out.append(-math.log(p_over if over else 1.0 - p_over))
+        out.append(min(max(p_over / total, _EPS), 1.0 - _EPS))
     return out
+
+
+def loss_totals(matches: Sequence[ClubMatch], pre: Sequence[tuple[float, float]],
+                elo: EloConfig, grid: GridConfig, line: float = 2.5,
+                rest_deltas: Sequence[float] | None = None) -> list[float]:
+    """Per-match NLL of the realized Over/Under outcome at ``line``.
+
+    Read off the same Dixon-Coles grid the served markets use, not a
+    independent-Poisson shortcut, so the number matches what ml/models/markets.py
+    would price.
+
+    A literal wrapper over :func:`totals_probabilities` since the extraction —
+    the float operations and their order are unchanged, so every recorded T1.1
+    number is reproduced bit-for-bit. A golden-vector test pins that.
+    """
+    ps = totals_probabilities(matches, pre, elo, grid, line, rest_deltas)
+    return [
+        -math.log(p if (m.goals_home + m.goals_away) > line else 1.0 - p)
+        for m, p in zip(matches, ps)
+    ]
 
 
 def walk_forward(

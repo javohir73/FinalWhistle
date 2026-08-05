@@ -29,7 +29,9 @@ _ROOT = Path(__file__).resolve().parent.parent
 _BENCHMARK_MODULES = frozenset(
     {
         "ml.evaluation.market_benchmark",
+        "ml.evaluation.club_totals_benchmark",
         "pipeline.market_coverage",
+        "pipeline.run_club_totals_benchmark",
         "pipeline.ingest.football_data",
         "pipeline.ingest.football_data_odds",
     }
@@ -193,9 +195,13 @@ def test_no_transitive_path_from_a_market_blind_package_to_the_benchmark(package
         "from ..evaluation import market_benchmark",
         "import importlib\nm = importlib.import_module('ml.evaluation.market_benchmark')",
         "m = __import__('pipeline.market_coverage')",
+        # D0-B. Registering a module in _BENCHMARK_MODULES is only as good as
+        # the dotted string being right; a typo would fail nothing, forever.
+        "from ml.evaluation.club_totals_benchmark import build_matched_totals",
+        "from ..evaluation.club_totals_benchmark import market_p_over",
     ],
     ids=["absolute-from", "absolute-import", "relative-from", "relative-module",
-         "importlib", "dunder-import"],
+         "importlib", "dunder-import", "totals-absolute", "totals-relative"],
 )
 def test_the_guard_detects_every_spelling_of_a_planted_import(source):
     """A guard is only worth its green if it fails on the leak it claims to catch.
