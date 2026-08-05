@@ -647,3 +647,172 @@ def test_finished_redelivery_without_duration_does_not_copy_on_ko(db_session):
     update_live_scores(db_session, _reg_feed("Mexico", "South Africa", "FINISHED", 2, 1))
     db_session.refresh(m)
     assert m.score_home_90 is None
+
+
+# --- Multi-competition league pass (UCL + domestic leagues, post-WC26) -------
+# refresh_live's league pass polls API-Football per ACTIVE league, but ONLY for
+# leagues whose tournament has a match inside the live window — idle leagues
+# cost zero provider calls. The legacy single-competition pass is untouched.
+
+from app.models import Tournament  # noqa: E402  (test-local import, matches file style)
+
+
+def _seed_league_fixture(db, code: str, *, fid: int, kickoff, status="scheduled",
+                         home="Alpha FC", away="Beta SC"):
+    """One fixture of a registered league's tournament, with a provider id."""
+    from pipeline.leagues import LEAGUES
+
+    t = Tournament(name=LEAGUES[code]["tournament_name"], year=2026)
+    db.add(t)
+    db.flush()
+    h = Team(name=home, elo_rating=1600)
+    a = Team(name=away, elo_rating=1500)
+    db.add_all([h, a])
+    db.flush()
+    m = Match(tournament_id=t.id, stage="league", status=status,
+              provider_fixture_id=fid, team_home_id=h.id, team_away_id=a.id,
+              kickoff_utc=kickoff)
+    db.add(m)
+    db.commit()
+    return m
+
+
+def _raw_af_fixture(fid: int, home: str, away: str, *, short="FT", goals=(1, 0)):
+    """Minimal api-sports fixture dict for to_feed's real translation."""
+    return {
+        "fixture": {"id": fid, "date": "2026-08-04T16:00:00+00:00",
+                    "status": {"short": short, "elapsed": 90}},
+        "teams": {"home": {"name": home}, "away": {"name": away}},
+        "goals": {"home": goals[0], "away": goals[1]},
+        "league": {"round": "Qualifying Round 3"},
+    }
+
+
+def _no_events(db, feed, key):
+    return feed
+
+
+def test_league_pass_polls_only_leagues_with_matches_in_window(db_session, monkeypatch):
+    from app.config import settings as app_settings
+    from pipeline.leagues import LEAGUES
+
+    in_window = _seed_league_fixture(
+        db_session, "ucl", fid=9001,
+        kickoff=datetime.now(timezone.utc) - timedelta(minutes=30))
+    _seed_league_fixture(
+        db_session, "bundesliga", fid=9002,
+        kickoff=datetime.now(timezone.utc) + timedelta(days=10),
+        home="Gamma 04", away="Delta 05")
+
+    calls: list[tuple[int, int]] = []
+
+    def fake_fetch(key, league, season, **kw):
+        calls.append((league, season))
+        return [_raw_af_fixture(9001, "Alpha FC", "Beta SC")]
+
+    monkeypatch.setattr(app_settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr("pipeline.ingest.api_football.fetch_fixtures", fake_fetch)
+    monkeypatch.setattr("pipeline.ingest.api_football.attach_events", _no_events)
+
+    summary = refresh_live(db_session)  # legacy: no football-data key -> skipped
+
+    assert calls == [(LEAGUES["ucl"]["league_id"], LEAGUES["ucl"]["season"])]
+    db_session.refresh(in_window)
+    assert in_window.status == "finished"
+    assert (in_window.score_home, in_window.score_away) == (1, 0)
+    assert summary["newly_finished"] == 1
+    assert summary["leagues"]["ucl"]["finished"] == 1
+    assert summary["legacy"]["skipped"] == "no_api_key"
+
+
+def test_league_pass_sees_in_play_matches_regardless_of_kickoff_age(db_session, monkeypatch):
+    # An in_play row far past kickoff (ET, long stoppage, stale clock) keeps
+    # its league in the polling set until the feed finishes it.
+    from app.config import settings as app_settings
+
+    m = _seed_league_fixture(
+        db_session, "ucl", fid=9003, status="in_play",
+        kickoff=datetime.now(timezone.utc) - timedelta(hours=4))
+    monkeypatch.setattr(app_settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr(
+        "pipeline.ingest.api_football.fetch_fixtures",
+        lambda key, league, season, **kw: [_raw_af_fixture(9003, "Alpha FC", "Beta SC")])
+    monkeypatch.setattr("pipeline.ingest.api_football.attach_events", _no_events)
+
+    summary = refresh_live(db_session)
+    db_session.refresh(m)
+    assert m.status == "finished"
+    assert summary["leagues"]["ucl"]["newly_finished"] == 1
+
+
+def test_league_pass_skipped_without_api_football_key(db_session, monkeypatch):
+    from app.config import settings as app_settings
+
+    _seed_league_fixture(db_session, "ucl", fid=9004,
+                         kickoff=datetime.now(timezone.utc) - timedelta(minutes=30))
+    monkeypatch.setattr(app_settings, "api_football_api_key", "")
+
+    def explode(*a, **kw):
+        raise AssertionError("league pass must not fetch without a key")
+
+    monkeypatch.setattr("pipeline.ingest.api_football.fetch_fixtures", explode)
+
+    summary = refresh_live(db_session)
+    # Pure legacy shape — the league pass added nothing.
+    assert summary["skipped"] == "no_api_key"
+    assert "leagues" not in summary
+
+
+def test_league_fetch_failure_isolated_per_league(db_session, monkeypatch):
+    """One league's feed hiccup must not lose the other league's finals."""
+    from app.config import settings as app_settings
+    from pipeline.leagues import LEAGUES
+
+    now = datetime.now(timezone.utc)
+    ucl = _seed_league_fixture(db_session, "ucl", fid=9005,
+                               kickoff=now - timedelta(minutes=30))
+    _seed_league_fixture(db_session, "laliga", fid=9006,
+                         kickoff=now - timedelta(minutes=40),
+                         home="Epsilon CF", away="Zeta CF")
+
+    def fake_fetch(key, league, season, **kw):
+        if league == LEAGUES["laliga"]["league_id"]:
+            raise RuntimeError("feed down")
+        return [_raw_af_fixture(9005, "Alpha FC", "Beta SC")]
+
+    monkeypatch.setattr(app_settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr("pipeline.ingest.api_football.fetch_fixtures", fake_fetch)
+    monkeypatch.setattr("pipeline.ingest.api_football.attach_events", _no_events)
+
+    summary = refresh_live(db_session)
+    db_session.refresh(ucl)
+    assert ucl.status == "finished"
+    assert summary["leagues"]["ucl"]["finished"] == 1
+    assert "error" in summary["leagues"]["laliga"]
+
+
+def test_league_pass_merges_with_active_legacy_provider(db_session, monkeypatch):
+    """During an international window the legacy pass still runs; totals sum."""
+    from app.config import settings as app_settings
+
+    load_structure(db_session)
+    _seed_league_fixture(db_session, "ucl", fid=9007,
+                         kickoff=datetime.now(timezone.utc) - timedelta(minutes=30))
+
+    monkeypatch.setattr(app_settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr(app_settings, "live_provider", "football_data")
+    monkeypatch.setattr(app_settings, "football_data_api_key", "fd-key")
+    monkeypatch.setattr(
+        "pipeline.ingest.live_scores.fetch_matches",
+        lambda key, comp=None: _feed("IN_PLAY", 1, 0, minute=55))
+    monkeypatch.setattr(
+        "pipeline.ingest.api_football.fetch_fixtures",
+        lambda key, league, season, **kw: [_raw_af_fixture(9007, "Alpha FC", "Beta SC")])
+    monkeypatch.setattr("pipeline.ingest.api_football.attach_events", _no_events)
+
+    summary = refresh_live(db_session)
+    # 1 league final + 1 legacy live update, summed at the top level.
+    assert summary["updated"] == 2
+    assert summary["live"] == 1
+    assert summary["newly_finished"] == 1
+    assert summary["legacy"]["updated"] == 1
