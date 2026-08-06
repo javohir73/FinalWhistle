@@ -23,6 +23,11 @@
   --lime-deep: 84 78% 55%;    /* on dark, deep-lime text maps to bright lime */
   --amber-ink: 38 94% 58%;    /* amber text = amber fill on dark */
   --pitch: 143 33% 8%;        /* #0d1a12  hero/accent panels */
+  /* Foot of the .glass card gradient. A TOKEN, not a literal: it used to be a
+     hardcoded hsl(148 29% 8%), which meant every card faded to near-black the
+     moment .theme-daylight swapped --surface to white — unreadable text at the
+     bottom of every card. The one orphan value in the system. */
+  --surface-grad-end: 148 29% 8%;
 
   /* ---- Floodlight (P1) additions ---- */
   /* Display scale — feature %, scorebug numerals, ladder rank. */
@@ -56,6 +61,11 @@
   --win: 84 66% 52%; --draw: 41 78% 51%; --loss: 350 84% 62%;
   --gold: 42 62% 48%; --accent: 84 66% 52%;
   --lime-deep: 108 56% 27%; --amber-ink: 43 82% 33%; --pitch: 151 51% 14%;
+  /* Cards read white->faint-sage here, mirroring the dark theme's
+     surface->deeper-surface fall rather than inverting it. --pitch stays dark
+     in this theme by design, so .panel-pitch and its white ink are correct in
+     both and need no daylight override. */
+  --surface-grad-end: 94 18% 96%;
 }
 
 @media (min-width: 768px) {
@@ -135,7 +145,7 @@ body {
 /* ============ Reusable utilities ============ */
 @layer components {
   .glass {
-    background: linear-gradient(180deg, hsl(var(--surface)), hsl(148 29% 8%));
+    background: linear-gradient(180deg, hsl(var(--surface)), hsl(var(--surface-grad-end)));
     border: 1px solid hsl(var(--border));
     box-shadow: 0 10px 30px -18px rgba(0, 0, 0, 0.7);
   }
