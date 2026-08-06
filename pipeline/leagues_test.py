@@ -61,7 +61,10 @@ def test_ucl_config_uses_verified_cross_border_provider_identity():
     assert cfg["league_id"] == 2
     assert cfg["season"] == 2026
     assert cfg["history_source"] == "api_football"
-    assert cfg["history_seasons"] == (2022, 2023, 2024, 2025)
+    # Widened 2026-08-06 to sharpen qualifying-round cold starts; the minimum
+    # moved with it (see league_activation_test.py for why that coupling is
+    # load-bearing rather than cosmetic).
+    assert cfg["history_seasons"] == (2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025)
     assert cfg["club_division"] is None
     assert cfg["group_round_prefixes"] == ("League Stage",)
     assert cfg["standings_advance_count"] == 24

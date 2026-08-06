@@ -188,11 +188,30 @@ LEAGUES: dict[str, LeagueConfig] = {
         "club_competition": "UEFA Champions League",
         "club_division": None,
         "history_source": "api_football",
-        # Four fully completed editions. This keeps the one-time activation
-        # backfill bounded to four provider calls while spanning both the old
-        # group format and the current league-phase format.
-        "history_seasons": (2022, 2023, 2024, 2025),
-        "history_min_matches": 450,
+        # Eight fully completed editions (2026-08-06: widened from four).
+        # Qualifying rounds are included in each edition's feed, so the extra
+        # depth lands where the forecasts were flattest — clubs entering from
+        # the qualifiers with no domestic history the platform serves. Measured
+        # before widening: 10 of the 22 clubs then on the board had ZERO rated
+        # UCL matches; the four older editions rescue Lyon (+18 matches, a
+        # genuine European side stuck at the 1500 cold start), Olympiakos
+        # (+24), Lask Linz (+4), Hapoel Beer Sheva (+4) and Ararat-Armenia
+        # (+3). Six others — Aarhus, Kauno Zalgiris, Levski Sofia, Mjallby,
+        # NEC Nijmegen, Sabah FA — gain nothing at ANY depth: they have no
+        # recent European record, and only their domestic leagues (none of
+        # which this platform serves) could rate them. Stopping at 2018 is
+        # deliberate: the goal environment drifts down with age (2.64
+        # goals/match in 2018 vs 3.16 in 2025), so older editions describe a
+        # different competition, and each one costs a provider call.
+        "history_seasons": (2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025),
+        # Raised with the window, and NOT merely decorative: ensure_club_history
+        # short-circuits on row count, so a minimum left at the old 450 would
+        # make the wider window inert on any database that already ran the
+        # four-edition backfill (988 rows) — production included. 1500 sits
+        # above that 988 so the widening actually executes once, and ~300 rows
+        # below the measured eight-edition total (1810) so a provider hiccup
+        # doesn't trip the "backfill incomplete" guard and skip UCL entirely.
+        "history_min_matches": 1500,
         # home_adv refit was NOT credible (U2_home_adv: Δ +0.0010, CI
         # straddles 0 — docs/experiments/2026-08-06-ucl-base-fit): the served
         # club default stands, same outcome as EPL's and Bundesliga's fits.

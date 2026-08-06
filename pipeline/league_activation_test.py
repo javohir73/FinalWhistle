@@ -104,9 +104,54 @@ def test_ucl_uses_explicit_api_football_history_strategy(db_session):
         {
             "api_key": "",
             "league": 2,
-            "seasons": (2022, 2023, 2024, 2025),
+            "seasons": (2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025),
         }
     ]
     assert db_session.query(HistoricalMatch).filter_by(
         competition="UEFA Champions League"
     ).count() == 1
+
+
+# --- Widening an already-satisfied history window -----------------------------
+# ensure_club_history short-circuits on ROW COUNT, not on "which seasons are
+# loaded". So adding editions to history_seasons does nothing on its own once a
+# league is already above its minimum — the threshold has to move too, or the
+# wider window is config that never executes. These pin that coupling.
+
+def test_widening_history_seasons_needs_the_minimum_raised_to_take_effect(db_session):
+    """The trap: with the OLD minimum still in place, a league already holding
+    enough rows returns early and the new editions are never fetched."""
+    already_enough = [
+        HistoricalMatch(
+            date=datetime(2024, 9, day, tzinfo=timezone.utc),
+            team_a_id=1, team_b_id=2, score_a=1, score_b=0,
+            competition="UEFA Champions League", is_neutral=False,
+        )
+        for day in (1, 2, 3)
+    ]
+    db_session.add_all([Team(name="A"), Team(name="B")])
+    db_session.flush()
+    db_session.add_all(already_enough)
+    db_session.commit()
+
+    config = {**LEAGUES["ucl"], "history_min_matches": 2}  # below what's stored
+    result = ensure_club_history(
+        db_session, config,
+        downloader=lambda **_k: pytest.fail("must not fetch while above minimum"),
+    )
+    assert result["downloaded"] is False
+
+
+def test_ucl_minimum_exceeds_the_four_edition_window_it_replaces(db_session):
+    """The shipped minimum must sit ABOVE the row count the previous
+    four-edition window produced (988 rows, 2026-08-01 activation card), or the
+    widened window would be inert on every database that already ran the old
+    backfill — including production."""
+    assert LEAGUES["ucl"]["history_min_matches"] > 988
+
+
+def test_ucl_minimum_leaves_headroom_under_the_real_eight_edition_total(db_session):
+    """...and BELOW the real total, with margin: falling short raises and skips
+    the league's predictions entirely. Measured 2026-08-06 across the eight
+    configured editions: 1,810 finished regulation-time fixtures."""
+    assert LEAGUES["ucl"]["history_min_matches"] <= 1700
