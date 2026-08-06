@@ -118,6 +118,23 @@ export default async function MethodologyPage() {
           tournaments. 2022 was unusually upset-heavy — a useful reminder that no model
           foresees shocks reliably, and we&apos;d rather show that than hide it.
         </p>
+        {/* Provenance, stated rather than implied: these historical numbers come
+            from the v0.1 baseline engine (pipeline/build_methodology.py), NOT the
+            served version. Re-scoring them with the current tuned parameters and
+            calibrator would be leakage — those were fitted using these same
+            tournaments, so the result would flatter the model on its own training
+            data. The honest floor is the untuned engine; the live record is the
+            forward-looking evidence. */}
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          One caveat we&apos;d rather state than bury: these historical numbers come
+          from the original v0.1 engine, not the version serving today. Re-scoring
+          them with the current tuned settings would look better and mean less —
+          those settings were chosen <em>using</em> these tournaments, so the model
+          would be marking its own homework. Treat this as the honest floor, and
+          the{" "}
+          <Link href="/record" className="text-lime-deep underline-offset-2 hover:underline">live track record</Link>{" "}
+          as the real test.
+        </p>
 
         <div className="mt-5 space-y-5">
           {data.years.map((y) => {
@@ -234,29 +251,42 @@ export default async function MethodologyPage() {
         </ul>
         <p className="mt-3 text-sm leading-relaxed text-muted">
           So we kept the simpler, explainable model rather than adding complexity that
-          didn&apos;t earn its keep. The real next gain is new <em>signal</em> — squad
-          strength, injuries, market priors — not re-tuning what&apos;s here.
+          didn&apos;t earn its keep. We said at the time the next real gain would come
+          from new <em>signal</em> rather than re-tuning what was here — and that is
+          what happened: injuries and market priors cleared the same gate and shipped
+          in v0.6.
         </p>
       </section>
 
       {/* Model changelog (FR-6.1): one line per shipped model change, newest
-          first. poisson-elo-v0.5 is the version actually loaded from
-          ml/models/model_params.json and served by generate_predictions —
-          the code-verified current version (see ml/models/knockout.py and
-          docs/MODEL-V2-DESIGN.md). */}
+          first. The "current" badge must name the version actually loaded from
+          ml/models/model_params.json and served by generate_predictions — check
+          that file before editing this list, and remember the club
+          competitions carry their OWN version strings (pipeline/leagues.py). */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">Model changelog</h2>
         <ul className="mt-3 space-y-1.5 text-sm text-muted">
           <li>
-            <span className="text-foreground/80">poisson-elo-v0.5</span>{" "}
+            <span className="text-foreground/80">poisson-elo-v0.6</span>{" "}
             <span className="rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep ring-1 ring-win/30">current</span>{" "}
-            — served engine since July 8, 2026: adds extra-time and
+            — served engine since August 4, 2026. Three signals that had been
+            running shadow-only were promoted into the published number:
+            bookmaker odds (the market total nudges expected goals, capped so
+            the model always stays the primary voice), player availability
+            (announced XIs and injury lists), and suspensions. Two others were
+            measured and <em>refused</em>: rest days showed no gain in any of
+            the three leagues we tested it on, and a redesigned recent-form
+            signal was actively worse on two of three past World Cups. Both
+            stay dark.
+          </li>
+          <li>
+            <span className="text-foreground/80">poisson-elo-v0.5</span> — served
+            engine from July 8 to August 4, 2026: adds extra-time and
             penalty-shootout resolution for knockout ties (30-minute Dixon&ndash;Coles
-            extra time, then a capped Elo-logistic penalty model), needed now
-            the bracket has reached the knockout rounds. A suspension /
-            rest-days / keeper-availability signal pack shipped alongside it,
-            shadow-only — it doesn&apos;t move the published number until it
-            clears the same walk-forward gate as everything else.
+            extra time, then a capped Elo-logistic penalty model), needed once
+            the bracket reached the knockout rounds. The suspension /
+            rest-days / keeper-availability signal pack shipped alongside it
+            shadow-only; v0.6 above promoted the parts that earned it.
           </li>
           <li>
             <span className="text-foreground/80">poisson-elo-v0.4</span> — served
@@ -294,6 +324,42 @@ export default async function MethodologyPage() {
         </ul>
       </section>
 
+      {/* Per-competition engines. The versions above are the INTERNATIONAL
+          ledger; each club competition keeps its own version string and its
+          own track record (pipeline/leagues.py, and the ledger separation in
+          backend/app/api/model_record.py). Naming them here stops this page
+          reading as if one number covers every competition. */}
+      <section className="glass rounded-2xl p-6">
+        <h2 className="font-display text-lg font-bold">Club competitions</h2>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
+          The versions above are the international (World Cup) engine. The club
+          competitions run the same Elo &rarr; Poisson machinery but keep
+          separate track records, because a goal rate fitted on one competition
+          does not transfer to another — mixing them would flatter both.
+        </p>
+        <ul className="mt-3 space-y-1.5 text-sm text-muted">
+          <li>
+            <span className="text-foreground/80">Premier League, La Liga, Bundesliga</span>{" "}
+            (poisson-elo-club-v0.2) — each goal rate fitted on that league&apos;s
+            own ten seasons. La Liga&apos;s refit came back <em>worse</em> than the
+            value it already had, so it kept the original: a fit that changes
+            nothing is still a result.
+          </li>
+          <li>
+            <span className="text-foreground/80">Champions League</span>{" "}
+            (poisson-elo-ucl-v0.2) — fitted August 2026 on four completed
+            editions. It had been running on borrowed defaults that assumed 2.4
+            goals a match against an actual 2.97, which made its forecasts too
+            flat; the corrected rate was confirmed on a held-out edition. Its
+            home-advantage refit was <em>not</em> credible and was left alone.
+          </li>
+        </ul>
+        <p className="mt-3 text-xs leading-relaxed text-foreground/70">
+          Cross-border clubs keep one shared strength rating, so a club&apos;s
+          domestic history and its European results describe the same team.
+        </p>
+      </section>
+
       {/* Glossary */}
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">What these numbers mean</h2>
@@ -320,9 +386,10 @@ export default async function MethodologyPage() {
       <section className="glass rounded-2xl p-6">
         <h2 className="font-display text-lg font-bold">How the forecast is built</h2>
         <ol className="mt-3 space-y-2 text-sm text-foreground/90">
-          <li><strong className="text-lime-deep">1. Elo ratings</strong> — a strength score per nation, updated after every international since 1872 (hosts get a home bump).</li>
+          <li><strong className="text-lime-deep">1. Elo ratings</strong> — a strength score per team, updated after every match played (internationals back to 1872; clubs across ten seasons). Hosts and home sides get a bump.</li>
           <li><strong className="text-lime-deep">2. Poisson goals</strong> — the Elo gap becomes expected goals, then the probability of every scoreline, giving win/draw/loss odds and a likely result.</li>
-          <li><strong className="text-lime-deep">3. Monte-Carlo</strong> — groups and the full knockout bracket are simulated thousands of times for qualification and title odds.</li>
+          <li><strong className="text-lime-deep">3. Adjustments</strong> — where we have the data, the market total, announced XIs or injuries, and suspensions nudge those expected goals before the scorelines are worked out.</li>
+          <li><strong className="text-lime-deep">4. Monte-Carlo</strong> — groups and the full knockout bracket are simulated thousands of times for qualification and title odds.</li>
         </ol>
         <p className="mt-3 text-sm text-muted">
           More on the step-by-step approach on the{" "}
@@ -336,12 +403,16 @@ export default async function MethodologyPage() {
         <ul className="mt-2 list-inside list-disc space-y-1.5 text-sm text-muted">
           <li>{listYears(data.backtest_years).replace(/&/, "and")} ({data.reliability_n} matches) is still a small sample — treat single-tournament numbers with caution.</li>
           <li>
-            The published number is team-level. When an announced XI is available we surface
-            player availability as context and log an experimental adjusted forecast — it does
-            not move the published number yet (it must first clear our accuracy gate).
+            The published number is team-level. Since v0.6 an announced XI or injury list
+            does move it, but only when we have that data — and coverage is patchy, so two
+            fixtures on the same page may not have had the same information behind them.
           </li>
           <li>Upset-heavy tournaments (like 2022) are inherently hard; the model can trail simple baselines there.</li>
-          <li>Free, open data only: historical results, FIFA rankings, the official WC2026 draw.</li>
+          <li>
+            Mostly free, open data: historical results, FIFA rankings, the official WC2026
+            draw and club fixture feeds. Since v0.6 the forecast also uses bookmaker odds
+            and provider injury reports, which are licensed feeds rather than open data.
+          </li>
         </ul>
         <p className="mt-3 text-xs leading-relaxed text-foreground/70">
           For analytics, research, and entertainment only — not betting advice.
