@@ -20,7 +20,7 @@ export function ChanceChip({
       )}
     >
       {Math.round(prob * 100)}%
-      {deltaText ? <small className="block text-[9px] font-bold">{deltaText}</small> : null}
+      {deltaText ? <small className="block text-mini font-bold">{deltaText}</small> : null}
     </span>
   );
 }

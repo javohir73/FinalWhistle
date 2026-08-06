@@ -8,7 +8,7 @@ import { isKnockout, type Verdict } from "@/lib/verdict";
 export function ShootoutNote({ verdict }: { verdict: Verdict | null }) {
   if (!verdict?.shootout) return null;
   return (
-    <p className="mt-1.5 w-full text-[11px] leading-snug text-muted">
+    <p className="mt-1.5 w-full text-label leading-snug text-muted">
       Level after 90 — {verdict.shootout.text}. Shootouts aren&apos;t modelled.
     </p>
   );
@@ -21,7 +21,7 @@ export function ShootoutNote({ verdict }: { verdict: Verdict | null }) {
 export function KnockoutDrawNote({ stage }: { stage: string | null | undefined }) {
   if (!stage || !isKnockout(stage)) return null;
   return (
-    <p className="mt-2 text-[11px] leading-snug text-muted">
+    <p className="mt-2 text-label leading-snug text-muted">
       Draw = level after 90 minutes. As a knockout tie it would then go to extra
       time and penalties, which the ML model doesn&apos;t predict.
     </p>
@@ -33,7 +33,7 @@ export function KnockoutDrawNote({ stage }: { stage: string | null | undefined }
 export function BasisTag({ verdict }: { verdict: Verdict | null }) {
   if (!verdict?.basis) return null;
   return (
-    <span className="ml-1.5 rounded bg-surface-2 px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted">
+    <span className="ml-1.5 rounded bg-surface-2 px-1 py-0.5 text-note font-semibold uppercase tracking-wide text-muted">
       {verdict.basis}
     </span>
   );

@@ -36,7 +36,7 @@ function verdict(pick: Outcome, p: { home_win: number; draw: number; away_win: n
  *  MODEL"): lime when the user and model agree, amber otherwise. The amber tones
  *  render at 12px bold to clear the small-amber contrast floor. */
 const AGREE_LINE: Record<"win" | "draw" | "loss", string> = {
-  win: "text-[11px] font-semibold text-lime-deep",
+  win: "text-label font-semibold text-lime-deep",
   draw: "text-xs font-bold text-amber-ink",
   loss: "text-xs font-bold text-amber-ink",
 };
@@ -44,11 +44,11 @@ const AGREE_LINE: Record<"win" | "draw" | "loss", string> = {
 function Bar({ label, value, highlight }: { label: string; value: number; highlight?: "ai" | "you" | "both" }) {
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between text-[11px]">
+      <div className="mb-1 flex items-center justify-between text-label">
         <span className="flex items-center gap-1.5 font-medium text-foreground">
           {label}
           {highlight && (
-            <span className="rounded bg-surface-2 px-1 text-[9px] font-bold uppercase tracking-wide text-muted">
+            <span className="rounded bg-surface-2 px-1 text-mini font-bold uppercase tracking-wide text-muted">
               {highlight === "both" ? "You · ML model" : highlight === "ai" ? "ML model" : "You"}
             </span>
           )}
@@ -125,14 +125,14 @@ export function UserPredictionCard({
             </span>
             {live ? (
               <span
-                className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-loss"
+                className="mt-1 inline-flex items-center gap-1 text-note font-bold uppercase tracking-wide text-loss"
                 aria-label={`Live, ${liveLabel(match)}`}
               >
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
                 {liveLabel(match)}
               </span>
             ) : (
-              <span className="mt-1 text-[10px] font-semibold uppercase tracking-wide text-muted">FT</span>
+              <span className="mt-1 text-note font-semibold uppercase tracking-wide text-muted">FT</span>
             )}
           </span>
         ) : (
@@ -144,7 +144,7 @@ export function UserPredictionCard({
         </div>
       </div>
 
-      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[11px] text-muted">
+      <div className="mt-1.5 flex items-center justify-center gap-1.5 text-label text-muted">
         {/* match.group is already "Group A" from the API — no extra prefix */}
         {match.group && <span>{match.group}</span>}
         {/* Live/FT status sits under the score above; here we only add the
@@ -192,7 +192,7 @@ export function UserPredictionCard({
               aria-pressed={active}
               onClick={() => onPick(o.side)}
               className={cn(
-                "flex-1 truncate rounded-[12px] px-2 py-[11px] text-center font-display text-[13px] font-extrabold transition",
+                "flex-1 truncate rounded-[12px] px-2 py-[11px] text-center font-display text-body font-extrabold transition",
                 active
                   ? "bg-win text-background"
                   : "border border-border [background:hsl(var(--surface-2))] text-muted hover:border-win/40 hover:text-foreground",

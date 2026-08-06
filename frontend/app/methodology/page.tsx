@@ -148,7 +148,7 @@ export default async function MethodologyPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="text-[11px] uppercase tracking-wider text-muted">
+                      <tr className="text-label uppercase tracking-wider text-muted">
                         <th className="px-2 pb-2 text-left font-medium">Approach</th>
                         <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Log-loss</th>
                         <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Brier</th>
@@ -189,7 +189,7 @@ export default async function MethodologyPage() {
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-muted">
+              <tr className="text-label uppercase tracking-wider text-muted">
                 <th className="px-2 pb-2 text-left font-medium">Predictor</th>
                 <th className="px-2 pb-2 text-right font-medium">Overall accuracy</th>
                 <th className="px-2 pb-2 text-right font-medium">Correct picks</th>
@@ -268,7 +268,7 @@ export default async function MethodologyPage() {
         <ul className="mt-3 space-y-1.5 text-sm text-muted">
           <li>
             <span className="text-foreground/80">poisson-elo-v0.6</span>{" "}
-            <span className="rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep ring-1 ring-win/30">current</span>{" "}
+            <span className="rounded-full bg-win/15 px-2 py-0.5 text-note font-bold uppercase tracking-wide text-lime-deep ring-1 ring-win/30">current</span>{" "}
             — served engine since August 4, 2026. Three signals that had been
             running shadow-only were promoted into the published number:
             bookmaker odds (the market total nudges expected goals, capped so

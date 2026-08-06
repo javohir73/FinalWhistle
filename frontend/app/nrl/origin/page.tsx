@@ -29,7 +29,7 @@ function GameCard({ game }: { game: OriginGame }) {
   const pred = game.prediction;
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
         Game {game.round ?? game.match_no}
         {game.venue ? ` · ${game.venue}` : ""}
         {game.neutral ? " · neutral venue" : ""}
@@ -70,7 +70,7 @@ function GameCard({ game }: { game: OriginGame }) {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
         {label}
       </p>
       <p className="mt-1 text-2xl font-extrabold tabular-nums">{value}</p>

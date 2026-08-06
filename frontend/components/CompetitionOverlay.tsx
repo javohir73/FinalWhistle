@@ -145,7 +145,7 @@ export function CompetitionOverlay() {
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="ml-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-surface-2 px-2.5 py-1.5 text-[13px] font-semibold text-foreground transition hover:bg-surface"
+        className="ml-4 inline-flex min-h-[44px] items-center gap-2 rounded-full bg-surface-2 px-2.5 py-1.5 text-body font-semibold text-foreground transition hover:bg-surface"
       >
         <CompetitionLogo competition={active} size={24} />
         {COMPETITIONS[active].shortLabel}
@@ -184,7 +184,7 @@ export function CompetitionOverlay() {
                 if (list.length === 0) return null;
                 return (
                   <section key={sport} className="mb-12 last:mb-0">
-                    <h2 className="mb-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted">
+                    <h2 className="mb-4 text-label font-semibold uppercase tracking-[0.08em] text-muted">
                       {heading}
                     </h2>
                     <ul>
@@ -207,7 +207,7 @@ export function CompetitionOverlay() {
                               {c.label}
                             </span>
                             <span
-                              className="rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
+                              className="rounded-full px-2 py-0.5 text-label font-bold uppercase tracking-wide"
                               style={{
                                 backgroundColor: `hsl(var(${c.accentVar}) / 0.12)`,
                                 color: `hsl(var(${c.accentVar}))`,
@@ -216,7 +216,7 @@ export function CompetitionOverlay() {
                               {c.shortLabel}
                             </span>
                             {!c.enabled && (
-                              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                              <span className="rounded-full bg-surface-2 px-2 py-0.5 text-label font-semibold uppercase tracking-wide text-muted">
                                 Soon
                               </span>
                             )}

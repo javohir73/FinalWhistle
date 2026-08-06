@@ -47,7 +47,7 @@ export function TryTimeline({
           })}
         </ol>
       )}
-      <p className="mt-4 text-[11px] text-muted">
+      <p className="mt-4 text-label text-muted">
         {homeTeam ?? "Home"} left, {awayTeam ?? "Away"} right.
       </p>
     </div>

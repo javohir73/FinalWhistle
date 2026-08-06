@@ -55,7 +55,7 @@ const NUMERIC_HEADERS: Record<
 };
 
 /** Shared right-aligned value-cell class (matches the existing GD cell). */
-const VALUE_CELL = "text-right text-[13px] tabular-nums text-foreground";
+const VALUE_CELL = "text-right text-body tabular-nums text-foreground";
 
 /** Row shape the table accepts: a superset of StandingRow (football) plus the
  *  NRL ladder metrics, every metric optional so a StandingRow[] stays
@@ -138,7 +138,7 @@ function renderCell(key: StandingsColumn, row: StandingsTableRow) {
           key={key}
           role="cell"
           className={cn(
-            "w-14 text-right text-[13px] tabular-nums",
+            "w-14 text-right text-body tabular-nums",
             p != null && p >= 0.5 ? "text-lime-deep" : "text-muted",
           )}
         >
@@ -157,7 +157,7 @@ function footballNumericCells(row: StandingsTableRow) {
   const s = row as StandingRow;
   return (
     <>
-      <span role="cell" className="w-10 text-right text-[13px] tabular-nums text-foreground">
+      <span role="cell" className="w-10 text-right text-body tabular-nums text-foreground">
         {s.projected_goal_diff > 0 ? `+${s.projected_goal_diff}` : s.projected_goal_diff}
       </span>
       <span role="cell" className="w-10 text-right font-display text-sm font-bold tabular-nums">
@@ -207,7 +207,7 @@ export function StandingsTable({
         <div role="rowgroup">
           <div
             role="row"
-            className="flex items-center border-b border-border border-l-[3px] border-l-transparent py-1.5 pl-1.5 text-[9.5px] font-medium uppercase tracking-[0.1em] text-muted"
+            className="flex items-center border-b border-border border-l-[3px] border-l-transparent py-1.5 pl-1.5 text-mini font-medium uppercase tracking-[0.1em] text-muted"
           >
             <span className="w-7 shrink-0" aria-hidden />
             <span role="columnheader" className="flex-1">{teamHeader}</span>
@@ -313,7 +313,7 @@ export function StandingsTable({
           {zones.map((z) => (
             <span
               key={z.label}
-              className="inline-flex items-center gap-1.5 text-[9.5px] text-muted"
+              className="inline-flex items-center gap-1.5 text-mini text-muted"
             >
               <i className={cn("h-2 w-2 rounded-[2px]", ZONE_SWATCH[z.tone])} aria-hidden />
               {z.label}

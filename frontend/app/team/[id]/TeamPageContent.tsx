@@ -123,7 +123,7 @@ export async function renderTeamPage(
       {/* AI outlook — plain-language read + run-deep odds tiles */}
       {teamOdds && (
         <section className="glass rounded-2xl p-6">
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-lime-deep">
+          <span className="font-display text-label font-semibold uppercase tracking-wider text-lime-deep">
             ML model outlook
           </span>
           <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
@@ -140,7 +140,7 @@ export async function renderTeamPage(
 
       {/* Recent form — form chips + 2-col strengths / weak points */}
       <section className="glass rounded-2xl p-6">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
           Recent form
         </span>
         <div className="mb-5 mt-3">
@@ -175,7 +175,7 @@ export async function renderTeamPage(
       {/* Fixtures */}
       {fixtures.length > 0 && (
         <section>
-          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <h2 className="mb-3 font-display text-label font-semibold uppercase tracking-wider text-muted">
             Fixtures
           </h2>
           <TeamFixtures
@@ -199,7 +199,7 @@ export async function renderTeamPage(
         />
       ) : (
         <section>
-          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <h2 className="mb-3 font-display text-label font-semibold uppercase tracking-wider text-muted">
             Last XI
           </h2>
           <p className="glass rounded-2xl p-6 text-center text-sm text-muted">
@@ -239,7 +239,7 @@ function OutlookTile({ label, value }: { label: string; value: number | null }) 
       <p className="font-display text-xl font-extrabold tabular-nums text-lime-deep">
         {pct(value)}
       </p>
-      <p className="mt-0.5 text-[11px] font-semibold text-muted">{label}</p>
+      <p className="mt-0.5 text-label font-semibold text-muted">{label}</p>
     </div>
   );
 }

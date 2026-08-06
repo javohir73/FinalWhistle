@@ -42,9 +42,9 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
 
   return (
     <div>
-      <p className="font-display text-[11px] uppercase tracking-wider text-muted">Play</p>
+      <p className="font-display text-label uppercase tracking-wider text-muted">Play</p>
       <h1 className="mt-1 font-display text-3xl font-extrabold">The slate</h1>
-      <p className="mt-1.5 text-[13px] text-muted">
+      <p className="mt-1.5 text-body text-muted">
         Make your picks against the model, organized by competition.
       </p>
 
@@ -68,7 +68,7 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
 
       <PlayCompetitionSection competition="ucl" subtitle="League-phase score predictions">
         <div className="glass mt-3 rounded-2xl p-4">
-          <p className="text-[13px] text-muted">
+          <p className="text-body text-muted">
             Score tips open when the league-phase matchweeks are loaded. Qualifying model
             predictions are available now on the fixtures page.
           </p>
@@ -113,7 +113,7 @@ export function PlayHub({ nrlTipsheet, hasBrackets, champion }: PlayHubProps) {
           />
         ) : (
           <div className="glass mt-3 rounded-2xl p-4">
-            <p className="text-[13px] text-muted">NRL tips aren&apos;t available right now.</p>
+            <p className="text-body text-muted">NRL tips aren&apos;t available right now.</p>
           </div>
         )}
       </PlayCompetitionSection>
@@ -153,7 +153,7 @@ function PlayCompetitionSection({
           <h2 id={headingId} className="font-display text-xl font-extrabold">
             {config.label}
           </h2>
-          <p className="text-[11px] text-muted">{subtitle}</p>
+          <p className="text-label text-muted">{subtitle}</p>
         </div>
       </div>
 

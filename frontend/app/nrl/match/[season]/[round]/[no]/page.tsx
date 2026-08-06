@@ -115,7 +115,7 @@ export default async function NrlMatchDetailPage({
           >
             <span aria-hidden>←</span> All fixtures
           </Link>
-          <span className="font-display text-[13px] font-semibold text-muted">
+          <span className="font-display text-body font-semibold text-muted">
             Round {ids.round} · {ids.season}
           </span>
           <ShareButton title={`${home} vs ${away} — NRL round ${ids.round} prediction`} />

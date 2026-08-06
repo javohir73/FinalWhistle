@@ -38,7 +38,7 @@ export function MarketComparison({ bench }: { bench: MarketBenchmark }) {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-[11px] uppercase tracking-wider text-muted">
+              <tr className="text-label uppercase tracking-wider text-muted">
                 <th className="px-2 pb-2 text-left font-medium">Predictor</th>
                 <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Log-loss</th>
                 <th className="px-2 pb-2 text-right font-medium" title="Lower is better">Brier</th>

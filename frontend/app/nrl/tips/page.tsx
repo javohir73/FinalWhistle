@@ -37,7 +37,7 @@ export default async function NrlTipsPage() {
       <Link href="/nrl/run-home" className="glass mt-6 block rounded-2xl p-4 transition hover:bg-white/5">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
               Finals race
             </p>
             <p className="mt-1 font-display text-lg font-extrabold">Predict your club&apos;s run home</p>

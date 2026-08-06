@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: "NRL model record — FinalWhistle" }
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
         {label}
       </p>
       <p className="mt-1 text-2xl font-extrabold tabular-nums">{value}</p>

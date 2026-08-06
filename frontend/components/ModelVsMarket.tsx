@@ -30,19 +30,19 @@ export function ModelVsMarket({
       </p>
       <div className="space-y-4">
         <div>
-          <div className="mb-1.5 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <div className="mb-1.5 font-display text-label font-semibold uppercase tracking-wider text-muted">
             FinalWhistle ML model
           </div>
           <ProbabilityBar probabilities={prediction.probabilities} homeLabel={home} awayLabel={away} />
         </div>
         <div>
-          <div className="mb-1.5 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <div className="mb-1.5 font-display text-label font-semibold uppercase tracking-wider text-muted">
             Market consensus
           </div>
           <ProbabilityBar probabilities={oc.market} homeLabel={home} awayLabel={away} />
         </div>
       </div>
-      <p className="mt-4 text-[11px] leading-snug text-muted">
+      <p className="mt-4 text-label leading-snug text-muted">
         For analytics and entertainment only. Not betting advice.
       </p>
     </section>

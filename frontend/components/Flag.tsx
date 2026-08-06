@@ -25,7 +25,7 @@ export function Flag({
     return (
       <span
         className={cn(
-          "grid shrink-0 place-items-center rounded-full bg-surface-2 text-[10px] font-bold text-muted ring-1 ring-border",
+          "grid shrink-0 place-items-center rounded-full bg-surface-2 text-note font-bold text-muted ring-1 ring-border",
           className,
         )}
         style={{ width: size, height: size }}

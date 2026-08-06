@@ -64,10 +64,10 @@ function SideRow({ s }: { s: SideView }) {
     >
       <span className="flex min-w-0 items-center gap-1">
         {s.team ? <Flag team={s.team} size={15} /> : null}
-        <span className="truncate text-[11px] leading-tight">{s.team ?? s.label}</span>
+        <span className="truncate text-label leading-tight">{s.team ?? s.label}</span>
       </span>
       {s.score != null ? (
-        <span className="font-display text-[11px] font-extrabold tabular-nums">{s.score}</span>
+        <span className="font-display text-label font-extrabold tabular-nums">{s.score}</span>
       ) : null}
     </div>
   );
@@ -84,17 +84,17 @@ function TieCard({ v, roundLabel, accent }: { v: TieView; roundLabel: string; ac
       )}
     >
       <div className="flex items-center justify-between leading-none">
-        <span className="text-[8px] font-bold uppercase tracking-wide text-muted">#{v.matchNo}</span>
+        <span className="text-micro font-bold uppercase tracking-wide text-muted">#{v.matchNo}</span>
         {live ? (
           <span
-            className="inline-flex items-center gap-1 rounded-full bg-loss/15 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-loss"
+            className="inline-flex items-center gap-1 rounded-full bg-loss/15 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-loss"
             aria-label={`Live, ${v.liveLabel}`}
           >
             <span className="h-1 w-1 motion-safe:animate-pulse rounded-full bg-loss" aria-hidden />
             {v.liveLabel}
           </span>
         ) : v.state === "finished" ? (
-          <span className="rounded-full bg-surface-2/70 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-wide text-muted">
+          <span className="rounded-full bg-surface-2/70 px-1.5 py-0.5 text-micro font-bold uppercase tracking-wide text-muted">
             FT
           </span>
         ) : null}
@@ -102,7 +102,7 @@ function TieCard({ v, roundLabel, accent }: { v: TieView; roundLabel: string; ac
       <SideRow s={v.a} />
       <SideRow s={v.b} />
       {v.penaltyText ? (
-        <div className="mt-0.5 text-[9px] font-semibold text-muted">{v.penaltyText}</div>
+        <div className="mt-0.5 text-mini font-semibold text-muted">{v.penaltyText}</div>
       ) : null}
     </div>
   );
@@ -137,7 +137,7 @@ function Column({
   const label = ROUND_LABEL[round];
   return (
     <div className="flex shrink-0 flex-col">
-      <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wide text-muted" aria-hidden>
+      <div className="mb-1 text-center text-note font-bold uppercase tracking-wide text-muted" aria-hidden>
         {label}
       </div>
       <ol
@@ -166,7 +166,7 @@ export default function OfficialBracket({ ties }: { ties: Record<number, TieView
 
         {/* Centre: the Final, vertically centred so both semi-finals meet it. */}
         <div className="flex shrink-0 flex-col">
-          <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wide text-muted" aria-hidden>
+          <div className="mb-1 text-center text-note font-bold uppercase tracking-wide text-muted" aria-hidden>
             Final
           </div>
           <ol aria-label="Final" className="ko-round flex-1">
@@ -190,7 +190,7 @@ export default function OfficialBracket({ ties }: { ties: Record<number, TieView
       {/* Detached 3rd-place node — centred under the Final, not part of the tree. */}
       {third ? (
         <div className="mx-auto w-[140px]">
-          <div className="mb-1 text-center text-[10px] font-bold uppercase tracking-wide text-muted" aria-hidden>
+          <div className="mb-1 text-center text-note font-bold uppercase tracking-wide text-muted" aria-hidden>
             Third place
           </div>
           <ol aria-label="Third place">

@@ -142,7 +142,7 @@ export function MatchScoreboard({
           timelineFor(summary!, "away").length > 0 ||
           yellowCount(summary!, "home") > 0 ||
           yellowCount(summary!, "away") > 0) && (
-        <div className="mt-3 grid grid-cols-2 gap-x-4 text-[11px] text-muted sm:text-xs">
+        <div className="mt-3 grid grid-cols-2 gap-x-4 text-label text-muted sm:text-xs">
           <ul className="space-y-0.5 text-right">
             {timelineFor(summary!, "home").map((label, i) => (
               <li key={`h-${i}`} className="tabular-nums">{label}</li>
@@ -168,10 +168,10 @@ export function MatchScoreboard({
 
       {/* ===== The AI's call ===== */}
       <section className="glass mt-5 rounded-2xl p-6 text-center">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
           The FinalWhistle ML model&apos;s call
         </span>
-        <p className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-[25px]">
+        <p className="mt-2 font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-numeral">
           {/* Only say "X to win" when the most-likely scoreline actually has a
               winner. The favoured outcome (argmax W/D/L) can lean to a side while
               the modal scoreline is level — "{team} to win 1–1" reads as a
@@ -201,7 +201,7 @@ export function MatchScoreboard({
 
         <div className="mt-5">
           {liveProbs && (
-            <div className="mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-loss sm:text-[11px]">
+            <div className="mb-2 flex items-center justify-center gap-1.5 text-note font-bold uppercase tracking-wide text-loss sm:text-label">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
               Live win probability
             </div>

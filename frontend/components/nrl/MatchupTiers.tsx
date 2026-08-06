@@ -16,7 +16,7 @@ function TierChip({ heading, rank }: { heading: string; rank: number | null }) {
   const t = tier(rank);
   return (
     <div className="rounded-xl bg-surface-2/70 p-3 text-center">
-      <div className="text-[11px] uppercase tracking-wider text-muted">{heading}</div>
+      <div className="text-label uppercase tracking-wider text-muted">{heading}</div>
       <div className="mt-1 text-lg font-extrabold tabular-nums text-foreground">
         {rank == null ? "—" : `#${rank}`}
       </div>
@@ -53,7 +53,7 @@ export function MatchupTiers({
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[11px] text-muted">
+      <p className="mt-3 text-label text-muted">
         Season ranks across all 17 clubs — points scored (attack) and conceded (defence) per game.
       </p>
     </div>

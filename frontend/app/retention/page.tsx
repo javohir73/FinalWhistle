@@ -51,7 +51,7 @@ export default async function RetentionPage() {
             <div className="mt-4 max-h-80 overflow-y-auto overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left font-display text-[11px] uppercase tracking-wider text-muted">
+                  <tr className="text-left font-display text-label uppercase tracking-wider text-muted">
                     <th className="py-1.5 pr-2 font-semibold">Day</th>
                     <th className="py-1.5 text-right font-semibold">Devices</th>
                   </tr>
@@ -78,7 +78,7 @@ export default async function RetentionPage() {
             <div className="mt-4 overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-left font-display text-[11px] uppercase tracking-wider text-muted">
+                  <tr className="text-left font-display text-label uppercase tracking-wider text-muted">
                     <th className="py-1.5 pr-2 font-semibold">Day</th>
                     <th className="py-1.5 text-right font-semibold">Cohort</th>
                     <th className="py-1.5 text-right font-semibold">D1</th>

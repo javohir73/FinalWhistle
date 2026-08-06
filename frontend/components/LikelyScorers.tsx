@@ -26,7 +26,7 @@ export function LikelyScorers({
         <h2 className="font-display text-lg font-bold text-foreground">Likely scorers</h2>
         <span
           className={
-            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide " +
+            "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label font-semibold uppercase tracking-wide " +
             (confirmed ? "bg-win/15 text-lime-deep" : "bg-surface-2 text-muted")
           }
         >
@@ -55,11 +55,11 @@ function TeamScorers({ team, players }: { team: string; players: Goalscorer[] })
             <li key={p.name} className="flex items-center justify-between gap-2 text-sm">
               <span className="flex min-w-0 items-center gap-1.5">
                 {p.position && (
-                  <span className="shrink-0 text-[11px] font-semibold text-muted">{p.position}</span>
+                  <span className="shrink-0 text-label font-semibold text-muted">{p.position}</span>
                 )}
                 <span className="truncate text-foreground">{p.name}</span>
                 {p.p_score_2plus >= NOTABLE_2PLUS && (
-                  <span className="shrink-0 rounded bg-win/15 px-1.5 py-0.5 text-[10px] font-bold text-lime-deep">
+                  <span className="shrink-0 rounded bg-win/15 px-1.5 py-0.5 text-note font-bold text-lime-deep">
                     2+
                   </span>
                 )}

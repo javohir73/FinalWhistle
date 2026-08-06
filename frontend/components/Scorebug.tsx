@@ -72,18 +72,18 @@ export function Scorebug({
 
         {/* Status line — the middle changes voice per state, colour AND label. */}
         {status === "live" ? (
-          <div className="mt-2 flex items-center justify-center gap-[7px] text-[11px] font-bold uppercase tracking-[0.14em] text-loss">
+          <div className="mt-2 flex items-center justify-center gap-[7px] text-label font-bold uppercase tracking-[0.14em] text-loss">
             {/* Rose dot + pulsing ring; both reduced-motion-gated in globals. */}
             <span className="status-live-dot status-live-ring h-[7px] w-[7px] rounded-full bg-current" aria-hidden />
             LIVE{liveLabel ? ` · ${liveLabel}` : ""}{venue ? ` · ${venue}` : ""}
           </div>
         ) : status === "ft" ? (
-          <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-muted">
+          <div className="mt-2 text-label font-bold uppercase tracking-[0.14em] text-muted">
             FULL TIME{venue ? ` · ${venue}` : ""}
           </div>
         ) : (
           statusLine && (
-            <div className="mt-2 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-ink">
+            <div className="mt-2 text-label font-bold uppercase tracking-[0.14em] text-amber-ink">
               {statusLine}
             </div>
           )
@@ -96,7 +96,7 @@ export function Scorebug({
           <span
             className={cn(
               "font-display font-extrabold tracking-[-0.03em] tabular-nums",
-              upcoming ? "text-[40px] text-lime-deep" : "text-[44px]",
+              upcoming ? "text-score-sm text-lime-deep" : "text-score",
             )}
           >
             {upcoming ? predictedScore : score}
@@ -104,18 +104,18 @@ export function Scorebug({
           <Crest team={away} teamId={awayTeamId} teamBasePath={teamBasePath} />
         </div>
         {upcoming && (
-          <div className="mt-0.5 text-[11px] tracking-[0.1em] text-muted">MOST LIKELY SCORE</div>
+          <div className="mt-0.5 text-label tracking-[0.1em] text-muted">MOST LIKELY SCORE</div>
         )}
         {/* Live shootout: the level score above is stuck at 1–1, so the running
             spot-kick tally is the decisive number. Rose ties it to the LIVE·PENS
             status; `uppercase` renders "PENS" but keeps the text node lowercase. */}
         {penaltyTally && (
-          <div className="mt-1 text-[13px] font-bold uppercase tracking-[0.06em] tabular-nums text-loss">
+          <div className="mt-1 text-body font-bold uppercase tracking-[0.06em] tabular-nums text-loss">
             {penaltyTally} pens
           </div>
         )}
 
-        <div className="mt-1.5 flex justify-center gap-[26px] font-display text-[13px] font-bold">
+        <div className="mt-1.5 flex justify-center gap-[26px] font-display text-body font-bold">
           <span>{home}</span>
           <span className="text-muted">{away}</span>
         </div>
@@ -131,7 +131,7 @@ export function Scorebug({
             awayLabel={away}
           />
         </div>
-        <div className="mt-[5px] flex justify-between text-[11px] font-semibold tabular-nums">
+        <div className="mt-[5px] flex justify-between text-label font-semibold tabular-nums">
           <span className="text-lime-deep">{home} {pct(home_win)}</span>
           <span className="text-draw">Draw {pct(draw)}</span>
           <span className="text-loss">{away} {pct(away_win)}</span>

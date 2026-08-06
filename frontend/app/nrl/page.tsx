@@ -76,7 +76,7 @@ export default async function NrlHomePage() {
         >
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+              <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
                 State of Origin · {origin.season}
               </p>
               <p className="mt-1 font-display text-lg font-extrabold">
@@ -113,7 +113,7 @@ export default async function NrlHomePage() {
         {ladder ? (
           <div className="glass h-fit rounded-2xl p-4">
             <div className="mb-2 flex items-center justify-between">
-              <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+              <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
                 Ladder
               </span>
               <Link href="/nrl/ladder" className="text-xs font-semibold text-lime-deep">

@@ -15,7 +15,7 @@ export function Eyebrow({ children, tone = "lime" }: EyebrowProps) {
   return (
     <p
       className={cn(
-        "text-[11px] font-semibold uppercase tracking-[0.16em]",
+        "text-label font-semibold uppercase tracking-[0.16em]",
         tone === "lime" ? "text-lime-deep" : "text-muted",
       )}
     >
@@ -31,7 +31,7 @@ export function CompEyebrowChip({ comp }: { comp: CompetitionId }) {
   const competition = COMPETITIONS[comp];
   return (
     <span
-      className="inline-flex min-h-[28px] items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-[11px] font-bold uppercase tracking-wide"
+      className="inline-flex min-h-[28px] items-center gap-1.5 rounded-full py-0.5 pl-1 pr-2 text-label font-bold uppercase tracking-wide"
       style={{
         backgroundColor: `hsl(var(${competition.accentVar}) / 0.12)`,
         color: `hsl(var(${competition.accentVar}))`,

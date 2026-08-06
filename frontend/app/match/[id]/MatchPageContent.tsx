@@ -114,7 +114,7 @@ export async function renderMatchDetailPage(
           <span aria-hidden>←</span> All fixtures
         </Link>
         {p.group && (
-          <span className="font-display text-[13px] font-semibold text-muted">{p.group}</span>
+          <span className="font-display text-body font-semibold text-muted">{p.group}</span>
         )}
         <ShareButton title={`${home} vs ${away} — ${tournament.name} prediction`} />
       </div>
@@ -275,7 +275,7 @@ function PredictionPending({
           <span aria-hidden>←</span> All fixtures
         </Link>
         {summary.group && (
-          <span className="font-display text-[13px] font-semibold text-muted">{summary.group}</span>
+          <span className="font-display text-body font-semibold text-muted">{summary.group}</span>
         )}
         <ShareButton title={`${home} vs ${away} — ${tournamentName}`} />
       </div>

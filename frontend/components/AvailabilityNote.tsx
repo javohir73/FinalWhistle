@@ -15,7 +15,7 @@ export function AvailabilityNote({
     <section className="glass rounded-2xl p-6">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h2 className="font-display text-lg font-bold text-foreground">Availability</h2>
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2.5 py-1 text-label font-semibold uppercase tracking-wide text-muted">
           <span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
           Experimental
         </span>

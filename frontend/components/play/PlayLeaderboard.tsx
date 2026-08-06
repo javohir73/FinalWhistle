@@ -59,7 +59,7 @@ export function PlayLeaderboard({
       <h2 id="play-leaderboard-heading" className="font-display text-xl font-extrabold">
         Leaderboard
       </h2>
-      <p className="mt-0.5 text-[13px] text-muted">Filter the public record by competition.</p>
+      <p className="mt-0.5 text-body text-muted">Filter the public record by competition.</p>
 
       <div
         role="group"
@@ -77,7 +77,7 @@ export function PlayLeaderboard({
               aria-pressed={isActive}
               aria-label={dormant ? `${c.label} (coming soon)` : undefined}
               className={cn(
-                "flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-2.5 text-[13px] font-semibold transition",
+                "flex min-h-[44px] shrink-0 items-center gap-2 rounded-xl px-2.5 text-body font-semibold transition",
                 isActive
                   ? "bg-win text-pitch"
                   : dormant

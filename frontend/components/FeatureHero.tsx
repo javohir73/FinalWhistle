@@ -102,9 +102,9 @@ export function FeatureHero({
           <CompEyebrowChip comp={comp} />
           <Eyebrow tone="lime">{eyebrow}</Eyebrow>
           {live ? (
-            <span className="ml-auto text-[11px] font-bold uppercase tracking-wide text-loss">Live</span>
+            <span className="ml-auto text-label font-bold uppercase tracking-wide text-loss">Live</span>
           ) : match.kickoff_utc && tz ? (
-            <span className="ml-auto text-[11px] font-semibold tabular-nums text-muted">
+            <span className="ml-auto text-label font-semibold tabular-nums text-muted">
               {kickoffTime(match.kickoff_utc, tz)}
             </span>
           ) : null}
@@ -118,10 +118,10 @@ export function FeatureHero({
           ) : (
             <TeamBadge team={teams.home} size={52} />
           )}
-          <div className="min-w-0 flex-1 font-display text-[30px] font-extrabold leading-none tracking-[-0.03em]">
+          <div className="min-w-0 flex-1 font-display text-headline font-extrabold leading-none tracking-[-0.03em]">
             <span className="block truncate">{teams.home}</span>
             <span className="block truncate">
-              <span className="text-[17px] text-muted">v</span> {teams.away}
+              <span className="text-sub text-muted">v</span> {teams.away}
             </span>
           </div>
           {badge === "club" ? (
@@ -138,7 +138,7 @@ export function FeatureHero({
             {heroPct ?? "—"}
             <span className="text-[0.5em]">%</span>
           </span>
-          <span className="text-[11px] font-semibold leading-relaxed text-muted">
+          <span className="text-label font-semibold leading-relaxed text-muted">
             <span className="uppercase tracking-wide">{leaderLabel}</span>
             <br />
             AI most likely:{" "}

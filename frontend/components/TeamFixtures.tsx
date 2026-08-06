@@ -68,7 +68,7 @@ export function TeamFixtures({
                   "TBC"
                 )}
               </span>
-              <span className="shrink-0 text-[11px] uppercase tracking-wide text-muted">
+              <span className="shrink-0 text-label uppercase tracking-wide text-muted">
                 {home ? "vs" : "@"}
               </span>
               <TeamBadge
@@ -89,7 +89,7 @@ export function TeamFixtures({
                 </span>
               ) : null}
               {m.match_id === nextId && !finished && (
-                <span className="shrink-0 rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep">
+                <span className="shrink-0 rounded-full bg-win/15 px-2 py-0.5 text-note font-bold uppercase tracking-wide text-lime-deep">
                   Next
                 </span>
               )}

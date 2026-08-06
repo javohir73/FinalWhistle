@@ -83,7 +83,7 @@ export function PlatformHome() {
 
         <div className="relative mx-auto max-w-6xl px-4 sm:px-5">
           <div className="max-w-4xl">
-            <div className="mb-6 inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-lime-deep">
+            <div className="mb-6 inline-flex items-center gap-2 text-label font-bold uppercase tracking-[0.16em] text-lime-deep">
               <BrandMark className="h-5 w-auto" />
               Sports, clearly explained
             </div>
@@ -131,7 +131,7 @@ export function PlatformHome() {
       <section id="competitions" className="scroll-mt-32 py-12 sm:py-16">
         <div className="mb-7 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-lime-deep">
+            <p className="text-label font-bold uppercase tracking-[0.14em] text-lime-deep">
               Explore
             </p>
             <h2 className="mt-1 font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
@@ -162,7 +162,7 @@ export function PlatformHome() {
                   </span>
                 </div>
                 <div className="mt-8">
-                  <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+                  <p className="text-label font-bold uppercase tracking-[0.12em] text-muted">
                     {region}
                   </p>
                   <h3 className="mt-1 font-display text-2xl font-extrabold tracking-tight">
@@ -177,7 +177,7 @@ export function PlatformHome() {
 
         <div className="mt-10 mb-4 flex items-end justify-between">
           <div>
-            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-lime-deep">
+            <p className="text-label font-bold uppercase tracking-[0.14em] text-lime-deep">
               Rugby league
             </p>
             <h2 className="mt-1 font-display text-2xl font-extrabold tracking-tight">
@@ -199,7 +199,7 @@ export function PlatformHome() {
           <div className="flex items-center gap-4">
             <CompetitionLogo competition="nrl" size={64} />
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted">
+              <p className="text-label font-bold uppercase tracking-[0.12em] text-muted">
                 2026 season
               </p>
               <h3 className="mt-1 font-display text-3xl font-extrabold tracking-tight">
@@ -219,7 +219,7 @@ export function PlatformHome() {
 
       <section className="panel-pitch rounded-2xl px-6 py-8 sm:flex sm:items-center sm:justify-between sm:px-8">
         <div className="relative z-10">
-          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-lime-deep">
+          <p className="text-label font-bold uppercase tracking-[0.14em] text-lime-deep">
             Play
           </p>
           <h2 className="mt-1 max-w-xl font-display text-2xl font-extrabold tracking-tight sm:text-3xl">

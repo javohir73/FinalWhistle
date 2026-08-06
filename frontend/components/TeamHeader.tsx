@@ -133,11 +133,11 @@ export function TeamHeader({
               title={t.gloss}
               className="flex-1 rounded-[12px] border border-border bg-surface/80 px-2.5 py-2.5"
             >
-              <p className="font-display text-[17px] font-extrabold tabular-nums text-foreground">
+              <p className="font-display text-sub font-extrabold tabular-nums text-foreground">
                 {t.value}
               </p>
               <p
-                className="mt-0.5 text-[8.5px] font-semibold uppercase tracking-[0.06em] text-muted"
+                className="mt-0.5 text-micro font-semibold uppercase tracking-[0.06em] text-muted"
                 aria-label={t.gloss}
               >
                 {t.label}
