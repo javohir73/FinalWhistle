@@ -54,7 +54,7 @@ function TeamForm({ name, form }: { name: string | null; form: NrlTeamForm | nul
           <span
             key={i}
             title={`Rd ${r.round ?? "?"} vs ${r.opponent}: ${r.for}–${r.against}`}
-            className={`grid h-6 w-6 place-items-center rounded-md text-[11px] font-bold ${RESULT_TONE[r.result]}`}
+            className={`grid h-6 w-6 place-items-center rounded-md text-label font-bold ${RESULT_TONE[r.result]}`}
           >
             {r.result}
           </span>

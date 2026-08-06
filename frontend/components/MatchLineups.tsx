@@ -103,7 +103,7 @@ function TwoTeamBench({ home, away }: { home: TeamLineup; away: TeamLineup }) {
   if (home.bench.length === 0 && away.bench.length === 0) return null;
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="mb-2.5 text-center text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <p className="mb-2.5 text-center text-label font-semibold uppercase tracking-wider text-muted">
         Bench
       </p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
@@ -141,7 +141,7 @@ function Bench({ players }: { players: LineupPlayer[] }) {
   if (!players || players.length === 0) return null;
   return (
     <div className="mt-3 border-t border-border pt-3">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <p className="mb-1.5 text-label font-semibold uppercase tracking-wider text-muted">
         Bench
       </p>
       <ul className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-foreground/90">
@@ -162,7 +162,7 @@ function Bench({ players }: { players: LineupPlayer[] }) {
  *  fetched time when known. */
 function Attribution({ fetchedAt }: { fetchedAt: string | null }) {
   return (
-    <p className="text-center text-[11px] leading-relaxed text-muted">
+    <p className="text-center text-label leading-relaxed text-muted">
       Official lineup — via API-Football
       {fetchedAt ? <> · fetched {formatFetched(fetchedAt)}</> : null}
     </p>

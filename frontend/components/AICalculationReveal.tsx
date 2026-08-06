@@ -190,7 +190,7 @@ export function AICalculationReveal({
           const fill = Math.max(0, Math.min(100, ((progress - start) / (100 / SIGNALS.length)) * 100));
           return (
             <li key={s} className="text-left">
-              <div className="mb-1 flex items-center justify-between text-[11px] font-medium text-muted">
+              <div className="mb-1 flex items-center justify-between text-label font-medium text-muted">
                 <span>{s}</span>
                 <span className="tabular-nums">{Math.round(fill)}%</span>
               </div>

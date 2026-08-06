@@ -128,7 +128,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
 
       {/* 4 · Leaderboard */}
       <section>
-        <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
           Leaderboard
         </h2>
         <p className="mb-3 max-w-xl px-0.5 text-sm text-muted">
@@ -151,7 +151,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
             <div className="glass overflow-x-auto rounded-2xl p-2 sm:p-4">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[11px] uppercase tracking-wider text-muted">
+                  <tr className="text-label uppercase tracking-wider text-muted">
                     <th className="px-2 pb-2 text-left font-medium">#</th>
                     <th className="px-2 pb-2 text-left font-medium">Player</th>
                     <th className="px-2 pb-2 text-left font-medium">Champion pick</th>
@@ -205,7 +205,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
 
       {/* 5 · Favourites */}
       <section>
-        <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
           Favourites
         </h2>
         <div className="glass rounded-2xl p-4">
@@ -229,7 +229,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
 
       {/* 6 · Settings & info */}
       <section>
-        <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
           Settings &amp; info
         </h2>
         <div className="glass overflow-hidden rounded-2xl">
@@ -264,7 +264,7 @@ export function LeaderboardClient({ initialRows }: { initialRows?: LeaderboardRo
       </section>
 
       {/* 7 · Footer */}
-      <footer className="px-0.5 pb-2 pt-2 text-center text-[11px] leading-relaxed text-muted">
+      <footer className="px-0.5 pb-2 pt-2 text-center text-label leading-relaxed text-muted">
         <p>
           FinalWhistle · For analytics and entertainment only.{" "}
           <strong className="font-semibold text-foreground">Not betting advice.</strong>
@@ -288,7 +288,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="glass rounded-2xl px-3 py-4 text-center">
       <p className="font-display text-2xl font-extrabold tabular-nums">{value}</p>
-      <p className="mt-0.5 text-[11px] font-semibold text-muted">{label}</p>
+      <p className="mt-0.5 text-label font-semibold text-muted">{label}</p>
     </div>
   );
 }

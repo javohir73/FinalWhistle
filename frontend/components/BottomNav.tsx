@@ -71,7 +71,7 @@ export function BottomNav() {
               href={tab.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-[11px] font-medium transition",
+                "flex min-h-[44px] flex-1 flex-col items-center gap-1 py-2.5 text-label font-medium transition",
                 active ? "text-lime-deep" : "text-muted hover:text-foreground",
               )}
             >

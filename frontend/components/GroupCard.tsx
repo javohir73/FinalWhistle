@@ -36,7 +36,7 @@ export function GroupCard({
           <span className="font-display text-lg font-bold tracking-tight">{group.name}</span>
           {live && (
             <span
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-loss"
               aria-hidden
             >
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" />

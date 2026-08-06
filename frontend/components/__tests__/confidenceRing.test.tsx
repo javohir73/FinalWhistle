@@ -26,8 +26,8 @@ describe("ConfidenceRing", () => {
   it("uses a compact type scale without pushing the percentage off-centre", () => {
     render(<ConfidenceRing probability={0.51} confidence="Medium" size={56} />);
     expect(screen.getByText("51")).toHaveClass("text-xl");
-    expect(screen.getByText("%")).toHaveClass("text-[8px]");
-    expect(screen.getByText("MEDIUM")).toHaveClass("text-[8px]");
+    expect(screen.getByText("%")).toHaveClass("text-micro");
+    expect(screen.getByText("MEDIUM")).toHaveClass("text-micro");
   });
 
   it("still renders the % and the ring when confidence is null (unrated)", () => {

@@ -239,7 +239,7 @@ export function LeagueTipsPicker({
   if (seasonNotStarted) {
     return (
       <section>
-        <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
           Beat the AI
         </h2>
         <Empty label="The season hasn't kicked off yet — check back once fixtures are loaded to start beating the AI." />
@@ -255,7 +255,7 @@ export function LeagueTipsPicker({
   return (
     <section>
       <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Beat the AI</h2>
+        <h2 className="text-label font-semibold uppercase tracking-wider text-muted">Beat the AI</h2>
         {current.handle ? <span className="text-xs text-muted">Playing as {current.handle}</span> : null}
       </div>
 
@@ -371,12 +371,12 @@ function PredictionRow({
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="text-label font-semibold uppercase tracking-wider text-muted">
           {match.status === "finished" ? "Full time" : locked ? "Locked" : kickoffLabel(match.kickoff_utc, tz)}
         </span>
         {match.model ? (
           <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-xs font-bold tabular-nums text-foreground">
-            <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
+            <span className="mr-1.5 align-middle text-note font-semibold uppercase tracking-wide text-muted">
               ML model
             </span>
             {formatScore(match.model.predicted_home, match.model.predicted_away)}
@@ -461,7 +461,7 @@ function GoalStepper({
   const n = Number(value) || 0;
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="max-w-[72px] truncate text-[11px] font-semibold text-muted">{label}</span>
+      <span className="max-w-[72px] truncate text-label font-semibold text-muted">{label}</span>
       <div className="flex items-center gap-1">
         <button
           type="button"

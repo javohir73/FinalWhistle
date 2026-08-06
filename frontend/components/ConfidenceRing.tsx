@@ -73,7 +73,7 @@ export function ConfidenceRing({
           <span
             className={cn(
               "font-display font-bold leading-none",
-              compact ? "mt-px text-[8px]" : "mt-0.5 text-xs",
+              compact ? "mt-px text-micro" : "mt-0.5 text-xs",
             )}
           >
             %
@@ -82,7 +82,7 @@ export function ConfidenceRing({
         <span
           className={cn(
             "font-bold uppercase leading-none",
-            compact ? "mt-px text-[8px] tracking-[0.04em]" : "mt-0.5 text-xs tracking-wide",
+            compact ? "mt-px text-micro tracking-[0.04em]" : "mt-0.5 text-xs tracking-wide",
             word,
           )}
         >

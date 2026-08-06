@@ -26,7 +26,7 @@ export function TeamLastLineup({
 
   return (
     <section>
-      <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <h2 className="mb-3 font-display text-label font-semibold uppercase tracking-wider text-muted">
         {label}
       </h2>
       <MatchLineups matchId={matchId} side={side} />

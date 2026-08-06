@@ -16,7 +16,7 @@ export function LeagueSwitcher({
   onChange: (league: string) => void;
 }) {
   return (
-    <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-surface-2 p-0.5 text-[11px] font-semibold" aria-label="League">
+    <div className="flex max-w-full gap-1 overflow-x-auto rounded-lg bg-surface-2 p-0.5 text-label font-semibold" aria-label="League">
       {leagues.map((code) => (
         <button
           key={code}

@@ -165,7 +165,7 @@ export function RunHomePredictor({
     <div className="mt-6 space-y-6">
       <section className="glass rounded-2xl p-4">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
             Finals odds · from {odds.n_sims.toLocaleString()} simulations
           </span>
           <div className="flex items-center gap-3 text-xs text-muted">
@@ -189,7 +189,7 @@ export function RunHomePredictor({
         <div className={cn("mt-3 overflow-x-auto", loadingOdds && "animate-pulse opacity-70")}>
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left font-display text-[11px] uppercase tracking-wider text-muted">
+              <tr className="text-left font-display text-label uppercase tracking-wider text-muted">
                 <th className="py-1.5 pr-2 font-semibold">Club</th>
                 <th className="py-1.5 text-right font-semibold">Top 8</th>
                 <th className="py-1.5 text-right font-semibold">Top 4</th>
@@ -230,7 +230,7 @@ export function RunHomePredictor({
       <div className="space-y-5">
         {rounds.map((r) => (
           <section key={r.round ?? "unknown"}>
-            <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
               Round {r.round ?? "—"}
             </h2>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -263,7 +263,7 @@ function FixtureRow({
 
   return (
     <div className="glass rounded-2xl p-4">
-      <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <span className="text-label font-semibold uppercase tracking-wider text-muted">
         {locked ? "Locked" : kickoffLabel(match.kickoff_utc)}
       </span>
 
@@ -302,7 +302,7 @@ function FixtureRow({
               )}
             >
               {label}
-              {sub ? <small className="block text-[9px] font-normal normal-case text-muted">{sub}</small> : null}
+              {sub ? <small className="block text-mini font-normal normal-case text-muted">{sub}</small> : null}
             </button>
           );
         })}

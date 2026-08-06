@@ -56,7 +56,7 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
 
   return (
     <section className="panel-pitch mt-6 rounded-2xl p-5">
-      <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">
+      <p className="font-display text-label font-semibold uppercase tracking-[0.2em] text-white/60">
         Today&apos;s movers
       </p>
       {movers === null ? (
@@ -68,10 +68,10 @@ export function MoversPanel({ sport }: { sport: "football" | "nrl" }) {
             const rowInner = (
               <>
                 <span className="flex-1">
-                  <span className="font-display text-[15px] font-semibold text-white">
+                  <span className="font-display text-lead font-semibold text-white">
                     {m.name}
                   </span>
-                  <span className="block text-[11px] font-medium text-white/45">
+                  <span className="block text-label font-medium text-white/45">
                     {marketLabel(m.market)}
                   </span>
                 </span>

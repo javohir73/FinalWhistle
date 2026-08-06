@@ -57,7 +57,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-2xl bg-win/[0.06] px-2 py-3 text-center">
       <p className="font-display text-lg font-extrabold tabular-nums text-lime-deep">{pct(value)}</p>
-      <p className="mt-0.5 text-[11px] font-semibold text-muted">{label}</p>
+      <p className="mt-0.5 text-label font-semibold text-muted">{label}</p>
     </div>
   );
 }

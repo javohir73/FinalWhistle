@@ -43,13 +43,13 @@ export function PlayBracketCard({
           Projected knockout bracket
         </p>
         {champion ? (
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 text-body text-muted">
             Predicted champion:{" "}
             <span className="font-bold text-foreground">{champion.team}</span> ·{" "}
             <span className="tabular-nums">{pct(champion.winTitle)}</span> to lift the trophy
           </p>
         ) : (
-          <p className="mt-1 text-[13px] text-muted">
+          <p className="mt-1 text-body text-muted">
             The model&apos;s most-likely path through the knockouts, updated as it refreshes.
           </p>
         )}

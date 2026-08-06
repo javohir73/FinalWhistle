@@ -79,8 +79,8 @@ export function LeagueTipsLeaderboard({ league, matchweek }: { league: string; m
   return (
     <section>
       <div className="mb-2.5 flex items-center justify-between px-0.5">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Leaderboard</h2>
-        <div className="flex gap-1 rounded-lg bg-surface-2 p-0.5 text-[11px] font-semibold">
+        <h2 className="text-label font-semibold uppercase tracking-wider text-muted">Leaderboard</h2>
+        <div className="flex gap-1 rounded-lg bg-surface-2 p-0.5 text-label font-semibold">
           <button
             type="button"
             onClick={() => setTab("weekly")}
@@ -140,7 +140,7 @@ function WeeklyTable({ entries }: { entries: LeagueTipsLeaderboardEntry[] }) {
     <div className="glass overflow-x-auto rounded-2xl p-2 sm:p-4">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-[11px] uppercase tracking-wider text-muted">
+          <tr className="text-label uppercase tracking-wider text-muted">
             <th className="px-2 pb-2 text-left font-medium">#</th>
             <th className="px-2 pb-2 text-left font-medium">Player</th>
             <th className="px-2 pb-2 text-right font-medium">Points</th>
@@ -172,7 +172,7 @@ function SeasonTable({ entries }: { entries: LeagueSeasonLeaderboardEntry[] }) {
     <div className="glass overflow-x-auto rounded-2xl p-2 sm:p-4">
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-[11px] uppercase tracking-wider text-muted">
+          <tr className="text-label uppercase tracking-wider text-muted">
             <th className="px-2 pb-2 text-left font-medium">#</th>
             <th className="px-2 pb-2 text-left font-medium">Player</th>
             <th className="px-2 pb-2 text-right font-medium">Points</th>

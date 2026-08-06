@@ -113,7 +113,7 @@ export function PlayerShirt({
         aria-label={label}
         title={player.name}
         className={
-          "grid h-8 w-8 place-items-center rounded-full font-display text-[13px] font-extrabold tabular-nums ring-1 motion-safe:transition hover:ring-2 sm:h-9 sm:w-9 " +
+          "grid h-8 w-8 place-items-center rounded-full font-display text-body font-extrabold tabular-nums ring-1 motion-safe:transition hover:ring-2 sm:h-9 sm:w-9 " +
           chip
         }
       >
@@ -121,7 +121,7 @@ export function PlayerShirt({
       </button>
       <span
         className={
-          "mt-1 w-full max-w-full truncate px-0.5 text-center text-[10px] leading-tight text-white " +
+          "mt-1 w-full max-w-full truncate px-0.5 text-center text-note leading-tight text-white " +
           (open || showName ? "" : "sr-only")
         }
       >

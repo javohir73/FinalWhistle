@@ -136,7 +136,7 @@ export default async function NrlTeamPage({
       {streak && streak.length >= 2 && (
         <div>
           <span
-            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${
+            className={`inline-block rounded-full px-2 py-0.5 text-label font-semibold uppercase tracking-wide ${
               streak.result === "W"
                 ? "bg-win/15 text-lime-deep"
                 : streak.result === "L"
@@ -154,7 +154,7 @@ export default async function NrlTeamPage({
       {/* Season snapshot — per-game tiles + splits + bookend results */}
       {summary && (
         <section className="glass rounded-2xl p-6">
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
             Season snapshot · {summary.played} games
           </span>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -210,7 +210,7 @@ export default async function NrlTeamPage({
 
       {/* Recent form */}
       <section className="glass rounded-2xl p-6">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
           Recent form
         </span>
         <div className="mt-3">
@@ -221,7 +221,7 @@ export default async function NrlTeamPage({
       {/* The AI on this club — from the frozen, append-only grading ledger */}
       {model && (
         <section className="glass rounded-2xl p-6">
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-lime-deep">
+          <span className="font-display text-label font-semibold uppercase tracking-wider text-lime-deep">
             The ML model on the {team.name}
           </span>
           <p className="mb-4 mt-2 font-display text-lg font-bold leading-snug tracking-tight">
@@ -242,7 +242,7 @@ export default async function NrlTeamPage({
       {/* Next up — fixtures with the club's win chance */}
       {upcoming.length > 0 && (
         <section>
-          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <h2 className="mb-3 font-display text-label font-semibold uppercase tracking-wider text-muted">
             Next up
           </h2>
           <div className="space-y-2">
@@ -256,7 +256,7 @@ export default async function NrlTeamPage({
       {/* Results — every finished game, most recent first */}
       {results.length > 0 && (
         <section>
-          <h2 className="mb-3 font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <h2 className="mb-3 font-display text-label font-semibold uppercase tracking-wider text-muted">
             Results
           </h2>
           <div className="space-y-2">
@@ -292,7 +292,7 @@ function StatTile({
       >
         {value}
       </p>
-      <p className="mt-0.5 text-[11px] font-semibold text-muted">{label}</p>
+      <p className="mt-0.5 text-label font-semibold text-muted">{label}</p>
     </div>
   );
 }
@@ -325,7 +325,7 @@ function FixtureRow({ fixture: f, season }: { fixture: NrlTeamFixture; season: n
     <MatchRow season={season} round={f.round} matchNo={f.match_no}>
       <ClubBadge name={f.opponent} size={28} />
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-[15px] font-semibold">
+        <p className="truncate font-display text-lead font-semibold">
           {f.was_home ? "vs" : "at"} {f.opponent ?? "TBC"}
         </p>
         <p className="text-xs text-muted">
@@ -354,7 +354,7 @@ function ResultRow({ result: r, season }: { result: NrlTeamResult; season: numbe
         {r.result}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate font-display text-[15px] font-semibold">
+        <p className="truncate font-display text-lead font-semibold">
           {r.was_home ? "vs" : "at"} {r.opponent ?? "TBC"}
         </p>
         <p className="text-xs text-muted">Rd {r.round ?? "TBC"}</p>

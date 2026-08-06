@@ -56,7 +56,7 @@ export function NrlMatchHero({
       </p>
       {isLive && (
         <p className="mb-4 text-center" aria-hidden="true">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-loss/10 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-loss">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
             LIVE{liveState.minute != null ? ` · ${liveState.minute}′` : ""}
           </span>
@@ -64,7 +64,7 @@ export function NrlMatchHero({
       )}
       {isFinal && (
         <p className="mb-4 text-center">
-          <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+          <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-muted">
             Full time
           </span>
         </p>

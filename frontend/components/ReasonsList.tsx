@@ -11,7 +11,7 @@ export function ReasonsList({ reasons }: { reasons: string[] }) {
           <span className="font-bold text-lime-deep" aria-hidden>
             +
           </span>
-          <span className="text-[12.5px] leading-[1.5] text-foreground/85">{r}</span>
+          <span className="text-meta leading-[1.5] text-foreground/85">{r}</span>
         </li>
       ))}
     </ul>

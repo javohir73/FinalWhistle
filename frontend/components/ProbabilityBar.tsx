@@ -42,7 +42,7 @@ export function ProbabilityBar({
         <div className="rounded-r-full bg-loss" style={seg(away_win)} />
       </div>
       {showLabels && (
-        <div className="mt-2 flex justify-between text-[11px] font-semibold tabular-nums">
+        <div className="mt-2 flex justify-between text-label font-semibold tabular-nums">
           <span className="text-lime-deep">{pct(home_win)}</span>
           <span className="text-draw">{pct(draw)} draw</span>
           <span className="text-loss">{pct(away_win)}</span>

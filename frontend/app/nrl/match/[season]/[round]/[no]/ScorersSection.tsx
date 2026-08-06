@@ -80,7 +80,7 @@ function TeamScorers({ name, players }: { name: string; players: NrlScorer[] }) 
               className="flex items-center justify-between gap-2 text-sm"
             >
               <span className="flex min-w-0 items-center gap-1.5">
-                <span className="shrink-0 text-[11px] font-semibold text-muted">{p.position}</span>
+                <span className="shrink-0 text-label font-semibold text-muted">{p.position}</span>
                 <span className="truncate text-foreground">{p.player}</span>
               </span>
               <span className="shrink-0 font-display font-bold tabular-nums text-lime-deep">

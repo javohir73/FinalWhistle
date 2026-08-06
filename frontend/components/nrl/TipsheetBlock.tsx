@@ -57,7 +57,7 @@ export function TipsheetBlock({ tipsheet }: { tipsheet: NrlTipsheet }) {
     <div className="space-y-5">
       <section className="glass rounded-2xl p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
             Model record · Round {round}
           </span>
           <ShareButton label="Screenshot this" title={`NRL Round ${round} tips — ${season}`} />
@@ -141,12 +141,12 @@ function TipsheetRow({
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
           {match.venue ?? "Venue TBC"}
         </span>
         {live ? (
           <span
-            className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
+            className="inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-loss"
             aria-label="Live"
           >
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-loss" aria-hidden />
@@ -155,7 +155,7 @@ function TipsheetRow({
         ) : (
           <span
             className={cn(
-              "rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+              "rounded-full px-2.5 py-0.5 text-label font-semibold",
               finished ? "bg-surface-2/70 text-muted" : "bg-draw/15 text-amber-ink",
             )}
           >
@@ -165,7 +165,7 @@ function TipsheetRow({
       </div>
 
       {flag ? (
-        <span className="mt-2 inline-block rounded-full bg-win/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-lime-deep">
+        <span className="mt-2 inline-block rounded-full bg-win/15 px-2 py-0.5 text-note font-bold uppercase tracking-wide text-lime-deep">
           {flag}
         </span>
       ) : null}
@@ -178,7 +178,7 @@ function TipsheetRow({
         return (
           <div key={side} className="mt-2 flex items-center gap-2.5">
             <ClubBadge name={name} />
-            <span className="flex-1 font-display text-[15px] font-semibold">{name ?? "TBC"}</span>
+            <span className="flex-1 font-display text-lead font-semibold">{name ?? "TBC"}</span>
             {finished ? (
               <span className="text-lg font-extrabold tabular-nums">{score}</span>
             ) : prob !== undefined && other !== undefined ? (

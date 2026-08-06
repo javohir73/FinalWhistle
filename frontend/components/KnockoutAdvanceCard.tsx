@@ -27,7 +27,7 @@ export function KnockoutAdvanceCard({
 
   return (
     <div className="mt-5 border-t border-surface-2 pt-4">
-      <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
         Who goes through
       </span>
       <div
@@ -38,7 +38,7 @@ export function KnockoutAdvanceCard({
         <div className="rounded-l-full bg-win" style={seg(ph)} />
         <div className="rounded-r-full bg-loss" style={seg(pa)} />
       </div>
-      <div className="mt-2 flex justify-between text-[11px] font-semibold tabular-nums">
+      <div className="mt-2 flex justify-between text-label font-semibold tabular-nums">
         <span className="text-lime-deep">{home} {pct(ph)}</span>
         <span className="text-loss">{away} {pct(pa)}</span>
       </div>
@@ -49,12 +49,12 @@ export function KnockoutAdvanceCard({
             className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-xs tabular-nums"
           >
             <span className="text-right font-semibold">{pct(paths.home[key])}</span>
-            <span className="w-28 text-center text-[11px] text-muted">{label}</span>
+            <span className="w-28 text-center text-label text-muted">{label}</span>
             <span className="text-left font-semibold">{pct(paths.away[key])}</span>
           </div>
         ))}
       </div>
-      <p className="mt-3 text-[11px] leading-snug text-muted">
+      <p className="mt-3 text-label leading-snug text-muted">
         A draw above means level after 90 minutes — {pct(knockout.p_extra_time)} chance
         this tie needs extra time, {pct(knockout.p_shootout)} that it reaches penalties.
       </p>

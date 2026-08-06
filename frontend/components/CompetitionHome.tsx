@@ -149,7 +149,7 @@ export function CompetitionHome({
           <div className="mb-3 flex items-center justify-between">
             <h2
               id={`${competition}-also-on`}
-              className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted"
+              className="font-display text-label font-semibold uppercase tracking-wider text-muted"
             >
               Also on
             </h2>

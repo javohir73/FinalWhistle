@@ -24,7 +24,7 @@ export function VenueSplits({ splits }: { splits: NrlVenueSplit[] }) {
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-[11px] text-muted">W-D-L and per-game averages this season.</p>
+      <p className="mt-3 text-label text-muted">W-D-L and per-game averages this season.</p>
     </section>
   );
 }

@@ -13,7 +13,7 @@ describe("Eyebrow", () => {
     render(<Eyebrow>Tonight feature</Eyebrow>);
     const label = screen.getByText("Tonight feature");
     expect(label).toHaveClass("uppercase");
-    expect(label).toHaveClass("text-[11px]");
+    expect(label).toHaveClass("text-label");
   });
 });
 
@@ -21,7 +21,7 @@ describe("CompEyebrowChip", () => {
   it("renders the EPL short label with the epl accent var and >=11px text", () => {
     const html = renderToStaticMarkup(<CompEyebrowChip comp="epl" />);
     expect(html).toContain(">EPL<");
-    expect(html).toContain("text-[11px]");
+    expect(html).toContain("text-label");
     expect(html).toContain("--accent-epl");
   });
 });

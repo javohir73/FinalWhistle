@@ -84,24 +84,24 @@ export function MatchCard({
     ) : (
         <>
           <div className="mb-3 flex items-center justify-between gap-2">
-            <span className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+            <span className="font-display text-label font-semibold uppercase tracking-wider text-muted">
               {match.group ?? match.stage}
             </span>
             {live ? (
               <span
-                className="status-live-ring inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-loss"
+                className="status-live-ring inline-flex items-center gap-1.5 rounded-full bg-loss/15 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-loss"
                 aria-label={`Live, ${liveLabel(match)}`}
               >
                 <span className="status-live-dot h-1.5 w-1.5 rounded-full bg-current" aria-hidden />
                 {liveLabel(match)}
               </span>
             ) : finished ? (
-              <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-muted">
+              <span className="rounded-full bg-surface-2/70 px-2 py-0.5 text-label font-bold uppercase tracking-wide text-muted">
                 Full time
               </span>
             ) : (
               kickoffPill && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2 py-0.5 text-[11px] font-bold tabular-nums text-amber-ink">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-draw/15 px-2 py-0.5 text-label font-bold tabular-nums text-amber-ink">
                   <svg viewBox="0 0 24 24" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2">
                     <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" />
                   </svg>
@@ -159,7 +159,7 @@ export function MatchCard({
             )}
             {predicted_score ? (
               <span className="inline-flex items-center rounded-md bg-surface-2 px-2 py-0.5 font-display text-sm font-bold tabular-nums text-foreground">
-                <span className="mr-1.5 align-middle text-[10px] font-semibold uppercase tracking-wide text-muted">
+                <span className="mr-1.5 align-middle text-note font-semibold uppercase tracking-wide text-muted">
                   ML model
                 </span>
                 {formatScore(predicted_score.home, predicted_score.away)}
@@ -260,7 +260,7 @@ function CompactRow({
           <div className="truncate font-display text-sm font-bold tracking-tight">
             {teams.home} <span className="font-normal text-muted">v</span> {teams.away}
           </div>
-          <div className="mt-0.5 truncate text-[10px]">
+          <div className="mt-0.5 truncate text-note">
             <span className={live ? "font-semibold text-loss" : "text-muted"}>{metaLabel}</span>
             {match.venue && <span className="text-muted/70"> · {match.venue}</span>}
           </div>
@@ -279,7 +279,7 @@ function CompactRow({
               >
                 {pct(lead)}
               </span>
-              <span className="max-w-[84px] truncate text-[9px] font-semibold uppercase tracking-wide text-muted">
+              <span className="max-w-[84px] truncate text-mini font-semibold uppercase tracking-wide text-muted">
                 {leadLabel}
               </span>
             </span>
@@ -297,7 +297,7 @@ function CompactRow({
           />
         </div>
       ) : (
-        <p className="mt-2.5 text-[10px] text-muted">Prediction pending…</p>
+        <p className="mt-2.5 text-note text-muted">Prediction pending…</p>
       )}
       {margin != null && !finished && (
         // NRL's expected-margin chip, a new line under the bar for dense rows.
@@ -311,7 +311,7 @@ function CompactRow({
       )}
       {verdict && (
         <div
-          className={`mt-2 flex items-center gap-1.5 text-[10px] font-semibold ${
+          className={`mt-2 flex items-center gap-1.5 text-note font-semibold ${
             verdict.kind === "miss" ? "text-loss" : "text-lime-deep"
           }`}
         >
@@ -342,7 +342,7 @@ function TeamRow({
   return (
     <div className="flex items-center gap-2.5">
       {badge === "club" ? <ClubBadge name={name} size={24} /> : <TeamBadge team={name} size={24} />}
-      <span className="min-w-0 flex-1 truncate font-display text-[15px] font-semibold tracking-tight">
+      <span className="min-w-0 flex-1 truncate font-display text-lead font-semibold tracking-tight">
         {name}
       </span>
       {live && score != null && (

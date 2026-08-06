@@ -183,7 +183,7 @@ export function PlayRound({
   return (
     <section>
       <div className="mb-2.5 flex items-center justify-between gap-3 px-0.5">
-        <h2 className="text-[11px] font-semibold uppercase tracking-wider text-muted">Play this round</h2>
+        <h2 className="text-label font-semibold uppercase tracking-wider text-muted">Play this round</h2>
         {handle ? <span className="text-xs text-muted">Playing as {handle}</span> : null}
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -234,11 +234,11 @@ function PlayRow({
   return (
     <div className="glass rounded-2xl p-4">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <span className="text-label font-semibold uppercase tracking-wider text-muted">
           {locked ? "Locked" : kickoffLabel(match.kickoff_utc)}
         </span>
         {match.is_featured ? (
-          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-ink">
+          <span className="rounded-full bg-gold/15 px-2 py-0.5 text-note font-bold uppercase tracking-wide text-amber-ink">
             Featured match — margin for tiebreaks
           </span>
         ) : null}
@@ -330,7 +330,7 @@ function PlayRow({
       {showConfidence && model ? (
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
           <div className="min-w-0">
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted">Model&apos;s call</p>
+            <p className="text-label font-semibold uppercase tracking-wider text-muted">Model&apos;s call</p>
             <p className="truncate text-sm font-semibold">{pickLabel(model.pick, match)}</p>
           </div>
           <ConfidenceRing

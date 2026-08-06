@@ -57,16 +57,16 @@ function MatchRow({ m, sport }: { m: IntelMatch; sport: "football" | "nrl" }) {
   return (
     <li className="border-t border-white/10 py-2.5 first:border-t-0">
       <Body href={`/match/${m.match_id}`} className="block">
-        <span className="font-display text-[15px] font-semibold text-white">
+        <span className="font-display text-lead font-semibold text-white">
           {m.home?.name ?? "TBD"} vs {m.away?.name ?? "TBD"}
         </span>
-        <span className="mt-0.5 block text-[12px] font-medium text-white/60">
+        <span className="mt-0.5 block text-meta font-medium text-white/60">
           Market {pct(market.home)}
           {market.draw !== null ? ` · draw ${pct(market.draw)}` : ""} ·{" "}
           {pct(market.away)}
         </span>
         {m.model ? (
-          <span className="block text-[12px] font-medium text-white/45">
+          <span className="block text-meta font-medium text-white/45">
             Model {pct(m.model.home)}
             {m.model.draw !== null ? ` · draw ${pct(m.model.draw)}` : ""} ·{" "}
             {pct(m.model.away)}
@@ -112,7 +112,7 @@ export function IntelPanel({ sport }: { sport: "football" | "nrl" }) {
 
   return (
     <section className="panel-pitch mt-6 rounded-2xl p-5">
-      <p className="font-display text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">
+      <p className="font-display text-label font-semibold uppercase tracking-[0.2em] text-white/60">
         Market intel
       </p>
       {intel === null ? (
@@ -129,7 +129,7 @@ export function IntelPanel({ sport }: { sport: "football" | "nrl" }) {
               {intel.storylines.map((s) => (
                 <li
                   key={`${s.market_type}-${s.match_id ?? s.team?.id}-${s.outcome}`}
-                  className="py-1 text-[12px] font-medium text-white/60"
+                  className="py-1 text-meta font-medium text-white/60"
                 >
                   {storylineLabel(s, sport)}{" "}
                   <span className={s.prob_to >= s.prob_from ? "text-win" : "text-loss"}>
@@ -143,7 +143,7 @@ export function IntelPanel({ sport }: { sport: "football" | "nrl" }) {
             </ul>
           ) : null}
           {intel.updated_at ? (
-            <p className="mt-2 text-[11px] font-medium text-white/35">
+            <p className="mt-2 text-label font-medium text-white/35">
               {sourcesFooter(intel) ? `via ${sourcesFooter(intel)} · ` : ""}updated {minutesAgo(intel.updated_at)}
             </p>
           ) : null}

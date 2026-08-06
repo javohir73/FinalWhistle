@@ -78,7 +78,7 @@ export default async function LeagueTipsShareCardPage({
   return (
     <div className="fade-up mx-auto max-w-md space-y-6 text-center">
       <div className="glass rounded-2xl p-8">
-        <p className="font-display text-[11px] font-semibold uppercase tracking-wider text-muted">
+        <p className="font-display text-label font-semibold uppercase tracking-wider text-muted">
           {leagueLabel(share.league)} Matchweek {share.matchweek}
         </p>
         <p className="mt-3 font-display text-2xl font-extrabold leading-snug tracking-tight">
@@ -87,7 +87,7 @@ export default async function LeagueTipsShareCardPage({
         </p>
         <p className="mt-2 text-sm font-semibold text-lime-deep">{verdict}</p>
         {!share.matchweek_complete && (
-          <p className="mt-1 text-[11px] text-muted">Matchweek still in progress — more matches to come.</p>
+          <p className="mt-1 text-label text-muted">Matchweek still in progress — more matches to come.</p>
         )}
       </div>
 

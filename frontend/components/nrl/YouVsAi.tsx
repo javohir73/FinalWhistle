@@ -47,7 +47,7 @@ export function YouVsAi() {
 
   return (
     <section>
-      <h2 className="mb-2.5 px-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+      <h2 className="mb-2.5 px-0.5 text-label font-semibold uppercase tracking-wider text-muted">
         You vs the AI
       </h2>
       {state.status === "loading" && <Loading label="Loading your record…" />}
@@ -88,7 +88,7 @@ export function YouVsAi() {
                           label="Share"
                           title={`${handle} went ${r.your_points}/${r.matches_played} vs the AI — NRL Round ${r.round}`}
                           url={shareUrl}
-                          className="gap-1 px-2 py-1 text-[11px]"
+                          className="gap-1 px-2 py-1 text-label"
                         />
                       )}
                     </div>
@@ -110,17 +110,17 @@ function StreakChips({ data }: { data: NrlTipsSummaryResponse }) {
   return (
     <div className="mt-3 flex flex-wrap justify-center gap-1.5">
       {data.current_streak > 0 && (
-        <span className="rounded-full bg-win/15 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-lime-deep">
+        <span className="rounded-full bg-win/15 px-2.5 py-1 text-label font-semibold uppercase tracking-wide text-lime-deep">
           {data.current_streak}-pick streak
         </span>
       )}
       {data.best_streak > 0 && (
-        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-label font-semibold uppercase tracking-wide text-muted">
           Best streak {data.best_streak}
         </span>
       )}
       {data.best_round && (
-        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+        <span className="rounded-full bg-surface-2 px-2.5 py-1 text-label font-semibold uppercase tracking-wide text-muted">
           Best round Rd {data.best_round.round} · {data.best_round.points}
         </span>
       )}
@@ -132,7 +132,7 @@ function Stat({ label, value }: { label: string; value: number }) {
   return (
     <span className="text-center">
       <span className="block font-display text-2xl font-extrabold tabular-nums">{value}</span>
-      <span className="block text-[11px] font-semibold text-muted">{label}</span>
+      <span className="block text-label font-semibold text-muted">{label}</span>
     </span>
   );
 }

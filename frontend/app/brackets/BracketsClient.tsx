@@ -128,7 +128,7 @@ function AIBracket({ odds }: { odds: TournamentOdds[] }) {
       <div className="space-y-5">
         {ROUND_DEFS.map((round) => (
           <div key={round.label}>
-            <h2 className="mb-2 font-display text-[11px] font-bold uppercase tracking-wider text-muted">
+            <h2 className="mb-2 font-display text-label font-bold uppercase tracking-wider text-muted">
               {round.label}
             </h2>
             <div className={cn("grid gap-2", round.final ? "grid-cols-1" : "sm:grid-cols-2")}>
@@ -168,7 +168,7 @@ function AIBracket({ odds }: { odds: TournamentOdds[] }) {
       </div>
 
       {champion && (
-        <p className="mt-4 px-0.5 text-[11px] leading-relaxed text-muted">
+        <p className="mt-4 px-0.5 text-label leading-relaxed text-muted">
           Predicted champion:{" "}
           <Link href={`/team/${champion.team_id}`} className="font-bold text-lime-deep">
             {champion.team}

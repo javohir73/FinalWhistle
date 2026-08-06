@@ -59,7 +59,7 @@ export function WinProbTimeline({ points, probabilities, homeLabel, awayLabel, m
             showLabels
           />
         </div>
-        <p className="mt-2 text-[13px] text-muted">
+        <p className="mt-2 text-body text-muted">
           Forecast movement appears once the model updates this fixture.
         </p>
       </div>
@@ -104,7 +104,7 @@ export function WinProbTimeline({ points, probabilities, homeLabel, awayLabel, m
     <div>
       <div className="flex justify-between">
         <Eyebrow tone="muted">WIN PROBABILITY · FORECAST</Eyebrow>
-        <span className="text-[11px] font-semibold tabular-nums text-lime-deep">
+        <span className="text-label font-semibold tabular-nums text-lime-deep">
           {homeLabel} {pct(last)}
         </span>
       </div>
@@ -156,7 +156,7 @@ export function WinProbTimeline({ points, probabilities, homeLabel, awayLabel, m
         <circle cx={354} cy={r2(yFor(last))} r={3.5} className="fill-lime-deep" />
       </svg>
 
-      <div className="flex justify-between text-[11px] text-muted">
+      <div className="flex justify-between text-label text-muted">
         {axisLabels.map((t, i) => (
           <span key={i}>{t}</span>
         ))}

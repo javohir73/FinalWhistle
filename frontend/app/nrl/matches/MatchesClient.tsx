@@ -114,7 +114,7 @@ export function MatchesClient({ initial }: { initial: NrlMatchesResponse }) {
         <section>
           <div className="mb-3.5 flex items-center gap-2">
             <span className="h-2 w-2 animate-pulse rounded-full bg-loss" aria-hidden />
-            <h2 className="font-display text-[11px] font-bold uppercase tracking-wider text-loss">
+            <h2 className="font-display text-label font-bold uppercase tracking-wider text-loss">
               Live now
             </h2>
           </div>
