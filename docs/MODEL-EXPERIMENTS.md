@@ -783,3 +783,16 @@ download.
 
 Full detail, receipts and declared limitations:
 `docs/experiments/2026-07-29-d0-market-validation/EVIDENCE-CARD.md`.
+
+## 2026-08-06 — UCL Track-1 goal-rate fit (appended)
+
+The UCL joined the club program: `pipeline/experiment_ucl_eval.py` ran the
+T1.1/T1.5 grids on the four API-Football editions (2022–2025, regulation
+time). `base` 1.20 → **1.44** was credibly better in walk-forward selection
+(O/U Δ −0.0332, CI [−0.0462, −0.0191]) and **CONFIRMED on the quarantined
+2025 edition on both metrics** (1X2 Δ −0.0119, CI [−0.0170, −0.0061]; O/U
+Δ −0.0356, CI [−0.0640, −0.0005]). The home-adv refit was not credible and
+did not ship. Served as `poisson-elo-ucl-v0.2` with the unfitted v0.1
+predecessor as the live `+baseline` twin. The 2025 edition is consumed; the
+next clean holdout is the live 2026-27 edition. Full card:
+`docs/experiments/2026-08-06-ucl-base-fit/EVIDENCE-CARD.md`.
