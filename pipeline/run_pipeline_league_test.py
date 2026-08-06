@@ -441,3 +441,74 @@ def test_league_pipeline_one_leagues_ingest_failure_does_not_kill_the_others(db_
     assert db_session.query(HistoricalMatch).filter_by(competition="Premier League").count() == 1
     assert db_session.query(HistoricalMatch).filter_by(competition="Bundesliga").count() == 1
     assert db_session.query(HistoricalMatch).filter_by(competition="La Liga").count() == 0
+
+
+def test_league_path_ingests_injuries_so_the_availability_signal_has_data(
+    db_session, monkeypatch
+):
+    """model_params.json ships use_availability=true, and the availability
+    adjustment reads Match.injuries (app/availability.availability_for_match).
+    Only refresh_injuries writes that column, so a league branch that skips it
+    leaves the PROMOTED signal a permanent no-op — the served engine claims to
+    use availability while no club match ever carries any."""
+    from pipeline.ingest import injuries as injuries_mod
+
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [
+        _fixture(1, "Arsenal", "Chelsea", status="FT", gh=2, ga=1),
+        _fixture(2, "Liverpool", "Everton", status="NS"),
+    ])
+    calls: list[str] = []
+    monkeypatch.setattr(
+        injuries_mod, "refresh_injuries",
+        lambda db, key, **kw: calls.append(key) or {"matches_injuries": 1, "matches_skipped": 0},
+    )
+
+    summary = run_pipeline(db_session, n_sims=50)
+
+    assert calls == ["af-key"]
+    assert summary["injuries"] == {"matches_injuries": 1, "matches_skipped": 0}
+
+
+def test_league_path_skips_injuries_cleanly_without_a_provider_key(
+    db_session, monkeypatch
+):
+    """No key -> no step, no crash (same contract as the WC26 branch)."""
+    from pipeline.ingest import injuries as injuries_mod
+
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(settings, "api_football_api_key", "")
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [
+        _fixture(1, "Arsenal", "Chelsea", status="FT", gh=2, ga=1),
+    ])
+
+    def explode(*a, **kw):
+        raise AssertionError("injuries must not run without a key")
+
+    monkeypatch.setattr(injuries_mod, "refresh_injuries", explode)
+
+    summary = run_pipeline(db_session, n_sims=50)
+    assert "injuries" not in summary
+
+
+def test_league_injuries_failure_never_blocks_predictions(db_session, monkeypatch):
+    """Best-effort by contract: an injuries crash must not cost the run its
+    predictions (the signal is an enrichment, not a dependency)."""
+    from pipeline.ingest import injuries as injuries_mod
+
+    monkeypatch.setattr(settings, "pipeline_target", "league")
+    monkeypatch.setattr(settings, "api_football_api_key", "af-key")
+    monkeypatch.setattr(ls_mod, "fetch_fixtures", lambda *a, **k: [
+        _fixture(1, "Arsenal", "Chelsea", status="FT", gh=2, ga=1),
+        _fixture(2, "Liverpool", "Everton", status="NS"),
+    ])
+
+    def boom(*a, **kw):
+        raise RuntimeError("injuries feed exploded")
+
+    monkeypatch.setattr(injuries_mod, "refresh_injuries", boom)
+
+    summary = run_pipeline(db_session, n_sims=50)
+    assert summary["predictions"]["matches_predicted"] == 1
+    assert summary["injuries"]["error"] is True

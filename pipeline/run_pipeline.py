@@ -58,6 +58,7 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
     pre-Phase-2 test) this is a no-op: a solo failure still propagates and
     fails the whole run, exactly as it always has.
     """
+    from app.config import settings
     from app.models import Tournament
     from pipeline.compute_club_elo import (
         club_elo_ratings,
@@ -193,6 +194,33 @@ def _run_league_pipeline(db: Session, step, n_sims: int) -> None:
             )
             continue
         prediction_ready.append((code, tournament))
+
+    # Day-ahead availability snapshot, BEFORE predictions so the served engine
+    # (and its twin) can use it — the league mirror of the WC26 branch's own
+    # "injuries" step. Not optional bookkeeping: model_params.json ships
+    # use_availability=true, and app/availability.availability_for_match reads
+    # Match.injuries, which ONLY refresh_injuries writes. Without this step the
+    # promoted signal is a permanent no-op for every club competition.
+    #
+    # Odds are NOT refreshed here: the hourly phased pass
+    # (.github/workflows/odds-snapshots.yml -> snapshot_phased_odds) is
+    # competition-agnostic and already writes the rows _odds_anchored reads,
+    # so a second daily pass would only duplicate provider calls.
+    if settings.api_football_api_key:
+        def _injuries() -> dict:
+            # Best-effort, matching score_predictions_grading below: an
+            # enrichment failure must never cost this run its predictions.
+            from pipeline.ingest.injuries import refresh_injuries
+
+            try:
+                return refresh_injuries(db, settings.api_football_api_key)
+            except Exception:  # noqa: BLE001 - logged loudly, run continues
+                log.exception("injuries FAILED (best-effort, continuing)")
+                return {"matches_injuries": 0, "matches_skipped": 0, "error": True}
+
+        step("injuries", _injuries)
+    else:
+        log.info("step skipped: injuries (no API_FOOTBALL_API_KEY)")
 
     for code, tournament in prediction_ready:
         cfg = LEAGUES[code]
