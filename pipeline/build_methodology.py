@@ -1,11 +1,23 @@
 """Generate frontend/lib/methodology-data.json — reproducible & honest.
 
-Replays leak-free Elo over all historical results, evaluates the *served* model
-(production v0.1 params: base=1.35, beta=0.0019, home_adv=60, raw Poisson) against
-the naive baselines on each past World Cup, and builds the reliability curve.
+Replays leak-free Elo over all historical results, evaluates the **v0.1 baseline
+engine** (base=1.35, beta=0.0019, home_adv=60, raw Poisson — no Dixon-Coles, no
+calibrator) against the naive baselines on each past World Cup, and builds the
+reliability curve.
 
-This replaces the previously hand-authored file so the published numbers always
-match the model that's actually serving predictions.
+This is DELIBERATELY not the served engine, and the page says so out loud
+(frontend/app/methodology/page.tsx, "Does it beat the obvious guesses?"). The
+served parameters and the segmented calibrator were selected by walk-forward
+over these same tournaments, so re-scoring 2014/2018/2022 with them would score
+a model on its own selection data and publish a flattering number. The untuned
+baseline is the honest floor; the forward-looking evidence is the live record
+at /record, which no offline replay can launder.
+
+An earlier docstring here claimed these numbers "always match the model that's
+actually serving predictions". They never did, and by v0.6 (odds anchoring,
+availability, suspensions) they could not — hence the explicit
+``backtest_engine`` field below rather than a bare version string that reads
+like a claim about production.
 
 Usage:
     PYTHONPATH=backend:. python -m pipeline.build_methodology
@@ -91,7 +103,17 @@ def main() -> int:
                  year, m["log_loss"], f["log_loss"], b["log_loss"])
 
     out = {
-        "model_version": "poisson-elo-v0.1",
+        # NOT the served version — see the module docstring. Named
+        # "backtest_engine" precisely so nothing downstream can mistake it for
+        # "what production runs"; the served version lives in
+        # ml/models/model_params.json (internationals) and pipeline/leagues.py
+        # (per club competition).
+        "backtest_engine": "poisson-elo-v0.1",
+        "backtest_engine_note": (
+            "Untuned v0.1 baseline. The served engine's parameters and calibrator "
+            "were selected using these same tournaments, so scoring them here "
+            "would be selection leakage."
+        ),
         "params": {"base": P_BASE, "beta": P_BETA, "home_adv": P_HOME},
         "training_matches": len(rows),
         "backtest_years": [y["year"] for y in years_out],

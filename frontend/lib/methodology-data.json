@@ -1,5 +1,6 @@
 {
-  "model_version": "poisson-elo-v0.1",
+  "backtest_engine": "poisson-elo-v0.1",
+  "backtest_engine_note": "Untuned v0.1 baseline. The served engine's parameters and calibrator were selected using these same tournaments, so scoring them here would be selection leakage.",
   "params": {
     "base": 1.35,
     "beta": 0.0019,
@@ -122,21 +123,5 @@
       "count": 2
     }
   ],
-  "reliability_n": 192,
-  "changelog": [
-    {
-      "version": "poisson-elo-v0.1",
-      "date": "2026-05",
-      "status": "current",
-      "summary": "Elo strength \u2192 expected goals \u2192 Poisson scoreline grid \u2192 W/D/L and most-likely score. Monte-Carlo for group & knockout odds.",
-      "metrics": "Beats both naive baselines on log-loss in the 2014 & 2018 back-tests; trails the favourite baseline in the upset-heavy 2022."
-    },
-    {
-      "version": "v0.2 study (not shipped)",
-      "date": "2026-06",
-      "status": "evaluated",
-      "summary": "Walk-forward tested temperature calibration, a Dixon-Coles draw correction, re-tuned goal parameters, and time-decayed Elo.",
-      "metrics": "No reliable out-of-sample gain: fitted temperature \u2248 1.0 (already calibrated) and re-tuning landed back on v0.1 values. v0.1 retained; the harness gates any future change. Real gains need new signal (squad strength, injuries, market priors)."
-    }
-  ]
+  "reliability_n": 192
 }
