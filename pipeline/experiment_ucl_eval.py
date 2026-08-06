@@ -64,6 +64,13 @@ from pipeline.ingest.api_football_club_results import parse_finished_fixtures
 
 UCL_LEAGUE_ID = 2
 UCL_COMPETITION = "UEFA Champions League"
+#: The fit's window, FROZEN at the four editions the 2026-08-06 selection and
+#: confirmation actually scored. Serving history was later widened to eight
+#: editions (pipeline/leagues.py) — deliberately not mirrored here. That
+#: widening is for RATINGS (rescuing qualifying-round cold starts); this window
+#: defines a completed experiment whose holdout is already consumed, and
+#: silently re-scoping it would re-score a burnt edition against different data.
+#: A future refit is a NEW pre-registration, on a new holdout, not an edit here.
 UCL_SEASONS = (2022, 2023, 2024, 2025)
 #: Quarantined confirmation edition. Never scored during selection; consumed
 #: exactly once, on the frozen UCL_FINAL_CONFIG.
