@@ -41,6 +41,7 @@ import argparse
 import hashlib
 import json
 import math
+import os
 import sys
 import time
 import urllib.request
@@ -644,9 +645,22 @@ def _to_json(census: DirectoryCensus, summary: dict, sensitivity: dict | None) -
     }
 
 
-def main(argv: list[str] | None = None) -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """The CLI's arguments. Split out of main() so the capture-directory
+    resolution (stop gate G1) is testable without invoking a run."""
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("--dir", default="data/raw/club", help="capture directory")
+    # Stop gate G1 (docs/DATA-VALIDATION-PROGRAM.md, decided 2026-08-07): the
+    # football-data.co.uk captures are licensed for download but NOT for
+    # redistribution, and this repository is public — so they are retained in
+    # private storage outside the checkout. Honouring CLUB_CAPTURE_DIR here
+    # means an operator who forgets the flag lands in that private store rather
+    # than silently re-populating the in-repo working directory. The old
+    # default stays for anyone with nothing configured; .gitignore covers it.
+    ap.add_argument(
+        "--dir",
+        default=os.environ.get("CLUB_CAPTURE_DIR") or "data/raw/club",
+        help="capture directory (default: $CLUB_CAPTURE_DIR, else data/raw/club)",
+    )
     ap.add_argument(
         "--fetch",
         action="store_true",
@@ -679,6 +693,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--emit-json", help="write the full census to this path")
     ap.add_argument("--emit-comparison", help="write --compare-families to this path")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = build_parser()
     args = ap.parse_args(argv)
 
     directory = Path(args.dir)

@@ -82,3 +82,54 @@ fixture are un-ignored, so they commit normally — no `git add -f` needed.
 The one **committed** sample — used by the offline test and as a format
 reference — lives at `ml/evaluation/fixtures/wc2018_sample_odds.csv`. Keep it
 small (a couple of real 2018 rows); it is a fixture, not a dataset.
+
+---
+
+## Private retention of football-data.co.uk captures (stop gate G1)
+
+**Decision, 2026-08-07: the captures are never committed to this repository.**
+
+The publisher grants free download ("Simply download for free the available
+files") and reserves everything else ("© Football-Data. All Rights Reserved.").
+No redistribution grant appears anywhere on the site. **This repository is
+public** (`javohir73/FinalWhistle`), so committing the CSVs would be
+redistribution, full stop — not the milder in-house copy an earlier draft of the
+gate assumed.
+
+`.gitignore` already excludes `data/raw/*`, so the default working directory is
+safe. That is a guard, not a plan: D0 finding **D0-2** measured what the absence
+of a plan costs — all 27 pinned captures drifted, and because nobody had kept
+the bytes, the drift could not be diagnosed and the #202 market numbers could
+not be reproduced byte-for-byte. The fingerprint said *that* a file moved and
+could never say *what* moved.
+
+### The procedure
+
+Keep the bytes somewhere private and outside the repo; point the tooling at it.
+
+```bash
+# Anywhere private you control and back up — NOT inside this checkout.
+export CLUB_CAPTURE_DIR="$HOME/finalwhistle-private/club-captures"
+
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
+    --dir "$CLUB_CAPTURE_DIR" --fetch
+PYTHONPATH=backend:. .venv/bin/python -m pipeline.market_coverage \
+    --dir "$CLUB_CAPTURE_DIR" --emit-json docs/experiments/<phase>/coverage-census.json
+```
+
+Rules that make the retention worth having:
+
+1. **Never delete or overwrite a capture in place.** Drift is diagnosable only
+   by comparing today's bytes against the retained ones. Keep dated copies
+   (`club-captures/2026-07-28/E0_2425.csv`) rather than one mutable directory.
+2. **Only the census JSON and the manifest are committed.** They carry hashes,
+   counts and coverage — never a licensed row.
+3. **Do not publish the directory** — not in a gist, not in a PR comment, not
+   in an artifact upload. The gate is about publication, and a CI artifact is
+   publication.
+4. If the store ever needs to be shared with a collaborator, that is a **new
+   licensing decision**, not an extension of this one.
+
+Provisioning hosted storage (S3, a private bucket, a paid backup tier) is a
+spend decision and belongs to the human under `CLAUDE.md`'s stop gate. Nothing
+in this repository provisions any.

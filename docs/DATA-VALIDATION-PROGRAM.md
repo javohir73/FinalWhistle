@@ -18,7 +18,7 @@ green.
 
 | Phase | Subject | State | Ledger | PR |
 |---|---|---|---|---|
-| **D0** | Independent market validation (football-data.co.uk closing odds) | **COMPLETE — draft PR open, G1 awaiting decision** | [`2026-07-29-d0-market-validation/`](experiments/2026-07-29-d0-market-validation/) | draft |
+| **D0** | Independent market validation (football-data.co.uk closing odds) | **COMPLETE — G1 decided 2026-08-07 (no vendoring; private retention)** | [`2026-07-29-d0-market-validation/`](experiments/2026-07-29-d0-market-validation/) | draft |
 | D1 | Rest and travel | NOT STARTED | — | — |
 | D2 | Lineups, player minutes, injuries | NOT STARTED | — | — |
 | D3 | xG (StatsBomb Open Data) | NOT STARTED | — | — |
@@ -66,7 +66,7 @@ decide them.
 
 | Gate | Status | Detail |
 |---|---|---|
-| **G1 — redistribution of football-data.co.uk bytes** | **OPEN — human decision required** | See D0 pre-registration §Licensing. The site states "Simply download for free the available files" and "© Football-Data. Liability Disclaimer. All Rights Reserved." Free download is granted; **redistribution is not granted anywhere on the site.** D0 therefore commits a *fingerprint descriptor*, never the CSV bytes. Committing the raw files — even to a private repo — is a licensing decision for the human. **D0 measured the cost of leaving this open:** all 27 pinned captures have since drifted, and because the bytes were never retained the drift cannot be diagnosed and the #202 market numbers cannot be reproduced byte-for-byte (finding D0-2). Vendoring ~3.6 MB would fix it permanently. |
+| **G1 — redistribution of football-data.co.uk bytes** | **DECIDED 2026-08-07 — do NOT vendor; retain privately** | See D0 pre-registration §Licensing. The site states "Simply download for free the available files" and "© Football-Data. Liability Disclaimer. All Rights Reserved." Free download is granted; **redistribution is not granted anywhere on the site.** **Decision: the captures are never committed. They are retained in private storage outside the repository, and the repo keeps only the fingerprint descriptor.** This resolves D0-2 (drift became undiagnosable because the bytes were never kept) without publishing a single licensed byte. Retention procedure: [`data/raw/README.md`](../data/raw/README.md) § Private retention. **Correction to this row's earlier text:** it argued about committing "even to a private repo" — this repository is **public** (`javohir73/FinalWhistle`, see `CLAUDE.md`), so vendoring would have been outright redistribution, not a milder in-house copy. The premise was wrong, and the decision does not depend on it. |
 | G2 — paid data | not reached | No paid call is made by any phase. The Odds API historical endpoint, Betfair Basic→Advanced upgrades, and any API-Football quota increase are all out of scope. |
 | G3 — enabling capture | not reached | No phase enables live capture, schedules a job, or adds a credential. |
 | G4 — production write / migration | not reached | No phase writes production. Any schema work lands default-off and behind `refresh.yml` sequencing (`CLAUDE.md` § Database migrations). |
