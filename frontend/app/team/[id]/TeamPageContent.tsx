@@ -146,6 +146,16 @@ export async function renderTeamPage(
         <div className="mb-5 mt-3">
           <FormStrip form={recent_form} />
         </div>
+        {strengths.length === 0 && weaknesses.length === 0 ? (
+          // The API sends no claims when it has no matches for this competition
+          // — a routine state for a club arriving through the qualifying rounds.
+          // Say that, rather than showing two empty columns under confident
+          // headings.
+          <p className="text-sm text-muted">
+            No matches on record for this competition yet, so there is nothing to
+            read into their strengths or weak points.
+          </p>
+        ) : (
         <div className="grid gap-5 sm:grid-cols-2">
           <div>
             <p className="mb-2 text-xs font-bold text-lime-deep">↑ Strengths</p>
@@ -170,6 +180,7 @@ export async function renderTeamPage(
             </ul>
           </div>
         </div>
+        )}
       </section>
 
       {/* Fixtures */}
