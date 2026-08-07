@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { BrandMark, Wordmark } from "@/components/Logo";
 import { NavIcon } from "@/components/NavIcon";
 import { AuthButton } from "@/components/AuthButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { CompetitionOverlay } from "@/components/CompetitionOverlay";
 import {
   COMPETITIONS,
@@ -96,6 +97,7 @@ export function SiteNav() {
           })}
         </div>
 
+        <ThemeToggle />
         <AuthButton />
       </nav>
     </header>
