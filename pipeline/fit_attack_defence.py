@@ -69,6 +69,8 @@ def fit_offsets(
     max_iter: int = _MAX_ITER,
     tol: float = _TOL,
     goal_keys: tuple[str, str] = ("score_home", "score_away"),
+    *,
+    policy=shrink_and_cap,
 ) -> dict[int, dict]:
     """Fit shrunk/capped offsets on rows dated STRICTLY before ref_date.
 
@@ -78,6 +80,16 @@ def fit_offsets(
     can never leak the edition into its own fit. Returns
     {team_id: {"atk", "def", "n_matches", "n_eff"}} (offsets in log-lambda
     units, already shrunk toward 0 below the effective-match floor and capped).
+
+    ``policy`` is the shrink/cap rule applied to each team's raw fit. It
+    defaults to :func:`ml.models.team_offsets.shrink_and_cap` — the shipped
+    FR-5 policy — so every existing caller is bit-identical and this parameter
+    changes nothing that serves. It exists so E1 can vary the shrinkage
+    denominator and cap across its pre-registered grid *without duplicating
+    this fitter*: a re-implemented iterative-scaling core could silently
+    diverge, and then E1 would be testing a lookalike rather than FR-5's own
+    fitter on club data (docs/experiments/2026-07-30-e1-tempo-channel/
+    SELECTION-PRE-REGISTRATION.md, Appendix A1).
     """
     params = params or load_params()
     ref = _as_date(ref_date)
@@ -150,7 +162,7 @@ def fit_offsets(
 
     out: dict[int, dict] = {}
     for i, tid in enumerate(ids):
-        atk_i, dfn_i = shrink_and_cap(float(atk[i]), float(dfn[i]), float(n_eff[i]))
+        atk_i, dfn_i = policy(float(atk[i]), float(dfn[i]), float(n_eff[i]))
         out[tid] = {
             "atk": atk_i,
             "def": dfn_i,
