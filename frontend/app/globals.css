@@ -57,7 +57,12 @@
 /* Daylight rollback: apply .theme-daylight on <html> to restore the light theme. */
 .theme-daylight {
   --background: 96 23% 96%; --surface: 0 0% 100%; --surface-2: 94 18% 93%;
-  --foreground: 150 38% 9%; --muted: 140 7% 45%; --border: 84 20% 90%;
+  /* --muted was 140 7% 45%, which measured 4.14:1 against the page canvas —
+     under the 4.5:1 WCAG AA floor for body text, and this token carries most
+     of the secondary copy on the site. Darkened to clear AA on BOTH surfaces
+     it sits on: 5.39:1 on the canvas, 5.82:1 on a white card. The dark theme
+     was audited at AAA; light must not ship as the inaccessible one. */
+  --foreground: 150 38% 9%; --muted: 140 8% 38%; --border: 84 20% 90%;
   --win: 84 66% 52%; --draw: 41 78% 51%; --loss: 350 84% 62%;
   --gold: 42 62% 48%; --accent: 84 66% 52%;
   --lime-deep: 108 56% 27%; --amber-ink: 43 82% 33%; --pitch: 151 51% 14%;

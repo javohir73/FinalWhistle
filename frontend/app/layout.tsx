@@ -66,6 +66,23 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
       <head>
+        {/* Theme boot. MUST stay inline, synchronous, and first in <head>: it
+            runs before the first paint, so a reader who chose Daylight never
+            sees a flash of the dark canvas. React cannot do this job — by the
+            time it hydrates, the wrong theme has already been painted.
+            Deliberately dependency-free and tiny; the key and class name are
+            duplicated from lib/theme.ts (THEME_KEY / LIGHT_CLASS) because this
+            executes before any module loads. Dark is the default: absent or
+            unreadable storage falls through to it untouched. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              'try{if(localStorage.getItem("fw_theme")==="light"){' +
+              'document.documentElement.classList.add("theme-daylight");' +
+              'var m=document.querySelector(\'meta[name="theme-color"]\');' +
+              'if(m)m.setAttribute("content","#f2f6ef");}}catch(e){}',
+          }}
+        />
         {/* Warm the flag CDN connection: the country chooser fires ~48 flag
             requests at once on first paint, so the early TLS handshake cuts
             transient drops. */}
