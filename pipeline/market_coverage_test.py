@@ -18,6 +18,7 @@ from pipeline.club_data_manifest import (
     pre_confirmation_keys,
 )
 from pipeline.ingest.football_data import ODDS_FAMILIES
+from pipeline import market_coverage
 from pipeline.market_coverage import (
     PROVIDER,
     ConfirmationFetchRefused,
@@ -391,3 +392,44 @@ def test_census_makes_no_network_call(tmp_path, monkeypatch):
     _avgc_capture(tmp_path, "E0_2324.csv")
     census = census_directory(tmp_path, keys=["E0_2324"], check_manifest=False)
     assert len(census.files) == 1
+
+
+# --- Stop gate G1: private retention of licensed captures --------------------
+# Decided 2026-08-07 (docs/DATA-VALIDATION-PROGRAM.md): the football-data.co.uk
+# CSVs are free to download but carry no redistribution grant, and this repo is
+# PUBLIC. They live in private storage outside the checkout; only fingerprints
+# are committed. CLUB_CAPTURE_DIR is what points the tooling there, so an
+# operator who forgets --dir doesn't silently repopulate the in-repo directory.
+
+def test_capture_dir_defaults_to_the_private_store_when_configured(monkeypatch):
+    monkeypatch.setenv("CLUB_CAPTURE_DIR", "/private/finalwhistle/club-captures")
+    ap = market_coverage.build_parser()
+    assert ap.parse_args([]).dir == "/private/finalwhistle/club-captures"
+
+
+def test_explicit_dir_still_wins_over_the_environment(monkeypatch):
+    monkeypatch.setenv("CLUB_CAPTURE_DIR", "/private/finalwhistle/club-captures")
+    ap = market_coverage.build_parser()
+    assert ap.parse_args(["--dir", "/tmp/elsewhere"]).dir == "/tmp/elsewhere"
+
+
+def test_unset_environment_keeps_the_historical_in_repo_default(monkeypatch):
+    monkeypatch.delenv("CLUB_CAPTURE_DIR", raising=False)
+    ap = market_coverage.build_parser()
+    assert ap.parse_args([]).dir == "data/raw/club"
+
+
+def test_an_empty_environment_value_is_not_treated_as_a_directory(monkeypatch):
+    # `export CLUB_CAPTURE_DIR=` must not resolve the capture root to "".
+    monkeypatch.setenv("CLUB_CAPTURE_DIR", "")
+    ap = market_coverage.build_parser()
+    assert ap.parse_args([]).dir == "data/raw/club"
+
+
+def test_the_in_repo_capture_directory_is_gitignored():
+    """The default working directory must never become committable."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    ignored = (root / ".gitignore").read_text()
+    assert "data/raw/*" in ignored
