@@ -8,8 +8,17 @@
 #
 # GitHub's minimum schedule interval is 5 minutes; this workflow uses 15 to
 # keep Action-minutes modest and loops internally at ~1-minute cadence to
-# cover the gap to the next tick, exactly like refresh-live.yml does for
-# the football vertical.
+# cover the gap to the next tick. refresh-live.yml (football) uses the same
+# loop-to-cover-the-gap shape but NOT the same numbers -- it runs every 5
+# minutes with 5 ticks. Don't read the two as interchangeable; each loop is
+# sized to its own cron.
+#
+# What the two DO share is where the real gating lives: the server decides,
+# not the cron. This one no-ops via matches_in_live_window; refresh-live.yml
+# gained an equivalent idle gate in #237 after its hardcoded World Cup date
+# window silently took football live scores offline for two weeks. The
+# day-of-week filter below is a courtesy to Action-minutes, never a
+# correctness boundary -- do not promote it into one.
 #
 # Day-of-week filtering uses UTC (cron's native clock), which can be off by
 # one calendar day from AEST at the edges (AEST is UTC+10/+11) -- harmless

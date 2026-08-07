@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app import schemas
 from app.cache import cache
+from app.competition_scope import tournament_for_competition
 from app.db import get_db
 from app.models import Match, Team, TournamentOdds
 
@@ -16,13 +17,25 @@ router = APIRouter(prefix="/api/knockout", tags=["knockout"])
 def get_bracket(db: Session = Depends(get_db)):
     """Official knockout bracket: every KO Match row (real teams + live scores).
     Unassigned sides serialize team_id/team = null (never 'TBD'). Live feed —
-    not edge-cached (see main.py no-store clause)."""
-    rows = (
-        db.query(Match)
-        .filter(Match.stage != "group", Match.match_no.isnot(None))
-        .order_by(Match.match_no)
-        .all()
-    )
+    not edge-cached (see main.py no-store clause).
+
+    Scoped to the World Cup tournament. `stage != "group"` and a non-null
+    match_no were the only filters, which is a WC26-shaped assumption from
+    before the league pivot: this database now holds four club competitions
+    alongside it. Nothing leaks today ONLY because the league ingest never
+    assigns match_no (pipeline/ingest/league_structure.py) — the day a club
+    knockout round gets numbered, its ties would have surfaced inside the World
+    Cup bracket. Scoped at the query rather than left resting on that.
+
+    A database without the WC26 tournament row (a league-only deployment)
+    falls back to the historical unscoped behavior, so this cannot turn an
+    already-working bracket into an empty one.
+    """
+    tournament = tournament_for_competition(db, "wc26")
+    query = db.query(Match).filter(Match.stage != "group", Match.match_no.isnot(None))
+    if tournament is not None:
+        query = query.filter(Match.tournament_id == tournament.id)
+    rows = query.order_by(Match.match_no).all()
     ties = []
     for m in rows:
         home_team = db.get(Team, m.team_home_id) if m.team_home_id else None

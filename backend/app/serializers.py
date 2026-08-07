@@ -539,25 +539,33 @@ def team_profile(
         )
 
     strengths, weaknesses = [], []
-    n = len(rows) or 1
-    if team.elo_rating and team.elo_rating >= 1900:
+    # An empty ledger yields NO claims. The averages below used to divide by
+    # `len(rows) or 1`, so a club with no scoped history scored 0/1 on every
+    # axis and came back "Solid defense" (0 conceded) next to "Poor recent
+    # form" and "Struggles to score" (0 won, 0 scored) — three confident
+    # judgements invented from nothing. Cross-border qualifying rounds make
+    # that a routine case, not a corner one. The team page renders an explicit
+    # "no matches on record" state for the empty lists.
+    n = len(rows)
+    if n and team.elo_rating and team.elo_rating >= 1900:
         strengths.append("Top-tier Elo rating")
-    if wins / n >= 0.6:
-        strengths.append("Strong recent form")
-    if goals_for / n >= 1.8:
-        strengths.append("Potent attack")
-    if goals_against / n <= 0.8:
-        strengths.append("Solid defense")
-    if wins / n <= 0.3:
-        weaknesses.append("Poor recent form")
-    if goals_against / n >= 1.6:
-        weaknesses.append("Leaky defense")
-    if goals_for / n <= 0.9:
-        weaknesses.append("Struggles to score")
-    if not strengths:
-        strengths.append("Balanced side")
-    if not weaknesses:
-        weaknesses.append("No glaring weakness")
+    if n:
+        if wins / n >= 0.6:
+            strengths.append("Strong recent form")
+        if goals_for / n >= 1.8:
+            strengths.append("Potent attack")
+        if goals_against / n <= 0.8:
+            strengths.append("Solid defense")
+        if wins / n <= 0.3:
+            weaknesses.append("Poor recent form")
+        if goals_against / n >= 1.6:
+            weaknesses.append("Leaky defense")
+        if goals_for / n <= 0.9:
+            weaknesses.append("Struggles to score")
+        if not strengths:
+            strengths.append("Balanced side")
+        if not weaknesses:
+            weaknesses.append("No glaring weakness")
 
     group_query = (
         db.query(GroupTeam, Group)
